@@ -1,0 +1,108 @@
+<view class="page">
+
+  <!-- summary 模式 -->
+  <block wx:if="{{mode === 'summary'}}">
+    <view class="hd">
+      <view class="eyebrow">NATAL · {{natal.label}}</view>
+      <view class="title">命</view>
+    </view>
+
+    <view class="hr"></view>
+
+    <view class="basic">
+      <view class="basic-row">
+        <text class="basic-k">日 主</text>
+        <text class="basic-v serif">{{summary.day_master}}</text>
+      </view>
+      <view class="basic-row">
+        <text class="basic-k">身 势</text>
+        <text class="basic-v">{{summary.strength_level}}</text>
+      </view>
+    </view>
+
+    <!-- 缺 · 朱砂章大字卡 -->
+    <view class="stamp-card">
+      <view class="stamp-label">缺</view>
+      <view class="stamp-value wx-{{summary.primary_pinyin}}">
+        {{summary.primary_yongshen}}
+      </view>
+      <view class="stamp-sub">
+        主用神 · {{summary.primary_role}}
+        <text wx:if="{{summary.secondary_yongshen}}">
+          · 副 {{summary.secondary_yongshen}}
+        </text>
+      </view>
+    </view>
+
+    <!-- 过 · 应避 chips -->
+    <view class="over" wx:if="{{summary.avoid_wuxing.length > 0}}">
+      <view class="over-k">过 · 应避</view>
+      <view class="chips">
+        <text wx:for="{{summary.avoid_wuxing}}" wx:key="*this"
+              class="chip wx-{{avoidPinyin[index]}}">
+          {{item}}
+        </text>
+      </view>
+    </view>
+
+    <view class="hint">{{summary.friendly_hint}}</view>
+
+    <view class="cta">
+      <button class="btn ghost" bindtap="rebuild">重建生辰</button>
+    </view>
+
+    <view class="foot-hint">仅供研究与娱乐 · 不构成人生建议</view>
+  </block>
+
+  <!-- form 模式 -->
+  <block wx:else>
+    <view class="hd">
+      <view class="eyebrow">NATAL · CREATE</view>
+      <view class="title">命</view>
+      <view class="subtitle">先立底盘 · 五行以数为形</view>
+    </view>
+
+    <view class="hr"></view>
+
+    <view class="form">
+      <view class="field">
+        <text class="field-k">出 生 日</text>
+        <picker mode="date" value="{{form.date}}"
+                start="1900-01-01" end="2050-12-31" bindchange="onDate">
+          <view class="field-v mono">{{form.date}}</view>
+        </picker>
+      </view>
+
+      <view class="field">
+        <text class="field-k">出 生 时</text>
+        <picker mode="time" value="{{form.time}}" bindchange="onTime">
+          <view class="field-v mono">{{form.time}}</view>
+        </picker>
+      </view>
+
+      <view class="field">
+        <text class="field-k">性 别</text>
+        <view class="seg">
+          <view class="seg-item {{form.gender === 'M' ? 'on' : ''}}" bindtap="setMale">乾/M</view>
+          <view class="seg-item {{form.gender === 'F' ? 'on' : ''}}" bindtap="setFemale">坤/F</view>
+        </view>
+      </view>
+
+      <view class="field">
+        <text class="field-k">备 注</text>
+        <input class="field-input" placeholder="默认" value="{{form.label}}" bindinput="onLabel"/>
+      </view>
+    </view>
+
+    <view class="cta">
+      <button class="btn" bindtap="submit" disabled="{{submitting}}">
+        {{submitting ? '生成中…' : '生成'}}
+      </button>
+    </view>
+
+    <view class="foot-hint">
+      时区默认东八区(+8) · 真太阳时校正暂关
+    </view>
+  </block>
+
+</view>

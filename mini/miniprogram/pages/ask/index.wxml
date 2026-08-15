@@ -1,0 +1,211 @@
+<view class="page">
+
+  <view class="hd">
+    <view class="eyebrow">ASK · {{today}}</view>
+    <view class="title">问</view>
+    <view class="subtitle">一事一签 · 心里想清楚再摇</view>
+  </view>
+
+  <view class="hr"></view>
+
+  <!-- idle · 罗盘起卦 -->
+  <block wx:if="{{mode === 'idle'}}">
+    <view class="ask-time mono">{{clockLabel}}</view>
+
+    <view class="ask-q-slim">
+      <input class="ask-q-input"
+             placeholder="想问什么(可空 · 只给你自己看)"
+             maxlength="60"
+             value="{{question}}"
+             bindinput="onQuestion"/>
+    </view>
+
+    <view class="compass-wrap">
+      <view class="compass-pointer"></view>
+
+      <view class="compass-face" style="transform: rotate({{rot}}deg);">
+        <!-- 同心圆 4 层 · 外金 · 中石虚线 · 内石 · 芯石 -->
+        <view class="ring ring-1"></view>
+        <view class="ring ring-2"></view>
+        <view class="ring ring-3"></view>
+        <view class="ring ring-4"></view>
+
+        <!-- 8 金点 · 中圈 -->
+        <view wx:for="{{[0,1,2,3,4,5,6,7]}}" wx:key="*this"
+              class="dot dot-{{item}}"></view>
+
+        <!-- 8 卦 · 外圈 · Songti 32px · 南离-西南坤-西兑-西北乾-北坎-东北艮-东震-东南巽 -->
+        <view class="bagua bagua-0"><text class="bg-t">☲</text></view>
+        <view class="bagua bagua-1"><text class="bg-t">☷</text></view>
+        <view class="bagua bagua-2"><text class="bg-t">☱</text></view>
+        <view class="bagua bagua-3"><text class="bg-t">☰</text></view>
+        <view class="bagua bagua-4"><text class="bg-t">☵</text></view>
+        <view class="bagua bagua-5"><text class="bg-t">☶</text></view>
+        <view class="bagua bagua-6"><text class="bg-t">☳</text></view>
+        <view class="bagua bagua-7"><text class="bg-t">☴</text></view>
+
+        <!-- 8 方位 · 内圈 · mono -->
+        <view class="dir dir-0"><text>南</text></view>
+        <view class="dir dir-1"><text>西南</text></view>
+        <view class="dir dir-2"><text>西</text></view>
+        <view class="dir dir-3"><text>西北</text></view>
+        <view class="dir dir-4"><text>北</text></view>
+        <view class="dir dir-5"><text>东北</text></view>
+        <view class="dir dir-6"><text>东</text></view>
+        <view class="dir dir-7"><text>东南</text></view>
+      </view>
+
+      <!-- 中心按钮 · 不随 face 旋转 -->
+      <button class="compass-btn"
+              hover-class="compass-btn-hover"
+              hover-stay-time="80"
+              bindtap="doSpin">
+        <text class="cb-cn">纳吉</text>
+      </button>
+    </view>
+
+    <view class="compass-hint">点击中心 · 或摇手机 · 转出今日吉门</view>
+  </block>
+
+  <!-- spinning · 罗盘旋转中 -->
+  <block wx:elif="{{mode === 'spinning'}}">
+    <view class="ask-time mono">{{clockLabel}}</view>
+
+    <view class="compass-wrap">
+      <view class="compass-pointer"></view>
+
+      <view class="compass-face" style="transform: rotate({{rot}}deg);">
+        <view class="ring ring-1"></view>
+        <view class="ring ring-2"></view>
+        <view class="ring ring-3"></view>
+        <view class="ring ring-4"></view>
+        <view wx:for="{{[0,1,2,3,4,5,6,7]}}" wx:key="*this" class="dot dot-{{item}}"></view>
+        <view class="bagua bagua-0"><text class="bg-t">☲</text></view>
+        <view class="bagua bagua-1"><text class="bg-t">☷</text></view>
+        <view class="bagua bagua-2"><text class="bg-t">☱</text></view>
+        <view class="bagua bagua-3"><text class="bg-t">☰</text></view>
+        <view class="bagua bagua-4"><text class="bg-t">☵</text></view>
+        <view class="bagua bagua-5"><text class="bg-t">☶</text></view>
+        <view class="bagua bagua-6"><text class="bg-t">☳</text></view>
+        <view class="bagua bagua-7"><text class="bg-t">☴</text></view>
+        <view class="dir dir-0"><text>南</text></view>
+        <view class="dir dir-1"><text>西南</text></view>
+        <view class="dir dir-2"><text>西</text></view>
+        <view class="dir dir-3"><text>西北</text></view>
+        <view class="dir dir-4"><text>北</text></view>
+        <view class="dir dir-5"><text>东北</text></view>
+        <view class="dir dir-6"><text>东</text></view>
+        <view class="dir dir-7"><text>东南</text></view>
+      </view>
+
+      <view class="compass-btn compass-btn-lit">
+        <text class="cb-cn">起卦</text>
+      </view>
+    </view>
+
+    <view class="compass-hint">起卦中…</view>
+  </block>
+
+  <!-- result | history-detail · 复用 -->
+  <block wx:elif="{{(mode === 'result' || mode === 'history-detail') && result}}">
+
+    <view class="hist-chip" wx:if="{{mode === 'history-detail'}}" bindtap="closeHist">
+      ← 近签 · {{result.time_label}}
+    </view>
+
+    <view class="result-time mono" wx:if="{{mode === 'result'}}">
+      {{result.time_label}}
+    </view>
+
+    <view class="q-echo" wx:if="{{result.question}}">
+      <text class="q-mark">「</text>{{result.question}}<text class="q-mark">」</text>
+    </view>
+
+    <view class="gate-title">
+      <text class="gate-name">{{result.gate}}</text>
+      <text class="gate-dir">{{result.direction}}</text>
+    </view>
+
+    <view class="gate-explain" wx:if="{{result.gate_explain}}">
+      {{result.gate_explain}}
+    </view>
+
+    <view class="hr"></view>
+
+    <view class="dual">
+      <view class="dual-col">
+        <view class="dual-k suit-k">宜</view>
+        <view class="dual-chips">
+          <text wx:for="{{result.suit}}" wx:key="*this" class="dual-chip suit-chip">{{item}}</text>
+          <text wx:if="{{result.suit.length === 0}}" class="dual-empty">—</text>
+        </view>
+      </view>
+      <view class="dual-sep"></view>
+      <view class="dual-col">
+        <view class="dual-k avoid-k">避</view>
+        <view class="dual-chips">
+          <text wx:for="{{result.avoid}}" wx:key="*this" class="dual-chip avoid-chip">{{item}}</text>
+          <text wx:if="{{result.avoid.length === 0}}" class="dual-empty">—</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="hr"></view>
+
+    <view class="quote-block" wx:if="{{result.quote && result.quote.text}}">
+      <view class="quote-mark">「</view>
+      <view class="quote-body serif">{{result.quote.text}}</view>
+      <view class="quote-mark quote-r">」</view>
+      <view class="quote-src">— {{result.quote.source}}</view>
+    </view>
+
+    <view class="recommend"
+          wx:if="{{result.recommend}}"
+          hover-class="recommend-hover"
+          hover-stay-time="100"
+          bindtap="onRecommend">
+      <view class="rec-k">另荐 <text class="rec-arrow">›</text></view>
+      <view class="rec-name">{{result.recommend.name}}</view>
+      <view class="rec-sub" wx:if="{{result.recommend.sub_title}}">{{result.recommend.sub_title}}</view>
+    </view>
+
+    <view class="cta">
+      <button wx:if="{{mode === 'result'}}" class="btn ghost" bindtap="reset">再问一次</button>
+      <button wx:else class="btn ghost" bindtap="closeHist">返回</button>
+    </view>
+
+    <view class="foot-hint">不下吉凶 · 只作参考 · 仅供研究与娱乐</view>
+  </block>
+
+  <!-- 历史 · idle/result 状态显示,spinning/detail 隐藏 -->
+  <block wx:if="{{history.length > 0 && mode !== 'spinning' && mode !== 'history-detail'}}">
+    <view class="hr"></view>
+    <view class="hist-k">近签 · {{history.length}} 条</view>
+    <view class="hist-list">
+      <block wx:for="{{history}}" wx:key="id">
+        <view wx:if="{{historyExpanded || index < historyLimit}}"
+              class="hist-row"
+              hover-class="hist-row-hover"
+              hover-stay-time="80"
+              data-id="{{item.id}}"
+              bindtap="openHist">
+          <view class="hist-top">
+            <text class="hist-date mono">{{item.date}}</text>
+            <text class="hist-gate">{{item.gate}}</text>
+            <text class="hist-dir">{{item.direction}}</text>
+            <text class="hist-arrow">›</text>
+          </view>
+          <view class="hist-q" wx:if="{{item.question}}">「{{item.question}}」</view>
+        </view>
+      </block>
+    </view>
+    <view class="hist-more"
+          wx:if="{{!historyExpanded && history.length > historyLimit}}"
+          hover-class="hist-more-hover"
+          hover-stay-time="80"
+          bindtap="expandHist">
+      看更多 · 还有 {{history.length - historyLimit}} 条
+    </view>
+  </block>
+
+</view>

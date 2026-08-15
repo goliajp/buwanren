@@ -1,0 +1,18 @@
+[package]
+name = "unmei-carrier"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+unmei-domain.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+reqwest.workspace = true
+sha2.workspace = true
+base64.workspace = true
+tracing.workspace = true
+async-trait = "0.1"
+http = "1"
+md-5 = "0.10"

@@ -1,0 +1,38 @@
+{
+  "AYUN_ROOM": {
+    "empty": "ed5e463a5d4aeb4d",
+    "stand": "814f84802868907a",
+    "back": "e96d6ec1bf5aae41",
+    "low": "f6699f77af315412"
+  },
+  "BAILU_ROOM": {
+    "empty": "f9864a449271db13",
+    "stand": "6450f9af6c9664f6",
+    "back": "38f799801b0cf9c2",
+    "low": "f44ec157b7c4f4c2"
+  },
+  "POPO_ROOM": {
+    "empty": "a4eea1e10d31ad1b",
+    "stand": "dda44fff8b8fa537",
+    "back": "0cb577d74215051f",
+    "low": "5725e2b13384f2cf"
+  },
+  "SHENYAN_ROOM": {
+    "empty": "b67ec00b3ce9358a",
+    "stand": "5998f7da5549c668",
+    "back": "35f35af5e07601d2",
+    "low": "8529edb7b4733e1e"
+  },
+  "TAO_ROOM": {
+    "empty": "8c766a80efed15c3",
+    "stand": "b7430e8b026b877e",
+    "back": "896aeb01e41f348c",
+    "low": "b2d1643d2e3fad2a"
+  },
+  "TENZ_ROOM": {
+    "empty": "7655c1b3c7f35e8e",
+    "stand": "a747096ec02d4a79",
+    "back": "0aba257f04b7f887",
+    "low": "38e74d5b17961f82"
+  }
+}

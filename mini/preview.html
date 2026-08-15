@@ -1,0 +1,1028 @@
+<title>不完人 · 小程序预览</title>
+<style>
+  /* ═══════════════ 不完人 · tokens ═══════════════ */
+  :root {
+    --paper:         #f0ede7;
+    --paper-inset:   #e5e2dc;
+    --paper-panel:   #ffffff;
+    --ink:           #1a1a1c;
+    --ink-mid:       #4c4d52;
+    --ink-faint:     #85858c;
+    --stone-line:    #d8d5cf;
+    --stone-line-x:  #e5e2dc;
+    --stone-label:   #a29e97;
+    --stamp:         #a83428;
+
+    --wx-mu:         #4d7a56;
+    --wx-huo:        #b8593a;
+    --wx-tu:         #a48260;
+    --wx-jin:        #7a7c85;
+    --wx-shui:       #446080;
+
+    --f-serif: "Songti SC", "STSong", "SimSun", "Noto Serif SC", serif;
+    --f-sans:  "PingFang SC", "Hiragino Sans GB", "Helvetica Neue", sans-serif;
+    --f-en:    "Helvetica Neue", "Helvetica", "Arial", sans-serif;
+    --f-mono:  "SF Mono", "Menlo", "Consolas", monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:        #14141a;
+      --paper-inset:  #1a1a20;
+      --paper-panel:  #1e1e26;
+      --ink:          #e8e5da;
+      --ink-mid:      #a8a49a;
+      --ink-faint:    #706c62;
+      --stone-line:   #38363a;
+      --stone-line-x: #2a2830;
+      --stone-label:  #6a665e;
+      --stamp:        #c7472e;
+      --wx-mu:        #6a9a72;
+      --wx-huo:       #d17750;
+      --wx-tu:        #b89870;
+      --wx-jin:       #939598;
+      --wx-shui:      #6a86a2;
+    }
+  }
+  :root[data-theme="light"] {
+    --paper: #f0ede7; --paper-inset: #e5e2dc; --paper-panel: #ffffff;
+    --ink: #1a1a1c; --ink-mid: #4c4d52; --ink-faint: #85858c;
+    --stone-line: #d8d5cf; --stone-line-x: #e5e2dc; --stone-label: #a29e97;
+    --stamp: #a83428;
+    --wx-mu: #4d7a56; --wx-huo: #b8593a; --wx-tu: #a48260;
+    --wx-jin: #7a7c85; --wx-shui: #446080;
+  }
+  :root[data-theme="dark"] {
+    --paper: #14141a; --paper-inset: #1a1a20; --paper-panel: #1e1e26;
+    --ink: #e8e5da; --ink-mid: #a8a49a; --ink-faint: #706c62;
+    --stone-line: #38363a; --stone-line-x: #2a2830; --stone-label: #6a665e;
+    --stamp: #c7472e;
+    --wx-mu: #6a9a72; --wx-huo: #d17750; --wx-tu: #b89870;
+    --wx-jin: #939598; --wx-shui: #6a86a2;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--f-sans);
+    font-size: 14px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    padding: 44px 32px 60px;
+  }
+  .page { max-width: 1240px; margin: 0 auto; }
+
+  /* ═══════════════ Masthead ═══════════════ */
+  .masthead {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 32px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--stone-line-x);
+    margin-bottom: 32px;
+  }
+  .brand { display: flex; flex-direction: column; gap: 8px; }
+  .wordmark {
+    font-family: var(--f-serif);
+    font-weight: 500;
+    font-size: 44px;
+    line-height: 1;
+    letter-spacing: 0.08em;
+    color: var(--ink);
+  }
+  .wordmark .wan { color: var(--stamp); display: inline-block; transform: translateY(-2px); }
+  .wordmark-en {
+    font-family: var(--f-en);
+    font-size: 11px;
+    letter-spacing: 0.4em;
+    color: var(--stone-label);
+    text-transform: uppercase;
+  }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip {
+    padding: 5px 12px;
+    border: 1px solid var(--stone-line);
+    border-radius: 999px;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    color: var(--ink-mid);
+    background: var(--paper-panel);
+    font-family: var(--f-sans);
+  }
+  .chip.live {
+    border-color: var(--wx-mu);
+    color: var(--wx-mu);
+    background: transparent;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .chip.live::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 999px;
+    background: var(--wx-mu);
+  }
+
+  .strap {
+    max-width: 780px;
+    margin: 4px auto 0;
+    text-align: center;
+    font-size: 12px;
+    color: var(--ink-mid);
+    letter-spacing: 0.18em;
+    line-height: 1.75;
+  }
+  .strap b {
+    font-family: var(--f-serif);
+    font-weight: 500;
+  }
+
+  /* ═══════════════ Stage · 2×2 grid ═══════════════ */
+  .stage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 44px 56px;
+    padding: 36px 0 32px;
+    justify-items: center;
+  }
+  @media (max-width: 720px) {
+    .stage { grid-template-columns: 1fr; gap: 44px; }
+  }
+
+  .slot { display: flex; flex-direction: column; align-items: center; gap: 20px; width: 100%; }
+
+  .caption {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding-left: 4px;
+    width: 100%;
+    max-width: 340px;
+  }
+  .caption .no {
+    font-family: var(--f-mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    color: var(--stone-label);
+    padding: 2px 8px;
+    border: 1px solid var(--stone-line);
+    border-radius: 3px;
+  }
+  .caption .path {
+    font-family: var(--f-mono);
+    font-size: 11px;
+    color: var(--ink-faint);
+    letter-spacing: 0.06em;
+  }
+  .caption .char {
+    font-family: var(--f-serif);
+    font-size: 17px;
+    color: var(--ink);
+    letter-spacing: 0.1em;
+    margin-left: auto;
+    padding-left: 12px;
+  }
+
+  /* Phone frame */
+  .phone {
+    width: 100%;
+    max-width: 340px;
+    aspect-ratio: 390 / 844;
+    background: var(--paper);
+    border: 1px solid var(--stone-line);
+    border-radius: 44px;
+    padding: 7px;
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.4) inset,
+      0 2px 14px rgba(30,20,10,0.06),
+      0 26px 48px -32px rgba(30,20,10,0.18);
+  }
+  :root[data-theme="dark"] .phone {
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.03) inset,
+      0 2px 14px rgba(0,0,0,0.3),
+      0 26px 48px -32px rgba(0,0,0,0.7);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .phone {
+      box-shadow:
+        0 1px 0 rgba(255,255,255,0.03) inset,
+        0 2px 14px rgba(0,0,0,0.3),
+        0 26px 48px -32px rgba(0,0,0,0.7);
+    }
+  }
+
+  .screen {
+    width: 100%; height: 100%;
+    background: var(--paper);
+    border-radius: 34px;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+
+  .stat {
+    height: 24px;
+    padding: 5px 22px 0;
+    font-family: var(--f-en);
+    font-size: 10.5px;
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--ink);
+  }
+  .stat .rt { display: flex; gap: 7px; align-items: center; opacity: 0.85; font-size: 10px; }
+  .stat .rt-bat {
+    display: inline-block;
+    width: 22px; height: 10px;
+    border: 1px solid var(--ink);
+    border-radius: 2.5px;
+    position: relative;
+  }
+  .stat .rt-bat::after {
+    content: ''; position: absolute;
+    top: 1px; left: 1px; bottom: 1px; right: 5px;
+    background: var(--ink); border-radius: 1px;
+  }
+  .stat .rt-bat::before {
+    content: ''; position: absolute;
+    top: 2px; right: -3px;
+    width: 2px; height: 5px;
+    background: var(--ink); border-radius: 0 1px 1px 0;
+  }
+
+  .nav {
+    height: 34px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; font-weight: 500;
+    color: var(--ink); letter-spacing: 0.1em;
+  }
+
+  .body {
+    flex: 1;
+    padding: 12px 22px 8px;
+    color: var(--ink);
+    overflow: hidden;
+  }
+
+  .eyebrow {
+    font-family: var(--f-en);
+    font-size: 9px; font-weight: 500;
+    letter-spacing: 0.32em;
+    color: var(--stone-label);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+  .screen-title {
+    font-family: var(--f-serif);
+    font-weight: 500;
+    font-size: 60px;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    color: var(--ink);
+    margin: 4px 0 6px;
+  }
+  .screen-sub {
+    font-size: 11px;
+    color: var(--ink-mid);
+    letter-spacing: 0.16em;
+  }
+  .hairline {
+    height: 1px;
+    background: var(--stone-line-x);
+    margin: 10px 0 12px;
+  }
+
+  /* ---- 屏 1 · today ---- */
+  .delta { padding: 4px 0 8px; }
+  .delta-row { display: flex; align-items: baseline; gap: 22px; }
+  .delta-k {
+    font-family: var(--f-serif);
+    font-size: 20px;
+    color: var(--stone-label);
+    letter-spacing: 0.3em;
+    min-width: 40px;
+  }
+  .delta-v-big {
+    font-family: var(--f-serif);
+    font-size: 62px;
+    font-weight: 500;
+    line-height: 1;
+  }
+  .delta-role {
+    padding-left: 62px;
+    font-size: 10px;
+    color: var(--ink-faint);
+    letter-spacing: 0.2em;
+    margin: 4px 0 16px;
+  }
+  .delta-list {
+    font-family: var(--f-serif);
+    font-size: 40px;
+    font-weight: 500;
+    line-height: 1;
+    display: flex;
+    gap: 22px;
+  }
+  .quote {
+    padding: 14px 8px 0;
+  }
+  .quote-mark {
+    font-family: var(--f-serif);
+    font-size: 22px;
+    color: var(--stamp);
+    opacity: 0.7;
+    line-height: 1;
+  }
+  .quote-r { text-align: right; }
+  .quote-body {
+    padding: 2px 0;
+    font-size: 12px;
+    color: var(--ink-mid);
+    line-height: 1.65;
+    letter-spacing: 0.04em;
+  }
+  .today-foot {
+    padding: 14px 0 6px;
+    text-align: center;
+    font-size: 10px;
+    color: var(--stone-label);
+    letter-spacing: 0.24em;
+  }
+
+  /* ---- 屏 2 · natal ---- */
+  .basic { padding: 4px 0 6px; }
+  .basic-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--stone-line-x);
+  }
+  .basic-row:last-child { border-bottom: none; }
+  .basic-k { color: var(--stone-label); font-size: 10.5px; letter-spacing: 0.3em; }
+  .basic-v { font-size: 13px; color: var(--ink); }
+  .basic-v.serif { font-family: var(--f-serif); font-size: 17px; font-weight: 500; }
+
+  .stamp-card {
+    background: var(--paper-panel);
+    border: 2px solid var(--stamp);
+    border-radius: 5px;
+    padding: 14px 12px 10px;
+    text-align: center;
+    margin: 12px 0 10px;
+  }
+  .stamp-lb {
+    font-family: var(--f-serif);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--stamp);
+    letter-spacing: 0.4em;
+    margin-bottom: 2px;
+  }
+  .stamp-val {
+    font-family: var(--f-serif);
+    font-size: 88px;
+    font-weight: 500;
+    line-height: 1;
+    margin: 2px 0 8px;
+  }
+  .stamp-sub {
+    font-size: 9.5px;
+    color: var(--ink-faint);
+    letter-spacing: 0.2em;
+  }
+
+  .over-k {
+    color: var(--stone-label);
+    font-size: 10.5px;
+    letter-spacing: 0.3em;
+    margin: 6px 0 8px;
+  }
+  .chips-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .wxchip {
+    font-family: var(--f-serif);
+    font-size: 22px;
+    font-weight: 500;
+    padding: 4px 14px;
+    border: 1px solid var(--stone-line);
+    border-radius: 3px;
+    min-width: 40px;
+    text-align: center;
+    line-height: 1.2;
+  }
+  .natal-hint {
+    padding: 10px 6px 0;
+    text-align: center;
+    font-size: 11px;
+    color: var(--ink-mid);
+    line-height: 1.65;
+    letter-spacing: 0.04em;
+  }
+
+  /* ---- 屏 3 · ask · 门方位大字 ---- */
+  .ask-time {
+    text-align: center;
+    font-size: 10px;
+    color: var(--stone-label);
+    letter-spacing: 0.28em;
+    margin: 6px 0 8px;
+    font-family: var(--f-mono);
+  }
+  .gate-title {
+    text-align: center;
+    padding: 6px 0 12px;
+  }
+  .gate-name {
+    font-family: var(--f-serif);
+    font-size: 72px;
+    font-weight: 500;
+    color: var(--ink);
+    line-height: 1;
+    letter-spacing: 0.06em;
+  }
+  .gate-dir {
+    font-family: var(--f-serif);
+    font-size: 32px;
+    font-weight: 500;
+    color: var(--stamp);
+    margin-left: 8px;
+    letter-spacing: 0.08em;
+  }
+  .gate-explain {
+    padding: 4px 8px 12px;
+    text-align: center;
+    font-size: 11.5px;
+    color: var(--ink-mid);
+    line-height: 1.65;
+    letter-spacing: 0.04em;
+  }
+  .dual {
+    display: flex;
+    padding: 10px 0 6px;
+  }
+  .dual-col { flex: 1; text-align: center; padding: 0 6px; }
+  .dual-sep {
+    width: 1px;
+    background: var(--stone-line-x);
+    align-self: stretch;
+  }
+  .dual-k {
+    font-family: var(--f-serif);
+    font-size: 18px;
+    font-weight: 500;
+    letter-spacing: 0.4em;
+    margin-bottom: 10px;
+  }
+  .dual-k.suit-k { color: var(--wx-mu); }
+  .dual-k.avoid-k { color: var(--stamp); }
+  .dual-chips {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+  }
+  .dual-chip {
+    font-size: 13px;
+    letter-spacing: 0.14em;
+  }
+  .dual-chip.suit-chip  { color: var(--wx-mu); }
+  .dual-chip.avoid-chip { color: var(--stamp); }
+  .ask-quote {
+    padding: 12px 8px 4px;
+  }
+  .ask-quote-body {
+    font-family: var(--f-serif);
+    font-size: 13px;
+    color: var(--ink);
+    text-align: center;
+    line-height: 1.7;
+    padding: 4px 0;
+  }
+  .ask-quote-src {
+    text-align: right;
+    font-size: 9px;
+    color: var(--ink-faint);
+    letter-spacing: 0.16em;
+    margin-top: 4px;
+  }
+
+  /* ---- 屏 4 · me · onboard ---- */
+  .onboard {
+    background: var(--paper-panel);
+    border: 1px solid var(--stone-line-x);
+    border-radius: 5px;
+    padding: 16px 14px 12px;
+    margin: 4px 0 10px;
+  }
+  .onboard-t {
+    font-family: var(--f-serif);
+    font-weight: 500;
+    font-size: 22px;
+    color: var(--ink);
+    letter-spacing: 0.1em;
+    margin-bottom: 3px;
+  }
+  .onboard-sub {
+    font-size: 10px;
+    color: var(--ink-faint);
+    letter-spacing: 0.14em;
+    margin-bottom: 14px;
+  }
+  .avatar-slot { text-align: center; margin-bottom: 10px; }
+  .avatar-circle {
+    display: inline-block;
+    width: 58px; height: 58px;
+    border-radius: 50%;
+    border: 1px dashed var(--stone-line);
+    background: var(--paper-inset);
+    font-family: var(--f-serif);
+    font-size: 10px;
+    color: var(--stone-label);
+    line-height: 58px;
+    letter-spacing: 0.14em;
+  }
+  .nick-input {
+    width: 100%;
+    padding: 8px 10px;
+    background: var(--paper-inset);
+    border-radius: 3px;
+    font-size: 12px;
+    color: var(--stone-label);
+    text-align: center;
+    letter-spacing: 0.14em;
+    box-sizing: border-box;
+    margin-bottom: 8px;
+  }
+  .btn-stamp {
+    display: block;
+    margin: 0 auto;
+    padding: 7px 30px;
+    background: var(--stamp);
+    color: var(--paper);
+    border: none;
+    border-radius: 3px;
+    font-family: var(--f-sans);
+    font-size: 11.5px;
+    letter-spacing: 0.16em;
+  }
+  .wx-hint {
+    padding: 8px 4px 2px;
+    text-align: center;
+    font-size: 9px;
+    color: var(--stone-label);
+    line-height: 1.6;
+    letter-spacing: 0.06em;
+  }
+  .prof { margin-top: 6px; padding: 2px 4px 0; }
+  .prof-row {
+    display: flex; justify-content: space-between;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--stone-line-x);
+    font-size: 11px;
+  }
+  .prof-row:last-child { border-bottom: none; }
+  .prof-k { color: var(--stone-label); letter-spacing: 0.3em; font-size: 10px; }
+  .prof-v {
+    color: var(--ink-mid);
+    max-width: 130px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .prof-v.mono { font-family: var(--f-mono); font-size: 9px; }
+
+  /* ---- 罗盘(屏 3 · ask idle 状态) ---- */
+  .pv-ask-time {
+    text-align: center;
+    font-family: var(--f-mono);
+    font-size: 9px;
+    color: var(--stone-label);
+    letter-spacing: 0.28em;
+    margin: 4px 0 6px;
+  }
+  .pv-compass-wrap {
+    position: relative;
+    width: 100%;
+    padding: 12px 0 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .pv-compass-pointer {
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 11px solid #c9a962;
+    z-index: 4;
+    filter: drop-shadow(0 1px 2px rgba(40, 30, 12, 0.24));
+  }
+  .pv-compass-svg-wrap {
+    position: relative;
+    width: 220px; height: 220px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .pv-compass-svg {
+    width: 100%; height: 100%;
+    filter: drop-shadow(0 4px 12px rgba(40, 30, 12, 0.12));
+  }
+  :root[data-theme="dark"] .pv-compass-svg {
+    filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.4));
+  }
+  .pv-compass-btn {
+    position: absolute;
+    width: 62px; height: 62px;
+    border-radius: 999px;
+    background: radial-gradient(circle at 50% 30%, #5a5a5a 0%, #2a2a2a 100%);
+    border: 2px solid rgba(201, 169, 98, 0.44);
+    box-shadow:
+      0 4px 12px rgba(40, 30, 12, 0.3),
+      0 1px 0 rgba(255, 255, 255, 0.08) inset;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 5;
+  }
+  .pv-compass-btn-t {
+    font-family: var(--f-serif);
+    font-size: 13px;
+    font-weight: 500;
+    color: #f0ede7;
+    letter-spacing: 0.3em;
+    padding-left: 0.3em;
+    line-height: 1;
+  }
+  .pv-compass-hint {
+    padding: 12px 0 2px;
+    font-family: var(--f-mono);
+    font-size: 8.5px;
+    color: var(--stone-label);
+    letter-spacing: 0.24em;
+    text-align: center;
+    text-transform: uppercase;
+  }
+
+  /* tabbar 共用 · 4 col */
+  .tabbar {
+    height: 44px;
+    border-top: 1px solid var(--stone-line-x);
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    background: var(--paper);
+  }
+  .tab {
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--f-serif);
+    font-size: 15px;
+    color: var(--stone-label);
+    letter-spacing: 0.2em;
+    position: relative;
+  }
+  .tab.on { color: var(--ink); font-weight: 500; }
+  .tab.on::after {
+    content: '';
+    position: absolute;
+    top: 6px;
+    width: 4px; height: 4px;
+    border-radius: 999px;
+    background: var(--stamp);
+  }
+
+  /* 五行 tint */
+  .wx-mu   { color: var(--wx-mu); }
+  .wx-huo  { color: var(--wx-huo); }
+  .wx-tu   { color: var(--wx-tu); }
+  .wx-jin  { color: var(--wx-jin); }
+  .wx-shui { color: var(--wx-shui); }
+
+  /* Colophon */
+  .colophon {
+    margin-top: 36px;
+    padding: 24px 0 0;
+    border-top: 1px solid var(--stone-line-x);
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px 32px;
+    font-size: 11.5px;
+    color: var(--ink-mid);
+  }
+  @media (max-width: 820px) {
+    .colophon { grid-template-columns: 1fr 1fr; }
+  }
+  .col-k {
+    display: block;
+    font-family: var(--f-en);
+    font-weight: 600;
+    color: var(--stone-label);
+    letter-spacing: 0.28em;
+    font-size: 10px;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+  .col-v {
+    font-size: 12px;
+    color: var(--ink-mid);
+    line-height: 1.55;
+    display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  }
+  .colophon code {
+    font-family: var(--f-mono);
+    font-size: 11.5px;
+    color: var(--ink);
+    background: var(--paper-inset);
+    padding: 2px 8px;
+    border-radius: 3px;
+  }
+  .live-txt { color: var(--wx-mu); font-weight: 500; }
+
+  .theme-toggle {
+    position: fixed;
+    right: 22px; bottom: 22px;
+    z-index: 10;
+    width: 36px; height: 36px;
+    border-radius: 999px;
+    background: var(--paper-panel);
+    border: 1px solid var(--stone-line);
+    color: var(--ink-mid);
+    cursor: pointer;
+    font-size: 15px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 6px 18px -8px rgba(30,20,10,0.14);
+  }
+  .theme-toggle:hover { color: var(--ink); border-color: var(--ink-mid); }
+  .theme-toggle:focus-visible { outline: 2px solid var(--stamp); outline-offset: 2px; }
+</style>
+
+<div class="page">
+  <header class="masthead">
+    <div class="brand">
+      <div class="wordmark">不<span class="wan">完</span>人</div>
+      <div class="wordmark-en">BUWANREN · 微信小程序</div>
+    </div>
+    <div class="chips">
+      <span class="chip">wxml / wxss / ts</span>
+      <span class="chip">4 tab · 今 · 命 · 问 · 我</span>
+      <span class="chip live">wx.login 已通</span>
+    </div>
+  </header>
+
+  <p class="strap">
+    五行不均是常态,补什么才有效。<br/>
+    不玄、不算命 —— 呈现结构 · <b style="color:var(--stamp)">缺</b> 什么、<b>过</b> 什么 · 问一事得一签。
+  </p>
+
+  <main class="stage">
+
+    <!-- ══ 屏 1 · 今 ══ -->
+    <div class="slot">
+      <div class="caption">
+        <span class="no">01</span>
+        <span class="path">pages/today</span>
+        <span class="char">今</span>
+      </div>
+      <div class="phone"><div class="screen">
+        <div class="stat">
+          <span>9:41</span>
+          <span class="rt"><span>中国移动 5G</span><span class="rt-bat"></span></span>
+        </div>
+        <div class="nav">不完人</div>
+        <div class="body">
+          <div class="eyebrow">TODAY · 2026-06-29</div>
+          <div class="screen-title">今</div>
+          <div class="screen-sub">周日 · 一日之相</div>
+          <div class="hairline"></div>
+          <div class="delta">
+            <div class="delta-row">
+              <span class="delta-k">缺</span>
+              <span class="delta-v-big wx-mu">木</span>
+            </div>
+            <div class="delta-role">主用神 · 官杀</div>
+            <div class="delta-row">
+              <span class="delta-k">过</span>
+              <span class="delta-list"><span class="wx-huo">火</span><span class="wx-tu">土</span></span>
+            </div>
+          </div>
+          <div class="quote">
+            <div class="quote-mark">「</div>
+            <div class="quote-body">日主偏强,行木水之地对制衡最有效。</div>
+            <div class="quote-mark quote-r">」</div>
+          </div>
+          <div class="today-foot">日子是背景 · 长期的「缺」才是命</div>
+        </div>
+        <div class="tabbar">
+          <div class="tab on">今</div>
+          <div class="tab">命</div>
+          <div class="tab">问</div>
+          <div class="tab">我</div>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- ══ 屏 2 · 命 · 缺 · 朱砂章 ══ -->
+    <div class="slot">
+      <div class="caption">
+        <span class="no">02</span>
+        <span class="path">pages/natal</span>
+        <span class="char">命</span>
+      </div>
+      <div class="phone"><div class="screen">
+        <div class="stat">
+          <span>9:41</span>
+          <span class="rt"><span>中国移动 5G</span><span class="rt-bat"></span></span>
+        </div>
+        <div class="nav">不完人</div>
+        <div class="body">
+          <div class="eyebrow">NATAL · 默认</div>
+          <div class="screen-title">命</div>
+          <div class="hairline"></div>
+          <div class="basic">
+            <div class="basic-row"><span class="basic-k">日 主</span><span class="basic-v serif">己土</span></div>
+            <div class="basic-row"><span class="basic-k">身 势</span><span class="basic-v">偏强</span></div>
+          </div>
+          <div class="stamp-card">
+            <div class="stamp-lb">缺</div>
+            <div class="stamp-val wx-mu">木</div>
+            <div class="stamp-sub">主用神 · 官杀 · 副 水</div>
+          </div>
+          <div class="over-k">过 · 应避</div>
+          <div class="chips-row">
+            <span class="wxchip wx-huo">火</span>
+            <span class="wxchip wx-tu">土</span>
+          </div>
+          <div class="natal-hint">身强宜耗,补木最有效;火土同党当避。</div>
+        </div>
+        <div class="tabbar">
+          <div class="tab">今</div>
+          <div class="tab on">命</div>
+          <div class="tab">问</div>
+          <div class="tab">我</div>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- ══ 屏 3 · 问 · 门·方位·宜避·quote ══ -->
+    <div class="slot">
+      <div class="caption">
+        <span class="no">03</span>
+        <span class="path">pages/ask</span>
+        <span class="char">问</span>
+      </div>
+      <div class="phone"><div class="screen">
+        <div class="stat">
+          <span>9:41</span>
+          <span class="rt"><span>中国移动 5G</span><span class="rt-bat"></span></span>
+        </div>
+        <div class="nav">不完人</div>
+        <div class="body">
+          <div class="eyebrow">ASK · 2026-06-29</div>
+          <div class="screen-title">问</div>
+          <div class="screen-sub">一事一签 · 心里想清楚再摇</div>
+          <div class="hairline"></div>
+          <div class="pv-ask-time">酉时 · 18:24</div>
+          <div class="pv-compass-wrap">
+            <div class="pv-compass-pointer"></div>
+            <div class="pv-compass-svg-wrap">
+              <svg class="pv-compass-svg" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <radialGradient id="pv-ring1" cx="50%" cy="50%" r="50%">
+                    <stop offset="80%" stop-color="rgba(201,169,98,0)" />
+                    <stop offset="100%" stop-color="rgba(201,169,98,0.16)" />
+                  </radialGradient>
+                </defs>
+                <circle cx="200" cy="200" r="195" fill="url(#pv-ring1)" />
+                <circle cx="200" cy="200" r="195" fill="none" stroke="#c9a962" stroke-width="1.5" opacity="0.5" />
+                <circle cx="200" cy="200" r="188" fill="none" stroke="#2c2c2c" stroke-width="0.5" opacity="0.3" />
+                <circle cx="200" cy="200" r="155" fill="none" stroke="#2c2c2c" stroke-width="1" opacity="0.4" />
+                <circle cx="200" cy="200" r="152" fill="none" stroke="#c9a962" stroke-width="0.5" stroke-dasharray="2 3" />
+                <circle cx="200" cy="200" r="120" fill="none" stroke="#2c2c2c" stroke-width="0.5" opacity="0.3" />
+                <g font-family="Songti SC, STSong, SimSun, serif" font-size="34" fill="#2c2c2c">
+                  <text x="200" y="70" text-anchor="middle">☲</text>
+                  <text x="312" y="120" text-anchor="middle">☷</text>
+                  <text x="350" y="212" text-anchor="middle">☱</text>
+                  <text x="312" y="308" text-anchor="middle">☰</text>
+                  <text x="200" y="356" text-anchor="middle">☵</text>
+                  <text x="88" y="308" text-anchor="middle">☶</text>
+                  <text x="50" y="212" text-anchor="middle">☳</text>
+                  <text x="88" y="120" text-anchor="middle">☴</text>
+                </g>
+                <g font-family="SF Mono, Menlo, monospace" font-size="11" fill="#78716c">
+                  <text x="200" y="88" text-anchor="middle">南</text>
+                  <text x="304" y="140" text-anchor="middle">西南</text>
+                  <text x="334" y="220" text-anchor="middle">西</text>
+                  <text x="304" y="326" text-anchor="middle">西北</text>
+                  <text x="200" y="374" text-anchor="middle">北</text>
+                  <text x="96" y="326" text-anchor="middle">东北</text>
+                  <text x="66" y="220" text-anchor="middle">东</text>
+                  <text x="96" y="140" text-anchor="middle">东南</text>
+                </g>
+                <g fill="#c9a962">
+                  <circle cx="200" cy="100" r="3" opacity="0.75" />
+                  <circle cx="270" cy="130" r="3" opacity="0.75" />
+                  <circle cx="300" cy="200" r="3" opacity="0.75" />
+                  <circle cx="270" cy="270" r="3" opacity="0.75" />
+                  <circle cx="200" cy="300" r="3" opacity="0.75" />
+                  <circle cx="130" cy="270" r="3" opacity="0.75" />
+                  <circle cx="100" cy="200" r="3" opacity="0.75" />
+                  <circle cx="130" cy="130" r="3" opacity="0.75" />
+                </g>
+              </svg>
+              <div class="pv-compass-btn">
+                <span class="pv-compass-btn-t">纳吉</span>
+              </div>
+            </div>
+          </div>
+          <div class="pv-compass-hint">点击中心 · 转出今日吉门</div>
+        </div>
+        <div class="tabbar">
+          <div class="tab">今</div>
+          <div class="tab">命</div>
+          <div class="tab on">问</div>
+          <div class="tab">我</div>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- ══ 屏 4 · 我 · 微信绑定 ══ -->
+    <div class="slot">
+      <div class="caption">
+        <span class="no">04</span>
+        <span class="path">pages/me</span>
+        <span class="char">我</span>
+      </div>
+      <div class="phone"><div class="screen">
+        <div class="stat">
+          <span>9:41</span>
+          <span class="rt"><span>中国移动 5G</span><span class="rt-bat"></span></span>
+        </div>
+        <div class="nav">不完人</div>
+        <div class="body">
+          <div class="eyebrow">BUWANREN · ME</div>
+          <div class="screen-title">我</div>
+          <div class="hairline"></div>
+          <div class="onboard">
+            <div class="onboard-t">还是不完人</div>
+            <div class="onboard-sub">绑定微信 · 跨设备同步本命档案</div>
+            <div class="avatar-slot"><span class="avatar-circle">选头像</span></div>
+            <div class="nick-input">微信昵称</div>
+            <button class="btn-stamp" type="button">绑定微信</button>
+            <div class="wx-hint">仅换 openid + 你自己填的头像/昵称,不读手机号</div>
+          </div>
+          <div class="prof">
+            <div class="prof-row"><span class="prof-k">I D</span><span class="prof-v mono">u_anon_ba23…</span></div>
+            <div class="prof-row"><span class="prof-k">类 型</span><span class="prof-v">匿名</span></div>
+            <div class="prof-row"><span class="prof-k">区 域</span><span class="prof-v">cn · zh-CN</span></div>
+          </div>
+        </div>
+        <div class="tabbar">
+          <div class="tab">今</div>
+          <div class="tab">命</div>
+          <div class="tab">问</div>
+          <div class="tab on">我</div>
+        </div>
+      </div></div>
+    </div>
+
+  </main>
+
+  <footer class="colophon">
+    <div>
+      <span class="col-k">BASE</span>
+      <div class="col-v"><code>http://localhost:6028</code></div>
+    </div>
+    <div>
+      <span class="col-k">API</span>
+      <div class="col-v"><span class="live-txt">unmei-api 0.2.0</span> · 200 · <code>/v1/naji/spin</code></div>
+    </div>
+    <div>
+      <span class="col-k">AUTH</span>
+      <div class="col-v"><code>chooseAvatar</code> · <code>type=nickname</code> · <code>wx.login</code></div>
+    </div>
+    <div>
+      <span class="col-k">SRC</span>
+      <div class="col-v"><code>mini/</code> · 4 pages · appid <code>wx…5f73</code></div>
+    </div>
+  </footer>
+</div>
+
+<button class="theme-toggle" type="button" aria-label="切换深色/浅色主题" onclick="toggleTheme()">◐</button>
+
+<script>
+  function toggleTheme() {
+    const r = document.documentElement
+    const cur = r.getAttribute('data-theme')
+    let next
+    if (cur === 'dark') next = 'light'
+    else if (cur === 'light') next = 'dark'
+    else next = matchMedia('(prefers-color-scheme: dark)').matches ? 'light' : 'dark'
+    r.setAttribute('data-theme', next)
+    try { localStorage.setItem('buwanren-preview-theme', next) } catch (_) {}
+  }
+  ;(function boot() {
+    try {
+      const saved = localStorage.getItem('buwanren-preview-theme')
+      if (saved === 'dark' || saved === 'light') {
+        document.documentElement.setAttribute('data-theme', saved)
+      }
+    } catch (_) {}
+  })()
+</script>

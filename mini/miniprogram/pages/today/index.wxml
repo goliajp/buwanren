@@ -1,0 +1,56 @@
+<view class="page">
+  <view class="hd">
+    <view class="eyebrow">TODAY · {{today.iso}}</view>
+    <view class="title">今</view>
+    <view class="subtitle">{{today.weekday}} · {{today.remark}}</view>
+  </view>
+
+  <view class="hr"></view>
+
+  <!-- 有本命:今日与本命对照 -->
+  <block wx:if="{{summary}}">
+
+    <view class="delta">
+      <view class="delta-row">
+        <text class="delta-k">缺</text>
+        <text class="delta-v wx-{{summary.primary_pinyin}}">{{summary.primary_yongshen}}</text>
+      </view>
+      <view class="delta-role">主用神 · {{summary.primary_role}}</view>
+
+      <view class="delta-row" wx:if="{{summary.avoid_wuxing.length > 0}}">
+        <text class="delta-k">过</text>
+        <text class="delta-v-list">
+          <text wx:for="{{summary.avoid_wuxing}}" wx:key="*this"
+                class="wx-{{avoidPinyin[index]}}"
+                style="margin-left: {{index > 0 ? '24rpx' : '0'}}">
+            {{item}}
+          </text>
+        </text>
+      </view>
+    </view>
+
+    <view class="hr"></view>
+
+    <view class="quote">
+      <view class="quote-mark">「</view>
+      <view class="quote-body">{{summary.friendly_hint}}</view>
+      <view class="quote-mark quote-mark-r">」</view>
+    </view>
+
+    <view class="foot-hint">
+      日子是背景 · 长期的「缺」才是命
+    </view>
+  </block>
+
+  <!-- 无本命 引导 -->
+  <block wx:else>
+    <view class="empty">
+      <view class="empty-t">先立底盘</view>
+      <view class="empty-sub">
+        「缺」是长期结构,不是一天的运
+      </view>
+      <view class="empty-sub">先输入生辰,再看每日</view>
+      <button class="btn" bindtap="goNatal">输入生辰</button>
+    </view>
+  </block>
+</view>

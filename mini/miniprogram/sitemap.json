@@ -1,0 +1,9 @@
+{
+  "desc": "小程序索引配置。开发阶段全部允许;上线前按页调整。参考 https://developers.weixin.qq.com/miniprogram/dev/reference/configuration/sitemap.html",
+  "rules": [
+    {
+      "action": "allow",
+      "page": "*"
+    }
+  ]
+}

@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>御守 OMAMORI — 技術巻物 / Technical Dossier</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@400;500;600;700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=IBM+Plex+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sumi:#100d0a; --sumi2:#16120d; --sumi3:#1d1813; --ink:#0a0807;
+  --washi:#efe6d4; --washi-dim:#c4b89f; --washi-faint:#8a8069;
+  --shu:#d8392e;        /* 朱 vermilion */
+  --shu-deep:#a51f1a;
+  --kin:#c9a24a;        /* 金 gold */
+  --kin-bright:#e6c878;
+  --ai:#3f6f7a;         /* 藍 muted teal for blueprint */
+  --ai-bright:#6fb3bf;
+  --line:rgba(201,162,74,.20);
+  --line-strong:rgba(201,162,74,.42);
+  --stone:#7fa6b0; --steel:#c9a24a; --cement:#c47a52;
+  --mono:'IBM Plex Mono',monospace;
+  --serif:'Shippori Mincho B1',serif;
+  --gothic:'Zen Kaku Gothic New',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  background:var(--sumi); color:var(--washi);
+  font-family:var(--gothic); font-size:13px; line-height:1.65;
+  -webkit-font-smoothing:antialiased; overflow-x:hidden;
+  background-image:
+    radial-gradient(ellipse 1200px 700px at 12% -5%, rgba(165,31,26,.18), transparent 60%),
+    radial-gradient(ellipse 1000px 600px at 95% 8%, rgba(201,162,74,.10), transparent 55%),
+    radial-gradient(ellipse 1400px 900px at 50% 120%, rgba(63,111,122,.10), transparent 60%);
+  background-attachment:fixed;
+}
+/* grain overlay */
+body::before{
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:9999; opacity:.04;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode:overlay;
+}
+::selection{background:var(--shu); color:var(--washi)}
+a{color:var(--kin-bright); text-decoration:none; border-bottom:1px dotted var(--line-strong)}
+a:hover{color:var(--shu); border-bottom-color:var(--shu)}
+
+/* ---------- TOP NAV ---------- */
+.topbar{position:fixed; top:0; left:0; right:0; height:46px; z-index:500;
+  background:linear-gradient(180deg,rgba(10,8,7,.96),rgba(10,8,7,.82)); backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--line); display:flex; align-items:center; padding:0 18px; gap:22px}
+.topbar .brand{font-family:var(--serif); font-weight:800; letter-spacing:.06em; color:var(--washi); font-size:15px; white-space:nowrap}
+.topbar .brand b{color:var(--shu)}
+.topbar nav{display:flex; gap:2px; flex-wrap:wrap; overflow:hidden}
+.topbar nav a{font-family:var(--mono); font-size:11.5px; letter-spacing:.04em; color:var(--washi-dim);
+  padding:5px 9px; border-bottom:none; border-radius:2px; text-transform:uppercase; white-space:nowrap}
+.topbar nav a:hover,.topbar nav a.on{color:var(--ink); background:var(--kin); border-bottom:none}
+.topbar .meta{margin-left:auto; font-family:var(--mono); font-size:11px; color:var(--washi-faint); white-space:nowrap}
+@media(max-width:880px){.topbar nav{display:none} .topbar .meta{margin-left:auto}}
+
+/* ---------- LAYOUT ---------- */
+.wrap{padding:46px 0 0 0}
+section{padding:46px clamp(16px,3.4vw,64px); border-bottom:1px solid var(--line); position:relative}
+.sec-head{display:flex; align-items:flex-start; gap:20px; margin-bottom:26px; flex-wrap:wrap}
+.hanko{flex:0 0 auto; width:62px; height:62px; border:2.5px solid var(--shu); border-radius:8px;
+  display:flex; align-items:center; justify-content:center; transform:rotate(-4deg);
+  box-shadow:0 0 0 1px rgba(216,57,46,.25) inset; position:relative; background:rgba(216,57,46,.06)}
+.hanko span{font-family:var(--serif); font-weight:800; color:var(--shu); font-size:13px; line-height:1.05; text-align:center;
+  writing-mode:vertical-rl; letter-spacing:.08em}
+.sec-titles{flex:1 1 320px}
+.sec-no{font-family:var(--mono); font-size:12px; letter-spacing:.34em; color:var(--kin); text-transform:uppercase}
+.sec-titles h2{font-family:var(--serif); font-weight:800; font-size:clamp(26px,3.4vw,46px); line-height:1.04; color:var(--washi); margin:4px 0 6px; letter-spacing:.01em}
+.sec-titles .en{font-family:var(--mono); font-size:12.5px; color:var(--washi-faint); letter-spacing:.12em; text-transform:uppercase}
+.sec-lead{flex:1 1 280px; font-size:13.5px; color:var(--washi-dim); max-width:560px; align-self:center; border-left:2px solid var(--shu); padding-left:14px}
+
+/* vertical kanji rail on section edge */
+.vrail{position:absolute; top:40px; right:10px; writing-mode:vertical-rl; font-family:var(--serif);
+  font-size:13px; letter-spacing:.5em; color:rgba(201,162,74,.22); user-select:none; pointer-events:none}
+
+h3{font-family:var(--serif); font-weight:700; font-size:18px; color:var(--kin-bright); margin:0 0 10px; letter-spacing:.02em}
+h4{font-family:var(--mono); font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--shu); margin:0 0 8px}
+p{margin-bottom:9px}
+.dim{color:var(--washi-dim)} .faint{color:var(--washi-faint)}
+sup.ref{font-family:var(--mono); font-size:9.5px; color:var(--kin); vertical-align:super; cursor:help; padding:0 1px}
+
+/* ---------- HERO ---------- */
+.hero{padding:clamp(40px,7vh,96px) clamp(16px,3.4vw,64px) 54px; border-bottom:2px solid var(--line-strong); position:relative; overflow:hidden}
+.hero .torii{position:absolute; right:-2%; top:50%; transform:translateY(-50%); font-size:min(46vh,420px); color:rgba(216,57,46,.07); font-family:var(--serif); line-height:1; user-select:none; pointer-events:none}
+.hero .kicker{font-family:var(--mono); font-size:12px; letter-spacing:.4em; color:var(--kin); text-transform:uppercase; margin-bottom:16px}
+.hero h1{font-family:var(--serif); font-weight:800; font-size:clamp(42px,8vw,118px); line-height:.92; letter-spacing:.01em; color:var(--washi); position:relative}
+.hero h1 .shu{color:var(--shu)} .hero h1 small{display:block; font-size:clamp(15px,1.8vw,26px); font-weight:500; color:var(--washi-dim); letter-spacing:.16em; margin-top:14px; font-family:var(--mono)}
+.hero .sub{margin-top:22px; max-width:720px; font-size:15px; color:var(--washi-dim); line-height:1.7}
+.hero .sub b{color:var(--kin-bright); font-weight:700}
+.statstrip{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:0; margin-top:34px; border:1px solid var(--line); border-radius:6px; overflow:hidden}
+.statstrip .st{padding:14px 16px; border-right:1px solid var(--line); border-top:1px solid var(--line)}
+.statstrip .st:nth-child(-n+5){border-top:none}
+.statstrip .num{font-family:var(--serif); font-weight:800; font-size:24px; color:var(--kin-bright); line-height:1}
+.statstrip .num .u{font-size:13px; color:var(--washi-dim)}
+.statstrip .lbl{font-family:var(--mono); font-size:11px; color:var(--washi-faint); letter-spacing:.04em; margin-top:6px; text-transform:uppercase}
+
+/* ---------- CALLOUT ---------- */
+.callout{border:1px solid var(--shu); background:linear-gradient(135deg,rgba(216,57,46,.10),rgba(216,57,46,.02)); border-radius:8px; padding:18px 20px; position:relative; margin:8px 0 24px}
+.callout::before{content:"!"; position:absolute; top:-13px; left:18px; width:26px; height:26px; background:var(--shu); color:var(--ink); border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:var(--serif); font-weight:800; font-size:16px}
+.callout .ttl{font-family:var(--serif); font-weight:700; color:var(--shu); font-size:15px; margin-bottom:6px}
+
+/* ---------- GRID HELPERS ---------- */
+.grid{display:grid; gap:16px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.g4{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+.card{background:linear-gradient(160deg,var(--sumi3),var(--sumi2)); border:1px solid var(--line); border-radius:8px; padding:16px 17px; transition:.25s; position:relative; overflow:hidden}
+.card:hover{border-color:var(--line-strong); transform:translateY(-2px); box-shadow:0 10px 30px -12px rgba(0,0,0,.7)}
+.card .corner{position:absolute; top:0; right:0; font-family:var(--mono); font-size:10px; color:var(--washi-faint); padding:4px 7px; border-left:1px solid var(--line); border-bottom:1px solid var(--line); border-bottom-left-radius:6px; letter-spacing:.08em}
+
+/* ---------- TABLES ---------- */
+.tbl-wrap{overflow-x:auto; border:1px solid var(--line); border-radius:8px; margin:6px 0 4px}
+table{width:100%; border-collapse:collapse; font-size:12.5px; min-width:540px}
+caption{caption-side:bottom; text-align:left; font-family:var(--mono); font-size:11px; color:var(--washi-faint); padding:8px 12px; letter-spacing:.03em}
+th,td{padding:9px 12px; text-align:left; border-bottom:1px solid var(--line); vertical-align:top}
+thead th{font-family:var(--mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--kin); background:#1b160f; border-bottom:1px solid var(--line-strong)}
+tbody tr:hover{background:rgba(201,162,74,.045)}
+td .y{color:#7fc28a} td .n{color:var(--shu)} td .mid{color:var(--kin-bright)}
+.mono{font-family:var(--mono)}
+.hl{color:var(--kin-bright); font-weight:600}
+.rec td{background:rgba(216,57,46,.07)}
+.rec td:first-child{box-shadow:inset 3px 0 0 var(--shu)}
+
+/* tags */
+.tag{display:inline-block; font-family:var(--mono); font-size:10.5px; padding:2px 7px; border-radius:3px; letter-spacing:.04em; border:1px solid; margin:2px 3px 2px 0; white-space:nowrap}
+.t-stone{color:var(--stone); border-color:var(--stone)}
+.t-steel{color:var(--steel); border-color:var(--steel)}
+.t-cement{color:var(--cement); border-color:var(--cement)}
+.t-cross{color:var(--ai-bright); border-color:var(--ai-bright)}
+.chip{display:inline-flex; align-items:center; gap:5px; font-family:var(--mono); font-size:11px; padding:3px 9px; border:1px solid var(--line-strong); border-radius:20px; margin:3px 4px 3px 0; color:var(--washi-dim); background:rgba(0,0,0,.2)}
+.chip.def{border-color:var(--shu); color:var(--washi); background:rgba(216,57,46,.16)}
+.chip.def::before{content:"★"; color:var(--shu); font-size:10px}
+.chip.cut{opacity:.45; text-decoration:line-through}
+
+/* ---------- ARCHITECTURE PIPELINE ---------- */
+.arch{position:relative; background:
+   linear-gradient(rgba(111,179,191,.05) 1px,transparent 1px),
+   linear-gradient(90deg,rgba(111,179,191,.05) 1px,transparent 1px);
+  background-size:26px 26px; border:1px solid var(--line); border-radius:10px; padding:22px; margin-top:6px}
+.arch-flow{display:flex; flex-direction:column; gap:0}
+.lyr{display:grid; grid-template-columns:64px 1fr; gap:0; border:1px solid var(--line); border-radius:8px; margin-bottom:14px; background:linear-gradient(160deg,var(--sumi3),rgba(22,18,13,.6)); overflow:hidden; transition:.22s}
+.lyr:hover{border-color:var(--line-strong); box-shadow:0 8px 26px -14px #000}
+.lyr .ix{background:rgba(216,57,46,.10); border-right:1px solid var(--line); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:10px 4px}
+.lyr .ix .n{font-family:var(--serif); font-weight:800; font-size:30px; color:var(--shu); line-height:1}
+.lyr .ix .v{writing-mode:vertical-rl; font-family:var(--serif); font-size:12px; color:var(--washi-dim); letter-spacing:.18em}
+.lyr .bd{padding:13px 16px}
+.lyr .bd .top{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:4px}
+.lyr .bd .nm{font-family:var(--serif); font-weight:700; font-size:16px; color:var(--washi)}
+.lyr .bd .en{font-family:var(--mono); font-size:11px; color:var(--washi-faint); letter-spacing:.08em; text-transform:uppercase}
+.lyr .bd .role{font-size:12.5px; color:var(--washi-dim); margin-bottom:8px}
+.lyr .port{font-family:var(--mono); font-size:11.5px; color:var(--ai-bright); background:rgba(63,111,122,.12); border:1px solid rgba(111,179,191,.25); border-radius:4px; padding:3px 8px; display:inline-block; margin-bottom:8px}
+.spine{display:flex; align-items:center; gap:14px; margin:6px 0 18px; padding:14px 18px; border:1.5px dashed var(--kin); border-radius:8px; background:radial-gradient(ellipse at left,rgba(201,162,74,.12),transparent 70%)}
+.spine .key{font-family:var(--serif); font-weight:800; color:var(--kin-bright); font-size:18px; white-space:nowrap}
+.spine code{font-family:var(--mono); font-size:11.5px; color:var(--washi-dim); background:rgba(0,0,0,.35); padding:3px 8px; border-radius:4px; border:1px solid var(--line)}
+.arrow{text-align:center; color:var(--shu); font-size:16px; line-height:.4; margin:-6px 0 8px}
+.cross{border:1.5px solid var(--ai-bright); border-radius:8px; padding:13px 16px; margin-top:4px; background:repeating-linear-gradient(45deg,rgba(63,111,122,.05),rgba(63,111,122,.05) 8px,transparent 8px,transparent 16px)}
+
+/* flow strip */
+.flowstrip{display:flex; flex-wrap:wrap; align-items:stretch; gap:0; font-family:var(--mono); font-size:11.5px; margin-top:4px}
+.flowstrip .fs{border:1px solid var(--line); padding:9px 11px; flex:1 1 auto; min-width:130px; background:var(--sumi2); position:relative}
+.flowstrip .fs b{color:var(--shu)} .flowstrip .fs span{color:var(--washi-dim)}
+.flowstrip .fs:not(:last-child)::after{content:"▸"; position:absolute; right:-7px; top:50%; transform:translateY(-50%); color:var(--shu); z-index:2; font-size:12px}
+
+/* timeline */
+.tl{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:0; border:1px solid var(--line); border-radius:8px; overflow:hidden}
+.tl .ph{padding:16px 18px; border-right:1px solid var(--line); position:relative}
+.tl .ph .ribbon{font-family:var(--mono); font-size:11px; letter-spacing:.1em; color:var(--ink); background:var(--kin); display:inline-block; padding:2px 9px; border-radius:3px; margin-bottom:9px; font-weight:600}
+.tl .ph:nth-child(2) .ribbon{background:var(--shu); color:var(--washi)}
+.tl .ph:nth-child(3) .ribbon{background:var(--ai); color:var(--washi)}
+.tl .ph h5{font-family:var(--serif); font-size:15px; color:var(--washi); margin-bottom:7px; font-weight:700}
+.tl .ph ul{list-style:none; font-size:12px}
+.tl .ph li{padding-left:14px; position:relative; margin-bottom:4px; color:var(--washi-dim)}
+.tl .ph li::before{content:"—"; position:absolute; left:0; color:var(--kin)}
+
+/* bars */
+.bar-row{display:flex; align-items:center; gap:10px; margin-bottom:7px; font-size:12px}
+.bar-row .bl{flex:0 0 138px; font-family:var(--mono); font-size:11px; color:var(--washi-dim); text-align:right}
+.bar-row .bt{flex:1; height:15px; background:rgba(255,255,255,.04); border-radius:3px; overflow:hidden; border:1px solid var(--line)}
+.bar-row .bf{height:100%; background:linear-gradient(90deg,var(--shu-deep),var(--shu)); display:flex; align-items:center; justify-content:flex-end; padding-right:6px; font-family:var(--mono); font-size:9.5px; color:var(--washi)}
+.bar-row .bf.gold{background:linear-gradient(90deg,#8a6a20,var(--kin-bright))}
+.bar-row .bf.teal{background:linear-gradient(90deg,#2a4a52,var(--ai-bright))}
+
+/* do/dont */
+.dd{display:grid; grid-template-columns:1fr 1fr; gap:14px}
+@media(max-width:680px){.dd{grid-template-columns:1fr}}
+.dd .col{border:1px solid var(--line); border-radius:8px; padding:14px 16px}
+.dd .ok{border-color:rgba(127,194,138,.4)} .dd .no{border-color:rgba(216,57,46,.4)}
+.dd h4.ok{color:#7fc28a} .dd h4.no{color:var(--shu)}
+.dd li{list-style:none; padding-left:18px; position:relative; margin-bottom:5px; font-size:12.5px; color:var(--washi-dim)}
+.dd .ok li::before{content:"✓"; position:absolute; left:0; color:#7fc28a}
+.dd .no li::before{content:"✕"; position:absolute; left:0; color:var(--shu)}
+
+ul.clean{list-style:none} ul.clean li{padding-left:16px; position:relative; margin-bottom:6px; color:var(--washi-dim); font-size:12.5px}
+ul.clean li::before{content:"▪"; position:absolute; left:0; color:var(--kin)}
+
+/* legend */
+.legend{display:flex; gap:16px; flex-wrap:wrap; font-family:var(--mono); font-size:11px; color:var(--washi-dim); margin:4px 0 14px}
+.legend span{display:inline-flex; align-items:center; gap:5px}
+.legend i{width:11px; height:11px; border-radius:2px; display:inline-block}
+
+/* footnotes / sources */
+.sources{columns:3 280px; column-gap:26px; font-size:11.5px; line-height:1.5}
+.sources .src{break-inside:avoid; margin-bottom:9px; padding-left:24px; position:relative; color:var(--washi-dim)}
+.sources .src .id{position:absolute; left:0; top:0; font-family:var(--mono); font-size:10px; color:var(--shu); font-weight:600}
+.sources .src a{word-break:break-all; font-size:10.5px}
+footer{padding:34px clamp(16px,3.4vw,64px) 60px; background:var(--ink); border-top:2px solid var(--shu)}
+.foot-grid{display:flex; justify-content:space-between; gap:24px; flex-wrap:wrap; align-items:flex-end}
+.foot-grid .big{font-family:var(--serif); font-weight:800; font-size:30px; color:var(--washi)}
+.foot-grid .big b{color:var(--shu)}
+.disc{font-family:var(--mono); font-size:11px; color:var(--washi-faint); max-width:520px; line-height:1.6}
+
+.reveal{opacity:0; transform:translateY(18px); transition:opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1)}
+.reveal.in{opacity:1; transform:none}
+@media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}}
+.note{font-family:var(--mono); font-size:11px; color:var(--washi-faint); border-left:2px solid var(--line-strong); padding-left:10px; margin:8px 0}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">御守 <b>OMAMORI</b></div>
+  <nav>
+    <a href="#summary">概要</a>
+    <a href="#business">商業</a>
+    <a href="#compete">競合</a>
+    <a href="#culture">文化</a>
+    <a href="#compliance">法令</a>
+    <a href="#tech">技術架構</a>
+    <a href="#engine">占い基盤</a>
+    <a href="#decisions">決定</a>
+    <a href="#sources">出典</a>
+  </nav>
+  <div class="meta"><a href="./omamori-dossier-zh.html" style="color:var(--kin-bright);border-bottom:none;font-weight:600">中文</a> · 日本語 &nbsp;|&nbsp; v1 · 2026-06 · 機密</div>
+</div>
+
+<div class="wrap">
+
+<!-- ============ HERO ============ -->
+<header class="hero reveal">
+  <div class="torii">守</div>
+  <div class="kicker">NFC御守 × LINE ミニアプリ × 命理 · 祈福 · 御神籤</div>
+  <h1><span class="shu">御守</span>プロジェクト<small>PLUGGABLE PHYGITAL IDENTITY × SHRINE COMMERCE — 調査と設計の巻物</small></h1>
+  <p class="sub">実体の御守を「一碰／一扫」で数字身分につなぎ、LINE ミニアプリ内で <b>占い・祈願・御神籤・推薦</b> を展開する。設計の核心は<b>「身分と載体の解耦」</b>—— NFC は RFID／QR／BLE／NFT に差し替え可能、承接は LINE／PWA／原生に、内容は AI／規則／真人神職に、すべてが <b>交換可能な Adapter</b>。本巻は商業・競合・文化・法令・技術の五面を高密度に収める。</p>
+  <div class="statstrip">
+    <div class="st"><div class="num">¥997<span class="u">億</span></div><div class="lbl">占卜サービス市場 '23<sup class="ref">12</sup></div></div>
+    <div class="st"><div class="num">1<span class="u">億+ MAU</span></div><div class="lbl">LINE 国内月活<sup class="ref">19</sup></div></div>
+    <div class="st"><div class="num">55.4<span class="u">%</span></div><div class="lbl">Z世代 年1回+占卜<sup class="ref">14</sup></div></div>
+    <div class="st"><div class="num">8<span class="u">万社</span></div><div class="lbl">全国神社数<sup class="ref">7</sup></div></div>
+    <div class="st"><div class="num">¥1,000</div><div class="lbl">御守 標準初穂料(原価~¥100)<sup class="ref">5,7</sup></div></div>
+    <div class="st"><div class="num">~0.6<span class="u">EUR</span></div><div class="lbl">NTAG 424 DNA 単価<sup class="ref">24</sup></div></div>
+    <div class="st"><div class="num">2025<span class="u">.04</span></div><div class="lbl">LINE Pay 日本 全停服<sup class="ref">22</sup></div></div>
+    <div class="st"><div class="num">¥89</div><div class="lbl">標杆「那吉」価格(芯片~¥3*)<sup class="ref">1</sup></div></div>
+    <div class="st"><div class="num">2,000<span class="u">万人</span></div><div class="lbl">御朱印人口 '21<sup class="ref">16</sup></div></div>
+    <div class="st"><div class="num">7<span class="u">層</span></div><div class="lbl">可插拔アーキ層数</div></div>
+  </div>
+  <p class="note">* 那吉の「¥89／芯片~¥3」は人民元建ての媒体実測値を便宜上 ¥ 表記。為替換算なし。出典 §競合。</p>
+</header>
+
+<!-- ============ 00 SUMMARY ============ -->
+<section id="summary" class="reveal">
+  <div class="vrail">技 術 巻 物</div>
+  <div class="sec-head">
+    <div class="hanko"><span>概要</span></div>
+    <div class="sec-titles"><div class="sec-no">巻 00 / EXECUTIVE</div><h2>核心と前提纠正</h2><div class="en">THE KEYSTONE & A CORRECTION</div></div>
+    <div class="sec-lead">那吉は「実体引流→小程序」の最浅一環しか検証していない。我々が作るのは<b>信物＋身分＋内容</b>の完全モデル—— 真の参照系は Tamagotchi/amiibo × 測測/Co-Star の合体。</div>
+  </div>
+
+  <div class="callout">
+    <div class="ttl">⚑ 前提纠正：標杆「那吉」は公仔でも身分绑定でもない</div>
+    <p class="dim" style="font-size:12.5px">実査で確認した「那吉」=「<b class="hl">那吉·山鬼花钱 NFC 磁吸气囊手机支架（¥89）</b>」。✅ 碰一碰NFC→微信小程序→命理 は吻合。❌ <b style="color:var(--shu)">公仔でない・数字身分/角色绑定なし・養成なし</b>。小程序の機能は「生辰入力→大模型+乱数→毎日の五行運勢」一点のみ、芯片~¥3を¥89で売る玄学情緒商品。背後企業・融資・上線日は<b>未找到</b>（白牌爆款の特徴）。<sup class="ref">1</sup> ⇒ 「無護城河・内容空心」。我々の完全モデルの範本ではない。</p>
+  </div>
+
+  <div class="grid g3">
+    <div class="card"><div class="corner">KEYSTONE</div><h3>基石｜身分と載体の解耦</h3><p class="dim" style="font-size:12.5px">システムに唯一安定する核心身分 <code class="mono" style="color:var(--kin-bright)">OmamoriIdentity</code> が存在。NFC の UID+署名、QR の序列号、链上 token id は<b>すべて同一身分を指す「載体凭证」</b>。載体を換える＝Adapter を換えるだけ、核心身分と绑定/内容/变现は不动。GS1 Digital Link／W3C DID／EU DPP が同原理。<sup class="ref">28,29,31</sup></p></div>
+    <div class="card"><div class="corner">LESSON</div><h3>那吉の教訓を設計へ</h3><ul class="clean" style="font-size:12px"><li><b style="color:var(--shu)">無護城河</b> → 二期で NTAG 424 DNA 強防伪</li><li><b style="color:var(--shu)">内容空心</b> → 守護養成（対標 Tamagotchi）+ 真人神職</li><li>toys-to-life 衰退史（Skylanders 65%暴跌<sup class="ref">3</sup>）＝内容/復購が命</li></ul></div>
+    <div class="card"><div class="corner">HARD LIMITS</div><h3>三つの硬約束（環境差）</h3><ul class="clean" style="font-size:12px"><li><b style="color:var(--shu)">LINE Pay 日本は死亡</b>（2025-04停服）→ PayPay/Stripe のみ<sup class="ref">22</sup></li><li><b style="color:var(--shu)">NFC唤起 LINE 不保証</b>（iOS は Safari に落ちがち）→ 浏览器兜底必須<sup class="ref">21,25</sup></li><li><b style="color:var(--shu)">APPI 要配慮個人情報</b>（信仰＋生辰）→ 事前明示同意・第三者提供禁止<sup class="ref">10</sup></li></ul></div>
+  </div>
+</section>
+
+<!-- ============ 01 BUSINESS ============ -->
+<section id="business" class="reveal">
+  <div class="vrail">商 業 設 計</div>
+  <div class="sec-head">
+    <div class="hanko"><span>商業</span></div>
+    <div class="sec-titles"><div class="sec-no">巻 01 / BUSINESS</div><h2>市場・収益・変現</h2><div class="en">MARKET SIZING & MONETIZATION</div></div>
+    <div class="sec-lead">日本の占卜支出は「按字数＋月額」が習慣。中国式「切香肠解锁＋三级分销」は神社神聖性と<b>強衝突</b>。高客单は真人神職へ。</div>
+  </div>
+
+  <div class="grid g2" style="margin-bottom:20px">
+    <div>
+      <h4>市場規模スタック（日本）</h4>
+      <div class="bar-row"><div class="bl">霊性産業(広義)</div><div class="bt"><div class="bf" style="width:100%">¥4.24兆</div></div></div>
+      <div class="bar-row"><div class="bl">占卜サービス '23</div><div class="bt"><div class="bf gold" style="width:24%">¥997億</div></div></div>
+      <div class="bar-row"><div class="bl">占星アプリ(世界)</div><div class="bt"><div class="bf teal" style="width:9%">$39.4億</div></div></div>
+      <div class="bar-row"><div class="bl">御朱印人口</div><div class="bt"><div class="bf" style="width:47%">2,000万人</div></div></div>
+      <div class="bar-row"><div class="bl">初詣 全国</div><div class="bt"><div class="bf gold" style="width:96%">9,818万人</div></div></div>
+      <p class="note">出典 矢野経済(厳格口径)<sup class="ref">12</sup>・占星アプリ世界市場<sup class="ref">4</sup>・御朱印<sup class="ref">16</sup>・初詣<sup class="ref">7</sup>。広義「霊性 4.24兆」と「占卜 997億」は口径が異なる。授与品の全国市場規模は<b style="color:var(--shu)">未找到</b>（概略「数十億円級」）。バー長は視覚的相対比で厳密スケールではない。</p>
+    </div>
+    <div>
+      <h4>顧客像 & 行動</h4>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>指標</th><th>数値</th><th>含意</th></tr></thead>
+        <tbody>
+          <tr><td>伝統有料占卜 女性比</td><td class="hl">~90%</td><td>主力 30–50代女性<sup class="ref">13</sup></td></tr>
+          <tr><td>目的が恋愛</td><td class="hl">85%</td><td>恋愛動機が支配的<sup class="ref">13</sup></td></tr>
+          <tr><td>Z世代 年1回+利用</td><td class="hl">55.4%</td><td>他世代より突出<sup class="ref">14</sup></td></tr>
+          <tr><td>Z世代 SNS分享率</td><td class="hl">31.3%</td><td>拡散性高い<sup class="ref">14</sup></td></tr>
+          <tr><td>Z世代女性 対面占卜</td><td>28.9%</td><td>数字原生だが<b class="mid">真人/可信度</b>志向<sup class="ref">14</sup></td></tr>
+          <tr><td>日本の支払習慣</td><td>按字数+月額</td><td>例 2字¥1,500 / ¥300/月<sup class="ref">17</sup></td></tr>
+        </tbody>
+        <caption>有料占卜の中核は依然 30–50代女性。Z世代は入口拡散に効くが「真人・可信度」を重視。</caption>
+      </table></div>
+    </div>
+  </div>
+
+  <h4>変現モデル｜可 vs 禁（合規制約下）</h4>
+  <div class="dd">
+    <div class="col ok"><h4 class="ok">✓ 採用可</h4>
+      <ul><li>実体御守の販売（初穂料形態）、満1年更新</li><li>数字御朱印・限定数字御守</li><li>月額サブスク（日本習慣 ~¥300/月）<sup class="ref">17</sup></li><li>按字数の深層解読</li><li><b class="hl">在线祈願/厄除け（高客単は真人神職）</b>— 可信度＋高単価＋合規の正解</li><li>運勢→御守款/参拝/能量景点の推薦</li></ul>
+    </div>
+    <div class="col no"><h4 class="no">✕ 禁止（神社神聖性と衝突＝日本の高圧線）</h4>
+      <ul><li>「切香肠」式 解锁焦虑（残缺結果→課金）</li><li>「邀3友裂变」招待アンロック</li><li>三级分销 代理 KPI</li><li>「¥499 大师精算」高客单煽り</li><li>御朱印の「集章打卡(スタンプラリー)」化 — 神職反発実績あり<sup class="ref">9</sup></li></ul>
+    </div>
+  </div>
+  <p class="note">中国通用套路（免费引流→残缺钩子→9.9/19.8/98.8 切香肠→裂变→¥499真人）<sup class="ref">6</sup> の<b>技術骨格は流用可</b>だが、煽り構造は神域では亵渎観感を生む。日本は「軽・透明」へ。</p>
+</section>
+
+<!-- ============ 02 COMPETE ============ -->
+<section id="compete" class="reveal">
+  <div class="vrail">競 合 分 析</div>
+  <div class="sec-head">
+    <div class="hanko"><span>競合</span></div>
+    <div class="sec-titles"><div class="sec-no">巻 02 / COMPETITIVE</div><h2>標杆と参照系</h2><div class="en">BENCHMARK DISSECTION</div></div>
+    <div class="sec-lead">那吉が検証したのは最浅一環のみ。完全モデルの参照系は二本の成熟線 ——「toys-to-life」×「命理内容変現」。</div>
+  </div>
+
+  <div class="tbl-wrap" style="margin-bottom:18px"><table>
+    <thead><tr><th>系譜</th><th>代表</th><th>規模 / 数値</th><th>検証したこと</th><th>含意</th></tr></thead>
+    <tbody>
+      <tr class="rec"><td><b>標杆</b><br>NFC×命理</td><td>那吉·山鬼花钱<br><span class="faint">NFC手機支架 ¥89</span></td><td>芯片~¥3<sup class="ref">1</sup></td><td>碰一碰NFC→微信小程序→毎日五行運勢（乱数+大模型）</td><td class="n">無護城河・内容空心・養成/身分绑定なし</td></tr>
+      <tr><td rowspan="3">toys-to-life<br><span class="faint">実体+数字</span></td><td>Skylanders</td><td>累計~2.5億個 / ~$30億、'15–'17 で <b class="n">65%+暴跌</b><sup class="ref">3</sup></td><td>実体+数字は成立するが…</td><td class="n">内容更新が止まると復購喪失</td></tr>
+      <tr><td>amiibo (任天堂)</td><td>純NFC・跨游戏通用</td><td>最も長寿</td><td class="mid">通用設計で生存</td></tr>
+      <tr><td>Tamagotchi 4U/Smart</td><td>NFC+実体養成</td><td><b class="hl">真養成で留存</b></td><td class="mid">「魂/養成」が復購の鍵</td></tr>
+      <tr><td rowspan="2">命理内容変現</td><td>測測 Cece (中)</td><td>'17 百合网 ¥1,920万 投資<sup class="ref">6</sup></td><td>八字/紫微+付費報告+真人</td><td>命理サブスク現金流成立</td></tr>
+      <tr><td>Co-Star (米)</td><td>用户 750万→3,000万、融資 ~$2,100万<sup class="ref">4</sup></td><td>占星 freemium</td><td>freemium 占星 ~45% 課金構成<sup class="ref">4</sup></td></tr>
+    </tbody>
+    <caption>那吉は「実体引流→小程序留存」の最浅環のみ検証。我々は toys-to-life の「養成留存」× 命理の「内容変現」を合体させる空白点を狙う。</caption>
+  </table></div>
+
+  <h4>日本国内の既存「神社×数字化」案例（真実・URL付）</h4>
+  <div class="grid g3">
+    <div class="card"><div class="corner">NFT</div><b class="hl">検見川神社 お守りNFT</b><p class="faint" style="font-size:11.5px">2022・古事記project。詐欺除/钱包安全守等、<b>1年後 自動 Burn(焚化)</b> を実装。<sup class="ref">8</sup></p></div>
+    <div class="card"><div class="corner">AI</div><b class="hl">こまいぬAI神社</b><p class="faint" style="font-size:11.5px">2024・V-TIPS。VTuber向導、24h在线赛钱+おみくじ+AI語音。<sup class="ref">9b</sup></p></div>
+    <div class="card"><div class="corner">御朱印</div><b class="hl">スマート御朱印</b><p class="faint" style="font-size:11.5px">境内扫码+支払で数字御朱印、多寺社加盟。博报堂×竹神社 NFT 実証も('22)。<sup class="ref">9c</sup></p></div>
+    <div class="card"><div class="corner">NFC</div><b class="hl">ハイパー神社6D</b><p class="faint" style="font-size:11.5px">直岛・実体内嵌NFCで数字神を転移、¥38,500限定（公式頁は現404）。</p></div>
+    <div class="card"><div class="corner">APP</div><b class="hl">紅葉八幡宮 公式アプリ</b><p class="faint" style="font-size:11.5px">積分集章/寻宝/推送。神社単独アプリの先行例。<sup class="ref">9d</sup></p></div>
+    <div class="card"><div class="corner">在线</div><b class="hl">在线祈祷（コロナ後）</b><p class="faint" style="font-size:11.5px">寒川神社・靖国 e-worship・神田明神・「ご祈祷ネット」(Zoom)。在线参拝は既に受容済。</p></div>
+  </div>
+  <p class="note">＝ 神社の数字化は「実証段階」が既に多数。本厅の統一立場は<b style="color:var(--shu)">未找到</b>＝各社が個別に実施＝<b>参入余地あり、但し神社個別の認可が要</b>。</p>
+</section>
+
+<!-- ============ 03 CULTURE ============ -->
+<section id="culture" class="reveal">
+  <div class="vrail">文 化 基 盤</div>
+  <div class="sec-head">
+    <div class="hanko"><span>文化</span></div>
+    <div class="sec-titles"><div class="sec-no">巻 03 / CULTURE</div><h2>授与品と神社経済</h2><div class="en">SHRINE COMMERCE & RITUAL CALENDAR</div></div>
+    <div class="sec-lead">授与品費は「初穂料」総称、全国統一価なし。中式八字 ≠ 日式四柱推命（体系が異なり結果が逆になりうる）。</div>
+  </div>
+
+  <div class="grid g2">
+    <div>
+      <h4>授与品・儀式 — 定義 / 価格 / 周期</h4>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>項目</th><th>価格(円)</th><th>周期</th><th>備考</th></tr></thead>
+        <tbody>
+          <tr><td>御守(お守り)</td><td class="hl">300〜1,500<br>標準~1,000</td><td>約1年で更新</td><td>用途別款式、旧守は年初焚化</td></tr>
+          <tr><td>おみくじ</td><td>50〜300 (常100)</td><td>随時/初詣</td><td>吉凶占</td></tr>
+          <tr><td>御朱印</td><td>300〜500<br>特殊~1,000</td><td>随参拝</td><td>参拝凭証(朱印+墨書)</td></tr>
+          <tr><td>祈祷/祈願</td><td class="hl">5,000〜10,000</td><td>七五三(11月)等</td><td>神職主持の正式儀式</td></tr>
+          <tr><td>厄除け</td><td class="hl">5,000〜10,000</td><td>新年〜節分</td><td>厄年除災</td></tr>
+          <tr><td>お焚き上げ</td><td>どんど焼き(1/15頃)多くは無料</td><td>満1年で返還</td><td>旧御守焚化供養</td></tr>
+        </tbody>
+        <caption>価格は各社が自定（全国統一なし）、各社/媒体の示例値。<sup class="ref">5,7</sup></caption>
+      </table></div>
+      <p class="note"><b>厄年(数え年)</b>：男 25/42/61・女 19/33/37（男42・女33 が大厄）<sup class="ref">7b</sup>。<b>初詣 松の内</b>：関東 1/1–1/7、関西 1/1–1/15。</p>
+    </div>
+    <div>
+      <h4>神社経済 & 産業チェーン</h4>
+      <ul class="clean">
+        <li><b class="hl">収入構成</b>：核心は祈祷料(¥1万〜、〜¥2–10万)。賽銭は小盤（初詣人均 ~¥149）。授与品販売、駐車場/賃貸/婚礼場が補完。<sup class="ref">11</sup></li>
+        <li><b class="hl">規模</b>：全国神社 ~8万社、初詣 ~9,818万人。¥1,000御守の原価 ~¥100（毛利~¥900）。<sup class="ref">7</sup></li>
+        <li><b class="hl">おみくじ製造</b>：<b>女子道社</b>（山口）が全国 <b class="mid">60〜70%</b> を占有、5,000+社に供給。<sup class="ref">8b</sup></li>
+        <li><b class="hl">御守袋</b>：京都<b>西陣</b>が中核集群 — 京都奉製(取引~5,300寺社)・秋江(1855創業)・東龍。<sup class="ref">8c</sup></li>
+      </ul>
+      <div class="callout" style="margin-top:14px"><div class="ttl">文化の水土不服（中→日）</div>
+        <p class="dim" style="font-size:12px"><b>① 中式八字 ≠ 日式四柱推命</b>（体系が違い結果が逆もある、算法を直搬不可）<sup class="ref">18</sup>。<b>② 神聖性 vs 課金煽り/裂変</b>＝亵渎観感の高圧線。<b>③</b> 中国「¥499大师」高客单 vs 日本「軽・透明」計費の不整合。<br><b style="color:#7fc28a">搬べるもの</b>：サブスク技術骨格・数字化載体（数字御神籤/AI解読/在线参拝は受容済）・若年女性入口。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 04 COMPLIANCE ============ -->
+<section id="compliance" class="reveal">
+  <div class="vrail">法 令 信 頼</div>
+  <div class="sec-head">
+    <div class="hanko"><span>法令</span></div>
+    <div class="sec-titles"><div class="sec-no">巻 04 / COMPLIANCE</div><h2>合規・信頼（一等公民）</h2><div class="en">APPI · 神社本厅 · 税務 · 反転売</div></div>
+    <div class="sec-lead">合規は事後パッチではなく全栈横切の第⑦層。占卜は生辰を要し「信仰」に触れる＝<b>要配慮個人情報</b>。</div>
+  </div>
+
+  <div class="grid g4">
+    <div class="card" style="border-color:rgba(216,57,46,.4)"><div class="corner">APPI</div><h3 style="font-size:15px">要配慮個人情報</h3><p class="dim" style="font-size:12px">姓名+生年月日=個人情報。<b style="color:var(--shu)">「信条(信仰含む)」は法定の要配慮個人情報</b>。取得は<b>事前明示同意</b>必須、<b>opt-out での第三者提供は禁止</b>。宗教法人は宗教目的で適用除外だが<b>商業会社は完全遵守</b>。<sup class="ref">10</sup></p></div>
+    <div class="card"><div class="corner">本厅</div><h3 style="font-size:15px">神社本庁の立場</h3><p class="dim" style="font-size:12px">数字化/在线授与への成文統一通達は<b style="color:var(--shu)">未找到</b>。実践は<b>各社が個別認可</b>。リスクは本厅禁令でなく「個別神社＋消費者の宗教感情」に落ちる。</p></div>
+    <div class="card" style="border-color:rgba(216,57,46,.4)"><div class="corner">雷区</div><h3 style="font-size:15px">三大雷区</h3><ul class="clean" style="font-size:11.5px"><li><b style="color:var(--shu)">転売</b>=最明確雷区（サムハラ神社は転売品に「御魂抜き」）<sup class="ref">9e</sup></li><li><b style="color:var(--shu)">集章打卡/游戏化</b>=神職反発実績<sup class="ref">9</sup></li><li><b style="color:var(--shu)">税務</b>=商価牟利の数字商品は収益事業課税(~23.2%)<sup class="ref">9f</sup></li></ul></div>
+    <div class="card"><div class="corner">NFT法</div><h3 style="font-size:15px">日本「純NFT」基準</h3><p class="dim" style="font-size:12px">FSA は純NFTを原則「暗号資産でない」と区分。<b class="hl">2基準</b>：①支払手段としての利用を技術/協議で禁止 ②<b>単価 &gt; ¥1,000 又は 発行総量 &lt; 100万枚</b>。分红付与は証券(FIEA)化リスク。<sup class="ref">26</sup></p></div>
+  </div>
+
+  <h4 style="margin-top:18px">第⑦層が強制する合規闸门（設計に内蔵）</h4>
+  <div class="flowstrip">
+    <div class="fs"><b>ConsentGate</b><br><span>生辰/宗教収集前に APPI 明示同意・既定非外伝</span></div>
+    <div class="fs"><b>ShrineAuthorization</b><br><span>各 shrineId の数字化/玩法/变现に神社認可（B2B2C は多租户化）</span></div>
+    <div class="fs"><b>AntiResalePolicy</b><br><span>transfer() は禁止 or「御魂抜き」語義（転讓即失效）</span></div>
+    <div class="fs"><b>Tax 分账</b><br><span>初穂料(喜捨/非課税) と 商品収入 を账务で分離</span></div>
+    <div class="fs"><b>Game-design 抑制</b><br><span>養成/集章を亵渎観感から距離化</span></div>
+  </div>
+</section>
+
+<!-- ============ 05 TECH (CENTERPIECE) ============ -->
+<section id="tech" class="reveal" style="background:linear-gradient(180deg,rgba(63,111,122,.04),transparent 30%)">
+  <div class="vrail">技 術 架 構</div>
+  <div class="sec-head">
+    <div class="hanko" style="border-color:var(--kin)"><span style="color:var(--kin)">技術</span></div>
+    <div class="sec-titles"><div class="sec-no" style="color:var(--shu)">巻 05 / ARCHITECTURE — 本巻の核心</div><h2>可插拔 7層管線</h2><div class="en">PORTS &amp; ADAPTERS · CARRIER-AGNOSTIC IDENTITY</div></div>
+    <div class="sec-lead">物理一碰から玩法変現まで、各層は<b>端口(Port)</b>のみに依存し<b>実装(Adapter)</b>に依存しない。だから「環節可換」が成立する。</div>
+  </div>
+
+  <div class="legend">
+    <span><i style="background:var(--stone)"></i>石頭 stone — 業務無関・高品質・全栈放大</span>
+    <span><i style="background:var(--steel)"></i>鋼筋 steel — 領域感知・抽象責任</span>
+    <span><i style="background:var(--cement)"></i>水泥 cement — 具体業務流・用過即丢</span>
+    <span><i style="background:var(--ai-bright)"></i>横切 cross-cutting</span>
+    <span><i style="background:var(--shu)"></i>★ 推奨既定 Adapter</span>
+  </div>
+
+  <div class="arch">
+    <div class="arch-flow">
+      <!-- physical entry -->
+      <div class="flowstrip" style="margin-bottom:14px">
+        <div class="fs" style="flex:0 0 auto; background:rgba(216,57,46,.12)"><b>物理世界</b><br><span>御守実体を「一碰/一扫」</span></div>
+      </div>
+
+      <!-- L1 -->
+      <div class="lyr"><div class="ix"><div class="n">①</div><div class="v">載体</div></div>
+        <div class="bd"><div class="top"><span class="nm">載体層</span><span class="en">Carrier Layer</span><span class="tag t-cement">水泥</span><span class="tag t-stone">→石頭混合</span></div>
+          <div class="role">「一碰/一扫」で原始凭证（payload＋載体型）を産出。</div>
+          <div class="port">CarrierCredential { type, rawPayload, scannedAt }</div><br>
+          <span class="chip def">NTAG 424 DNA</span><span class="chip">NTAG213/215/216</span><span class="chip">QR</span><span class="chip cut">UHF RFID(手机读不了)</span><span class="chip">BLE</span><span class="chip">链上 NFT</span>
+        </div></div>
+      <div class="arrow">▼</div>
+
+      <!-- L2 -->
+      <div class="lyr"><div class="ix"><div class="n">②</div><div class="v">験真</div></div>
+        <div class="bd"><div class="top"><span class="nm">験真 / 解析層</span><span class="en">Verification &amp; Resolver</span><span class="tag t-stone">石頭</span></div>
+          <div class="role">載体凭证の真伪を検証 → <code class="mono" style="color:var(--kin-bright);font-size:11px">OmamoriIdentity</code> へ解析。<b>防伪は全部ここ。</b></div>
+          <div class="port">CarrierVerifier.verify() → VerifiedCarrier &nbsp;·&nbsp; IdentityResolver.resolve() → OmamoriIdentity</div><br>
+          <span class="chip def">NFC424Verifier (CMAC+counter)</span><span class="chip">NFC21xVerifier (UID弱)</span><span class="chip">QRVerifier (HMAC)</span><span class="chip">NFTVerifier (on-chain)</span>
+        </div></div>
+
+      <!-- SPINE -->
+      <div class="spine">
+        <div class="key">⟡ OmamoriIdentity</div>
+        <div><div class="faint" style="font-size:11px;margin-bottom:5px">核心不変量（載体無関・GS1 Digital Link / DID で表現）。換載体＝Adapter換、ここは不動。</div>
+        <code>{ id · shrineId · seriesId · issuedAt · carrierRefs[] · status(active/burned/transferred) }</code></div>
+      </div>
+
+      <!-- L3 -->
+      <div class="lyr"><div class="ix"><div class="n">③</div><div class="v">绑定</div></div>
+        <div class="bd"><div class="top"><span class="nm">身分 / 绑定層</span><span class="en">Identity &amp; Binding</span><span class="tag t-steel">鋼筋</span></div>
+          <div class="role">OmamoriIdentity ↔ 用户を绑定（1:1 守護、転讓は1:N）。御守に「魂」を与える層（那吉欠落・Tamagotchi 勝因）。</div>
+          <div class="port">UserIdentityProvider.authenticate() → UserId &nbsp;·&nbsp; BindingService.bind() / transfer() / unbind()</div><br>
+          <span class="chip def">LINELogin (userId)</span><span class="chip">PayPayAuth</span><span class="chip">EmailPasskey</span><span class="chip">WalletAuth (ERC-4337)</span>
+          <p class="note" style="margin-top:9px">硬边界：LINE userId は <b>per-provider</b>・跨設備安定 → 绑定主键に最適。display name/picture は変わるので<b style="color:var(--shu)">主键に使わない</b>。删号再建で旧绑定失効。<sup class="ref">20</sup></p>
+        </div></div>
+      <div class="arrow">▼</div>
+
+      <!-- L4 -->
+      <div class="lyr"><div class="ix"><div class="n">④</div><div class="v">承接</div></div>
+        <div class="bd"><div class="top"><span class="nm">承接 / 落地層</span><span class="en">Host / Entry</span><span class="tag t-cement">水泥</span></div>
+          <div class="role">扫完どの界面へ落ちるか。入口環境探測＋優雅降级。</div>
+          <div class="port">HostEnvironment（渲染面＋深链入口解析）</div><br>
+          <span class="chip def">LINE MINI App / LIFF</span><span class="chip">PWA(兜底)</span><span class="chip">PayPay ミニアプリ</span><span class="chip">原生 App</span><span class="chip cut">微信(日本人不用)</span>
+          <p class="note" style="margin-top:9px"><b style="color:var(--shu)">⚠ NFC唤起 不保証</b>：NFCは https URL を OS に渡し、iOS UL / Android AL で LINE 命中を狙うだけ。<b>iOS は Safari に落ちがち、LINE公式も「環境を保証しない」</b>→ 浏览器兜底を必設計。<sup class="ref">21,25</sup></p>
+        </div></div>
+      <div class="arrow">▼</div>
+
+      <!-- L5 -->
+      <div class="lyr"><div class="ix"><div class="n">⑤</div><div class="v">内容</div></div>
+        <div class="bd"><div class="top"><span class="nm">内容 / 儀式層</span><span class="en">Content &amp; Ritual</span><span class="tag t-steel">鋼筋(領域)</span><span class="tag t-cement">+水泥(文案)</span></div>
+          <div class="role">绑定後の玩法 — 命理・祈福・御神籤・推薦・神社儀式。ritualType で按神社/按世代に熱插拔。</div>
+          <div class="port">RitualEngine.perform(OmamoriIdentity, UserContext, ritualType) → RitualResult</div><br>
+          <span class="chip def">ShichuSuimeiEngine (日式四柱推命·非中式八字)</span><span class="chip def">OmikujiEngine (数字御神籤)</span><span class="chip">RealPriestEngine (真人祈願)</span><span class="chip">LLMEngine</span><span class="chip">RecommendationEngine</span><span class="chip">Tarot / Astrology</span>
+          <p class="note" style="margin-top:9px">那吉式「乱数+巴纳姆话术・无记忆」は反面教材。<b>真の個性化＋記憶＋養成</b>で復購を作る。</p>
+        </div></div>
+      <div class="arrow">▼</div>
+
+      <!-- L6 -->
+      <div class="lyr"><div class="ix"><div class="n">⑥</div><div class="v">変現</div></div>
+        <div class="bd"><div class="top"><span class="nm">変現層</span><span class="en">Monetization</span><span class="tag t-steel">鋼筋</span><span class="tag t-cement">+水泥</span></div>
+          <div class="role">收钱。LINE Pay は使わない（日本停服）。</div>
+          <div class="port">PaymentProvider.charge() · Subscription</div><br>
+          <span class="chip def">PayPayPayment</span><span class="chip">StripePayment (LIFF webview)</span><span class="chip cut">LINE Pay (2025-04 停服)</span>
+          <p class="note" style="margin-top:9px">在线祈願/厄除けの高客单は <span class="hl">RealPriestEngine</span> 経由＝可信度＋合規。中国式裂变/切香肠は禁。<sup class="ref">22</sup></p>
+        </div></div>
+
+      <!-- L7 cross -->
+      <div class="cross" style="margin-top:14px"><div class="top" style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px"><span class="nm" style="font-family:var(--serif);font-weight:700;font-size:16px;color:var(--ai-bright)">⑦ 合規 / 信頼層</span><span class="en" style="font-family:var(--mono);font-size:11px;color:var(--washi-faint);letter-spacing:.08em">COMPLIANCE &amp; TRUST — 全栈横切</span><span class="tag t-cross">横切 / 一等公民</span></div>
+        <div class="port" style="color:var(--ai-bright);border-color:rgba(111,179,191,.25);background:rgba(63,111,122,.12)">ConsentGate · ShrineAuthorization · AntiResalePolicy · TaxLedger</div>
+        <p class="dim" style="font-size:12px;margin-top:8px">①〜⑥ の全層を貫く。APPI 要配慮個人情報の同意闸门、神社個別認可、反転売(御魂抜き語義)、税務分账、游戏化抑制。<b>事後パッチではなく設計の一等公民。</b></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- request flow -->
+  <h3 style="margin-top:26px">一次完整請求流（端到端）</h3>
+  <div class="flowstrip">
+    <div class="fs"><b>碰御守(NFC)</b><br><span>物理 tap</span></div>
+    <div class="fs"><b>①</b> <span>CarrierCredential (picc+enc+cmac)</span></div>
+    <div class="fs"><b>②</b> <span>NFC424Verifier 验CMAC+counter → Resolver → OmamoriIdentity</span></div>
+    <div class="fs"><b>④</b> <span>OS→UL→LINE MINI App（失敗で PWA 兜底）</span></div>
+    <div class="fs"><b>③</b> <span>LINELogin→userId、初回は bind()</span></div>
+    <div class="fs"><b>⑦</b> <span>ConsentGate：生辰収集前に APPI 同意</span></div>
+    <div class="fs"><b>⑤</b> <span>RitualEngine.perform(おみくじ/占い/祈願)</span></div>
+    <div class="fs"><b>⑥</b> <span>必要なら PayPay.charge()</span></div>
+    <div class="fs" style="background:rgba(201,162,74,.1)"><b>↩</b> <span>結果＋推薦を返す</span></div>
+  </div>
+  <p class="note">各箭頭後の実装は独立に差し替え可能 —— 端口のみで通信するから。</p>
+
+  <!-- hardware tables -->
+  <div class="grid g2" style="margin-top:22px">
+    <div>
+      <h3>NFC芯片対比（載体層の中核選定）</h3>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>維度</th><th>NTAG213/215/216</th><th>NTAG 424 DNA</th></tr></thead>
+        <tbody>
+          <tr><td>用户内存</td><td class="mono">144 / 504 / 888 B</td><td class="mono">416 B (256 NDEF+128 protected)</td></tr>
+          <tr><td>認証</td><td>静的UID+静的NDEF、弱32bit密码</td><td class="hl">AES-128 + 毎tap一意 SUN/CMAC</td></tr>
+          <tr><td>防克隆</td><td class="n">弱（逐位複製可・「魔术卡」）</td><td class="y">強（鍵なしで有効応答不可）</td></tr>
+          <tr><td>単価(零售估)</td><td class="mono">$0.2–1.2</td><td class="mono">~$0.45–0.90 / ~0.6EUR</td></tr>
+          <tr class="rec"><td>適用</td><td>低価・非安全場景</td><td><b>防伪溯源 首選</b></td></tr>
+        </tbody>
+        <caption>NTAG21x の内存値は NXP 公式命名に直接含む。<sup class="ref">23</sup> 424 DNA は毎tap で AES-128 SUN認証 + CMAC、鍵は芯片を出ない。<sup class="ref">24</sup> 動的URL: <span class="mono">?picc_data=…&amp;enc=…&amp;cmac=…</span>、counter 単調増で重放/克隆検出。服務端は同鍵で再算比対（開源後端 sdm-backend 等<sup class="ref">27</sup>）。NXP 裸IC 公式報価は<b style="color:var(--shu)">未找到</b>。</caption>
+      </table></div>
+    </div>
+    <div>
+      <h3>載体梯度（御守＝廉価量産×手机原生扫）</h3>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>載体</th><th>手机原生扫</th><th>防伪</th><th>単価</th><th>判定</th></tr></thead>
+        <tbody>
+          <tr><td>QR二维码</td><td class="y">✓</td><td class="n">弱(要防複製図案)</td><td>≈印刷</td><td>兜底/超低成本</td></tr>
+          <tr><td>NTAG21x</td><td class="y">✓</td><td class="n">弱</td><td class="mono">$0.2–1.2</td><td>一期 低価款</td></tr>
+          <tr class="rec"><td>NTAG 424 DNA</td><td class="y">✓</td><td class="y">強(動的不可克隆)</td><td class="mono">~0.6EUR</td><td><b>唯一「原生扫+強防伪」</b></td></tr>
+          <tr><td>UHF RFID</td><td class="n">✕</td><td class="n">弱</td><td class="mono">$0.05–0.25</td><td class="n">手机读不了→淘汰</td></tr>
+          <tr><td>BLE Beacon</td><td class="mid">要App</td><td class="n">弱</td><td class="mono">成品$8+</td><td>不划算</td></tr>
+          <tr><td>链上 NFT</td><td class="mid">経扫码</td><td class="y">強(链上唯一)</td><td>gas+芯片</td><td>三期 収藏款</td></tr>
+        </tbody>
+        <caption>決定的篩選＝「用户が自分の手机で原生に扫めるか」。UHF は専用読卡器必要で御守場景は淘汰。<sup class="ref">24b</sup></caption>
+      </table></div>
+    </div>
+  </div>
+
+  <!-- abstraction + nft -->
+  <div class="grid g2" style="margin-top:18px">
+    <div class="card"><div class="corner">ABSTRACTION</div><h3>「一実体＝一数字身分」の通用抽象</h3><p class="dim" style="font-size:12px"><b>A. GS1 Digital Link</b>＝データ載体完全無関（QR/NFC/RFID/数字水印が同一GS1識別子をエンコード、標識符と物理編码を分離）<sup class="ref">28</sup>。<b>B. W3C DID + VC / UORA</b>＝物理対象を分散的に数字標識へ绑定<sup class="ref">29,30</sup>。<b>C. EU DPP</b>＝載体技術無関の持久標識符<sup class="ref">31</sup>。<br><b class="hl">マッピング</b>：後端身分键＝規範記録(GS1 URL or DID)、NFC UID+CMAC は一載体凭证にすぎず、QR/RFID/NFT は各々 adapter で同一記録へ解析。NTAG 424 の <b>Key Diversification</b>(Master Key+UID 派生)が「UID+署名」を後端統一可験証凭证にする。</p></div>
+    <div class="card"><div class="corner">NFT / 链上</div><h3>phygital 承接（三期可選）</h3><p class="dim" style="font-size:12px">成熟做法：<b>Azuki PBT</b>(ERC-721上 scan-to-own、BEAN Chip 自認証)、<b>IYK</b>(NXP NTAG 424 DNA・tap-to-claim、a16z $1,700万)、<b>Arianee</b>(DPP=链上NFT)。链：消費級は Solana/Polygon、高価値は ETH 主网。<sup class="ref">26b</sup><br><b>UX 障壁</b>：助記詞は非托管の壁 → <b class="hl">ERC-4337 アカウント抽象</b>(メール/passkey 登录・gasless mint)で解消。<sup class="ref">32</sup> 日本「純NFT」は §法令の FSA 2基準で暗号資産規制を回避。</p></div>
+  </div>
+
+  <!-- steel cement stone -->
+  <h3 style="margin-top:22px">三分類（石頭・鋼筋・水泥）への写像 — 質量精力は放大半径で配分</h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>層</th><th>分類</th><th>理由</th><th>工藝</th></tr></thead>
+    <tbody>
+      <tr><td>② 験真/解析（CMAC验签・Resolver・ID方案）</td><td><span class="tag t-stone">石頭</span></td><td>業務無関・純密码学/標識・跨項目復用・放大半径=全栈</td><td>単元+fuzz+audit</td></tr>
+      <tr><td>③ 绑定・⑤ RitualEngine 端口・神社領域模型</td><td><span class="tag t-steel">鋼筋</span></td><td>「御守/神社/儀式」領域感知だが具体業務流に绑死しない</td><td>純逻辑単元+集成</td></tr>
+      <tr><td>④ LINE具体UI・⑤ 具体占い文案・各神社onboarding・landing</td><td><span class="tag t-cement">水泥</span></td><td>具体業務流/页面/神社に強耦合・用過即丢</td><td>業務測試+e2e</td></tr>
+    </tbody>
+    <caption>施工順序：①石頭を孵す(験真層を fuzz/audit 級へ) → ②鋼筋を強く(端口抽象を安定・消冗余) → ③石頭鋼筋を polish → ④最後に e2e で水泥。</caption>
+  </table></div>
+</section>
+
+<!-- ============ 05B ENGINE & AI ============ -->
+<section id="engine" class="reveal" style="background:linear-gradient(180deg,rgba(165,31,26,.05),transparent 26%)">
+  <div class="vrail">占 い 基 盤</div>
+  <div class="sec-head">
+    <div class="hanko" style="border-color:var(--kin)"><span style="color:var(--kin)">占術</span></div>
+    <div class="sec-titles"><div class="sec-no" style="color:var(--shu)">巻 05B / DIVINATION ENGINE &amp; AI</div><h2>占い基盤と AI 応用</h2><div class="en">CAST ⟶ INTERPRET ⟶ EXPRESS · LLM AS THE MOUTH, NOT THE ORACLE</div></div>
+    <div class="sec-lead">鉄則：<b>「算」と「言」の分離</b>。決定的な立盤が「占いそのもの」(再現可/検証可)、知識库が「釈義」、LLM は「言語化＋個性化」のみ。LLM に推算させる＝那吉式の乱数バーナム話術。</div>
+  </div>
+
+  <div class="callout">
+    <div class="ttl">⚑ 那吉の根本的アーキ誤り（反面教材）</div>
+    <p class="dim" style="font-size:12.5px">那吉「生辰入力→<b style="color:var(--shu)">乱数シード→大模型が直接文案生成</b>」：① 真の立盤なし(再現不可、同生辰でも乱数で揺れる) ② 知識库なし(内容＝大模型の捏造バーナム話術) ③ 記憶/個性化なし。結果は「娯楽用」の空殻。<br><b style="color:#7fc28a">正解</b>：決定的エンジンで真盤を立てる(同生辰は常に同盤)→ 構造化知識库で釈義(出典追跡可)→ LLM は構造化釈義を自然言語化し用户语境で個性化するのみ。<b>LLM は推算に触れない。</b></p>
+  </div>
+
+  <h3>占い基盤｜三段分層（算 → 釈 → 言）</h3>
+  <div class="arch">
+    <div class="lyr"><div class="ix"><div class="n">A</div><div class="v">立盤</div></div>
+      <div class="bd"><div class="top"><span class="nm">立盤 / 起局層</span><span class="en">Casting Layer — 決定的</span><span class="tag t-stone">石頭</span></div>
+        <div class="role">生辰/抽签/方位 → 命盤/牌陣/签号。<b>純計算・決定的・再現可・単元測試+fuzz・跨項目復用。</b>命門＝天文暦法精度。</div>
+        <div class="port">CastingEngine.cast(input) → Chart（「意味」を含まず、構造化盤面のみ）</div>
+        <p class="note" style="margin-top:8px"><b style="color:var(--shu)">精度命門</b>：四柱推命は旧暦変換·二十四節気·<b>真太陽時</b>·時区/経度補正；占星は天文星暦(ephemeris)。節気を誤れば全盤誤り＝石頭層 bug が全栈放大、既存権威立盤との対拍/audit 必須。</p>
+      </div></div>
+    <div class="arrow">▼</div>
+    <div class="lyr"><div class="ix"><div class="n">B</div><div class="v">釈義</div></div>
+      <div class="bd"><div class="top"><span class="nm">釈義 / 知識層</span><span class="en">Interpretation Layer — 知識库+規則</span><span class="tag t-steel">鋼筋</span></div>
+        <div class="role">盤面を意味へ写像：十神含意·五行生克·宮位組合·星座相位·签文吉凶。<b>構造化知識库 + 規則エンジン</b>、出典参照付き釈義片段を出力。</div>
+        <div class="port">InterpretationEngine.interpret(Chart, domain) → Interpretation[]（各片段に sourceRef）</div>
+      </div></div>
+    <div class="arrow">▼</div>
+    <div class="lyr"><div class="ix"><div class="n">C</div><div class="v">表現</div></div>
+      <div class="bd"><div class="top"><span class="nm">表現 / 生成層</span><span class="en">Expression Layer — LLM</span><span class="tag t-cement">水泥(文案)</span><span class="tag t-cross">+AI 編排</span></div>
+        <div class="role">構造化釈義を自然言語化・用户语境で個性化・口吻制御。<b>LLM の主戦場、但し表現のみで推算せず。</b></div>
+        <div class="port">ExpressionEngine.render(Interpretation[], UserAstroProfile, memory) → Reading</div>
+      </div></div>
+    <div class="spine" style="margin-top:14px">
+      <div class="key">⟡ データモデル</div>
+      <div><code>Chart { system, pillars/houses/cards, elements, casterVersion, deterministic:true }</code><br>
+      <code style="margin-top:4px;display:inline-block">Interpretation { topic, verdict, sourceRef }</code> &nbsp; <code>UserAstroProfile { birth, focusAreas, history[] }</code> &nbsp; <code>Reading { text, citations[], recommendations[] }</code></div>
+    </div>
+  </div>
+
+  <h3 style="margin-top:22px">各占術/風水体系 × 立盤要素（可換 Adapter として統一三段式へ収斂）</h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>体系</th><th>立盤入力</th><th>決定的出力(Chart)</th><th>暦法/精度依存</th><th>立盤層分類</th></tr></thead>
+    <tbody>
+      <tr class="rec"><td>四柱推命（日式·≠中式八字）</td><td>生年月日時＋出生地</td><td>四柱干支·五行旺衰·十神·大運流年</td><td>旧暦·二十四節気·<b>真太陽時</b>·時区<sup class="ref">18</sup></td><td><span class="tag t-stone">石頭</span></td></tr>
+      <tr><td>紫微斗数</td><td>同上</td><td>命盤十二宮·主星輔星·四化</td><td>旧暦·時辰</td><td><span class="tag t-stone">石頭</span></td></tr>
+      <tr class="rec"><td>御神籤 おみくじ</td><td>抽签動作</td><td>签番号→签文(大吉…凶)·和歌</td><td>監査可能な乱数シード(seed 保存で再検証)</td><td><span class="tag t-steel">鋼筋(签文库)</span></td></tr>
+      <tr><td>タロット</td><td>抽牌＋牌陣</td><td>牌面·正逆位·位置義</td><td>監査可能な乱数シード</td><td><span class="tag t-steel">鋼筋</span></td></tr>
+      <tr><td>西洋占星</td><td>生年月日時＋地点</td><td>星盤·宮位·惑星相位</td><td>天文星暦 ephemeris(高精度)</td><td><span class="tag t-stone">石頭</span></td></tr>
+      <tr><td>風水（飛星/方位）</td><td>方位·建物·生辰</td><td>飛星盤·方位吉凶·三元九運</td><td>羅盤方位·節気換運</td><td><span class="tag t-steel">鋼筋</span></td></tr>
+    </tbody>
+    <caption>各体系＝1つの CastingEngine + InterpretationEngine adapter、但し全て「算→釈→言」同一三段式と RitualEngine 端口へ収斂。乱数系(签/タロット)は<b>監査可能な乱数シード</b>(保存で再検証)を使い黒箱乱数を使わない —— これが那吉との分界。</caption>
+  </table></div>
+
+  <h3 style="margin-top:24px">AI 応用スタック｜LLM = 口と編排、神託にあらず</h3>
+  <div class="flowstrip">
+    <div class="fs"><b>① 立盤</b><br><span>決定的エンジンで真盤(同生辰同盤)</span></div>
+    <div class="fs"><b>② RAG 検索</b><br><span>占術典籍/釈義知識库、片段引用·出典追跡·幻覚低減</span></div>
+    <div class="fs"><b>③ LLM 生成</b><br><span>釈義を言語化＋用户档案/記憶で個性化</span></div>
+    <div class="fs"><b>④ 自己検査</b><br><span>整合性検証：生成が盤/知識と矛盾しないこと</span></div>
+    <div class="fs"><b>⑤ 推薦/転介</b><br><span>御守款/参拝/真人祈願へ(脅し型でない)</span></div>
+    <div class="fs" style="background:rgba(201,162,74,.1)"><b>↩ 記憶</b><br><span>UserAstroProfile + ベクトル库へ書戻し、関係を継続</span></div>
+  </div>
+
+  <div class="grid g3" style="margin-top:16px">
+    <div class="card"><div class="corner">RAG</div><h4>検索拡張 RAG</h4><p class="dim" style="font-size:12px">占術典籍/釈義知識库をベクトル化、LLM は<b>片段を引用し捏造しない</b>。三益：幻覚低減·出典追跡(Reading.citations)·文体一貫。知識库は<b class="hl">鋼筋資産</b>、体系/流派/神社で交換可。</p></div>
+    <div class="card"><div class="corner">PROMPT</div><h4>Prompt 構成</h4><p class="dim" style="font-size:12px"><b>system</b>(人設/口吻/境界：医療·法律·投資断言せず) ＋ <b>context</b>(立盤+知識片段+用户档案+記憶) ＋ <b>guardrails</b>(脅し禁·絶対予言禁)。立盤結果は構造化 JSON で注入、<b>LLM は盤面数値を書換えない</b>。</p></div>
+    <div class="card"><div class="corner">MEMORY</div><h4>個性化 & 記憶</h4><p class="dim" style="font-size:12px">UserAstroProfile 永続化 + ベクトル库に履歴 → <b>跨会話の継続関係</b>(Co-Star の長期伴走、Tamagotchi の養成留存に対標)。那吉の<b style="color:var(--shu)">無記憶</b>致命缺口を埋める。</p></div>
+    <div class="card"><div class="corner">ANTI-BARNUM</div><h4>反バーナム</h4><p class="dim" style="font-size:12px"><b>真の立盤差異で内容差異を駆動</b>、乱数でなく。同一用户同日は<b>安定</b>(決定的)、別用户は<b>真に異なる</b>(盤が違う)。再現性が信頼と復購の底層。</p></div>
+    <div class="card"><div class="corner">AGENTIC</div><h4>Agentic 多段 & 自己検査</h4><p class="dim" style="font-size:12px">立盤→検索→生成→<b>自己検査(整合性検証：生成が盤と矛盾せぬこと)</b>→推薦。自己検査は LLM 幻覚を用户の前で止める要の閘。多段は tool-calling agent で編排可。</p></div>
+    <div class="card"><div class="corner">MULTIMODAL</div><h4>マルチモーダル</h4><p class="dim" style="font-size:12px">手相/人相(画像認識、要合規+「娯楽用」)、<b>音声解読 TTS</b>(こまいぬAI神社の AI 音声に対標<sup class="ref">9b</sup>)、御守ビジュアル/数字護符生成。画像系は精度主張をとりわけ抑制。</p></div>
+    <div class="card"><div class="corner">HUMAN-IN-LOOP</div><h4>真人神職協働</h4><p class="dim" style="font-size:12px">AI が初稿/初步解読、<b>真人神職が審査し高客单祈願を主持</b>(human-in-the-loop)＝信頼底座 + 合規 + 高単価。AI は神職の効率も補助。日本 Z 世代の「可信度/真人志向」に対標<sup class="ref">14</sup>。</p></div>
+    <div class="card"><div class="corner">MODEL</div><h4>モデル選定</h4><p class="dim" style="font-size:12px">日本語強モデル(Claude / GPT / 国産 ELYZA·Swallow)。四柱推命等の日式知識は <b>RAG/微調</b>で補完(汎用モデルは日式占術に薄い)。コスト参考：那吉は国内大模型 API ~¥1/回<sup class="ref">1</sup>、毛利空間大。</p></div>
+    <div class="card" style="border-color:rgba(216,57,46,.4)"><div class="corner">AI 合規</div><h4>AI レッドライン（重点）</h4><p class="dim" style="font-size:12px"><b style="color:var(--shu)">霊感商法 高圧線</b>：特商法/消費者契約法が「占いで脅して高額品を売る」を厳管(2022 後強化)。AI は<b>脅し型アップセル禁止</b>(「この御守を買わねば災い」)。＋絶対予言/医療/法律断言せず·「娯楽用」明示·AI 生成の「神託/签文」は AI と明示·神社祈願は真人で AI に冒涜させぬ。<sup class="ref">10</sup></p></div>
+  </div>
+
+  <p class="note">アーキ落点：<b>CastingEngine / InterpretationEngine は石頭·鋼筋</b>(精度命門、大量の audit/対拍)；<b>ExpressionEngine(LLM) は水泥+AI 編排</b>(文案は易変·モデル交換可)。ゆえに「占術体系を換える」「LLM を換える」「マルチモーダルを足す」は全て Adapter 交換、巻 05 の RitualEngine 端口と一致 —— AI 自体も「可換の一環」。</p>
+</section>
+
+<!-- ============ 06 DECISIONS ============ -->
+<section id="decisions" class="reveal">
+  <div class="vrail">決 定 事 項</div>
+  <div class="sec-head">
+    <div class="hanko"><span>決定</span></div>
+    <div class="sec-titles"><div class="sec-no">巻 06 / DECISIONS</div><h2>已定方向と演進</h2><div class="en">LOCKED · 2026-06</div></div>
+    <div class="sec-lead">各層が Adapter なので、三期演進は<b>書き直しではなく插件の换/加</b>。それが「環節可換」の実利。</div>
+  </div>
+
+  <div class="grid g4" style="margin-bottom:20px">
+    <div class="card"><div class="corner">承接</div><h4>承接層</h4><p class="dim" style="font-size:12px"><b class="hl">LINE MINI App 主 + PWA 兜底</b><br>LINEHost 既定、PWAHost 降级。入口環境探測必須。</p></div>
+    <div class="card"><div class="corner">商業</div><h4>商業模式</h4><p class="dim" style="font-size:12px"><b class="hl">D2C 起步 → 案例驱动 B2B2C</b>（混合）<br>⑦ 合規は双模式、B2B2C で ShrineAuthorization を多租户化。</p></div>
+    <div class="card"><div class="corner">内容</div><h4>内容主調</h4><p class="dim" style="font-size:12px"><b class="hl">神聖体験＝信頼底座 + 命理養成＝増長</b>（並存）<br>御神籤/真人神職 と 四柱推命/養成 を熱插拔。</p></div>
+    <div class="card"><div class="corner">NFT</div><h4>NFT/链上</h4><p class="dim" style="font-size:12px"><b class="hl">三期 可選插件</b><br>一期は NFTVerifier/WalletAuth を砍、端口予留。</p></div>
+  </div>
+
+  <div class="tl">
+    <div class="ph"><div class="ribbon">一期 PHASE 1</div><h5>D2C｜内容閉環の検証</h5><ul>
+      <li>NTAG215 + QR 兜底</li><li>LINE MINI App → LINELogin 绑定</li><li>おみくじ + 日式四柱推命(LLM)</li><li>PayPay 決済</li><li class="faint">不上 NFT・不上 424・不接真人神職</li>
+      <li style="color:var(--kin-bright)">検証：実体引流→绑定留存→付费</li>
+    </ul></div>
+    <div class="ph"><div class="ribbon">二期 PHASE 2</div><h5>護城河 + 信頼 + B2B2C</h5><ul>
+      <li>NTAG 424 DNA 強防伪へ換装</li><li>守護養成（対標 Tamagotchi）</li><li>RealPriestEngine 真人在线祈願（高客单+信頼底座）</li><li>ShrineAuthorization 多租户化</li><li style="color:var(--kin-bright)">一期案例で実神社を BD</li>
+    </ul></div>
+    <div class="ph"><div class="ribbon">三期 PHASE 3</div><h5>高端線（可選）</h5><ul>
+      <li>physical-backed NFT 収藏款</li><li>NFTVerifier / WalletAuth を插件後接</li><li>FSA 2基準で純NFT 合規</li><li>ERC-4337 メール登录で助記詞回避</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- ============ SOURCES ============ -->
+<section id="sources" class="reveal">
+  <div class="vrail">出 典 一 覧</div>
+  <div class="sec-head">
+    <div class="hanko"><span>出典</span></div>
+    <div class="sec-titles"><div class="sec-no">巻 07 / SOURCES</div><h2>出典・脚注</h2><div class="en">BIBLIOGRAPHY — VERIFIED, WITH HONEST GAPS</div></div>
+    <div class="sec-lead">全データは可能な限り一次/交差検証。価格は各社が自定の示例値。「未找到」は未調査でなく真の空白を意味する。</div>
+  </div>
+  <div class="sources">
+    <div class="src"><span class="id">1</span>那吉=山鬼花钱 NFC手机支架 実測（36氪）<a href="https://eu.36kr.com/en/p/3766617277018628">eu.36kr.com/en/p/3766617277018628</a></div>
+    <div class="src"><span class="id">2</span>微信 NFC调起小程序（公式）<a href="https://developers.weixin.qq.com/miniprogram/dev/framework/open-ability/NFC.html">developers.weixin.qq.com…/NFC.html</a></div>
+    <div class="src"><span class="id">3</span>Skylanders 暴跌（Nintendo Life / VGChartz）<a href="https://www.nintendolife.com/news/2017/07/activision_ceo_on_the_state_of_the_skylanders_series_and_toys-to-life">nintendolife.com…toys-to-life</a></div>
+    <div class="src"><span class="id">4</span>Co-Star 融資/用户・占星アプリ市場<a href="https://pitchbook.com/profiles/company/264357-82">pitchbook.com…264357-82</a> / <a href="https://finance.yahoo.com/news/global-astrology-app-market-triple-103800115.html">yahoo finance</a></div>
+    <div class="src"><span class="id">5</span>初穂料/授与品（北野天満宮）<a href="https://kitanotenmangu.or.jp/amulet/">kitanotenmangu.or.jp/amulet</a></div>
+    <div class="src"><span class="id">6</span>中国命理変現套路 / 測測投資（PingWest 等）<a href="https://www.pingwest.com/a/237378">pingwest.com/a/237378</a></div>
+    <div class="src"><span class="id">7</span>神社数/初詣/御守原価（note 試算）<a href="https://note.com/ote_walk/n/n1dd9752d7fea">note.com/ote_walk…</a></div>
+    <div class="src"><span class="id">7b</span>厄年（神社本庁）<a href="https://www.jinjahoncho.or.jp/omairi/yakubarai/">jinjahoncho.or.jp…/yakubarai</a></div>
+    <div class="src"><span class="id">8</span>検見川神社 お守りNFT（マイナビ）<a href="https://news.mynavi.jp/article/20220805-2417328/">news.mynavi.jp…20220805-2417328</a></div>
+    <div class="src"><span class="id">8b</span>女子道社 おみくじ占有（madeinlocal）<a href="https://madeinlocal.jp/area/yamaguchi/knowledge/021">madeinlocal.jp…/021</a></div>
+    <div class="src"><span class="id">8c</span>京都奉製（御守袋）<a href="https://www.omamori.co.jp/company/about/">omamori.co.jp/company/about</a> / 秋江 <a href="https://akie-net.com/company/">akie-net.com</a></div>
+    <div class="src"><span class="id">9</span>御朱印スタンプラリー化への神職反発（J-CAST）<a href="https://www.j-cast.com/2019/05/18357327.html">j-cast.com/2019/05/18357327</a></div>
+    <div class="src"><span class="id">9b</span>こまいぬAI神社（PRTIMES）<a href="https://prtimes.jp/main/html/rd/p/000000020.000091800.html">prtimes.jp…000091800</a></div>
+    <div class="src"><span class="id">9c</span>スマート御朱印<a href="https://smart-gosyuin.jp/">smart-gosyuin.jp</a></div>
+    <div class="src"><span class="id">9d</span>紅葉八幡宮 公式アプリ<a href="https://momijihachimangu.or.jp/apri/">momijihachimangu.or.jp/apri</a></div>
+    <div class="src"><span class="id">9e</span>転売と御魂抜き（itmedia）<a href="https://nlab.itmedia.co.jp/cont/articles/3324061/">nlab.itmedia.co.jp…/3324061</a></div>
+    <div class="src"><span class="id">9f</span>収益事業課税（豊島税理士）<a href="https://www.toyoshima-tax.jp/corporate6">toyoshima-tax.jp/corporate6</a></div>
+    <div class="src"><span class="id">10</span>APPI 要配慮個人情報（個人情報保護委員会 FAQ）<a href="https://www.ppc.go.jp/all_faq_index/faq1-q11-5/">ppc.go.jp…faq1-q11-5</a> / <a href="https://corporate.vbest.jp/columns/2962/">vbest 解説</a></div>
+    <div class="src"><span class="id">11</span>神社収入構成（mainichi doda / itmedia）<a href="https://mainichi.doda.jp/article/2019/01/26/1108.html">mainichi.doda.jp…1108</a></div>
+    <div class="src"><span class="id">12</span>占卜市場 ¥997億 '23（矢野経済）<a href="https://www.yano.co.jp/press-release/show/press_id/3662">yano.co.jp…press_id/3662</a></div>
+    <div class="src"><span class="id">13</span>占卜客群（J-Net21）<a href="https://j-net21.smrj.go.jp/startup/research/service/cons-fortuneteller.html">j-net21…cons-fortuneteller</a></div>
+    <div class="src"><span class="id">14</span>Z世代占卜行動（lismi 調査）<a href="https://lismi.jp/articles/survey-fortune-telling-intergenerational-comparison-1/">lismi.jp…comparison-1</a></div>
+    <div class="src"><span class="id">16</span>御朱印人口 ~2,000万（hotokami）<a href="https://note.com/hotokami/n/n827b0c94a0d0">note.com/hotokami…</a></div>
+    <div class="src"><span class="id">17</span>日本占卜支払習慣（moneypost）<a href="https://www.moneypost.jp/510306">moneypost.jp/510306</a></div>
+    <div class="src"><span class="id">18</span>四柱推命≠中式八字（senjutsu）<a href="https://www.senjutsu.jp/archives/2016/3306">senjutsu.jp…/3306</a></div>
+    <div class="src"><span class="id">19</span>LINE MAU破亿/MINI App 月活（LYコーポレート）<a href="https://www.lycorp.co.jp/ja/news/release/020058/">lycorp.co.jp…020058</a></div>
+    <div class="src"><span class="id">20</span>LINE userId 稳定性（LINE Developers）<a href="https://developers.line.biz/en/docs/messaging-api/getting-user-ids/">developers.line.biz…getting-user-ids</a></div>
+    <div class="src"><span class="id">21</span>LIFF opening / 環境非保証（LINE Developers）<a href="https://developers.line.biz/en/docs/liff/opening-liff-app/">developers.line.biz…opening-liff-app</a></div>
+    <div class="src"><span class="id">22</span>LINE Pay 日本 全停服 2025-04-30（LY公式 008632）<a href="https://www.lycorp.co.jp/en/news/release/008632/">lycorp.co.jp/en…008632</a></div>
+    <div class="src"><span class="id">23</span>NTAG213/215/216（NXP公式）<a href="https://www.nxp.com/products/NTAG213_215_216">nxp.com/products/NTAG213_215_216</a></div>
+    <div class="src"><span class="id">24</span>NTAG 424 DNA AN12196 / SUN・CMAC（NXP）<a href="https://www.nxp.com/docs/en/application-note/AN12196.pdf">nxp.com…AN12196.pdf</a> / 単価 <a href="https://store.gototags.com/nfc-tags/nfc-tags-by-use/nxp-ntag-424-dna-nfc-tags/">gototags</a></div>
+    <div class="src"><span class="id">24b</span>UHF RFID 単価/手机不可読（RFID Journal / CPCON）<a href="https://www.rfidjournal.com/faq/how-much-does-an-rfid-tag-cost-today/38666/">rfidjournal.com…38666</a></div>
+    <div class="src"><span class="id">25</span>iOS NFC背景読取（Seritag）<a href="https://seritag.com/news/apple-adds-iphone-background-nfc-tag-reading-in-core-nfc">seritag.com…core-nfc</a></div>
+    <div class="src"><span class="id">26</span>日本「純NFT」FSA基準（So &amp; Sato / innovationlaw）<a href="https://innovationlaw.jp/en/crypto-regulations-in-japan-2024/">innovationlaw.jp…2024</a></div>
+    <div class="src"><span class="id">26b</span>Azuki PBT / IYK / Arianee（cointelegraph / blockworks / arianee）<a href="https://medium.com/kong-land-embassy/the-physical-backed-token-standard-1c8f853597b">PBT標準</a> / <a href="https://blockworks.co/news/a16z-funding-iyk">IYK a16z</a></div>
+    <div class="src"><span class="id">27</span>NTAG424 服務端検証 開源（sdm-backend 等）<a href="https://github.com/nfc-developer/sdm-backend">github.com/nfc-developer/sdm-backend</a></div>
+    <div class="src"><span class="id">28</span>GS1 Digital Link（載体無関）<a href="https://www.gs1.org/standards/gs1-digital-link">gs1.org…gs1-digital-link</a></div>
+    <div class="src"><span class="id">29</span>W3C DID 1.0<a href="https://www.w3.org/TR/did-1.0/">w3.org/TR/did-1.0</a></div>
+    <div class="src"><span class="id">30</span>W3C UORA（物理対象↔数字身分）<a href="https://www.w3.org/community/uora/">w3.org/community/uora</a></div>
+    <div class="src"><span class="id">31</span>EU Digital Product Passport<a href="https://en.wikipedia.org/wiki/EU_Digital_Product_Passport">en.wikipedia.org…EU_DPP</a></div>
+    <div class="src"><span class="id">32</span>ERC-4337 アカウント抽象（Crossmint）<a href="https://blog.crossmint.com/account-abstraction-erc-4337-wallets/">blog.crossmint.com…erc-4337</a></div>
+  </div>
+</section>
+
+<footer>
+  <div class="foot-grid">
+    <div><div class="big"><b>御守</b> OMAMORI</div><div class="faint mono" style="font-size:11px;margin-top:6px">PLUGGABLE PHYGITAL IDENTITY × SHRINE COMMERCE</div></div>
+    <div class="disc">本ドシエは内部設計資料。データは 2026-06 時点の調査に基づき、可能な限り一次出典で交差検証。価格は全国統一でなく各社示例値。「未找到」項（那吉企業主体・授与品全国市場規模・神社本厅の数字化成文立場 等）は真の空白で、編造していない。素材原典：<span class="mono">docs/00-background-research.md · docs/01-architecture.md</span></div>
+  </div>
+</footer>
+
+</div>
+
+<script>
+// scroll reveal
+const io=new IntersectionObserver((es)=>{es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}})},{threshold:.08});
+document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+// nav active state
+const secs=[...document.querySelectorAll('section[id]')];
+const links=[...document.querySelectorAll('.topbar nav a')];
+const navIo=new IntersectionObserver((es)=>{es.forEach(e=>{if(e.isIntersecting){const id=e.target.id;links.forEach(l=>l.classList.toggle('on',l.getAttribute('href')==='#'+id))}})},{rootMargin:'-30% 0px -60% 0px'});
+secs.forEach(s=>navIo.observe(s));
+</script>
+</body>
+</html>

@@ -1,0 +1,62 @@
+[workspace]
+resolver = "2"
+members = ["unmei-domain", "unmei-wx", "unmei-carrier", "unmei-api", "unmei-admin-api"]
+
+[workspace.package]
+version = "0.2.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+# async runtime / web
+tokio = { version = "1", features = ["full"] }
+axum = { version = "0.7", features = ["json", "macros", "tokio"] }
+tower = "0.5"
+tower-http = { version = "0.5", features = ["cors", "trace", "fs"] }
+
+# serde
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# db · postgres + jsonb
+sqlx = { version = "0.8", features = [
+    "runtime-tokio-rustls", "postgres",
+    "chrono", "uuid", "json", "migrate",
+] }
+
+# cache · kevy-embedded(in-process Redis-compatible KV,zero deps)
+# 从 crates.io 拉发布版本(本地开发 hack 时切回 path 即可)
+kevy-embedded = "1.4.20"
+
+# 时间 / id
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+
+# error / log
+anyhow = "1"
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# HTTP 客户端(调 mingli-api 算力 + 微信 API)
+reqwest = { version = "0.12", default-features = false, features = [
+    "json", "rustls-tls", "gzip",
+] }
+
+# 安全 / 签名(JWT / argon2 / WX-pay v3 RSA + AES-GCM)
+jsonwebtoken = "9"
+argon2 = "0.5"
+rand = "0.8"
+sha2 = "0.10"
+hmac = "0.12"
+base64 = "0.22"
+aes-gcm = "0.10"
+rsa = { version = "0.9", features = ["sha2"] }
+
+# 内存缓存
+moka = { version = "0.12", features = ["future"] }
+
+# 内部 crate
+unmei-domain  = { path = "unmei-domain" }
+unmei-wx      = { path = "unmei-wx" }
+unmei-carrier = { path = "unmei-carrier" }

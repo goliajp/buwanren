@@ -1,0 +1,1828 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>unmei · 命運 — Design Source v0.1</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500;600;700;900&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
+  <style>
+    :root {
+      /* === 纸墨基底 === */
+      --paper:        #f4f1ea;
+      --paper-warm:   #ede9df;
+      --paper-cool:   #ecebe5;
+      --ink:          #0a0a0a;
+      --ink-2:        #222020;
+      --ink-3:        #4a4744;
+      --ink-4:        #7d7975;
+      --ink-5:        #aba69d;
+      --hairline:     #d9d4c8;
+      --hairline-2:   #c5bfae;
+      --hairline-3:  #b0a99b;
+
+      /* === 五行(克制点缀,非铺色) === */
+      --mu:   #6b8e4e;  /* 木 */
+      --huo:  #c44a3a;  /* 火 */
+      --tu:   #c89968;  /* 土 */
+      --jin:  #8a8580;  /* 金 — 比传统灰更暖 */
+      --shui: #3f6480;  /* 水 */
+
+      /* === 吉凶 5 等级(层次而非红绿) === */
+      --daji:    #3d5230;
+      --ji:      #6b8e4e;
+      --ping:    #8a8580;
+      --xiong:   #b56b58;
+      --daxiong: #823428;
+
+      /* === 字体 === */
+      --serif: "Noto Serif SC", "Songti SC", "EB Garamond", Georgia, serif;
+      --sans:  "Inter", "PingFang SC", -apple-system, "Helvetica Neue", sans-serif;
+      --mono:  "JetBrains Mono", "SF Mono", Menlo, monospace;
+
+      /* === 间距 === */
+      --s1: 4px;  --s2: 8px;  --s3: 12px;  --s4: 16px;
+      --s5: 20px; --s6: 24px; --s7: 32px;  --s8: 48px;
+      --s9: 64px; --s10: 96px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+    body {
+      font-family: var(--sans);
+      background:
+        radial-gradient(ellipse 80% 60% at 50% 0%, var(--paper-warm) 0%, transparent 50%),
+        radial-gradient(ellipse 60% 80% at 100% 100%, var(--paper-cool) 0%, transparent 60%),
+        var(--paper);
+      color: var(--ink);
+      line-height: 1.5;
+      font-size: 14px;
+      letter-spacing: 0.01em;
+      padding: 56px 48px 96px;
+      min-height: 100vh;
+    }
+
+    /* ────────────────────────────────────────────────────────────────────────
+       BRAND BAR
+    ──────────────────────────────────────────────────────────────────────── */
+    .brand {
+      max-width: 1680px; margin: 0 auto;
+      display: flex; justify-content: space-between; align-items: flex-end;
+      padding-bottom: var(--s7); border-bottom: 1px solid var(--hairline);
+      margin-bottom: var(--s8);
+    }
+    .brand-l { display: flex; align-items: baseline; gap: var(--s5); }
+    .brand-mark {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: 56px;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+      line-height: 1;
+    }
+    .brand-mark em { font-style: italic; font-family: "EB Garamond", serif; color: var(--ink-3); margin-left: -8px; }
+    .brand-tag {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ink-4);
+      padding-bottom: 8px;
+    }
+    .brand-tag .pip { display: inline-block; width: 6px; height: 6px; border-radius: 999px; background: var(--mu); margin-right: 6px; vertical-align: middle; }
+    .brand-r { text-align: right; }
+    .brand-meta {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--ink-4);
+      letter-spacing: 0.05em;
+    }
+    .brand-meta div { margin-bottom: 2px; }
+    .brand-meta b { color: var(--ink-2); font-weight: 600; }
+
+    /* ────────────────────────────────────────────────────────────────────────
+       DESIGN TOKENS PANEL
+    ──────────────────────────────────────────────────────────────────────── */
+    .tokens {
+      max-width: 1680px; margin: 0 auto var(--s8);
+      display: grid;
+      grid-template-columns: 1.4fr 1fr 1fr 0.9fr;
+      gap: var(--s6);
+    }
+    .tk {
+      border: 1px solid var(--hairline);
+      background: rgba(255,255,255,0.35);
+      backdrop-filter: blur(8px);
+      padding: var(--s5) var(--s6);
+      position: relative;
+    }
+    .tk-h {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--ink-4);
+      margin-bottom: var(--s4);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .tk-h span:last-child { color: var(--ink-5); }
+
+    .tk-pal { display: flex; flex-direction: column; gap: 10px; }
+    .tk-pal-row { display: flex; align-items: center; gap: var(--s3); }
+    .tk-sw { width: 22px; height: 22px; border-radius: 6px; flex-shrink: 0; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08); }
+    .tk-pal-name { font-family: var(--mono); font-size: 11px; color: var(--ink-2); }
+    .tk-pal-hex { font-family: var(--mono); font-size: 10.5px; color: var(--ink-4); margin-left: auto; }
+
+    .tk-type-row { display: flex; align-items: baseline; gap: var(--s4); padding: 5px 0; border-top: 1px dashed var(--hairline); }
+    .tk-type-row:first-of-type { border-top: 0; padding-top: 0; }
+    .tk-type-key { font-family: var(--mono); font-size: 10px; color: var(--ink-4); min-width: 28px; }
+    .tk-type-sample { color: var(--ink); }
+    .tk-type-meta { margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--ink-5); }
+
+    .tk-grid { display: flex; flex-direction: column; gap: 8px; font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+    .tk-grid div { display: flex; justify-content: space-between; }
+    .tk-grid b { color: var(--ink); font-weight: 600; }
+
+    /* ────────────────────────────────────────────────────────────────────────
+       SCREENS GRID
+    ──────────────────────────────────────────────────────────────────────── */
+    .screens {
+      max-width: 1680px; margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 56px 32px;
+    }
+    @media (max-width: 1680px) { .screens { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 1280px) { .screens { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 760px)  { .screens { grid-template-columns: 1fr; } }
+
+    .screen-block { display: flex; flex-direction: column; }
+    .screen-head {
+      margin-bottom: 18px;
+      padding-left: 4px;
+    }
+    .screen-i {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      color: var(--ink-5);
+      margin-bottom: 6px;
+    }
+    .screen-t {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 19px;
+      line-height: 1.2;
+      letter-spacing: -0.005em;
+      color: var(--ink);
+      margin-bottom: 4px;
+    }
+    .screen-n {
+      font-size: 11.5px;
+      color: var(--ink-4);
+      line-height: 1.45;
+    }
+    .screen-n code {
+      font-family: var(--mono);
+      font-size: 10.5px;
+      color: var(--ink-3);
+      background: rgba(0,0,0,0.04);
+      padding: 1px 5px;
+      border-radius: 3px;
+    }
+
+    /* ────────────────────────────────────────────────────────────────────────
+       iPHONE FRAME — 390×844, with dynamic island, home indicator
+    ──────────────────────────────────────────────────────────────────────── */
+    .phone {
+      width: 100%;
+      max-width: 380px;
+      aspect-ratio: 390/844;
+      background: #0a0a0a;
+      border-radius: 52px;
+      padding: 11px;
+      box-shadow:
+        0 1px 1px rgba(255,255,255,0.4) inset,
+        0 2px 28px rgba(20,18,12,0.18),
+        0 16px 56px -32px rgba(40,32,18,0.25);
+      position: relative;
+    }
+    .phone::before {
+      /* outer hairline frame */
+      content: ''; position: absolute; inset: 2px; border-radius: 50px;
+      border: 0.5px solid rgba(255,255,255,0.06);
+      pointer-events: none;
+    }
+    .phone-screen {
+      width: 100%; height: 100%;
+      background: var(--paper);
+      border-radius: 41px;
+      overflow: hidden;
+      position: relative;
+      isolation: isolate;
+    }
+
+    /* Dynamic island */
+    .island {
+      position: absolute; top: 11px; left: 50%; transform: translateX(-50%);
+      width: 100px; height: 30px;
+      background: #050505;
+      border-radius: 17px;
+      z-index: 30;
+    }
+
+    /* iOS status bar (time + signal) */
+    .status {
+      position: relative; z-index: 20;
+      display: flex; justify-content: space-between; align-items: center;
+      height: 50px;
+      padding: 0 28px;
+      font-family: var(--sans);
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--ink);
+      letter-spacing: 0.01em;
+    }
+    .status-r { display: flex; align-items: center; gap: 6px; opacity: 0.9; }
+    .status-r svg { display: block; }
+
+    /* Home indicator */
+    .home-bar {
+      position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+      width: 130px; height: 5px; border-radius: 999px;
+      background: var(--ink);
+      opacity: 0.85;
+      z-index: 20;
+    }
+
+    .screen-inner {
+      position: absolute; inset: 50px 0 28px 0;
+      overflow: hidden;
+      padding: 0 22px;
+      display: flex; flex-direction: column;
+    }
+
+    /* ────────────────────────────────────────────────────────────────────────
+       SHARED ATOMS — used in screens
+    ──────────────────────────────────────────────────────────────────────── */
+    .nav-back {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-family: var(--mono); font-size: 11px;
+      color: var(--ink-4);
+      padding: 4px 0;
+    }
+    .nav-back svg { stroke: var(--ink-4); }
+    .h1 { font-family: var(--serif); font-weight: 500; font-size: 26px; line-height: 1.15; letter-spacing: -0.01em; color: var(--ink); }
+    .h2 { font-family: var(--serif); font-weight: 500; font-size: 20px; line-height: 1.2; color: var(--ink); }
+    .h3 { font-family: var(--sans); font-weight: 600; font-size: 13px; letter-spacing: 0.04em; color: var(--ink-3); text-transform: uppercase; }
+    .eyebrow { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-5); }
+    .lead { font-size: 13px; color: var(--ink-3); line-height: 1.6; }
+    .quiet { color: var(--ink-4); }
+
+    /* 干支大字 atom — primary visual identity */
+    .gz {
+      display: inline-flex; gap: 2px;
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 28px;
+      line-height: 1;
+      letter-spacing: 0.02em;
+    }
+    .gz.lg { font-size: 36px; }
+    .gz.xl { font-size: 56px; }
+    .gz.sm { font-size: 22px; }
+    .gz b { font-weight: 500; }
+
+    /* CTA button */
+    .cta {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 8px;
+      font-family: var(--sans); font-weight: 500; font-size: 14px;
+      color: var(--paper);
+      background: var(--ink);
+      padding: 14px 28px;
+      border-radius: 999px;
+      letter-spacing: 0.03em;
+      width: 100%;
+    }
+    .cta.ghost { background: transparent; color: var(--ink); border: 1px solid var(--ink); }
+    .cta.sm { padding: 8px 16px; font-size: 12px; width: auto; }
+
+    /* Chip atoms */
+    .chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 4px 10px;
+      font-family: var(--mono); font-size: 10.5px;
+      border-radius: 999px;
+      border: 1px solid var(--hairline-2);
+      color: var(--ink-3);
+      background: rgba(255,255,255,0.4);
+      white-space: nowrap;
+    }
+    .chip b { color: var(--ink); font-weight: 600; }
+    .chip.dark { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+    .chip.daji   { background: rgba(61,82,48,0.10);  color: var(--daji);   border-color: rgba(61,82,48,0.3); }
+    .chip.ji     { background: rgba(107,142,78,0.10); color: var(--ji);    border-color: rgba(107,142,78,0.3); }
+    .chip.ping   { background: rgba(138,133,128,0.10); color: var(--ink-3); border-color: var(--hairline-2); }
+    .chip.xiong  { background: rgba(181,107,88,0.10); color: var(--xiong); border-color: rgba(181,107,88,0.3); }
+    .chip.daxiong{ background: rgba(130,52,40,0.12);  color: var(--daxiong); border-color: rgba(130,52,40,0.3); }
+
+    /* Section card */
+    .card-sec {
+      border-top: 1px solid var(--hairline);
+      padding-top: 12px; margin-top: 16px;
+    }
+    .card-sec-h { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+    .card-sec-t { font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-4); }
+    .card-sec-m { font-family: var(--mono); font-size: 10px; color: var(--ink-5); }
+
+    /* Statbar (kv inline) */
+    .kv-row { display: flex; align-items: baseline; gap: var(--s2); padding: 6px 0; border-bottom: 1px dashed var(--hairline); }
+    .kv-row:last-child { border-bottom: 0; }
+    .kv-row .k { font-family: var(--mono); font-size: 10.5px; color: var(--ink-4); letter-spacing: 0.04em; min-width: 56px; }
+    .kv-row .v { font-family: var(--serif); font-size: 14px; color: var(--ink); font-weight: 500; }
+
+    /* ────────────────────────────────────────────────────────────────────────
+       SCREEN 1 · OPEN
+    ──────────────────────────────────────────────────────────────────────── */
+    .open {
+      flex: 1;
+      display: flex; flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 60px; padding-bottom: 20px;
+    }
+    .open-mark { text-align: center; }
+    .open-cn {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 156px;
+      line-height: 0.95;
+      letter-spacing: -0.04em;
+      color: var(--ink);
+      margin-bottom: 28px;
+    }
+    .open-en {
+      font-family: "EB Garamond", serif;
+      font-style: italic;
+      font-size: 22px;
+      letter-spacing: 0.32em;
+      color: var(--ink-3);
+      text-transform: lowercase;
+      margin-bottom: 8px;
+    }
+    .open-rom {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.45em;
+      text-transform: uppercase;
+      color: var(--ink-5);
+    }
+    .open-tag {
+      font-family: var(--serif);
+      font-size: 14px;
+      color: var(--ink-3);
+      line-height: 1.8;
+      text-align: center;
+      letter-spacing: 0.04em;
+    }
+    .open-tag em {
+      font-family: "EB Garamond", serif;
+      font-style: italic;
+      color: var(--ink-4);
+    }
+    .open-bot { width: 100%; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+    .open-decor {
+      display: flex; gap: 32px; margin-bottom: 28px;
+      align-items: center;
+    }
+    .open-decor i {
+      display: block; width: 6px; height: 6px; border-radius: 999px;
+    }
+    .open-decor i.a { background: var(--mu);   }
+    .open-decor i.b { background: var(--huo);  }
+    .open-decor i.c { background: var(--tu);   }
+    .open-decor i.d { background: var(--jin);  }
+    .open-decor i.e { background: var(--shui); }
+
+    /* ────────────────────────────────────────────────────────────────────────
+       SCREEN 2 · FORM
+    ──────────────────────────────────────────────────────────────────────── */
+    .form-h { display: flex; flex-direction: column; gap: 4px; margin-bottom: 22px; }
+    .form-list { flex: 1; display: flex; flex-direction: column; }
+    .form-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--hairline);
+    }
+    .form-row:first-child { border-top: 1px solid var(--hairline); }
+    .form-l { font-family: var(--sans); font-size: 13px; color: var(--ink-3); }
+    .form-v { font-family: var(--mono); font-size: 13px; color: var(--ink); font-weight: 500; display: flex; align-items: center; gap: 6px; }
+    .form-v svg { stroke: var(--ink-5); }
+    .seg {
+      display: inline-flex; padding: 2px; border-radius: 999px; background: rgba(0,0,0,0.05);
+      border: 1px solid var(--hairline);
+    }
+    .seg span {
+      padding: 5px 11px; font-size: 11.5px; font-family: var(--mono);
+      border-radius: 999px; color: var(--ink-4);
+      letter-spacing: 0.04em;
+    }
+    .seg span.on { background: var(--ink); color: var(--paper); }
+    .toggle {
+      width: 36px; height: 20px; border-radius: 999px;
+      background: var(--ink); position: relative;
+    }
+    .toggle::after {
+      content: ''; position: absolute; top: 2px; left: 18px;
+      width: 16px; height: 16px; border-radius: 999px; background: var(--paper);
+    }
+    .toggle.off { background: var(--ink-5); }
+    .toggle.off::after { left: 2px; }
+    .form-bot { margin-top: auto; padding-top: 20px; display: flex; flex-direction: column; gap: 12px; }
+    .form-note { font-size: 11px; color: var(--ink-4); text-align: center; line-height: 1.6; }
+
+    /* ────────────────────────────────────────────────────────────────────────
+       SCREEN 3 · INTENTS GRID
+    ──────────────────────────────────────────────────────────────────────── */
+    .intents-h { margin-bottom: 18px; }
+    .intents-grid {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .intent {
+      border: 1px solid var(--hairline);
+      padding: 14px 12px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.3);
+      display: flex; flex-direction: column;
+      gap: 6px;
+      position: relative;
+      min-height: 92px;
+    }
+    .intent .ic {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 28px;
+      line-height: 1;
+      color: var(--ink);
+    }
+    .intent .il {
+      font-family: var(--sans); font-size: 11.5px; color: var(--ink-4); margin-top: auto;
+    }
+    .intent .il b { color: var(--ink-2); font-weight: 500; }
+    .intent .out {
+      display: inline-block; font-family: var(--mono); font-size: 10px;
+      color: var(--ink-3);
+      letter-spacing: 0.05em;
+    }
+    .intent .dot {
+      position: absolute; top: 12px; right: 12px;
+      width: 6px; height: 6px; border-radius: 999px;
+      background: var(--ink-5);
+    }
+    .intent.live { background: var(--ink); border-color: var(--ink); }
+    .intent.live .ic { color: var(--paper); }
+    .intent.live .il { color: rgba(244,241,234,0.6); }
+    .intent.live .il b { color: var(--paper); }
+    .intent.live .out { color: rgba(244,241,234,0.4); }
+    .intent.live .dot { background: var(--mu); box-shadow: 0 0 0 4px rgba(107,142,78,0.18); }
+    .intents-foot { font-size: 11px; color: var(--ink-4); text-align: center; line-height: 1.6; }
+    .intents-foot b { color: var(--ink-2); }
+
+    /* ────────────────────────────────────────────────────────────────────────
+       SCREEN 4 · NATAL CHART (命)
+    ──────────────────────────────────────────────────────────────────────── */
+    .ml-head {
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--hairline);
+      display: flex; justify-content: space-between; align-items: flex-start;
+    }
+    .ml-head-l { display: flex; flex-direction: column; gap: 2px; }
+    .ml-pers {
+      font-family: var(--mono); font-size: 10.5px;
+      color: var(--ink-4); letter-spacing: 0.06em;
+    }
+    .ml-name {
+      font-family: var(--serif); font-size: 22px; font-weight: 500;
+      color: var(--ink);
+    }
+    .ml-head-r {
+      text-align: right;
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .ml-head-r .v { font-family: var(--serif); font-size: 28px; color: var(--ink); font-weight: 500; line-height: 1; }
+    .ml-head-r .k { font-family: var(--mono); font-size: 10px; color: var(--ink-4); letter-spacing: 0.1em; }
+
+    .ml-summary {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 0;
+      padding: 16px 0;
+      border-bottom: 1px solid var(--hairline);
+    }
+    .ml-summary .col { padding: 0 4px; }
+    .ml-summary .col + .col { border-left: 1px solid var(--hairline); }
+    .ml-sum-l { font-family: var(--mono); font-size: 9.5px; color: var(--ink-4); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 4px; }
+    .ml-sum-v { font-family: var(--serif); font-size: 17px; color: var(--ink); font-weight: 500; line-height: 1.2; }
+    .ml-sum-v small { font-family: var(--mono); font-size: 11px; color: var(--ink-4); font-weight: 400; margin-left: 4px; }
+
+    .ml-pillars {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      padding: 16px 0;
+      border-bottom: 1px solid var(--hairline);
+    }
+    .ml-p { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .ml-p-l { font-family: var(--mono); font-size: 9.5px; color: var(--ink-5); letter-spacing: 0.1em; }
+    .ml-p-gz { font-family: var(--serif); font-size: 32px; font-weight: 500; line-height: 1; display: flex; }
+    .ml-p-rel { font-family: var(--mono); font-size: 9.5px; color: var(--ink-4); }
+    .ml-p-shensha { font-size: 10px; color: var(--tu); font-family: var(--mono); }
+
+    .ml-wuxing { padding: 14px 0; border-bottom: 1px solid var(--hairline); }
+    .ml-wx-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+    .ml-wx-c { font-family: var(--serif); font-size: 14px; font-weight: 500; width: 18px; text-align: center; }
+    .ml-wx-bar { flex: 1; height: 6px; background: rgba(0,0,0,0.05); border-radius: 999px; overflow: hidden; }
+    .ml-wx-bar i { display: block; height: 100%; border-radius: 999px; }
+    .ml-wx-pct { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); width: 30px; text-align: right; }
+
+    .ml-bot {
+      margin-top: auto;
+      padding-top: 14px;
+      display: flex; gap: 8px;
+    }
+    .ml-bot .cta { padding: 12px 16px; font-size: 12px; }
+
+    /* ────────────────────────────────────────────────────────────────────────
+       SCREEN 5 · FORTUNE (运) — CORE SCREEN
+    ──────────────────────────────────────────────────────────────────────── */
+    .yun-top {
+      display: flex; justify-content: space-between; align-items: center;
+      padding-bottom: 10px;
+    }
+    .yun-back { display: flex; align-items: center; gap: 4px; font-family: var(--mono); font-size: 11px; color: var(--ink-4); }
+    .yun-back svg { stroke: var(--ink-4); }
+    .yun-when { font-family: var(--mono); font-size: 10.5px; color: var(--ink-4); }
+    .yun-when b { color: var(--ink); font-weight: 600; }
+
+    .yun-jud {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 16px;
+      background: var(--daxiong);
+      border-radius: 14px;
+      color: var(--paper);
+      margin-bottom: 10px;
+    }
+    .yun-jud-l { display: flex; flex-direction: column; gap: 2px; }
+    .yun-jud-lvl { font-family: var(--serif); font-size: 30px; line-height: 1; font-weight: 500; }
+    .yun-jud-meta { font-family: var(--mono); font-size: 10.5px; opacity: 0.7; letter-spacing: 0.05em; }
+    .yun-jud-r { font-family: var(--mono); font-size: 32px; font-weight: 600; line-height: 1; opacity: 0.95; }
+    .yun-jud-r small { font-size: 10px; opacity: 0.6; margin-left: 2px; }
+
+    .yun-sum {
+      font-size: 11.5px;
+      color: var(--ink-3);
+      line-height: 1.6;
+      padding: 8px 4px 14px;
+      border-bottom: 1px solid var(--hairline);
+    }
+
+    .yun-pillars {
+      display: grid; grid-template-columns: 1fr;
+      gap: 8px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--hairline);
+    }
+    .yun-prow { display: flex; align-items: center; gap: 12px; }
+    .yun-prow-l { font-family: var(--mono); font-size: 9.5px; color: var(--ink-4); letter-spacing: 0.1em; width: 28px; }
+    .yun-prow-cells { display: flex; gap: 6px; flex: 1; }
+    .yun-pcell {
+      flex: 1;
+      display: flex; flex-direction: column; align-items: center; gap: 1px;
+      padding: 5px 2px;
+      border: 1px solid var(--hairline);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.3);
+    }
+    .yun-pcell-l { font-family: var(--mono); font-size: 8.5px; color: var(--ink-5); letter-spacing: 0.06em; }
+    .yun-pcell-gz { font-family: var(--serif); font-size: 17px; font-weight: 500; line-height: 1; display: flex; gap: 1px; }
+    .yun-prow.yun .yun-pcell {
+      background: var(--ink);
+      border-color: var(--ink);
+    }
+    .yun-prow.yun .yun-pcell-l { color: rgba(244,241,234,0.55); }
+    .yun-prow.yun .yun-pcell-gz { color: var(--paper); }
+
+    .yun-dayun { padding: 12px 0; border-bottom: 1px solid var(--hairline); }
+    .yun-dayun-h {
+      display: flex; justify-content: space-between; align-items: baseline;
+      margin-bottom: 8px;
+    }
+    .yun-dayun-l { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; color: var(--ink-4); text-transform: uppercase; }
+    .yun-dayun-m { font-family: var(--mono); font-size: 10px; color: var(--ink-5); }
+    .yun-dayun-strip { display: flex; gap: 2px; }
+    .yun-dstep {
+      flex: 1;
+      display: flex; flex-direction: column; align-items: center; gap: 1px;
+      padding: 5px 1px;
+      border-radius: 5px;
+      background: rgba(0,0,0,0.025);
+      min-width: 0;
+    }
+    .yun-dstep-age { font-family: var(--mono); font-size: 8.5px; color: var(--ink-4); }
+    .yun-dstep-gz { font-family: var(--serif); font-size: 13px; font-weight: 500; line-height: 1; display: flex; gap: 0px; }
+    .yun-dstep.on {
+      background: var(--ink);
+    }
+    .yun-dstep.on .yun-dstep-age { color: rgba(244,241,234,0.6); }
+    .yun-dstep.on .yun-dstep-gz { color: var(--paper); }
+
+    /* Curve SVG */
+    .yun-curve { padding: 12px 0; border-bottom: 1px solid var(--hairline); }
+    .yun-curve-h {
+      display: flex; justify-content: space-between; align-items: baseline;
+      margin-bottom: 6px;
+    }
+    .yun-curve-l { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; color: var(--ink-4); text-transform: uppercase; }
+    .yun-curve-leg { display: flex; gap: 8px; font-family: var(--mono); font-size: 9px; color: var(--ink-4); }
+    .yun-curve-leg span::before {
+      content: ''; display: inline-block; width: 8px; height: 1.5px; vertical-align: middle; margin-right: 3px; background: currentColor;
+    }
+    .yun-curve-leg .mu  { color: var(--mu); }
+    .yun-curve-leg .shui{ color: var(--shui); }
+    .yun-curve-leg .huo { color: var(--huo); }
+
+    .yun-curve-svg { width: 100%; height: 130px; display: block; }
+
+    .yun-mile {
+      padding: 12px 0 8px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .yun-mile-h { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; color: var(--ink-4); text-transform: uppercase; }
+    .yun-mile-row { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    /* ────────────────────────────────────────────────────────────────────────
+       SCREEN 6 · YEAR DETAIL
+    ──────────────────────────────────────────────────────────────────────── */
+    .yd-head {
+      padding: 14px 0 12px;
+      border-bottom: 1px solid var(--hairline);
+    }
+    .yd-year {
+      font-family: var(--serif);
+      font-size: 64px;
+      font-weight: 500;
+      line-height: 1;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+      display: flex; align-items: baseline; gap: 12px;
+    }
+    .yd-year small {
+      font-family: var(--mono); font-size: 12px; color: var(--ink-4); font-weight: 400; letter-spacing: 0.05em;
+    }
+    .yd-meta { font-family: var(--mono); font-size: 11px; color: var(--ink-4); letter-spacing: 0.05em; margin-top: 4px; }
+    .yd-jud-pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 8px 16px;
+      background: var(--daxiong); color: var(--paper);
+      border-radius: 999px;
+      font-family: var(--serif);
+      font-size: 17px; font-weight: 500;
+      margin-top: 14px;
+    }
+    .yd-jud-pill small { font-family: var(--mono); font-size: 11px; opacity: 0.7; font-weight: 400; }
+
+    .yd-pillars {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--hairline);
+    }
+    .yd-p {
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      padding: 8px 4px;
+      background: rgba(0,0,0,0.025);
+      border-radius: 8px;
+    }
+    .yd-p-l { font-family: var(--mono); font-size: 9.5px; color: var(--ink-4); letter-spacing: 0.06em; }
+    .yd-p-gz { font-family: var(--serif); font-size: 21px; font-weight: 500; line-height: 1; }
+
+    .yd-explain {
+      padding: 14px 0; border-bottom: 1px solid var(--hairline);
+      font-size: 12.5px; color: var(--ink-3); line-height: 1.7;
+    }
+    .yd-explain b { color: var(--ink); }
+    .yd-explain .mark-huo { color: var(--huo); font-weight: 500; }
+    .yd-explain .mark-mu  { color: var(--mu);  font-weight: 500; }
+
+    .yd-actions {
+      margin-top: auto; padding-top: 14px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+
+    /* ────────────────────────────────────────────────────────────────────────
+       SCREEN 7 · CROSS-LEAF GRID (21 leaves)
+    ──────────────────────────────────────────────────────────────────────── */
+    .leaves-h { padding-bottom: 8px; }
+    .leaves-h .lead { font-size: 12px; }
+    .leaves-region {
+      padding: 12px 0;
+    }
+    .leaves-region + .leaves-region { border-top: 1px solid var(--hairline); }
+    .leaves-region-h {
+      display: flex; align-items: baseline; justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .leaves-region-t { font-family: var(--serif); font-size: 14px; font-weight: 500; color: var(--ink); }
+    .leaves-region-c { font-family: var(--mono); font-size: 10px; color: var(--ink-5); letter-spacing: 0.05em; }
+    .leaves-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .leaf-card {
+      padding: 8px 8px 10px;
+      background: rgba(255,255,255,0.35);
+      border: 1px solid var(--hairline);
+      border-radius: 8px;
+      display: flex; flex-direction: column; gap: 4px;
+      aspect-ratio: 1.1;
+    }
+    .leaf-card .leaf-mini {
+      flex: 1;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--ink-4);
+    }
+    .leaf-card .leaf-name {
+      font-family: var(--serif); font-size: 13px; font-weight: 500; color: var(--ink);
+      text-align: center; line-height: 1.1;
+    }
+    .leaf-card .leaf-en {
+      font-family: var(--mono); font-size: 9px; color: var(--ink-5); text-align: center; letter-spacing: 0.04em;
+    }
+
+    /* ────────────────────────────────────────────────────────────────────────
+       SCREEN 8 · LLM READING
+    ──────────────────────────────────────────────────────────────────────── */
+    .llm-head { padding-bottom: 12px; border-bottom: 1px solid var(--hairline); display: flex; flex-direction: column; gap: 4px; }
+    .llm-eyebrow { font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; color: var(--ink-4); text-transform: uppercase; }
+    .llm-title { font-family: var(--serif); font-size: 26px; font-weight: 500; color: var(--ink); line-height: 1.2; }
+    .llm-school { display: flex; gap: 6px; margin-top: 6px; }
+    .llm-body {
+      padding: 14px 0;
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+    }
+    .llm-section { margin-bottom: 14px; }
+    .llm-section h4 {
+      font-family: var(--mono); font-size: 10px; letter-spacing: 0.15em; color: var(--ink-4); text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .llm-section h4::before {
+      content: ''; display: inline-block; width: 16px; height: 1px; background: var(--ink-4); vertical-align: middle; margin-right: 6px;
+    }
+    .llm-section p {
+      font-family: var(--serif); font-size: 13.5px; color: var(--ink-2); line-height: 1.8; letter-spacing: 0.005em;
+    }
+    .llm-section p b { font-weight: 600; color: var(--ink); }
+    .llm-section p em { font-style: normal; color: var(--mu); font-weight: 500; }
+    .llm-section p .neg { color: var(--xiong); font-weight: 500; }
+    .llm-fade {
+      position: absolute; bottom: 0; left: 0; right: 0; height: 40px;
+      background: linear-gradient(to bottom, transparent, var(--paper));
+      pointer-events: none;
+    }
+    .llm-actions {
+      padding-top: 10px;
+      display: flex; gap: 6px;
+      border-top: 1px solid var(--hairline);
+    }
+    .llm-act {
+      flex: 1;
+      display: flex; align-items: center; justify-content: center; gap: 4px;
+      padding: 10px;
+      border: 1px solid var(--hairline);
+      border-radius: 10px;
+      font-family: var(--sans); font-size: 11.5px; color: var(--ink-3);
+      background: rgba(255,255,255,0.4);
+    }
+    .llm-act svg { stroke: var(--ink-3); }
+    .llm-act.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+    .llm-act.primary svg { stroke: var(--paper); }
+
+    /* ────────────────────────────────────────────────────────────────────────
+       FOOTER
+    ──────────────────────────────────────────────────────────────────────── */
+    .footnote {
+      max-width: 1680px; margin: var(--s10) auto 0;
+      padding-top: var(--s7);
+      border-top: 1px solid var(--hairline);
+      display: flex; justify-content: space-between;
+      font-family: var(--mono); font-size: 11px; color: var(--ink-4);
+      letter-spacing: 0.04em;
+    }
+    .footnote b { color: var(--ink-2); }
+    .footnote .col { display: flex; flex-direction: column; gap: 3px; }
+  </style>
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       BRAND HEADER
+  ═══════════════════════════════════════════════════════════════════════ -->
+  <header class="brand">
+    <div class="brand-l">
+      <div class="brand-mark">unmei<em> · 命運</em></div>
+      <div class="brand-tag"><span class="pip"></span>design source · v0.1 · 2026·06</div>
+    </div>
+    <div class="brand-r">
+      <div class="brand-meta">
+        <div>8 screens / iPhone 14 Pro / mobile web mock</div>
+        <div><b>parent</b> · mingli · rust + axum :6027</div>
+        <div><b>targets</b> · proto(react+jotai) → mini / ios / android</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       DESIGN TOKENS
+  ═══════════════════════════════════════════════════════════════════════ -->
+  <section class="tokens">
+    <!-- 色板 -->
+    <div class="tk">
+      <div class="tk-h"><span>colors · 纸墨 · 五行 · 判读</span><span>9 + 5 + 5</span></div>
+      <div class="tk-pal">
+        <div class="tk-pal-row"><i class="tk-sw" style="background:#f4f1ea"></i><span class="tk-pal-name">paper · 米纸</span><span class="tk-pal-hex">#f4f1ea</span></div>
+        <div class="tk-pal-row"><i class="tk-sw" style="background:#0a0a0a"></i><span class="tk-pal-name">ink · 墨</span><span class="tk-pal-hex">#0a0a0a</span></div>
+        <div class="tk-pal-row"><i class="tk-sw" style="background:#7d7975"></i><span class="tk-pal-name">ink-4 · 灰</span><span class="tk-pal-hex">#7d7975</span></div>
+      </div>
+      <div style="display:flex;gap:4px;margin-top:14px;">
+        <div style="flex:1;height:32px;border-radius:6px;background:var(--mu);position:relative;"><span style="position:absolute;bottom:-16px;left:0;font-family:var(--mono);font-size:9px;color:var(--mu)">木</span></div>
+        <div style="flex:1;height:32px;border-radius:6px;background:var(--huo);position:relative;"><span style="position:absolute;bottom:-16px;left:0;font-family:var(--mono);font-size:9px;color:var(--huo)">火</span></div>
+        <div style="flex:1;height:32px;border-radius:6px;background:var(--tu);position:relative;"><span style="position:absolute;bottom:-16px;left:0;font-family:var(--mono);font-size:9px;color:var(--tu)">土</span></div>
+        <div style="flex:1;height:32px;border-radius:6px;background:var(--jin);position:relative;"><span style="position:absolute;bottom:-16px;left:0;font-family:var(--mono);font-size:9px;color:var(--jin)">金</span></div>
+        <div style="flex:1;height:32px;border-radius:6px;background:var(--shui);position:relative;"><span style="position:absolute;bottom:-16px;left:0;font-family:var(--mono);font-size:9px;color:var(--shui)">水</span></div>
+      </div>
+      <div style="display:flex;gap:4px;margin-top:30px;">
+        <div style="flex:1;padding:6px 4px;border-radius:5px;background:var(--daji);color:#fff;text-align:center;font-family:var(--mono);font-size:9.5px">大吉</div>
+        <div style="flex:1;padding:6px 4px;border-radius:5px;background:var(--ji);color:#fff;text-align:center;font-family:var(--mono);font-size:9.5px">吉</div>
+        <div style="flex:1;padding:6px 4px;border-radius:5px;background:var(--ping);color:#fff;text-align:center;font-family:var(--mono);font-size:9.5px">平</div>
+        <div style="flex:1;padding:6px 4px;border-radius:5px;background:var(--xiong);color:#fff;text-align:center;font-family:var(--mono);font-size:9.5px">凶</div>
+        <div style="flex:1;padding:6px 4px;border-radius:5px;background:var(--daxiong);color:#fff;text-align:center;font-family:var(--mono);font-size:9.5px">大凶</div>
+      </div>
+    </div>
+
+    <!-- 字阶 -->
+    <div class="tk">
+      <div class="tk-h"><span>type · 衬线 + 无衬线 + 等宽</span><span>3 families</span></div>
+      <div class="tk-type-row">
+        <span class="tk-type-key">D1</span>
+        <span class="tk-type-sample" style="font-family:var(--serif);font-size:36px;line-height:1;font-weight:500">命運</span>
+        <span class="tk-type-meta">serif / 36 · display</span>
+      </div>
+      <div class="tk-type-row">
+        <span class="tk-type-key">H1</span>
+        <span class="tk-type-sample" style="font-family:var(--serif);font-size:20px;font-weight:500">己土偏强</span>
+        <span class="tk-type-meta">serif / 20</span>
+      </div>
+      <div class="tk-type-row">
+        <span class="tk-type-key">B</span>
+        <span class="tk-type-sample" style="font-family:var(--sans);font-size:13px">命局所喜五行</span>
+        <span class="tk-type-meta">sans / 13</span>
+      </div>
+      <div class="tk-type-row">
+        <span class="tk-type-key">M</span>
+        <span class="tk-type-sample" style="font-family:var(--mono);font-size:11px">DAYUN 04/10</span>
+        <span class="tk-type-meta">mono / 11 · UPPER</span>
+      </div>
+      <div class="tk-type-row">
+        <span class="tk-type-key">c</span>
+        <span class="tk-type-sample" style="font-family:var(--mono);font-size:10px;color:var(--ink-4);letter-spacing:0.18em">CAPTION · UPPER</span>
+        <span class="tk-type-meta">mono / 10</span>
+      </div>
+    </div>
+
+    <!-- 间距 + 圆角 -->
+    <div class="tk">
+      <div class="tk-h"><span>spacing · radii · grid</span><span>4 → 96 px</span></div>
+      <div class="tk-grid">
+        <div><span>step</span> <b>4 · 8 · 12 · 16 · 20 · 24 · 32 · 48 · 64</b></div>
+        <div><span>page padding</span> <b>22 px</b></div>
+        <div><span>radius (atom)</span> <b>0 / 6 / 14 / 999</b></div>
+        <div><span>radius (frame)</span> <b>52 / 41 px</b></div>
+        <div><span>hairline</span> <b>0.5 → 1 px solid</b></div>
+        <div><span>grid (chip)</span> <b>2 × 4 / 1 × N</b></div>
+        <div><span>icons</span> <b>lucide stroke 1.5</b></div>
+        <div><span>motion</span> <b>250 / 400 ms · ease</b></div>
+      </div>
+    </div>
+
+    <!-- 设计原则 -->
+    <div class="tk">
+      <div class="tk-h"><span>principles</span><span>3 axioms</span></div>
+      <div style="display:flex;flex-direction:column;gap:14px;font-family:var(--serif);">
+        <div>
+          <div style="font-family:var(--mono);font-size:9px;letter-spacing:0.2em;color:var(--ink-4);margin-bottom:3px;">01 · INTENT FIRST</div>
+          <div style="font-size:13px;line-height:1.55;color:var(--ink-2)">先问「问什么」,再排盘。8 意图作为顶层切片。</div>
+        </div>
+        <div>
+          <div style="font-family:var(--mono);font-size:9px;letter-spacing:0.2em;color:var(--ink-4);margin-bottom:3px;">02 · 命 / 运 二分</div>
+          <div style="font-size:13px;line-height:1.55;color:var(--ink-2)">命 = 出生切片,固定底图。运 = playhead 时刻,跟拨杆动。</div>
+        </div>
+        <div>
+          <div style="font-family:var(--mono);font-size:9px;letter-spacing:0.2em;color:var(--ink-4);margin-bottom:3px;">03 · QUANTIFY 吉凶</div>
+          <div style="font-size:13px;line-height:1.55;color:var(--ink-2)">用神供给度 → 5 等级判读 + 净增益。不是「红凶绿吉」,是层次。</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       8 SCREENS
+  ═══════════════════════════════════════════════════════════════════════ -->
+  <main class="screens">
+
+    <!-- ─────────────── 01 · OPEN ─────────────── -->
+    <article class="screen-block">
+      <div class="screen-head">
+        <div class="screen-i">01 / 开屏</div>
+        <h2 class="screen-t">首次进入 · 引导</h2>
+        <p class="screen-n">未输入生辰时的留白页;品牌定调时刻 · <code>data: 无</code></p>
+      </div>
+      <div class="phone">
+        <div class="island"></div>
+        <div class="phone-screen">
+          <div class="status">
+            <span>9:41</span>
+            <span class="status-r">
+              <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor"><rect x="0" y="7" width="3" height="4"/><rect x="4.5" y="5" width="3" height="6"/><rect x="9" y="3" width="3" height="8"/><rect x="13.5" y="0" width="2.5" height="11"/></svg>
+              <svg width="15" height="11" viewBox="0 0 15 11" fill="currentColor"><path d="M7.5 0a8 8 0 0 0-5.4 2.1L3.4 3.5a6 6 0 0 1 8.2 0l1.3-1.4A8 8 0 0 0 7.5 0Z"/></svg>
+              <svg width="24" height="11" viewBox="0 0 24 11"><rect x="0.5" y="0.5" width="20" height="10" rx="2.5" fill="none" stroke="currentColor"/><rect x="2" y="2" width="17" height="7" rx="1" fill="currentColor"/><rect x="21.5" y="3.5" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+            </span>
+          </div>
+          <div class="screen-inner open">
+            <div class="open-mark">
+              <div class="open-cn">命</div>
+              <div class="open-en">unmei</div>
+              <div class="open-rom">うんめい · 運命</div>
+            </div>
+            <div class="open-tag">
+              另一种与时间对话的方式<br/>
+              <em>another way of speaking with time</em>
+            </div>
+            <div class="open-bot">
+              <div class="open-decor"><i class="a"></i><i class="b"></i><i class="c"></i><i class="d"></i><i class="e"></i></div>
+              <a class="cta">输入生辰开始</a>
+              <div style="font-family:var(--mono);font-size:9.5px;color:var(--ink-5);margin-top:8px;letter-spacing:0.12em;">EST. 2026 · LAB32 / MINGLI</div>
+            </div>
+          </div>
+          <div class="home-bar"></div>
+        </div>
+      </div>
+    </article>
+
+    <!-- ─────────────── 02 · FORM ─────────────── -->
+    <article class="screen-block">
+      <div class="screen-head">
+        <div class="screen-i">02 / 生辰</div>
+        <h2 class="screen-t">输入生辰录入</h2>
+        <p class="screen-n">五要素 + 出生地检索 + 真太阳时校正 · <code>POST /api/bazi</code></p>
+      </div>
+      <div class="phone">
+        <div class="island"></div>
+        <div class="phone-screen">
+          <div class="status">
+            <span>9:41</span>
+            <span class="status-r">
+              <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor"><rect x="0" y="7" width="3" height="4"/><rect x="4.5" y="5" width="3" height="6"/><rect x="9" y="3" width="3" height="8"/><rect x="13.5" y="0" width="2.5" height="11"/></svg>
+              <svg width="15" height="11" viewBox="0 0 15 11" fill="currentColor"><path d="M7.5 0a8 8 0 0 0-5.4 2.1L3.4 3.5a6 6 0 0 1 8.2 0l1.3-1.4A8 8 0 0 0 7.5 0Z"/></svg>
+              <svg width="24" height="11" viewBox="0 0 24 11"><rect x="0.5" y="0.5" width="20" height="10" rx="2.5" fill="none" stroke="currentColor"/><rect x="2" y="2" width="17" height="7" rx="1" fill="currentColor"/><rect x="21.5" y="3.5" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+            </span>
+          </div>
+          <div class="screen-inner">
+            <a class="nav-back"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke-width="1.5"><path d="M6 2L2.5 5L6 8"/></svg> 返回</a>
+            <div class="form-h" style="margin-top:14px;">
+              <div class="eyebrow">step 01 / 03</div>
+              <h1 class="h1">你的生辰</h1>
+              <p class="lead" style="margin-top:4px;">用以推算本命八字与天文坐标。后续可随时编辑。</p>
+            </div>
+            <div class="form-list">
+              <div class="form-row">
+                <span class="form-l">出生年月日</span>
+                <span class="form-v">1987·09·17 <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke-width="1.5"><path d="M3 2L6.5 5L3 8"/></svg></span>
+              </div>
+              <div class="form-row">
+                <span class="form-l">时分</span>
+                <span class="form-v">15 : 00 <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke-width="1.5"><path d="M3 2L6.5 5L3 8"/></svg></span>
+              </div>
+              <div class="form-row">
+                <span class="form-l">性别</span>
+                <span class="seg"><span class="on">男</span><span>女</span></span>
+              </div>
+              <div class="form-row">
+                <span class="form-l">出生地</span>
+                <span class="form-v">长沙 · 112.94°E <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke-width="1.5"><path d="M3 2L6.5 5L3 8"/></svg></span>
+              </div>
+              <div class="form-row">
+                <span class="form-l">真太阳时<br/><small style="font-size:10px;color:var(--ink-5)">按经度 + 均时差校正</small></span>
+                <span class="toggle off"></span>
+              </div>
+              <div class="form-row">
+                <span class="form-l">主体类型</span>
+                <span class="seg"><span class="on">人</span><span>公司</span><span>物</span><span>事</span></span>
+              </div>
+            </div>
+            <div class="form-bot">
+              <a class="cta">排 盘</a>
+              <p class="form-note">生辰留在你的设备 · 不上传 · 可随时清除</p>
+            </div>
+          </div>
+          <div class="home-bar"></div>
+        </div>
+      </div>
+    </article>
+
+    <!-- ─────────────── 03 · INTENTS ─────────────── -->
+    <article class="screen-block">
+      <div class="screen-head">
+        <div class="screen-i">03 / 意图</div>
+        <h2 class="screen-t">先问 — 你想知道什么</h2>
+        <p class="screen-n">8 意图先于排盘 · <code>GET /api/intents</code> · 已上线 3,余 PQ2–PQ4 路线</p>
+      </div>
+      <div class="phone">
+        <div class="island"></div>
+        <div class="phone-screen">
+          <div class="status">
+            <span>9:41</span>
+            <span class="status-r">
+              <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor"><rect x="0" y="7" width="3" height="4"/><rect x="4.5" y="5" width="3" height="6"/><rect x="9" y="3" width="3" height="8"/><rect x="13.5" y="0" width="2.5" height="11"/></svg>
+              <svg width="15" height="11" viewBox="0 0 15 11" fill="currentColor"><path d="M7.5 0a8 8 0 0 0-5.4 2.1L3.4 3.5a6 6 0 0 1 8.2 0l1.3-1.4A8 8 0 0 0 7.5 0Z"/></svg>
+              <svg width="24" height="11" viewBox="0 0 24 11"><rect x="0.5" y="0.5" width="20" height="10" rx="2.5" fill="none" stroke="currentColor"/><rect x="2" y="2" width="17" height="7" rx="1" fill="currentColor"/><rect x="21.5" y="3.5" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+            </span>
+          </div>
+          <div class="screen-inner">
+            <a class="nav-back"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke-width="1.5"><path d="M6 2L2.5 5L6 8"/></svg> 1987·09·17 · 长沙 · 男</a>
+            <div class="intents-h" style="margin-top:14px;">
+              <div class="eyebrow">step 02 / 03</div>
+              <h1 class="h1">先问 — 想知道什么</h1>
+            </div>
+            <div class="intents-grid">
+              <div class="intent live">
+                <div class="ic">命</div>
+                <div class="il"><b>本命盘</b><br/><span class="out">→ 出生切片</span></div>
+                <div class="dot"></div>
+              </div>
+              <div class="intent live">
+                <div class="ic">运</div>
+                <div class="il"><b>运势 流年</b><br/><span class="out">→ 时间序列</span></div>
+                <div class="dot"></div>
+              </div>
+              <div class="intent">
+                <div class="ic">事</div>
+                <div class="il"><b>占事</b><br/><span class="out">→ 成败 / 宜忌</span></div>
+                <div class="dot"></div>
+              </div>
+              <div class="intent">
+                <div class="ic">择</div>
+                <div class="il"><b>择吉</b><br/><span class="out">→ 期 / 序</span></div>
+                <div class="dot"></div>
+              </div>
+              <div class="intent">
+                <div class="ic">合</div>
+                <div class="il"><b>合盘 团队</b><br/><span class="out">→ 配 / 互补</span></div>
+                <div class="dot"></div>
+              </div>
+              <div class="intent">
+                <div class="ic">群</div>
+                <div class="il"><b>国运</b><br/><span class="out">→ 政体盘</span></div>
+                <div class="dot"></div>
+              </div>
+              <div class="intent">
+                <div class="ic">寻</div>
+                <div class="il"><b>方位</b><br/><span class="out">→ 位</span></div>
+                <div class="dot"></div>
+              </div>
+              <div class="intent live">
+                <div class="ic">号</div>
+                <div class="il"><b>姓名数</b><br/><span class="out">→ 数理</span></div>
+                <div class="dot"></div>
+              </div>
+            </div>
+            <div class="intents-foot">● <b>已上线 3 项</b>  ·  ○ 算力已在叶 / 接 PQ2–PQ4</div>
+          </div>
+          <div class="home-bar"></div>
+        </div>
+      </div>
+    </article>
+
+    <!-- ─────────────── 04 · NATAL (命) ─────────────── -->
+    <article class="screen-block">
+      <div class="screen-head">
+        <div class="screen-i">04 / 命</div>
+        <h2 class="screen-t">命 · 本命盘</h2>
+        <p class="screen-n">出生切片 · 固定底图 · <code>POST /api/bazi</code></p>
+      </div>
+      <div class="phone">
+        <div class="island"></div>
+        <div class="phone-screen">
+          <div class="status">
+            <span>9:41</span>
+            <span class="status-r">
+              <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor"><rect x="0" y="7" width="3" height="4"/><rect x="4.5" y="5" width="3" height="6"/><rect x="9" y="3" width="3" height="8"/><rect x="13.5" y="0" width="2.5" height="11"/></svg>
+              <svg width="15" height="11" viewBox="0 0 15 11" fill="currentColor"><path d="M7.5 0a8 8 0 0 0-5.4 2.1L3.4 3.5a6 6 0 0 1 8.2 0l1.3-1.4A8 8 0 0 0 7.5 0Z"/></svg>
+              <svg width="24" height="11" viewBox="0 0 24 11"><rect x="0.5" y="0.5" width="20" height="10" rx="2.5" fill="none" stroke="currentColor"/><rect x="2" y="2" width="17" height="7" rx="1" fill="currentColor"/><rect x="21.5" y="3.5" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+            </span>
+          </div>
+          <div class="screen-inner" style="overflow-y:hidden;">
+            <div class="ml-head">
+              <div class="ml-head-l">
+                <span class="ml-pers">命 · NATAL · 出生即定</span>
+                <span class="ml-name">己土 偏强</span>
+                <span class="quiet" style="font-size:11px;font-family:var(--mono);">1987·09·17 · 15:00 · 长沙</span>
+              </div>
+              <div class="ml-head-r">
+                <span class="v">61</span>
+                <span class="k">SCORE / 100</span>
+              </div>
+            </div>
+
+            <div class="ml-summary">
+              <div class="col">
+                <div class="ml-sum-l">命格</div>
+                <div class="ml-sum-v">暗食神<small>格</small></div>
+              </div>
+              <div class="col">
+                <div class="ml-sum-l">主用神</div>
+                <div class="ml-sum-v" style="color:var(--mu);">木<small>官杀</small></div>
+              </div>
+              <div class="col">
+                <div class="ml-sum-l">忌神</div>
+                <div class="ml-sum-v" style="color:var(--xiong);">火 土</div>
+              </div>
+            </div>
+
+            <div class="ml-pillars">
+              <div class="ml-p">
+                <span class="ml-p-l">年</span>
+                <span class="ml-p-gz"><b style="color:var(--huo);">丁</b><b style="color:var(--mu);">卯</b></span>
+                <span class="ml-p-rel">偏印 · 病</span>
+                <span class="ml-p-shensha">将星</span>
+              </div>
+              <div class="ml-p">
+                <span class="ml-p-l">月</span>
+                <span class="ml-p-gz"><b style="color:var(--tu);">己</b><b style="color:var(--jin);">酉</b></span>
+                <span class="ml-p-rel">比肩·长生</span>
+                <span class="ml-p-shensha">文昌·学堂</span>
+              </div>
+              <div class="ml-p">
+                <span class="ml-p-l">日</span>
+                <span class="ml-p-gz"><b style="color:var(--tu);">己</b><b style="color:var(--huo);">巳</b></span>
+                <span class="ml-p-rel">日主·帝旺</span>
+                <span class="ml-p-shensha">驿马</span>
+              </div>
+              <div class="ml-p">
+                <span class="ml-p-l">时</span>
+                <span class="ml-p-gz"><b style="color:var(--shui);">壬</b><b style="color:var(--jin);">申</b></span>
+                <span class="ml-p-rel">伤官·沐浴</span>
+                <span class="ml-p-shensha">&nbsp;</span>
+              </div>
+            </div>
+
+            <div class="ml-wuxing">
+              <div class="ml-wx-row">
+                <span class="ml-wx-c" style="color:var(--mu);">木</span>
+                <div class="ml-wx-bar"><i style="width:11%;background:var(--mu);"></i></div>
+                <span class="ml-wx-pct">11%</span>
+              </div>
+              <div class="ml-wx-row">
+                <span class="ml-wx-c" style="color:var(--huo);">火</span>
+                <div class="ml-wx-bar"><i style="width:22%;background:var(--huo);"></i></div>
+                <span class="ml-wx-pct">22%</span>
+              </div>
+              <div class="ml-wx-row">
+                <span class="ml-wx-c" style="color:var(--tu);">土</span>
+                <div class="ml-wx-bar"><i style="width:23%;background:var(--tu);"></i></div>
+                <span class="ml-wx-pct">23%</span>
+              </div>
+              <div class="ml-wx-row">
+                <span class="ml-wx-c" style="color:var(--jin);">金</span>
+                <div class="ml-wx-bar"><i style="width:32%;background:var(--jin);"></i></div>
+                <span class="ml-wx-pct">32%</span>
+              </div>
+              <div class="ml-wx-row">
+                <span class="ml-wx-c" style="color:var(--shui);">水</span>
+                <div class="ml-wx-bar"><i style="width:12%;background:var(--shui);"></i></div>
+                <span class="ml-wx-pct">12%</span>
+              </div>
+            </div>
+
+            <div class="ml-bot">
+              <a class="cta ghost" style="flex:1;">→ 切到运</a>
+              <a class="cta" style="flex:1;">🔮 释义</a>
+            </div>
+          </div>
+          <div class="home-bar"></div>
+        </div>
+      </div>
+    </article>
+
+
+    <!-- ─────────────── 05 · FORTUNE (运) — CORE ─────────────── -->
+    <article class="screen-block">
+      <div class="screen-head">
+        <div class="screen-i">05 / 运  ·  核心</div>
+        <h2 class="screen-t">运 · 时间拨杆 + 用神供给曲线</h2>
+        <p class="screen-n">命/运双行 + 大运十步 + 100 年曲线 · <code>POST /api/fortune</code></p>
+      </div>
+      <div class="phone">
+        <div class="island"></div>
+        <div class="phone-screen">
+          <div class="status">
+            <span>9:41</span>
+            <span class="status-r">
+              <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor"><rect x="0" y="7" width="3" height="4"/><rect x="4.5" y="5" width="3" height="6"/><rect x="9" y="3" width="3" height="8"/><rect x="13.5" y="0" width="2.5" height="11"/></svg>
+              <svg width="15" height="11" viewBox="0 0 15 11" fill="currentColor"><path d="M7.5 0a8 8 0 0 0-5.4 2.1L3.4 3.5a6 6 0 0 1 8.2 0l1.3-1.4A8 8 0 0 0 7.5 0Z"/></svg>
+              <svg width="24" height="11" viewBox="0 0 24 11"><rect x="0.5" y="0.5" width="20" height="10" rx="2.5" fill="none" stroke="currentColor"/><rect x="2" y="2" width="17" height="7" rx="1" fill="currentColor"/><rect x="21.5" y="3.5" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+            </span>
+          </div>
+          <div class="screen-inner" style="overflow-y:auto;">
+            <div class="yun-top">
+              <a class="yun-back"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke-width="1.5"><path d="M6 2L2.5 5L6 8"/></svg> 命</a>
+              <span class="yun-when">运 · <b>38.75 岁</b> · 2026·06·17</span>
+            </div>
+
+            <div class="yun-jud">
+              <div class="yun-jud-l">
+                <span class="yun-jud-lvl">大凶</span>
+                <span class="yun-jud-meta">JUDGMENT · 净增益</span>
+              </div>
+              <div class="yun-jud-r">−16</div>
+            </div>
+
+            <div class="yun-sum">
+              <b style="color:var(--ink);">忌神 33% 远超主用神 13%</b> — 流年大运对命局压制明显,宜守不宜攻、稳健渡过。
+            </div>
+
+            <!-- 命 / 运 双行 -->
+            <div class="yun-pillars">
+              <div class="yun-prow">
+                <span class="yun-prow-l">命</span>
+                <div class="yun-prow-cells">
+                  <div class="yun-pcell">
+                    <span class="yun-pcell-l">年</span>
+                    <span class="yun-pcell-gz"><b style="color:var(--huo);">丁</b><b style="color:var(--mu);">卯</b></span>
+                  </div>
+                  <div class="yun-pcell">
+                    <span class="yun-pcell-l">月</span>
+                    <span class="yun-pcell-gz"><b style="color:var(--tu);">己</b><b style="color:var(--jin);">酉</b></span>
+                  </div>
+                  <div class="yun-pcell">
+                    <span class="yun-pcell-l">日</span>
+                    <span class="yun-pcell-gz"><b style="color:var(--tu);">己</b><b style="color:var(--huo);">巳</b></span>
+                  </div>
+                  <div class="yun-pcell">
+                    <span class="yun-pcell-l">时</span>
+                    <span class="yun-pcell-gz"><b style="color:var(--shui);">壬</b><b style="color:var(--jin);">申</b></span>
+                  </div>
+                </div>
+              </div>
+              <div class="yun-prow yun">
+                <span class="yun-prow-l">运</span>
+                <div class="yun-prow-cells">
+                  <div class="yun-pcell">
+                    <span class="yun-pcell-l">大运</span>
+                    <span class="yun-pcell-gz"><b>乙</b><b>巳</b></span>
+                  </div>
+                  <div class="yun-pcell">
+                    <span class="yun-pcell-l">流年</span>
+                    <span class="yun-pcell-gz"><b>丙</b><b>午</b></span>
+                  </div>
+                  <div class="yun-pcell">
+                    <span class="yun-pcell-l">流月</span>
+                    <span class="yun-pcell-gz"><b>甲</b><b>午</b></span>
+                  </div>
+                  <div class="yun-pcell">
+                    <span class="yun-pcell-l">流日</span>
+                    <span class="yun-pcell-gz"><b>壬</b><b>戌</b></span>
+                  </div>
+                  <div class="yun-pcell">
+                    <span class="yun-pcell-l">流时</span>
+                    <span class="yun-pcell-gz"><b>乙</b><b>巳</b></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 大运 10 步 -->
+            <div class="yun-dayun">
+              <div class="yun-dayun-h">
+                <span class="yun-dayun-l">大运十步 · 顺行</span>
+                <span class="yun-dayun-m">起运 3.21 岁</span>
+              </div>
+              <div class="yun-dayun-strip">
+                <div class="yun-dstep"><span class="yun-dstep-age">3</span><span class="yun-dstep-gz"><b>戊</b><b>申</b></span></div>
+                <div class="yun-dstep"><span class="yun-dstep-age">13</span><span class="yun-dstep-gz"><b>丁</b><b>未</b></span></div>
+                <div class="yun-dstep"><span class="yun-dstep-age">23</span><span class="yun-dstep-gz"><b>丙</b><b>午</b></span></div>
+                <div class="yun-dstep on"><span class="yun-dstep-age">33</span><span class="yun-dstep-gz"><b>乙</b><b>巳</b></span></div>
+                <div class="yun-dstep"><span class="yun-dstep-age">43</span><span class="yun-dstep-gz"><b>甲</b><b>辰</b></span></div>
+                <div class="yun-dstep"><span class="yun-dstep-age">53</span><span class="yun-dstep-gz"><b>癸</b><b>卯</b></span></div>
+                <div class="yun-dstep"><span class="yun-dstep-age">63</span><span class="yun-dstep-gz"><b>壬</b><b>寅</b></span></div>
+                <div class="yun-dstep"><span class="yun-dstep-age">73</span><span class="yun-dstep-gz"><b>辛</b><b>丑</b></span></div>
+                <div class="yun-dstep"><span class="yun-dstep-age">83</span><span class="yun-dstep-gz"><b>庚</b><b>子</b></span></div>
+                <div class="yun-dstep"><span class="yun-dstep-age">93</span><span class="yun-dstep-gz"><b>己</b><b>亥</b></span></div>
+              </div>
+            </div>
+
+            <!-- 100 年用神供给曲线 SVG -->
+            <div class="yun-curve">
+              <div class="yun-curve-h">
+                <span class="yun-curve-l">100 年用神供给曲线</span>
+                <div class="yun-curve-leg">
+                  <span class="mu">主木</span>
+                  <span class="shui">副水</span>
+                  <span class="huo">忌火</span>
+                </div>
+              </div>
+              <svg class="yun-curve-svg" viewBox="0 0 320 130" preserveAspectRatio="none">
+                <!-- 吉凶分段背景 (35 个 3 岁宽 stripe) -->
+                <g opacity="0.6">
+                  <!-- 0-22 凶/大凶 -->
+                  <rect x="0" y="0" width="9" height="130" fill="rgba(138,133,128,0.10)"/>
+                  <rect x="9" y="0" width="60" height="130" fill="rgba(181,107,88,0.10)"/>
+                  <rect x="69" y="0" width="35" height="130" fill="rgba(130,52,40,0.14)"/>
+                  <rect x="104" y="0" width="32" height="130" fill="rgba(181,107,88,0.10)"/>
+                  <rect x="136" y="0" width="9" height="130" fill="rgba(138,133,128,0.10)"/>
+                  <rect x="145" y="0" width="20" height="130" fill="rgba(107,142,78,0.10)"/>
+                  <rect x="165" y="0" width="35" height="130" fill="rgba(61,82,48,0.16)"/>
+                  <rect x="200" y="0" width="24" height="130" fill="rgba(107,142,78,0.10)"/>
+                  <rect x="224" y="0" width="16" height="130" fill="rgba(138,133,128,0.10)"/>
+                  <rect x="240" y="0" width="30" height="130" fill="rgba(181,107,88,0.10)"/>
+                  <rect x="270" y="0" width="20" height="130" fill="rgba(130,52,40,0.14)"/>
+                  <rect x="290" y="0" width="30" height="130" fill="rgba(181,107,88,0.10)"/>
+                </g>
+
+                <!-- 大运分段竖线 -->
+                <g stroke="rgba(0,0,0,0.12)" stroke-dasharray="1.5 3" stroke-width="0.5">
+                  <line x1="9.6" y1="6" x2="9.6" y2="115"/>
+                  <line x1="41.6" y1="6" x2="41.6" y2="115"/>
+                  <line x1="73.6" y1="6" x2="73.6" y2="115"/>
+                  <line x1="105.6" y1="6" x2="105.6" y2="115"/>
+                  <line x1="137.6" y1="6" x2="137.6" y2="115"/>
+                  <line x1="169.6" y1="6" x2="169.6" y2="115"/>
+                  <line x1="201.6" y1="6" x2="201.6" y2="115"/>
+                  <line x1="233.6" y1="6" x2="233.6" y2="115"/>
+                  <line x1="265.6" y1="6" x2="265.6" y2="115"/>
+                  <line x1="297.6" y1="6" x2="297.6" y2="115"/>
+                </g>
+
+                <!-- y axis grid 50% midline -->
+                <line x1="0" y1="65" x2="320" y2="65" stroke="rgba(0,0,0,0.05)" stroke-width="0.5"/>
+
+                <!-- 忌神(火) curve — dashed -->
+                <path d="M 0,99 L 10,95 L 20,89 L 29,94 L 39,90 L 48,84 L 58,89 L 67,80 L 77,82 L 86,74 L 96,77 L 106,74 L 115,80 L 125,74 L 134,84 L 144,90 L 154,94 L 163,97 L 173,103 L 182,107 L 192,105 L 202,107 L 211,110 L 221,105 L 230,99 L 240,92 L 250,87 L 259,82 L 269,90 L 278,92 L 288,97 L 298,102 L 307,93 L 320,89"
+                      fill="none" stroke="var(--huo)" stroke-width="1.2" stroke-dasharray="3 2" stroke-opacity="0.7"/>
+
+                <!-- 副用神(水) -->
+                <path d="M 0,114 L 10,118 L 20,120 L 29,116 L 39,121 L 48,120 L 58,118 L 67,121 L 77,120 L 86,123 L 96,121 L 106,120 L 115,118 L 125,120 L 134,116 L 144,114 L 154,116 L 163,114 L 173,108 L 182,110 L 192,113 L 202,113 L 211,110 L 221,113 L 230,114 L 240,118 L 250,123 L 259,121 L 269,120 L 278,121 L 288,123 L 298,120 L 307,121 L 320,118"
+                      fill="none" stroke="var(--shui)" stroke-width="1" stroke-opacity="0.7"/>
+
+                <!-- 主用神(木) — 最粗主角 -->
+                <path d="M 0,106 L 10,110 L 20,116 L 29,113 L 39,114 L 48,118 L 58,116 L 67,118 L 77,121 L 86,120 L 96,118 L 106,116 L 115,113 L 125,114 L 134,114 L 144,113 L 154,110 L 163,108 L 173,103 L 182,105 L 192,108 L 202,110 L 211,108 L 221,110 L 230,108 L 240,116 L 250,121 L 259,123 L 269,118 L 278,121 L 288,116 L 298,114 L 307,118 L 320,121"
+                      fill="none" stroke="var(--mu)" stroke-width="2" stroke-linejoin="round"/>
+
+                <!-- playhead -->
+                <line x1="124.8" y1="6" x2="124.8" y2="120" stroke="var(--ink)" stroke-width="1"/>
+                <circle cx="124.8" cy="114" r="3.5" fill="var(--mu)" stroke="var(--paper)" stroke-width="1.5"/>
+
+                <!-- baseline -->
+                <line x1="0" y1="120" x2="320" y2="120" stroke="rgba(0,0,0,0.15)" stroke-width="0.5"/>
+
+                <!-- x axis labels -->
+                <g font-family="JetBrains Mono, monospace" font-size="7.5" fill="rgba(0,0,0,0.4)">
+                  <text x="0" y="128">0</text>
+                  <text x="74" y="128">23</text>
+                  <text x="122" y="128">38</text>
+                  <text x="170" y="128">53</text>
+                  <text x="220" y="128">70</text>
+                  <text x="308" y="128" text-anchor="end">100</text>
+                </g>
+              </svg>
+            </div>
+
+            <!-- 大节点 chip -->
+            <div class="yun-mile">
+              <div class="yun-mile-h">百年大节点 · 28 / 100</div>
+              <div class="yun-mile-row">
+                <span class="chip daji"><b>大吉</b> 56·癸亥</span>
+                <span class="chip daji"><b>大吉</b> 68·乙亥</span>
+                <span class="chip ji">吉 47·甲寅</span>
+                <span class="chip ji">吉 65·壬申</span>
+              </div>
+              <div class="yun-mile-row">
+                <span class="chip daxiong"><b>大凶</b> 26·癸巳</span>
+                <span class="chip daxiong"><b>大凶</b> 29·丙申</span>
+                <span class="chip daxiong"><b>大凶</b> 39·丙午</span>
+                <span class="chip daxiong"><b>大凶</b> 82·己丑</span>
+              </div>
+            </div>
+          </div>
+          <div class="home-bar"></div>
+        </div>
+      </div>
+    </article>
+
+
+    <!-- ─────────────── 06 · YEAR DETAIL ─────────────── -->
+    <article class="screen-block">
+      <div class="screen-head">
+        <div class="screen-i">06 / 节点</div>
+        <h2 class="screen-t">节点详情 · 大凶之年</h2>
+        <p class="screen-n">tap 大节点 chip 进入 · 该年完整盘 + 释义入口 · <code>fortune.timeline[39]</code></p>
+      </div>
+      <div class="phone">
+        <div class="island"></div>
+        <div class="phone-screen">
+          <div class="status">
+            <span>9:41</span>
+            <span class="status-r">
+              <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor"><rect x="0" y="7" width="3" height="4"/><rect x="4.5" y="5" width="3" height="6"/><rect x="9" y="3" width="3" height="8"/><rect x="13.5" y="0" width="2.5" height="11"/></svg>
+              <svg width="15" height="11" viewBox="0 0 15 11" fill="currentColor"><path d="M7.5 0a8 8 0 0 0-5.4 2.1L3.4 3.5a6 6 0 0 1 8.2 0l1.3-1.4A8 8 0 0 0 7.5 0Z"/></svg>
+              <svg width="24" height="11" viewBox="0 0 24 11"><rect x="0.5" y="0.5" width="20" height="10" rx="2.5" fill="none" stroke="currentColor"/><rect x="2" y="2" width="17" height="7" rx="1" fill="currentColor"/><rect x="21.5" y="3.5" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+            </span>
+          </div>
+          <div class="screen-inner">
+            <a class="nav-back"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke-width="1.5"><path d="M6 2L2.5 5L6 8"/></svg> 回曲线</a>
+            <div class="yd-head" style="border-bottom:0;padding-bottom:0;">
+              <div class="eyebrow">39 岁 · age 39</div>
+              <div class="yd-year">2026<small>丙午年</small></div>
+              <div class="yd-meta">JUDGMENT · 大凶 / 净增益 −16</div>
+              <div class="yd-jud-pill">
+                大凶 <small>−16</small>
+              </div>
+            </div>
+
+            <div class="yd-pillars">
+              <div class="yd-p"><span class="yd-p-l">流年</span><span class="yd-p-gz"><b style="color:var(--huo);">丙</b><b style="color:var(--huo);">午</b></span></div>
+              <div class="yd-p"><span class="yd-p-l">大运</span><span class="yd-p-gz"><b style="color:var(--mu);">乙</b><b style="color:var(--huo);">巳</b></span></div>
+              <div class="yd-p"><span class="yd-p-l">本命日</span><span class="yd-p-gz"><b style="color:var(--tu);">己</b><b style="color:var(--huo);">巳</b></span></div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;padding:12px 0;border-bottom:1px solid var(--hairline);">
+              <div style="text-align:center;">
+                <div style="font-family:var(--mono);font-size:9.5px;color:var(--ink-4);letter-spacing:0.1em;">主用神 木</div>
+                <div style="font-family:var(--serif);font-size:21px;color:var(--mu);font-weight:500;">13<small style="font-size:11px;font-family:var(--mono);color:var(--ink-4);font-weight:400;">%</small></div>
+              </div>
+              <div style="text-align:center;border-left:1px solid var(--hairline);border-right:1px solid var(--hairline);">
+                <div style="font-family:var(--mono);font-size:9.5px;color:var(--ink-4);letter-spacing:0.1em;">忌神 火</div>
+                <div style="font-family:var(--serif);font-size:21px;color:var(--xiong);font-weight:500;">33<small style="font-size:11px;font-family:var(--mono);color:var(--ink-4);font-weight:400;">%</small></div>
+              </div>
+              <div style="text-align:center;">
+                <div style="font-family:var(--mono);font-size:9.5px;color:var(--ink-4);letter-spacing:0.1em;">忌神 土</div>
+                <div style="font-family:var(--serif);font-size:21px;color:var(--xiong);font-weight:500;">20<small style="font-size:11px;font-family:var(--mono);color:var(--ink-4);font-weight:400;">%</small></div>
+              </div>
+            </div>
+
+            <div class="yd-explain">
+              <p style="margin-bottom:10px;">流年 <b>丙午</b> 火气大盛,叠加大运 <b>乙巳</b> 巳火生身,而本命己土偏强本就忌火土党旺;此年<span class="neg">忌神供给 33% 远超主用神 13%</span>,命局所喜的木官杀被火势耗散。</p>
+              <p>建议:<span class="mark-mu">不宜重大决策、新创、动土、扩张</span>;宜守宜静、修养、保健、内修。流月 <b>甲午</b>(7 月)与 <b>戊午</b>(6 月)为本年内最需谨慎区段。</p>
+            </div>
+
+            <div class="yd-actions">
+              <a class="cta">🔮 让 AI 详细释义</a>
+              <a class="cta ghost">查看 流月 / 流日</a>
+            </div>
+          </div>
+          <div class="home-bar"></div>
+        </div>
+      </div>
+    </article>
+
+
+    <!-- ─────────────── 07 · CROSS LEAF GRID ─────────────── -->
+    <article class="screen-block">
+      <div class="screen-head">
+        <div class="screen-i">07 / 跨叶</div>
+        <h2 class="screen-t">21 叶 · 跨文化术数</h2>
+        <p class="screen-n">同一生辰,跨文化排盘网格(分区) · <code>POST /api/cast</code> → 21 叶并行</p>
+      </div>
+      <div class="phone">
+        <div class="island"></div>
+        <div class="phone-screen">
+          <div class="status">
+            <span>9:41</span>
+            <span class="status-r">
+              <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor"><rect x="0" y="7" width="3" height="4"/><rect x="4.5" y="5" width="3" height="6"/><rect x="9" y="3" width="3" height="8"/><rect x="13.5" y="0" width="2.5" height="11"/></svg>
+              <svg width="15" height="11" viewBox="0 0 15 11" fill="currentColor"><path d="M7.5 0a8 8 0 0 0-5.4 2.1L3.4 3.5a6 6 0 0 1 8.2 0l1.3-1.4A8 8 0 0 0 7.5 0Z"/></svg>
+              <svg width="24" height="11" viewBox="0 0 24 11"><rect x="0.5" y="0.5" width="20" height="10" rx="2.5" fill="none" stroke="currentColor"/><rect x="2" y="2" width="17" height="7" rx="1" fill="currentColor"/><rect x="21.5" y="3.5" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+            </span>
+          </div>
+          <div class="screen-inner" style="overflow-y:auto;">
+            <div class="leaves-h">
+              <div class="eyebrow">cross-cultural</div>
+              <h1 class="h1" style="font-size:22px;margin-bottom:4px;">同一生辰 · 跨术数</h1>
+              <p class="lead" style="font-size:11.5px;">21 片叶 · 按文化区分组 · tap 看精盘</p>
+            </div>
+
+            <div class="leaves-region">
+              <div class="leaves-region-h">
+                <span class="leaves-region-t">中华</span>
+                <span class="leaves-region-c">11 / 21</span>
+              </div>
+              <div class="leaves-grid">
+                <div class="leaf-card">
+                  <div class="leaf-mini">
+                    <svg width="42" height="42" viewBox="0 0 42 42" fill="none" stroke="currentColor" stroke-width="1.2">
+                      <text x="6" y="14" font-family="Noto Serif SC" font-size="9" fill="var(--mu)">丁</text>
+                      <text x="16" y="14" font-family="Noto Serif SC" font-size="9" fill="var(--tu)">己</text>
+                      <text x="26" y="14" font-family="Noto Serif SC" font-size="9" fill="var(--tu)">己</text>
+                      <text x="36" y="14" font-family="Noto Serif SC" font-size="9" fill="var(--shui)">壬</text>
+                      <text x="6" y="26" font-family="Noto Serif SC" font-size="9" fill="var(--mu)">卯</text>
+                      <text x="16" y="26" font-family="Noto Serif SC" font-size="9" fill="var(--jin)">酉</text>
+                      <text x="26" y="26" font-family="Noto Serif SC" font-size="9" fill="var(--huo)">巳</text>
+                      <text x="36" y="26" font-family="Noto Serif SC" font-size="9" fill="var(--jin)">申</text>
+                    </svg>
+                  </div>
+                  <div class="leaf-name">八字</div>
+                  <div class="leaf-en">bazi</div>
+                </div>
+                <div class="leaf-card">
+                  <div class="leaf-mini">
+                    <svg width="42" height="42" viewBox="0 0 42 42" fill="none" stroke="currentColor" stroke-width="0.8">
+                      <rect x="2" y="2" width="38" height="38" stroke="currentColor"/>
+                      <line x1="2" y1="11.5" x2="40" y2="11.5"/>
+                      <line x1="2" y1="21" x2="40" y2="21"/>
+                      <line x1="2" y1="30.5" x2="40" y2="30.5"/>
+                      <line x1="11.5" y1="2" x2="11.5" y2="40"/>
+                      <line x1="21" y1="2" x2="21" y2="40"/>
+                      <line x1="30.5" y1="2" x2="30.5" y2="40"/>
+                      <circle cx="11.5" cy="11.5" r="2" fill="var(--ink)"/>
+                    </svg>
+                  </div>
+                  <div class="leaf-name">紫微</div>
+                  <div class="leaf-en">ziwei</div>
+                </div>
+                <div class="leaf-card">
+                  <div class="leaf-mini">
+                    <svg width="42" height="42" viewBox="0 0 42 42">
+                      <g stroke="var(--ink)" stroke-width="2">
+                        <line x1="6" y1="10" x2="36" y2="10"/>
+                        <line x1="6" y1="16" x2="16" y2="16"/><line x1="26" y1="16" x2="36" y2="16"/>
+                        <line x1="6" y1="22" x2="36" y2="22"/>
+                        <line x1="6" y1="28" x2="36" y2="28"/>
+                        <line x1="6" y1="34" x2="16" y2="34"/><line x1="26" y1="34" x2="36" y2="34"/>
+                      </g>
+                    </svg>
+                  </div>
+                  <div class="leaf-name">易经</div>
+                  <div class="leaf-en">yijing</div>
+                </div>
+                <div class="leaf-card">
+                  <div class="leaf-mini">
+                    <svg width="42" height="42" viewBox="0 0 42 42" fill="none" stroke="var(--ink)" stroke-width="0.8">
+                      <circle cx="21" cy="21" r="17"/>
+                      <circle cx="21" cy="21" r="12"/>
+                      <circle cx="21" cy="21" r="6"/>
+                      <line x1="21" y1="4" x2="21" y2="38"/>
+                      <line x1="4" y1="21" x2="38" y2="21"/>
+                    </svg>
+                  </div>
+                  <div class="leaf-name">七政四余</div>
+                  <div class="leaf-en">qizhengsiyu</div>
+                </div>
+                <div class="leaf-card">
+                  <div class="leaf-mini">
+                    <svg width="42" height="42" viewBox="0 0 42 42" fill="none" stroke="var(--ink)" stroke-width="0.8">
+                      <rect x="6" y="6" width="30" height="30"/>
+                      <line x1="6" y1="16" x2="36" y2="16"/>
+                      <line x1="6" y1="26" x2="36" y2="26"/>
+                      <line x1="16" y1="6" x2="16" y2="36"/>
+                      <line x1="26" y1="6" x2="26" y2="36"/>
+                      <text x="21" y="24" text-anchor="middle" font-family="Noto Serif SC" font-size="6" fill="var(--ink)">五</text>
+                    </svg>
+                  </div>
+                  <div class="leaf-name">奇门遁甲</div>
+                  <div class="leaf-en">qimen</div>
+                </div>
+                <div class="leaf-card">
+                  <div class="leaf-mini">
+                    <svg width="42" height="42" viewBox="0 0 42 42" fill="none" stroke="var(--ink)" stroke-width="0.7">
+                      <circle cx="21" cy="21" r="17"/>
+                      <line x1="4" y1="21" x2="38" y2="21"/>
+                      <line x1="9" y1="9" x2="33" y2="33"/>
+                      <line x1="33" y1="9" x2="9" y2="33"/>
+                      <line x1="21" y1="4" x2="21" y2="38"/>
+                    </svg>
+                  </div>
+                  <div class="leaf-name">大六壬</div>
+                  <div class="leaf-en">liuren</div>
+                </div>
+              </div>
+              <div style="text-align:center;font-family:var(--mono);font-size:10px;color:var(--ink-5);margin-top:6px;letter-spacing:0.05em;">+ 梅花 · 小六壬 · 择日 · 太乙 · 藏历</div>
+            </div>
+
+            <div class="leaves-region">
+              <div class="leaves-region-h">
+                <span class="leaves-region-t">西洋 · 南亚</span>
+                <span class="leaves-region-c">3 / 21</span>
+              </div>
+              <div class="leaves-grid">
+                <div class="leaf-card">
+                  <div class="leaf-mini">
+                    <svg width="42" height="42" viewBox="0 0 42 42" fill="none" stroke="var(--ink)" stroke-width="0.8">
+                      <circle cx="21" cy="21" r="17"/>
+                      <g transform="translate(21 21)">
+                        <line x1="-17" y1="0" x2="17" y2="0"/>
+                        <line x1="0" y1="-17" x2="0" y2="17"/>
+                        <line x1="-12" y1="-12" x2="12" y2="12"/>
+                        <line x1="-12" y1="12" x2="12" y2="-12"/>
+                      </g>
+                      <circle cx="21" cy="21" r="4" fill="var(--ink)"/>
+                      <circle cx="8" cy="21" r="1.5" fill="var(--huo)"/>
+                      <circle cx="34" cy="21" r="1.5" fill="var(--shui)"/>
+                    </svg>
+                  </div>
+                  <div class="leaf-name">西洋占星</div>
+                  <div class="leaf-en">astrology</div>
+                </div>
+                <div class="leaf-card">
+                  <div class="leaf-mini">
+                    <svg width="42" height="42" viewBox="0 0 42 42" fill="none" stroke="var(--ink)" stroke-width="0.8">
+                      <circle cx="21" cy="21" r="17"/>
+                      <g stroke-dasharray="2 2">
+                        <line x1="4" y1="21" x2="38" y2="21"/>
+                        <line x1="21" y1="4" x2="21" y2="38"/>
+                      </g>
+                      <text x="21" y="15" text-anchor="middle" font-family="EB Garamond" font-style="italic" font-size="9" fill="var(--ink)">Ω</text>
+                    </svg>
+                  </div>
+                  <div class="leaf-name">印度占星</div>
+                  <div class="leaf-en">jyotish</div>
+                </div>
+                <div class="leaf-card">
+                  <div class="leaf-mini">
+                    <svg width="32" height="42" viewBox="0 0 32 42" fill="none" stroke="var(--ink)" stroke-width="0.8">
+                      <rect x="2" y="2" width="28" height="38" rx="2"/>
+                      <text x="16" y="22" text-anchor="middle" font-family="EB Garamond" font-size="14" font-weight="500" fill="var(--ink)">XVII</text>
+                      <text x="16" y="32" text-anchor="middle" font-family="Inter" font-size="5" fill="var(--ink-4)">THE STAR</text>
+                    </svg>
+                  </div>
+                  <div class="leaf-name">塔罗</div>
+                  <div class="leaf-en">tarot</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="leaves-region">
+              <div class="leaves-region-h">
+                <span class="leaves-region-t">中东 · 非洲 · 美洲 · 东南亚</span>
+                <span class="leaves-region-c">7 / 21</span>
+              </div>
+              <div class="leaves-grid">
+                <div class="leaf-card">
+                  <div class="leaf-mini">
+                    <svg width="36" height="36" viewBox="0 0 36 36">
+                      <text x="18" y="22" text-anchor="middle" font-family="EB Garamond" font-size="22" fill="var(--ink)">‎בבל</text>
+                    </svg>
+                  </div>
+                  <div class="leaf-name">gematria</div>
+                  <div class="leaf-en">希伯来 / 7 法</div>
+                </div>
+                <div class="leaf-card">
+                  <div class="leaf-mini">
+                    <svg width="42" height="42" viewBox="0 0 42 42" fill="var(--ink)">
+                      <circle cx="10" cy="10" r="2"/><circle cx="10" cy="20" r="2"/>
+                      <circle cx="20" cy="10" r="2"/><circle cx="20" cy="20" r="2"/>
+                      <circle cx="32" cy="14" r="2"/><circle cx="32" cy="26" r="2"/>
+                      <line x1="10" y1="30" x2="32" y2="30" stroke="var(--ink)" stroke-width="0.8"/>
+                      <circle cx="14" cy="36" r="2"/><circle cx="28" cy="36" r="2"/>
+                    </svg>
+                  </div>
+                  <div class="leaf-name">地占</div>
+                  <div class="leaf-en">geomancy</div>
+                </div>
+                <div class="leaf-card">
+                  <div class="leaf-mini">
+                    <svg width="42" height="42" viewBox="0 0 42 42">
+                      <g fill="var(--ink)">
+                        <rect x="6" y="10" width="14" height="3"/>
+                        <rect x="6" y="16" width="14" height="3"/>
+                        <rect x="22" y="22" width="14" height="3"/>
+                        <rect x="22" y="28" width="14" height="3"/>
+                      </g>
+                      <text x="21" y="40" text-anchor="middle" font-family="Inter" font-size="5" fill="var(--ink-4)">256 odu</text>
+                    </svg>
+                  </div>
+                  <div class="leaf-name">Ifá</div>
+                  <div class="leaf-en">非洲 / 256</div>
+                </div>
+                <div class="leaf-card">
+                  <div class="leaf-mini">
+                    <svg width="42" height="42" viewBox="0 0 42 42" fill="none" stroke="var(--ink)" stroke-width="0.8">
+                      <path d="M6 18 L36 18 M6 26 L36 26"/>
+                      <circle cx="11" cy="22" r="1.5" fill="var(--ink)"/>
+                      <circle cx="20" cy="14" r="1.5" fill="var(--ink)"/>
+                      <circle cx="30" cy="32" r="1.5" fill="var(--ink)"/>
+                      <text x="21" y="40" text-anchor="middle" font-family="Inter" font-size="5" fill="var(--ink-4)">13·20·5125</text>
+                    </svg>
+                  </div>
+                  <div class="leaf-name">玛雅</div>
+                  <div class="leaf-en">maya</div>
+                </div>
+              </div>
+              <div style="text-align:center;font-family:var(--mono);font-size:10px;color:var(--ink-5);margin-top:6px;letter-spacing:0.05em;">+ abjad · Sikidy · Pawukon · Mahabote</div>
+            </div>
+          </div>
+          <div class="home-bar"></div>
+        </div>
+      </div>
+    </article>
+
+    <!-- ─────────────── 08 · LLM READING ─────────────── -->
+    <article class="screen-block">
+      <div class="screen-head">
+        <div class="screen-i">08 / 释义</div>
+        <h2 class="screen-t">AI 释义 · 长文版</h2>
+        <p class="screen-n">扶抑 / 调候 流派提示 · 给出吉凶 + 行运建议 · <code>POST /api/interpret</code></p>
+      </div>
+      <div class="phone">
+        <div class="island"></div>
+        <div class="phone-screen">
+          <div class="status">
+            <span>9:41</span>
+            <span class="status-r">
+              <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor"><rect x="0" y="7" width="3" height="4"/><rect x="4.5" y="5" width="3" height="6"/><rect x="9" y="3" width="3" height="8"/><rect x="13.5" y="0" width="2.5" height="11"/></svg>
+              <svg width="15" height="11" viewBox="0 0 15 11" fill="currentColor"><path d="M7.5 0a8 8 0 0 0-5.4 2.1L3.4 3.5a6 6 0 0 1 8.2 0l1.3-1.4A8 8 0 0 0 7.5 0Z"/></svg>
+              <svg width="24" height="11" viewBox="0 0 24 11"><rect x="0.5" y="0.5" width="20" height="10" rx="2.5" fill="none" stroke="currentColor"/><rect x="2" y="2" width="17" height="7" rx="1" fill="currentColor"/><rect x="21.5" y="3.5" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+            </span>
+          </div>
+          <div class="screen-inner">
+            <a class="nav-back"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke-width="1.5"><path d="M6 2L2.5 5L6 8"/></svg> 命</a>
+            <div class="llm-head" style="margin-top:6px;">
+              <span class="llm-eyebrow">🔮 ai · interpretation</span>
+              <span class="llm-title">己土偏强 · 才气外显之命</span>
+              <div class="llm-school">
+                <span class="chip"><b>扶抑</b></span>
+                <span class="chip">调候 · 辅</span>
+                <span class="chip ji">主木官杀</span>
+              </div>
+            </div>
+            <div class="llm-body">
+              <div class="llm-section">
+                <h4>性格 与 才能</h4>
+                <p>己土生于酉月,食神当令而辛金暗藏成「<em>暗食神格</em>」,综合身强 61,五行<b>金 32 最旺、木 11 最缺</b> — 印火土比聚而泄秀有余、克制不足。这是一副<b>才气外显、需以贵气驾驭</b>的格局。</p>
+              </div>
+              <div class="llm-section">
+                <h4>事业 / 适合的方向</h4>
+                <p>月柱<em>文昌+学堂</em>双现,叠暗食神格,主聪慧、有文笔与专业才华,<em>利文教、研发、设计、写作、出版</em>;年柱将星显领导潜质;时干壬水正财坐申金长生,财源有根,中年偏后渐稳。</p>
+              </div>
+              <div class="llm-section">
+                <h4>需 留 意</h4>
+                <p>命<span class="neg">缺官杀木</span>,事业上易自由散漫、难受约束,宜主动接受规则与权威打磨;<span class="neg">火土过旺</span>,情绪上易固执、自我消耗。<b>用神为木(官)、水(财)</b>;<em>行木运、东方、青绿色、从事管理 / 法务 / 教育 / 出版有利</em>;<span class="neg">忌火土,避红黄、南方、过燥环境</span>。</p>
+              </div>
+              <div class="llm-fade"></div>
+            </div>
+            <div class="llm-actions">
+              <a class="llm-act">
+                <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke-width="1.5"><path d="M3 4l3-2 3 2 M3 9l3 2 3-2 M6 2v9" stroke="currentColor"/></svg>
+                换 角 度
+              </a>
+              <a class="llm-act">
+                <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke-width="1.5"><path d="M3 2h7v9l-3.5-2-3.5 2V2z" stroke="currentColor"/></svg>
+                保 存
+              </a>
+              <a class="llm-act primary">
+                <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke-width="1.5"><path d="M3 6.5l2-2v1.5h4V4.5l2 2-2 2V7H5v1.5l-2-2z" stroke="currentColor"/></svg>
+                分 享
+              </a>
+            </div>
+          </div>
+          <div class="home-bar"></div>
+        </div>
+      </div>
+    </article>
+
+  </main>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       FOOTER
+  ═══════════════════════════════════════════════════════════════════════ -->
+  <footer class="footnote">
+    <div class="col">
+      <span><b>unmei · 命運</b></span>
+      <span>design source · v0.1 / 2026·06</span>
+    </div>
+    <div class="col" style="text-align:right;">
+      <span>parent · <b>mingli</b></span>
+      <span>targets · proto · mini · ios · android</span>
+      <span>api · rust + axum :6027 · 21 leaves</span>
+    </div>
+  </footer>
+
+</body>
+</html>

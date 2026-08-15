@@ -1,0 +1,42 @@
+# unmei-api · 多阶段 build
+# build context = ../backend(workspace root)
+# 使用 cargo-chef 把依赖编译做成缓存层
+syntax=docker/dockerfile:1.7
+# ────────────────────────────────────────────────────────────
+FROM lukemathwalker/cargo-chef:latest-rust-1.83-slim AS chef
+WORKDIR /app
+
+# ─── plan 阶段:生成 recipe.json(依赖清单)──────────────
+FROM chef AS planner
+COPY . .
+RUN cargo chef prepare --recipe-path recipe.json
+
+# ─── deps 阶段:编译依赖(缓存层)─────────────────────────
+FROM chef AS deps
+COPY --from=planner /app/recipe.json recipe.json
+# sqlx postgres / openssl 需要的系统库
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    pkg-config libssl-dev ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+ENV SQLX_OFFLINE=true
+RUN cargo chef cook --release --recipe-path recipe.json -p unmei-api
+
+# ─── build 阶段:编译本项目源码 ───────────────────────────
+FROM deps AS builder
+COPY . .
+ENV SQLX_OFFLINE=true
+RUN cargo build --release -p unmei-api
+
+# ─── runtime 阶段:slim runtime ───────────────────────────
+FROM debian:bookworm-slim AS runtime
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl libssl3 && \
+    rm -rf /var/lib/apt/lists/* && \
+    useradd -m -u 10001 unmei
+WORKDIR /app
+COPY --from=builder /app/target/release/unmei-api /usr/local/bin/unmei-api
+COPY --from=builder /app/migrations /app/migrations
+COPY --from=builder /app/seed /app/seed
+USER unmei
+EXPOSE 6028
+CMD ["/usr/local/bin/unmei-api"]

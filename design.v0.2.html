@@ -1,0 +1,2038 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>unmei · 命運 — Design v0.2 · 借鉴不完人 UI/UX + mingli 算力</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500;600;700;900&family=Noto+Sans+SC:wght@300;400;500;600;700&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap" />
+  <style>
+    :root {
+      /* === 纸墨基底(继承 buwanren) === */
+      --paper:        #f8f6f3;
+      --paper-warm:   #f5f2ed;
+      --paper-cool:   #ecebe5;
+      --ink:          #2c2c2c;
+      --ink-light:    #5a5a5a;
+      --ink-deep:     #1c1917;
+
+      --stone-50:  #fafaf9;
+      --stone-100: #f5f5f4;
+      --stone-200: #e7e5e4;
+      --stone-300: #d6d3d1;
+      --stone-400: #a8a29e;
+      --stone-500: #78716c;
+      --stone-600: #57534e;
+      --stone-700: #44403c;
+      --stone-800: #292524;
+      --stone-900: #1c1917;
+
+      /* === Accent 色(继承 buwanren + 加 vermilion 给「凶」) === */
+      --gold:      #c9a962;
+      --gold-soft: rgba(201, 169, 98, 0.12);
+      --bronze:    #8b7355;
+      --jade:      #5a8f7b;
+      --jade-soft: rgba(90, 143, 123, 0.12);
+      --vermilion:      #b56750;
+      --vermilion-soft: rgba(181, 103, 80, 0.10);
+
+      /* === 五行(克制点缀 — 干支字面着色用,不铺色块) === */
+      --mu:   #6b8e4e;
+      --huo:  #c44a3a;
+      --tu:   #c89968;
+      --jin:  #8a8580;
+      --shui: #4a6b8e;
+
+      /* === 吉凶 5 等级层次色(深绿 → 浅绿 → 灰 → 暖红 → 深红) === */
+      --daji:    #3d5230;
+      --ji:      #5a8f7b;
+      --ping:    #78716c;
+      --xiong:   #b56750;
+      --daxiong: #823428;
+
+      /* === 字体(buwanren:Noto Serif SC + Noto Sans SC) === */
+      --serif: "Noto Serif SC", "Songti SC", Georgia, serif;
+      --sans:  "Noto Sans SC", "PingFang SC", -apple-system, "Helvetica Neue", sans-serif;
+      --en-serif: "EB Garamond", Georgia, serif;
+      --mono:  "JetBrains Mono", "SF Mono", Menlo, monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+    body {
+      font-family: var(--sans);
+      background:
+        radial-gradient(ellipse 70% 50% at 50% 0%, var(--paper-warm) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 70% at 90% 100%, var(--paper-cool) 0%, transparent 60%),
+        var(--paper);
+      color: var(--ink);
+      line-height: 1.5;
+      font-size: 14px;
+      padding: 56px 48px 96px;
+      min-height: 100vh;
+    }
+
+    .paper-tex {
+      position: relative;
+    }
+    .paper-tex::before {
+      content: '';
+      position: absolute; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      mix-blend-mode: multiply;
+    }
+
+    /* ────────────────────────────────────────────────────────────────────────
+       BRAND HEADER
+    ──────────────────────────────────────────────────────────────────────── */
+    .brand {
+      max-width: 1680px; margin: 0 auto;
+      display: flex; justify-content: space-between; align-items: flex-end;
+      padding-bottom: 28px;
+      border-bottom: 1px solid var(--stone-300);
+      margin-bottom: 36px;
+    }
+    .brand-l { display: flex; align-items: baseline; gap: 22px; }
+    .brand-mark {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: 56px;
+      letter-spacing: -0.01em;
+      color: var(--ink-deep);
+      line-height: 1;
+    }
+    .brand-mark .en {
+      font-family: var(--en-serif);
+      font-style: italic;
+      color: var(--bronze);
+      margin-left: 4px;
+      font-size: 0.7em;
+    }
+    .brand-tag {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--stone-500);
+      padding-bottom: 8px;
+    }
+    .brand-tag .pip { display: inline-block; width: 6px; height: 6px; border-radius: 999px; background: var(--gold); margin-right: 6px; vertical-align: middle; }
+    .brand-meta {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--stone-500);
+      text-align: right;
+      letter-spacing: 0.04em;
+    }
+    .brand-meta div { margin-bottom: 2px; }
+    .brand-meta b { color: var(--ink); font-weight: 600; }
+
+    /* ────────────────────────────────────────────────────────────────────────
+       DESIGN TOKENS PANEL
+    ──────────────────────────────────────────────────────────────────────── */
+    .tokens {
+      max-width: 1680px; margin: 0 auto 44px;
+      display: grid;
+      grid-template-columns: 1.3fr 1fr 1fr 1fr;
+      gap: 22px;
+    }
+    .tk {
+      background: rgba(255,255,255,0.35);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--stone-200);
+      padding: 18px 22px;
+      border-radius: 4px;
+      position: relative;
+    }
+    .tk-h {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--stone-500);
+      margin-bottom: 14px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .tk-h span:last-child { color: var(--stone-400); }
+
+    .tk-pal { display: flex; flex-direction: column; gap: 10px; }
+    .tk-pal-row { display: flex; align-items: center; gap: 12px; }
+    .tk-sw { width: 22px; height: 22px; border-radius: 5px; flex-shrink: 0; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08); }
+    .tk-pal-name { font-family: var(--mono); font-size: 11px; color: var(--ink); }
+    .tk-pal-hex { font-family: var(--mono); font-size: 10.5px; color: var(--stone-400); margin-left: auto; }
+
+    .tk-type-row { display: flex; align-items: baseline; gap: 14px; padding: 5px 0; border-top: 1px dashed var(--stone-200); }
+    .tk-type-row:first-of-type { border-top: 0; padding-top: 0; }
+    .tk-type-key { font-family: var(--mono); font-size: 10px; color: var(--stone-500); min-width: 28px; }
+    .tk-type-sample { color: var(--ink); }
+    .tk-type-meta { margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--stone-400); }
+
+    .tk-jixiong { display: flex; gap: 4px; margin-top: 8px; }
+    .tk-jixiong span {
+      flex: 1; padding: 6px 4px; border-radius: 4px; color: #fff;
+      text-align: center; font-family: var(--mono); font-size: 9.5px;
+    }
+
+    .tk-axiom { display: flex; flex-direction: column; gap: 12px; }
+    .tk-axiom-i { font-family: var(--mono); font-size: 9px; letter-spacing: 0.2em; color: var(--stone-400); margin-bottom: 2px; }
+    .tk-axiom-t { font-size: 12.5px; color: var(--ink-light); line-height: 1.55; font-family: var(--serif); }
+
+    /* ────────────────────────────────────────────────────────────────────────
+       SCREENS GRID
+    ──────────────────────────────────────────────────────────────────────── */
+    .screens {
+      max-width: 1680px; margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 56px 36px;
+    }
+    @media (max-width: 1280px) { .screens { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 760px)  { .screens { grid-template-columns: 1fr; } }
+
+    .screen-block { display: flex; flex-direction: column; }
+    .screen-head { margin-bottom: 18px; padding-left: 4px; }
+    .screen-i {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.22em;
+      color: var(--stone-400);
+      margin-bottom: 6px;
+    }
+    .screen-t {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 19px;
+      line-height: 1.2;
+      color: var(--ink);
+      margin-bottom: 4px;
+    }
+    .screen-n { font-size: 11.5px; color: var(--stone-500); line-height: 1.5; }
+    .screen-n code {
+      font-family: var(--mono);
+      font-size: 10.5px;
+      color: var(--bronze);
+      background: var(--gold-soft);
+      padding: 1px 6px;
+      border-radius: 3px;
+    }
+
+    /* ────────────────────────────────────────────────────────────────────────
+       iPHONE FRAME (390 × 844)
+    ──────────────────────────────────────────────────────────────────────── */
+    .phone {
+      width: 100%;
+      max-width: 390px;
+      aspect-ratio: 390/844;
+      background: #0a0a0a;
+      border-radius: 52px;
+      padding: 11px;
+      box-shadow:
+        0 1px 1px rgba(255,255,255,0.4) inset,
+        0 2px 28px rgba(56,42,18,0.15),
+        0 24px 64px -40px rgba(40,30,12,0.32);
+      position: relative;
+    }
+    .phone-screen {
+      width: 100%; height: 100%;
+      background: var(--paper);
+      border-radius: 41px;
+      overflow: hidden;
+      position: relative;
+      isolation: isolate;
+    }
+    .island {
+      position: absolute; top: 11px; left: 50%; transform: translateX(-50%);
+      width: 100px; height: 30px;
+      background: #050505;
+      border-radius: 17px;
+      z-index: 30;
+    }
+    .status {
+      position: relative; z-index: 20;
+      display: flex; justify-content: space-between; align-items: center;
+      height: 50px;
+      padding: 0 28px;
+      font-family: var(--sans);
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--ink);
+    }
+    .status-r { display: flex; align-items: center; gap: 6px; opacity: 0.9; }
+    .home-bar {
+      position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+      width: 130px; height: 5px; border-radius: 999px;
+      background: var(--ink);
+      opacity: 0.85;
+      z-index: 20;
+    }
+    .screen-inner {
+      position: absolute; inset: 50px 0 84px 0;
+      overflow: hidden;
+      padding: 0 20px;
+      display: flex; flex-direction: column;
+    }
+    .screen-inner.no-tab { inset: 50px 0 28px 0; }
+    .screen-inner.scroll { overflow-y: auto; }
+
+    /* ────────────────────────────────────────────────────────────────────────
+       BOTTOM TAB NAV (4 tab: 纳吉 / 命 / 运 / 我)
+    ──────────────────────────────────────────────────────────────────────── */
+    .tab-nav {
+      position: absolute; bottom: 28px; left: 0; right: 0;
+      height: 56px;
+      background: rgba(248, 246, 243, 0.92);
+      backdrop-filter: blur(8px);
+      border-top: 1px solid var(--stone-200);
+      display: flex; justify-content: space-around; align-items: center;
+      padding: 0 12px;
+      z-index: 15;
+    }
+    .tab-item {
+      flex: 1;
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      padding: 6px 4px;
+      color: var(--stone-400);
+      position: relative;
+    }
+    .tab-item.on { color: var(--ink); }
+    .tab-icon {
+      width: 22px; height: 22px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .tab-icon svg { stroke-width: 1.25; }
+    .tab-item.on .tab-icon svg { stroke: var(--gold); }
+    .tab-label { font-size: 10.5px; font-family: var(--sans); letter-spacing: 0.04em; }
+    .tab-item.on::after {
+      content: ''; position: absolute; bottom: -2px; width: 4px; height: 4px;
+      border-radius: 999px; background: var(--gold);
+    }
+
+    /* ────────────────────────────────────────────────────────────────────────
+       SHARED ATOMS
+    ──────────────────────────────────────────────────────────────────────── */
+    .h1 { font-family: var(--serif); font-weight: 500; font-size: 24px; line-height: 1.2; letter-spacing: -0.005em; color: var(--ink-deep); }
+    .h2 { font-family: var(--serif); font-weight: 500; font-size: 20px; line-height: 1.25; color: var(--ink); }
+    .eyebrow { font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--stone-400); }
+    .quiet { color: var(--stone-500); }
+    .lead { font-size: 13px; color: var(--ink-light); line-height: 1.6; }
+    .divider { height: 1px; background: var(--stone-200); margin: 14px 0; }
+
+    .cta {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 8px;
+      font-family: var(--sans); font-weight: 500; font-size: 14px;
+      color: var(--paper);
+      background: var(--ink-deep);
+      padding: 13px 28px;
+      border-radius: 999px;
+      letter-spacing: 0.05em;
+      width: 100%;
+    }
+    .cta.ghost { background: transparent; color: var(--ink); border: 1px solid var(--stone-400); }
+    .cta.gold { background: var(--gold); color: var(--ink-deep); }
+
+    .nav-back {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-family: var(--mono); font-size: 11px;
+      color: var(--stone-500);
+      padding: 4px 0;
+    }
+
+    .chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 4px 10px;
+      font-family: var(--mono); font-size: 10.5px;
+      border-radius: 999px;
+      border: 1px solid var(--stone-300);
+      color: var(--ink-light);
+      background: rgba(255,255,255,0.6);
+      white-space: nowrap;
+    }
+    .chip b { color: var(--ink); font-weight: 600; }
+    .chip.jade  { background: var(--jade-soft); color: var(--jade); border-color: rgba(90,143,123,0.3); }
+    .chip.gold  { background: var(--gold-soft); color: var(--bronze); border-color: rgba(201,169,98,0.3); }
+    .chip.vermilion { background: var(--vermilion-soft); color: var(--vermilion); border-color: rgba(181,103,80,0.3); }
+    .chip.daji   { background: rgba(61,82,48,0.10);  color: var(--daji);   border-color: rgba(61,82,48,0.3); }
+    .chip.ji     { background: rgba(90,143,123,0.12); color: var(--jade);  border-color: rgba(90,143,123,0.3); }
+    .chip.ping   { background: rgba(120,113,108,0.10); color: var(--stone-500); border-color: var(--stone-300); }
+    .chip.xiong  { background: rgba(181,103,80,0.10); color: var(--vermilion); border-color: rgba(181,103,80,0.3); }
+    .chip.daxiong{ background: rgba(130,52,40,0.12);  color: var(--daxiong); border-color: rgba(130,52,40,0.3); }
+    .chip-strike { text-decoration: line-through; color: var(--stone-400); background: var(--stone-100); border-color: var(--stone-200); }
+
+    .gz {
+      font-family: var(--serif);
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      line-height: 1;
+    }
+
+    .kv-card {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--stone-200);
+    }
+    .kv-card:last-child { border-bottom: 0; }
+    .kv-k { font-family: var(--sans); font-size: 12.5px; color: var(--stone-500); letter-spacing: 0.04em; }
+    .kv-v { font-family: var(--serif); font-size: 14px; color: var(--ink); }
+    .kv-v.gold { color: var(--gold); }
+    .kv-v.big { font-size: 22px; font-weight: 500; }
+
+
+    /* ────────────────────────────────────────────────────────────────────────
+       SCREEN 1 · OPEN
+    ──────────────────────────────────────────────────────────────────────── */
+    .open {
+      flex: 1;
+      display: flex; flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 56px; padding-bottom: 28px;
+    }
+    .open-mark { text-align: center; }
+    .open-cn {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 140px;
+      line-height: 0.95;
+      letter-spacing: -0.04em;
+      color: var(--ink-deep);
+      margin-bottom: 24px;
+      position: relative;
+    }
+    .open-cn::after {
+      content: '';
+      position: absolute;
+      bottom: 16px; right: -6px;
+      width: 8px; height: 8px;
+      background: var(--gold);
+      border-radius: 999px;
+    }
+    .open-en {
+      font-family: var(--en-serif);
+      font-style: italic;
+      font-size: 22px;
+      letter-spacing: 0.36em;
+      color: var(--ink-light);
+      text-transform: lowercase;
+      margin-bottom: 8px;
+    }
+    .open-rom {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: 0.5em;
+      text-transform: uppercase;
+      color: var(--stone-400);
+    }
+    .open-tag {
+      font-family: var(--serif);
+      font-size: 14px;
+      color: var(--ink-light);
+      line-height: 1.9;
+      text-align: center;
+      letter-spacing: 0.06em;
+    }
+    .open-tag .quote {
+      font-family: var(--en-serif);
+      font-style: italic;
+      color: var(--stone-500);
+      display: block; font-size: 12px;
+      margin-top: 4px;
+    }
+    .open-bot { width: 100%; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+    .open-pips { display: flex; gap: 30px; margin-bottom: 24px; }
+    .open-pips i { display: block; width: 5px; height: 5px; border-radius: 999px; opacity: 0.6; }
+    .open-pips i.a { background: var(--mu); }
+    .open-pips i.b { background: var(--huo); }
+    .open-pips i.c { background: var(--tu); }
+    .open-pips i.d { background: var(--jin); }
+    .open-pips i.e { background: var(--shui); }
+    .open-foot { font-family: var(--mono); font-size: 9.5px; color: var(--stone-400); letter-spacing: 0.16em; margin-top: 8px; }
+
+
+    /* ────────────────────────────────────────────────────────────────────────
+       SCREEN 2 · FORM
+    ──────────────────────────────────────────────────────────────────────── */
+    .form-h { display: flex; flex-direction: column; gap: 6px; margin-bottom: 22px; }
+    .form-list { flex: 1; display: flex; flex-direction: column; }
+    .form-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--stone-200);
+    }
+    .form-row:first-child { border-top: 1px solid var(--stone-200); }
+    .form-l { font-family: var(--sans); font-size: 13px; color: var(--ink-light); }
+    .form-l small { display: block; font-size: 10px; color: var(--stone-400); margin-top: 2px; }
+    .form-v { font-family: var(--mono); font-size: 13px; color: var(--ink); display: flex; align-items: center; gap: 6px; }
+    .seg {
+      display: inline-flex; padding: 2px; border-radius: 999px; background: var(--stone-100);
+      border: 1px solid var(--stone-200);
+    }
+    .seg span {
+      padding: 5px 11px; font-size: 11.5px; font-family: var(--sans);
+      border-radius: 999px; color: var(--stone-500);
+      letter-spacing: 0.04em;
+    }
+    .seg span.on { background: var(--ink-deep); color: var(--paper); }
+    .toggle {
+      width: 36px; height: 20px; border-radius: 999px;
+      background: var(--gold); position: relative;
+    }
+    .toggle::after {
+      content: ''; position: absolute; top: 2px; left: 18px;
+      width: 16px; height: 16px; border-radius: 999px; background: var(--paper);
+    }
+    .toggle.off { background: var(--stone-300); }
+    .toggle.off::after { left: 2px; }
+    .form-bot { margin-top: auto; padding-top: 20px; display: flex; flex-direction: column; gap: 10px; }
+    .form-note { font-size: 11px; color: var(--stone-400); text-align: center; line-height: 1.6; }
+
+
+    /* ────────────────────────────────────────────────────────────────────────
+       SCREEN 3 · NAJI (罗盘主页)
+    ──────────────────────────────────────────────────────────────────────── */
+    .naji {
+      flex: 1;
+      display: flex; flex-direction: column;
+      padding: 0;
+    }
+    .naji-head { padding: 12px 0 20px; text-align: center; }
+    .naji-h-t { font-family: var(--serif); font-size: 22px; letter-spacing: 0.22em; color: var(--ink-deep); font-weight: 500; }
+    .naji-h-s { font-size: 11px; color: var(--stone-400); margin-top: 4px; letter-spacing: 0.05em; }
+    .naji-clock {
+      display: inline-flex; gap: 8px; align-items: baseline;
+      padding: 4px 14px;
+      background: var(--gold-soft);
+      border: 1px solid rgba(201,169,98,0.3);
+      border-radius: 999px;
+      margin: 6px auto 0;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--bronze);
+    }
+    .naji-clock b { color: var(--ink-deep); font-family: var(--serif); font-weight: 500; font-size: 13px; letter-spacing: 0.04em; }
+
+    .compass-wrap {
+      flex: 1;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      position: relative;
+    }
+    .compass-pointer {
+      position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+      width: 0; height: 0;
+      border-left: 9px solid transparent;
+      border-right: 9px solid transparent;
+      border-top: 16px solid var(--gold);
+      z-index: 4;
+    }
+    .compass-svg-wrap {
+      position: relative;
+      width: 280px; height: 280px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .compass-svg { width: 100%; height: 100%; }
+    .compass-btn {
+      position: absolute;
+      width: 92px; height: 92px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 50% 30%, #5a5a5a 0%, #2a2a2a 100%);
+      border: 3px solid rgba(201,169,98,0.4);
+      box-shadow: 0 4px 16px rgba(40,30,12,0.3);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--paper);
+    }
+    .compass-btn .cb-cn {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 22px;
+      letter-spacing: 0.3em;
+      padding-left: 0.3em;
+    }
+    .compass-hint {
+      margin-top: 22px;
+      font-family: var(--mono);
+      font-size: 10.5px;
+      color: var(--stone-400);
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      text-align: center;
+    }
+    .naji-foot {
+      padding-top: 12px; padding-bottom: 8px;
+      display: flex; justify-content: space-between; align-items: center;
+      font-family: var(--mono); font-size: 10px; color: var(--stone-500);
+      letter-spacing: 0.06em;
+    }
+    .naji-foot b { color: var(--ink); font-family: var(--serif); font-weight: 500; }
+
+
+    /* ────────────────────────────────────────────────────────────────────────
+       SCREEN 4 · NAJI SHEET (罗盘转后底部滑出面板)
+    ──────────────────────────────────────────────────────────────────────── */
+    .naji-bg {
+      position: absolute; inset: 0;
+      background: rgba(20, 18, 14, 0.4);
+      backdrop-filter: blur(3px);
+      z-index: 10;
+    }
+    .naji-bg .compass-faded {
+      position: absolute; top: 80px; left: 50%; transform: translateX(-50%);
+      opacity: 0.35;
+    }
+    .sheet {
+      position: absolute; left: 0; right: 0; bottom: 28px;
+      max-height: 78%;
+      background: var(--paper);
+      border-radius: 28px 28px 0 0;
+      box-shadow: 0 -8px 32px -8px rgba(40,30,12,0.18);
+      overflow-y: auto;
+      padding: 0 22px 14px;
+      z-index: 20;
+    }
+    .sheet-handle {
+      display: flex; justify-content: center; padding: 10px 0 4px;
+    }
+    .sheet-handle i {
+      width: 36px; height: 4px; border-radius: 999px; background: var(--stone-300);
+    }
+    .sheet-quote {
+      padding: 16px 4px 14px;
+      border-bottom: 1px solid var(--stone-200);
+      text-align: center;
+    }
+    .sheet-quote p {
+      font-family: var(--serif);
+      font-size: 14px;
+      color: var(--ink);
+      letter-spacing: 0.06em;
+      line-height: 1.8;
+    }
+    .sheet-quote small {
+      font-family: var(--mono); font-size: 10px; color: var(--stone-400);
+      letter-spacing: 0.04em;
+      margin-top: 4px; display: block;
+    }
+    .sheet-gate { padding: 18px 4px; border-bottom: 1px solid var(--stone-200); }
+    .sheet-gate-row {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .sheet-gate-l { font-size: 12px; color: var(--stone-500); letter-spacing: 0.04em; }
+    .sheet-gate-name {
+      font-family: var(--serif); font-weight: 500; font-size: 28px;
+      color: var(--gold);
+      letter-spacing: 0.06em;
+    }
+    .sheet-gate-name small { font-size: 12px; color: var(--bronze); margin-left: 6px; font-family: var(--mono); font-weight: 400; }
+    .sheet-gate-dir {
+      display: flex; align-items: baseline; justify-content: space-between;
+      padding: 4px 0;
+    }
+    .sheet-gate-dir b { font-family: var(--serif); font-weight: 500; font-size: 16px; color: var(--ink); }
+    .sheet-gate-card {
+      margin-top: 10px;
+      padding: 12px 16px;
+      background: var(--gold-soft);
+      border-radius: 12px;
+      text-align: center;
+    }
+    .sheet-gate-card p {
+      font-family: var(--serif); font-size: 13.5px; color: var(--ink-deep);
+      line-height: 1.7; letter-spacing: 0.03em;
+    }
+    .sheet-qm {
+      padding: 14px 4px;
+      border-bottom: 1px solid var(--stone-200);
+      background: linear-gradient(135deg, rgba(201,169,98,0.04), transparent);
+    }
+    .sheet-qm-h {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .sheet-qm-h-t { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.16em; color: var(--stone-500); text-transform: uppercase; }
+    .sheet-qm-h-t b { color: var(--bronze); font-family: var(--serif); font-weight: 500; font-size: 12px; letter-spacing: 0.02em; text-transform: none; }
+    .sheet-qm-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 4px 14px;
+      font-family: var(--mono);
+      font-size: 11px;
+    }
+    .sheet-qm-grid > div { display: flex; justify-content: space-between; padding: 3px 0; }
+    .sheet-qm-grid .k { color: var(--stone-500); }
+    .sheet-qm-grid .v { color: var(--ink); font-family: var(--serif); font-weight: 500; font-size: 13px; }
+
+    .sheet-yiji { padding: 14px 4px; }
+    .sheet-yiji-h { display: flex; gap: 22px; margin-bottom: 10px; }
+    .sheet-yiji-h .y { font-family: var(--serif); font-size: 18px; color: var(--jade); font-weight: 500; }
+    .sheet-yiji-h .j { font-family: var(--serif); font-size: 18px; color: var(--stone-400); font-weight: 500; }
+    .sheet-yiji-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+    .sheet-cta {
+      margin-top: 8px;
+      display: flex; gap: 8px;
+    }
+    .sheet-cta .cta { padding: 11px 16px; font-size: 13px; }
+
+
+    /* ────────────────────────────────────────────────────────────────────────
+       SCREEN 5 · NATAL (命 · 本命盘)
+    ──────────────────────────────────────────────────────────────────────── */
+    .ming { flex: 1; display: flex; flex-direction: column; padding-top: 8px; }
+    .ming-head {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--stone-200);
+    }
+    .ming-head-l { display: flex; flex-direction: column; gap: 4px; }
+    .ming-pers { font-family: var(--mono); font-size: 10.5px; color: var(--stone-500); letter-spacing: 0.08em; }
+    .ming-name { font-family: var(--serif); font-size: 22px; color: var(--ink-deep); font-weight: 500; }
+    .ming-loc { font-family: var(--mono); font-size: 11px; color: var(--stone-500); }
+    .ming-head-r { text-align: right; }
+    .ming-head-r .v {
+      font-family: var(--serif); font-size: 36px; color: var(--gold); font-weight: 500;
+      line-height: 1;
+    }
+    .ming-head-r .v small { font-family: var(--mono); font-size: 11px; color: var(--stone-500); font-weight: 400; margin-left: 4px; }
+    .ming-head-r .k { font-family: var(--mono); font-size: 9.5px; color: var(--stone-500); letter-spacing: 0.12em; margin-top: 2px; }
+
+    .ming-tri {
+      display: grid; grid-template-columns: 1fr 1fr 1fr;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--stone-200);
+    }
+    .ming-tri .col { padding: 0 6px; }
+    .ming-tri .col + .col { border-left: 1px solid var(--stone-200); }
+    .ming-tri-l { font-family: var(--mono); font-size: 9.5px; color: var(--stone-500); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 4px; }
+    .ming-tri-v { font-family: var(--serif); font-size: 16px; color: var(--ink); font-weight: 500; line-height: 1.25; }
+    .ming-tri-v small { font-family: var(--mono); font-size: 10.5px; color: var(--stone-500); font-weight: 400; margin-left: 3px; }
+
+    .ming-pillars {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--stone-200);
+    }
+    .ming-p {
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      padding: 6px 2px;
+    }
+    .ming-p-l { font-family: var(--mono); font-size: 9.5px; color: var(--stone-400); letter-spacing: 0.08em; }
+    .ming-p-gz { display: flex; font-family: var(--serif); font-size: 30px; font-weight: 500; line-height: 1; }
+    .ming-p-sub { font-family: var(--mono); font-size: 9.5px; color: var(--stone-500); }
+    .ming-p-ss { font-family: var(--mono); font-size: 10px; color: var(--gold); letter-spacing: 0.02em; }
+
+    .ming-wx {
+      padding: 12px 0;
+      border-bottom: 1px solid var(--stone-200);
+    }
+    .ming-wx-l { font-family: var(--mono); font-size: 10px; color: var(--stone-500); letter-spacing: 0.12em; margin-bottom: 8px; text-transform: uppercase; }
+    .ming-wx-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+    .ming-wx-c { font-family: var(--serif); font-size: 14px; font-weight: 500; width: 16px; text-align: center; }
+    .ming-wx-bar { flex: 1; height: 5px; background: var(--stone-100); border-radius: 999px; overflow: hidden; }
+    .ming-wx-bar i { display: block; height: 100%; border-radius: 999px; }
+    .ming-wx-pct { font-family: var(--mono); font-size: 10.5px; color: var(--stone-500); width: 30px; text-align: right; }
+
+    .ming-cta {
+      margin-top: auto; padding-top: 14px;
+      display: flex; gap: 8px;
+    }
+    .ming-cta .cta { padding: 11px 16px; font-size: 12.5px; }
+
+
+    /* ────────────────────────────────────────────────────────────────────────
+       SCREEN 6 · YUN (运 · 用神供给曲线)
+    ──────────────────────────────────────────────────────────────────────── */
+    .yun { flex: 1; display: flex; flex-direction: column; padding-top: 8px; }
+    .yun-top {
+      display: flex; align-items: baseline; justify-content: space-between;
+      padding-bottom: 10px;
+    }
+    .yun-top-l { font-family: var(--mono); font-size: 10px; color: var(--stone-500); letter-spacing: 0.16em; }
+    .yun-top-r { font-family: var(--mono); font-size: 10.5px; color: var(--stone-500); }
+    .yun-top-r b { color: var(--ink); font-weight: 600; }
+
+    .yun-jud-pill {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 14px 18px;
+      background: linear-gradient(135deg, var(--daxiong), #6b2a20);
+      border-radius: 18px;
+      color: var(--paper);
+      margin-bottom: 8px;
+    }
+    .yun-jud-l { display: flex; flex-direction: column; gap: 2px; }
+    .yun-jud-lvl { font-family: var(--serif); font-size: 28px; line-height: 1; font-weight: 500; letter-spacing: 0.04em; }
+    .yun-jud-meta { font-family: var(--mono); font-size: 10px; opacity: 0.7; letter-spacing: 0.06em; text-transform: uppercase; }
+    .yun-jud-score { font-family: var(--mono); font-size: 32px; font-weight: 600; line-height: 1; }
+    .yun-jud-score small { font-size: 10px; opacity: 0.6; margin-left: 2px; }
+    .yun-sum {
+      padding: 6px 4px 12px;
+      border-bottom: 1px solid var(--stone-200);
+      font-family: var(--sans);
+      font-size: 12px; color: var(--ink-light); line-height: 1.65;
+    }
+    .yun-sum b { color: var(--ink); font-weight: 600; }
+
+    .yun-pillars {
+      display: flex; flex-direction: column; gap: 6px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--stone-200);
+    }
+    .yun-prow { display: flex; align-items: center; gap: 8px; }
+    .yun-prow-l { font-family: var(--mono); font-size: 9.5px; color: var(--stone-500); letter-spacing: 0.08em; width: 26px; }
+    .yun-prow-cells { display: flex; gap: 5px; flex: 1; }
+    .yun-pcell {
+      flex: 1;
+      display: flex; flex-direction: column; align-items: center; gap: 1px;
+      padding: 5px 1px;
+      border: 1px solid var(--stone-200);
+      border-radius: 7px;
+      background: rgba(255,255,255,0.5);
+    }
+    .yun-pcell-l { font-family: var(--mono); font-size: 8px; color: var(--stone-400); letter-spacing: 0.04em; }
+    .yun-pcell-gz { display: flex; font-family: var(--serif); font-size: 17px; font-weight: 500; line-height: 1; }
+    .yun-prow.run .yun-pcell {
+      background: var(--ink-deep);
+      border-color: var(--ink-deep);
+    }
+    .yun-prow.run .yun-pcell-l { color: rgba(248,246,243,0.5); }
+    .yun-prow.run .yun-pcell-gz { color: var(--paper); }
+
+    .yun-dayun { padding: 10px 0; border-bottom: 1px solid var(--stone-200); }
+    .yun-dayun-h { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+    .yun-dayun-h .l { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.14em; color: var(--stone-500); text-transform: uppercase; }
+    .yun-dayun-h .m { font-family: var(--mono); font-size: 9.5px; color: var(--stone-400); }
+    .yun-dstrip { display: flex; gap: 2px; }
+    .yun-dstep {
+      flex: 1;
+      display: flex; flex-direction: column; align-items: center; gap: 1px;
+      padding: 4px 1px;
+      border-radius: 5px;
+      background: var(--stone-100);
+      min-width: 0;
+    }
+    .yun-dstep-age { font-family: var(--mono); font-size: 8.5px; color: var(--stone-500); }
+    .yun-dstep-gz { display: flex; font-family: var(--serif); font-size: 12px; font-weight: 500; line-height: 1; }
+    .yun-dstep.on { background: var(--ink-deep); box-shadow: 0 1px 6px rgba(40,30,12,0.2); }
+    .yun-dstep.on .yun-dstep-age { color: rgba(248,246,243,0.6); }
+    .yun-dstep.on .yun-dstep-gz { color: var(--gold); }
+
+    .yun-curve { padding: 10px 0; border-bottom: 1px solid var(--stone-200); }
+    .yun-curve-h {
+      display: flex; justify-content: space-between; align-items: baseline;
+      margin-bottom: 6px;
+    }
+    .yun-curve-l { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.14em; color: var(--stone-500); text-transform: uppercase; }
+    .yun-curve-leg { display: flex; gap: 8px; font-family: var(--mono); font-size: 9px; color: var(--stone-500); }
+    .yun-curve-leg span::before {
+      content: ''; display: inline-block; width: 8px; height: 1.5px; vertical-align: middle; margin-right: 3px; background: currentColor;
+    }
+    .yun-curve-leg .mu  { color: var(--mu); }
+    .yun-curve-leg .shui{ color: var(--shui); }
+    .yun-curve-leg .huo { color: var(--huo); }
+    .yun-curve-svg { width: 100%; height: 120px; display: block; }
+
+    .yun-mile { padding: 10px 0 4px; display: flex; flex-direction: column; gap: 6px; }
+    .yun-mile-h { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.14em; color: var(--stone-500); text-transform: uppercase; }
+    .yun-mile-row { display: flex; gap: 4px; flex-wrap: wrap; }
+    .yun-mile-row .chip { font-size: 10px; padding: 3px 8px; }
+
+
+    /* ────────────────────────────────────────────────────────────────────────
+       SCREEN 7 · YEAR DETAIL (大凶之年)
+    ──────────────────────────────────────────────────────────────────────── */
+    .yd { flex: 1; display: flex; flex-direction: column; padding-top: 6px; }
+    .yd-head { padding-bottom: 12px; border-bottom: 1px solid var(--stone-200); }
+    .yd-year {
+      font-family: var(--serif); font-size: 56px; font-weight: 500; line-height: 1;
+      color: var(--ink-deep);
+      letter-spacing: -0.02em;
+      display: flex; align-items: baseline; gap: 12px;
+      margin-top: 8px;
+    }
+    .yd-year small { font-family: var(--serif); font-size: 18px; color: var(--vermilion); font-weight: 500; }
+    .yd-meta { font-family: var(--mono); font-size: 10.5px; color: var(--stone-500); letter-spacing: 0.06em; margin-top: 4px; }
+    .yd-pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 8px 16px;
+      background: linear-gradient(135deg, var(--daxiong), #6b2a20);
+      color: var(--paper);
+      border-radius: 999px;
+      font-family: var(--serif); font-size: 16px; font-weight: 500;
+      margin-top: 14px;
+    }
+    .yd-pill small { font-family: var(--mono); font-size: 11px; opacity: 0.75; font-weight: 400; }
+    .yd-pillars {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--stone-200);
+    }
+    .yd-p {
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      padding: 8px 4px;
+      background: rgba(0,0,0,0.025);
+      border-radius: 8px;
+    }
+    .yd-p-l { font-family: var(--mono); font-size: 9px; color: var(--stone-500); letter-spacing: 0.06em; }
+    .yd-p-gz { display: flex; font-family: var(--serif); font-size: 20px; font-weight: 500; line-height: 1; }
+
+    .yd-supp { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; padding: 12px 0; border-bottom: 1px solid var(--stone-200); }
+    .yd-supp-cell { text-align: center; padding: 6px 0; }
+    .yd-supp-cell + .yd-supp-cell { border-left: 1px solid var(--stone-200); }
+    .yd-supp-l { font-family: var(--mono); font-size: 9.5px; color: var(--stone-500); letter-spacing: 0.08em; }
+    .yd-supp-v { font-family: var(--serif); font-size: 22px; font-weight: 500; line-height: 1.2; margin-top: 2px; }
+    .yd-supp-v.mu { color: var(--mu); }
+    .yd-supp-v.huo { color: var(--vermilion); }
+    .yd-supp-v small { font-size: 11px; color: var(--stone-500); font-family: var(--mono); font-weight: 400; margin-left: 2px; }
+
+    .yd-text {
+      padding: 14px 0; border-bottom: 1px solid var(--stone-200);
+      font-family: var(--serif); font-size: 13.5px; color: var(--ink); line-height: 1.85;
+      letter-spacing: 0.005em;
+    }
+    .yd-text p + p { margin-top: 10px; }
+    .yd-text b { font-weight: 600; }
+    .yd-text .mark-huo { color: var(--vermilion); }
+    .yd-text .mark-mu  { color: var(--mu); }
+
+    .yd-cta { margin-top: auto; padding-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+
+
+    /* ────────────────────────────────────────────────────────────────────────
+       SCREEN 8 · LLM READING
+    ──────────────────────────────────────────────────────────────────────── */
+    .llm { flex: 1; display: flex; flex-direction: column; padding-top: 6px; }
+    .llm-head { padding-bottom: 12px; border-bottom: 1px solid var(--stone-200); display: flex; flex-direction: column; gap: 4px; }
+    .llm-eyebrow { font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; color: var(--stone-500); text-transform: uppercase; }
+    .llm-eyebrow::before {
+      content: '◌ '; color: var(--gold);
+    }
+    .llm-title { font-family: var(--serif); font-size: 24px; font-weight: 500; color: var(--ink-deep); line-height: 1.2; }
+    .llm-schools { display: flex; gap: 6px; margin-top: 6px; }
+    .llm-body {
+      padding: 14px 0;
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+    }
+    .llm-sec { margin-bottom: 14px; }
+    .llm-sec h4 {
+      font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em; color: var(--bronze); text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .llm-sec h4::before {
+      content: ''; display: inline-block; width: 16px; height: 1px; background: var(--gold); vertical-align: middle; margin-right: 6px;
+    }
+    .llm-sec p {
+      font-family: var(--serif); font-size: 13.5px; color: var(--ink); line-height: 1.85;
+    }
+    .llm-sec p b { font-weight: 600; color: var(--ink-deep); }
+    .llm-sec p em { font-style: normal; color: var(--jade); font-weight: 500; }
+    .llm-sec p .neg { color: var(--vermilion); font-weight: 500; }
+    .llm-fade {
+      position: absolute; bottom: 0; left: 0; right: 0; height: 32px;
+      background: linear-gradient(to bottom, transparent, var(--paper));
+      pointer-events: none;
+    }
+    .llm-actions {
+      padding-top: 10px;
+      display: flex; gap: 6px;
+      border-top: 1px solid var(--stone-200);
+    }
+    .llm-act {
+      flex: 1;
+      display: flex; align-items: center; justify-content: center; gap: 4px;
+      padding: 10px;
+      border: 1px solid var(--stone-300);
+      border-radius: 999px;
+      font-family: var(--sans); font-size: 11.5px; color: var(--ink-light);
+      background: rgba(255,255,255,0.6);
+    }
+    .llm-act.primary { background: var(--ink-deep); color: var(--paper); border-color: var(--ink-deep); }
+
+
+    /* ────────────────────────────────────────────────────────────────────────
+       SCREEN 9 · ME (我 · 盘存档 + 徽章)
+    ──────────────────────────────────────────────────────────────────────── */
+    .me { flex: 1; display: flex; flex-direction: column; padding-top: 8px; }
+    .me-head {
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--stone-200);
+      display: flex; align-items: center; gap: 12px;
+    }
+    .me-avatar {
+      width: 52px; height: 52px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, var(--gold-soft), var(--paper-warm));
+      border: 1px solid rgba(201,169,98,0.4);
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--serif); font-size: 22px; color: var(--bronze);
+    }
+    .me-name { font-family: var(--serif); font-size: 17px; color: var(--ink-deep); font-weight: 500; }
+    .me-sub { font-family: var(--mono); font-size: 10.5px; color: var(--stone-500); margin-top: 2px; }
+
+    .me-sec { padding: 14px 0; border-bottom: 1px solid var(--stone-200); }
+    .me-sec-h {
+      display: flex; justify-content: space-between; align-items: baseline;
+      margin-bottom: 10px;
+    }
+    .me-sec-t { font-family: var(--serif); font-size: 15px; color: var(--ink); font-weight: 500; }
+    .me-sec-m { font-family: var(--mono); font-size: 10.5px; color: var(--stone-400); }
+    .me-card {
+      display: flex; gap: 12px; align-items: center;
+      padding: 10px 14px;
+      background: var(--paper-warm);
+      border-radius: 12px;
+      margin-bottom: 8px;
+    }
+    .me-card-gz { font-family: var(--serif); font-size: 22px; color: var(--ink-deep); font-weight: 500; letter-spacing: 0.04em; }
+    .me-card-meta { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+    .me-card-t { font-family: var(--mono); font-size: 11px; color: var(--ink); }
+    .me-card-s { font-family: var(--mono); font-size: 9.5px; color: var(--stone-500); }
+    .me-card .judge {
+      padding: 3px 9px; border-radius: 999px;
+      font-family: var(--serif); font-size: 12px;
+    }
+
+    .me-naji-list { display: flex; flex-direction: column; gap: 6px; }
+    .me-naji-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 4px;
+      border-bottom: 1px dashed var(--stone-200);
+    }
+    .me-naji-row:last-child { border-bottom: 0; }
+    .me-naji-d { font-family: var(--mono); font-size: 10.5px; color: var(--stone-500); width: 96px; }
+    .me-naji-g { font-family: var(--serif); font-size: 14px; color: var(--gold); font-weight: 500; }
+    .me-naji-q { flex: 1; font-family: var(--serif); font-size: 11.5px; color: var(--ink-light); }
+
+    .me-badges { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .me-badge {
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      padding: 10px 4px;
+      background: rgba(255,255,255,0.5);
+      border: 1px solid var(--stone-200);
+      border-radius: 8px;
+    }
+    .me-badge.earned { border-color: rgba(201,169,98,0.4); background: var(--gold-soft); }
+    .me-badge-ic {
+      width: 32px; height: 32px; border-radius: 999px;
+      background: var(--stone-100); display: flex; align-items: center; justify-content: center;
+      color: var(--stone-400);
+    }
+    .me-badge.earned .me-badge-ic { background: rgba(201,169,98,0.2); color: var(--bronze); }
+    .me-badge-n { font-family: var(--serif); font-size: 11px; color: var(--ink-light); text-align: center; }
+    .me-badge.earned .me-badge-n { color: var(--ink); }
+
+
+    /* ────────────────────────────────────────────────────────────────────────
+       FOOTER
+    ──────────────────────────────────────────────────────────────────────── */
+    .footnote {
+      max-width: 1680px; margin: 88px auto 0;
+      padding-top: 28px;
+      border-top: 1px solid var(--stone-300);
+      display: flex; justify-content: space-between;
+      font-family: var(--mono); font-size: 11px; color: var(--stone-500);
+    }
+    .footnote b { color: var(--ink); }
+    .footnote .col { display: flex; flex-direction: column; gap: 3px; }
+  </style>
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       BRAND HEADER
+  ═══════════════════════════════════════════════════════════════════════ -->
+  <header class="brand">
+    <div class="brand-l">
+      <div class="brand-mark">命運<span class="en">unmei</span></div>
+      <div class="brand-tag"><span class="pip"></span>design v0.2 · 2026·06 · 借鉴「不完人」UI/UX</div>
+    </div>
+    <div class="brand-meta">
+      <div>9 screens / iPhone 14 Pro / mobile web</div>
+      <div><b>parent</b> · mingli · rust + axum :6027</div>
+      <div><b>credit</b> · UI/UX inspired by buwanren 2.0</div>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       DESIGN TOKENS
+  ═══════════════════════════════════════════════════════════════════════ -->
+  <section class="tokens">
+    <!-- 色板 -->
+    <div class="tk">
+      <div class="tk-h"><span>colors · 米纸 · 暖金 · 玉色</span><span>buwanren 调性</span></div>
+      <div class="tk-pal">
+        <div class="tk-pal-row"><i class="tk-sw" style="background:#f8f6f3"></i><span class="tk-pal-name">paper · 米纸</span><span class="tk-pal-hex">#f8f6f3</span></div>
+        <div class="tk-pal-row"><i class="tk-sw" style="background:#2c2c2c"></i><span class="tk-pal-name">ink · 墨</span><span class="tk-pal-hex">#2c2c2c</span></div>
+        <div class="tk-pal-row"><i class="tk-sw" style="background:#c9a962"></i><span class="tk-pal-name">gold · 暖金 accent</span><span class="tk-pal-hex">#c9a962</span></div>
+        <div class="tk-pal-row"><i class="tk-sw" style="background:#5a8f7b"></i><span class="tk-pal-name">jade · 玉宜</span><span class="tk-pal-hex">#5a8f7b</span></div>
+      </div>
+      <div class="tk-jixiong">
+        <span style="background:var(--daji)">大吉</span>
+        <span style="background:var(--ji)">吉</span>
+        <span style="background:var(--ping)">平</span>
+        <span style="background:var(--xiong)">凶</span>
+        <span style="background:var(--daxiong)">大凶</span>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:3px;">
+        <div style="flex:1;height:5px;background:var(--mu);border-radius:2px;"></div>
+        <div style="flex:1;height:5px;background:var(--huo);border-radius:2px;"></div>
+        <div style="flex:1;height:5px;background:var(--tu);border-radius:2px;"></div>
+        <div style="flex:1;height:5px;background:var(--jin);border-radius:2px;"></div>
+        <div style="flex:1;height:5px;background:var(--shui);border-radius:2px;"></div>
+      </div>
+      <div style="font-family:var(--mono);font-size:9px;color:var(--stone-400);margin-top:4px;letter-spacing:0.08em;">五行 · 仅作干支字面着色,不铺色块</div>
+    </div>
+
+    <!-- 字阶 -->
+    <div class="tk">
+      <div class="tk-h"><span>type · 衬线 + 无衬线</span><span>buwanren 同款</span></div>
+      <div class="tk-type-row">
+        <span class="tk-type-key">D</span>
+        <span class="tk-type-sample" style="font-family:var(--serif);font-size:30px;font-weight:500;letter-spacing:0.04em;">命運</span>
+        <span class="tk-type-meta">Noto Serif SC / 30</span>
+      </div>
+      <div class="tk-type-row">
+        <span class="tk-type-key">H</span>
+        <span class="tk-type-sample" style="font-family:var(--serif);font-size:18px;font-weight:500;">己土偏强</span>
+        <span class="tk-type-meta">Noto Serif SC / 18</span>
+      </div>
+      <div class="tk-type-row">
+        <span class="tk-type-key">B</span>
+        <span class="tk-type-sample" style="font-family:var(--sans);font-size:13px;">命局所喜五行</span>
+        <span class="tk-type-meta">Noto Sans SC / 13</span>
+      </div>
+      <div class="tk-type-row">
+        <span class="tk-type-key">M</span>
+        <span class="tk-type-sample" style="font-family:var(--mono);font-size:11px;">DAYUN 04/10</span>
+        <span class="tk-type-meta">JetBrains Mono / 11</span>
+      </div>
+    </div>
+
+    <!-- IA -->
+    <div class="tk">
+      <div class="tk-h"><span>IA · 4 tab 底导</span><span>继承 buwanren</span></div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;font-family:var(--mono);font-size:11px;">
+          <span style="color:var(--stone-500);">tab 1</span>
+          <span style="color:var(--ink);font-weight:600;">纳吉 · 罗盘 + 真奇门时盘</span>
+        </div>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;font-family:var(--mono);font-size:11px;">
+          <span style="color:var(--stone-500);">tab 2</span>
+          <span style="color:var(--ink);font-weight:600;">命 · 本命盘(BZ0-BZ10)</span>
+        </div>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;font-family:var(--mono);font-size:11px;">
+          <span style="color:var(--stone-500);">tab 3</span>
+          <span style="color:var(--ink);font-weight:600;">运 · 用神供给曲线</span>
+        </div>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;font-family:var(--mono);font-size:11px;">
+          <span style="color:var(--stone-500);">tab 4</span>
+          <span style="color:var(--ink);font-weight:600;">我 · 盘存档 + 释义历史</span>
+        </div>
+        <div style="border-top:1px dashed var(--stone-200);padding-top:8px;font-family:var(--mono);font-size:9.5px;color:var(--stone-400);letter-spacing:0.04em;">
+          🆚 buwanren 4 tab(纳吉/活动/商品/我的)<br/>
+          ◇ 商业化(活动/商品)折叠到「我」二级,腾出位置给「命」「运」二大核心
+        </div>
+      </div>
+    </div>
+
+    <!-- 与 buwanren 的差异 -->
+    <div class="tk">
+      <div class="tk-h"><span>专业化 / 与 buwanren 的差异</span><span>3 axioms</span></div>
+      <div class="tk-axiom">
+        <div>
+          <div class="tk-axiom-i">01 · NAJI 真奇门</div>
+          <div class="tk-axiom-t">罗盘吉门由 <b>真生辰 + 当下时刻</b>算(/api/cast qimen),非池中随机抽。</div>
+        </div>
+        <div>
+          <div class="tk-axiom-i">02 · 宜忌按命算</div>
+          <div class="tk-axiom-t">宜 / 忌词由 <b>主用神 + t 时刻供给度</b>反推,非固定 12+9 词池。</div>
+        </div>
+        <div>
+          <div class="tk-axiom-i">03 · 量化吉凶</div>
+          <div class="tk-axiom-t">用神供给度 → 5 等级(大吉 / 吉 / 平 / 凶 / 大凶)+ 净增益分,可视化呈现。</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       9 SCREENS
+  ═══════════════════════════════════════════════════════════════════════ -->
+  <main class="screens">
+
+    <!-- ─────────────── 01 · OPEN ─────────────── -->
+    <article class="screen-block">
+      <div class="screen-head">
+        <div class="screen-i">01 · 开屏</div>
+        <h2 class="screen-t">首次进入 · 留白</h2>
+        <p class="screen-n">品牌定调 + CTA。<code>data: 无</code></p>
+      </div>
+      <div class="phone paper-tex">
+        <div class="island"></div>
+        <div class="phone-screen paper-tex">
+          <div class="status">
+            <span>9:41</span>
+            <span class="status-r">
+              <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor"><rect x="0" y="7" width="3" height="4"/><rect x="4.5" y="5" width="3" height="6"/><rect x="9" y="3" width="3" height="8"/><rect x="13.5" y="0" width="2.5" height="11"/></svg>
+              <svg width="15" height="11" viewBox="0 0 15 11" fill="currentColor"><path d="M7.5 0a8 8 0 0 0-5.4 2.1L3.4 3.5a6 6 0 0 1 8.2 0l1.3-1.4A8 8 0 0 0 7.5 0Z"/></svg>
+              <svg width="24" height="11" viewBox="0 0 24 11"><rect x="0.5" y="0.5" width="20" height="10" rx="2.5" fill="none" stroke="currentColor"/><rect x="2" y="2" width="17" height="7" rx="1" fill="currentColor"/><rect x="21.5" y="3.5" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+            </span>
+          </div>
+          <div class="screen-inner no-tab open">
+            <div class="open-mark">
+              <div class="open-cn">命</div>
+              <div class="open-en">unmei</div>
+              <div class="open-rom">うんめい · 運命</div>
+            </div>
+            <div class="open-tag">
+              知止而后有定<br/>
+              定而后能静<br/>
+              <span class="quote">— another way of speaking with time</span>
+            </div>
+            <div class="open-bot">
+              <div class="open-pips">
+                <i class="a"></i><i class="b"></i><i class="c"></i><i class="d"></i><i class="e"></i>
+              </div>
+              <a class="cta">输入生辰开始</a>
+              <div class="open-foot">EST. 2026 · LAB32 / MINGLI</div>
+            </div>
+          </div>
+          <div class="home-bar"></div>
+        </div>
+      </div>
+    </article>
+
+
+    <!-- ─────────────── 02 · FORM ─────────────── -->
+    <article class="screen-block">
+      <div class="screen-head">
+        <div class="screen-i">02 · 生辰</div>
+        <h2 class="screen-t">输入生辰</h2>
+        <p class="screen-n">五要素 + 出生地 + 真太阳时 + 主体类型。<code>POST /api/bazi</code></p>
+      </div>
+      <div class="phone paper-tex">
+        <div class="island"></div>
+        <div class="phone-screen paper-tex">
+          <div class="status">
+            <span>9:41</span>
+            <span class="status-r">
+              <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor"><rect x="0" y="7" width="3" height="4"/><rect x="4.5" y="5" width="3" height="6"/><rect x="9" y="3" width="3" height="8"/><rect x="13.5" y="0" width="2.5" height="11"/></svg>
+              <svg width="15" height="11" viewBox="0 0 15 11" fill="currentColor"><path d="M7.5 0a8 8 0 0 0-5.4 2.1L3.4 3.5a6 6 0 0 1 8.2 0l1.3-1.4A8 8 0 0 0 7.5 0Z"/></svg>
+              <svg width="24" height="11" viewBox="0 0 24 11"><rect x="0.5" y="0.5" width="20" height="10" rx="2.5" fill="none" stroke="currentColor"/><rect x="2" y="2" width="17" height="7" rx="1" fill="currentColor"/><rect x="21.5" y="3.5" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+            </span>
+          </div>
+          <div class="screen-inner no-tab">
+            <a class="nav-back"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2L2.5 5L6 8"/></svg> 返回</a>
+            <div class="form-h" style="margin-top:18px;">
+              <div class="eyebrow">step 01 / 03</div>
+              <h1 class="h1">你的生辰</h1>
+              <p class="lead">推算本命八字与天文坐标。后续可随时编辑。</p>
+            </div>
+            <div class="form-list">
+              <div class="form-row">
+                <span class="form-l">出生年月日</span>
+                <span class="form-v">1987·09·17 <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="var(--stone-400)" stroke-width="1.5"><path d="M3 2L6.5 5L3 8"/></svg></span>
+              </div>
+              <div class="form-row">
+                <span class="form-l">时分</span>
+                <span class="form-v">15 : 00 <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="var(--stone-400)" stroke-width="1.5"><path d="M3 2L6.5 5L3 8"/></svg></span>
+              </div>
+              <div class="form-row">
+                <span class="form-l">性别</span>
+                <span class="seg"><span class="on">男</span><span>女</span></span>
+              </div>
+              <div class="form-row">
+                <span class="form-l">出生地</span>
+                <span class="form-v">长沙 · 112.94°E <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="var(--stone-400)" stroke-width="1.5"><path d="M3 2L6.5 5L3 8"/></svg></span>
+              </div>
+              <div class="form-row">
+                <span class="form-l">真太阳时 <small>按经度 + 均时差校正</small></span>
+                <span class="toggle off"></span>
+              </div>
+              <div class="form-row">
+                <span class="form-l">主体类型</span>
+                <span class="seg"><span class="on">人</span><span>公司</span><span>物</span><span>事</span></span>
+              </div>
+            </div>
+            <div class="form-bot">
+              <a class="cta gold">排  盘</a>
+              <p class="form-note">生辰留在你的设备 · 不上传 · 可随时清除</p>
+            </div>
+          </div>
+          <div class="home-bar"></div>
+        </div>
+      </div>
+    </article>
+
+
+    <!-- ─────────────── 03 · NAJI 罗盘 ─────────────── -->
+    <article class="screen-block">
+      <div class="screen-head">
+        <div class="screen-i">03 · 纳吉(主)</div>
+        <h2 class="screen-t">罗盘 + 真奇门时盘</h2>
+        <p class="screen-n">主入口 · 按命盘 + 当下时刻算。<code>POST /api/cast → qimen 叶</code></p>
+      </div>
+      <div class="phone paper-tex">
+        <div class="island"></div>
+        <div class="phone-screen paper-tex">
+          <div class="status">
+            <span>9:41</span>
+            <span class="status-r">
+              <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor"><rect x="0" y="7" width="3" height="4"/><rect x="4.5" y="5" width="3" height="6"/><rect x="9" y="3" width="3" height="8"/><rect x="13.5" y="0" width="2.5" height="11"/></svg>
+              <svg width="15" height="11" viewBox="0 0 15 11" fill="currentColor"><path d="M7.5 0a8 8 0 0 0-5.4 2.1L3.4 3.5a6 6 0 0 1 8.2 0l1.3-1.4A8 8 0 0 0 7.5 0Z"/></svg>
+              <svg width="24" height="11" viewBox="0 0 24 11"><rect x="0.5" y="0.5" width="20" height="10" rx="2.5" fill="none" stroke="currentColor"/><rect x="2" y="2" width="17" height="7" rx="1" fill="currentColor"/><rect x="21.5" y="3.5" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+            </span>
+          </div>
+          <div class="screen-inner naji">
+            <div class="naji-head">
+              <div class="naji-h-t">unmei · 纳吉</div>
+              <div class="naji-h-s">知止而后有定</div>
+              <div class="naji-clock">
+                <span>申时</span>
+                <b>15:24</b>
+              </div>
+            </div>
+            <div class="compass-wrap">
+              <div class="compass-pointer"></div>
+              <div class="compass-svg-wrap">
+                <svg class="compass-svg" viewBox="0 0 400 400">
+                  <defs>
+                    <radialGradient id="ring1" cx="50%" cy="50%" r="50%">
+                      <stop offset="80%" stop-color="rgba(201,169,98,0)" />
+                      <stop offset="100%" stop-color="rgba(201,169,98,0.16)" />
+                    </radialGradient>
+                  </defs>
+                  <!-- 最外圈 -->
+                  <circle cx="200" cy="200" r="195" fill="url(#ring1)" />
+                  <circle cx="200" cy="200" r="195" fill="none" stroke="#c9a962" stroke-width="1.5" opacity="0.5" />
+                  <circle cx="200" cy="200" r="188" fill="none" stroke="#2c2c2c" stroke-width="0.5" opacity="0.3" />
+                  <!-- 中圈 -->
+                  <circle cx="200" cy="200" r="155" fill="none" stroke="#2c2c2c" stroke-width="1" opacity="0.4" />
+                  <circle cx="200" cy="200" r="152" fill="none" stroke="#c9a962" stroke-width="0.5" stroke-dasharray="2 3" />
+                  <!-- 内圈 -->
+                  <circle cx="200" cy="200" r="120" fill="none" stroke="#2c2c2c" stroke-width="0.5" opacity="0.3" />
+
+                  <!-- 8 卦 -->
+                  <g font-family="Noto Serif SC, serif" font-size="32" fill="#2c2c2c">
+                    <text x="200" y="60" text-anchor="middle">☲</text>
+                    <text x="312" y="115" text-anchor="middle">☷</text>
+                    <text x="350" y="210" text-anchor="middle">☱</text>
+                    <text x="312" y="305" text-anchor="middle">☰</text>
+                    <text x="200" y="355" text-anchor="middle">☵</text>
+                    <text x="88" y="305" text-anchor="middle">☶</text>
+                    <text x="50" y="210" text-anchor="middle">☳</text>
+                    <text x="88" y="115" text-anchor="middle">☴</text>
+                  </g>
+                  <!-- 方位 -->
+                  <g font-family="JetBrains Mono, monospace" font-size="10" fill="#78716c">
+                    <text x="200" y="80" text-anchor="middle">南</text>
+                    <text x="312" y="135" text-anchor="middle">西南</text>
+                    <text x="350" y="225" text-anchor="middle">西</text>
+                    <text x="312" y="325" text-anchor="middle">西北</text>
+                    <text x="200" y="375" text-anchor="middle">北</text>
+                    <text x="88" y="325" text-anchor="middle">东北</text>
+                    <text x="50" y="225" text-anchor="middle">东</text>
+                    <text x="88" y="135" text-anchor="middle">东南</text>
+                  </g>
+                  <!-- 八门刻度点 -->
+                  <g fill="#c9a962">
+                    <circle cx="200" cy="100" r="3" opacity="0.7" />
+                    <circle cx="270" cy="130" r="3" opacity="0.7" />
+                    <circle cx="300" cy="200" r="3" opacity="0.7" />
+                    <circle cx="270" cy="270" r="3" opacity="0.7" />
+                    <circle cx="200" cy="300" r="3" opacity="0.7" />
+                    <circle cx="130" cy="270" r="3" opacity="0.7" />
+                    <circle cx="100" cy="200" r="3" opacity="0.7" />
+                    <circle cx="130" cy="130" r="3" opacity="0.7" />
+                  </g>
+                </svg>
+                <div class="compass-btn"><span class="cb-cn">纳吉</span></div>
+              </div>
+              <div class="compass-hint">点击中心 · 转出今日吉门</div>
+            </div>
+            <div class="naji-foot">
+              <span>己土偏强 / <b>暗食神格</b></span>
+              <span>主用神 · <b style="color:var(--mu);">木</b></span>
+            </div>
+          </div>
+          <!-- bottom tab -->
+          <nav class="tab-nav">
+            <div class="tab-item on">
+              <div class="tab-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><polygon points="14,8 11,15 8,12 11,15" fill="currentColor"/></svg></div>
+              <div class="tab-label">纳吉</div>
+            </div>
+            <div class="tab-item">
+              <div class="tab-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 6h16M4 12h16M4 18h16"/></svg></div>
+              <div class="tab-label">命</div>
+            </div>
+            <div class="tab-item">
+              <div class="tab-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="3,17 9,11 13,15 21,7"/><polyline points="14,7 21,7 21,14"/></svg></div>
+              <div class="tab-label">运</div>
+            </div>
+            <div class="tab-item">
+              <div class="tab-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg></div>
+              <div class="tab-label">我</div>
+            </div>
+          </nav>
+          <div class="home-bar"></div>
+        </div>
+      </div>
+    </article>
+
+
+    <!-- ─────────────── 04 · NAJI SHEET (滑出面板) ─────────────── -->
+    <article class="screen-block">
+      <div class="screen-head">
+        <div class="screen-i">04 · 纳吉 ↑</div>
+        <h2 class="screen-t">罗盘转后底部滑出</h2>
+        <p class="screen-n">真奇门时盘 · 真宜忌 · 命盘语境句。<code>qimen + bazi + LLM</code></p>
+      </div>
+      <div class="phone paper-tex">
+        <div class="island"></div>
+        <div class="phone-screen paper-tex">
+          <div class="status">
+            <span>9:41</span>
+            <span class="status-r">
+              <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor"><rect x="0" y="7" width="3" height="4"/><rect x="4.5" y="5" width="3" height="6"/><rect x="9" y="3" width="3" height="8"/><rect x="13.5" y="0" width="2.5" height="11"/></svg>
+              <svg width="15" height="11" viewBox="0 0 15 11" fill="currentColor"><path d="M7.5 0a8 8 0 0 0-5.4 2.1L3.4 3.5a6 6 0 0 1 8.2 0l1.3-1.4A8 8 0 0 0 7.5 0Z"/></svg>
+              <svg width="24" height="11" viewBox="0 0 24 11"><rect x="0.5" y="0.5" width="20" height="10" rx="2.5" fill="none" stroke="currentColor"/><rect x="2" y="2" width="17" height="7" rx="1" fill="currentColor"/><rect x="21.5" y="3.5" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+            </span>
+          </div>
+          <div class="naji-bg">
+            <!-- 罗盘虚化背景 -->
+            <svg class="compass-faded" width="160" height="160" viewBox="0 0 400 400">
+              <circle cx="200" cy="200" r="195" fill="none" stroke="#c9a962" stroke-width="2" />
+              <circle cx="200" cy="200" r="155" fill="none" stroke="#2c2c2c" stroke-width="1" opacity="0.5" />
+              <circle cx="200" cy="200" r="120" fill="none" stroke="#2c2c2c" stroke-width="0.5" opacity="0.3" />
+              <g font-family="Noto Serif SC" font-size="44" fill="#2c2c2c" opacity="0.5">
+                <text x="200" y="60" text-anchor="middle">☲</text>
+                <text x="312" y="115" text-anchor="middle">☷</text>
+                <text x="350" y="220" text-anchor="middle">☱</text>
+                <text x="312" y="320" text-anchor="middle">☰</text>
+                <text x="200" y="370" text-anchor="middle">☵</text>
+                <text x="88" y="320" text-anchor="middle">☶</text>
+                <text x="50" y="220" text-anchor="middle">☳</text>
+                <text x="88" y="115" text-anchor="middle">☴</text>
+              </g>
+            </svg>
+          </div>
+          <div class="sheet">
+            <div class="sheet-handle"><i></i></div>
+
+            <div class="sheet-quote">
+              <p>"巧者劳而智者忧,无能者无所求。"</p>
+              <small>— 庄子 · 列御寇 · 选自命盘语境匹配池</small>
+            </div>
+
+            <div class="sheet-gate">
+              <div class="sheet-gate-row">
+                <span class="sheet-gate-l">今日吉门 · 申时 (15:00–17:00)</span>
+                <span class="sheet-gate-name">休门<small>(QM2 待落)</small></span>
+              </div>
+              <div class="sheet-gate-dir">
+                <span class="sheet-gate-l">方位 · 主用神木</span>
+                <b>东方</b>
+              </div>
+              <div class="sheet-gate-card">
+                <p>「休则养正,正则气盈」<br/>
+                利<b>休养静心、修身养性、家庭和睦</b>;尤宜东方青绿色之处。</p>
+              </div>
+            </div>
+
+            <div class="sheet-qm">
+              <div class="sheet-qm-h">
+                <div class="sheet-qm-h-t">奇门时盘 · <b>阴遁 3 局 · 白露 · 中元</b></div>
+                <span class="chip gold" style="font-size:9px;padding:2px 7px;">QM0 / QM1a ✓</span>
+              </div>
+              <div class="sheet-qm-grid">
+                <div><span class="k">时柱</span><span class="v">壬申</span></div>
+                <div><span class="k">所在旬</span><span class="v">甲子</span></div>
+                <div><span class="k">旬遁六仪</span><span class="v">戊</span></div>
+                <div><span class="k">旬空</span><span class="v">戌·亥</span></div>
+                <div><span class="k">值符干</span><span class="v" style="color:var(--gold);">壬</span></div>
+                <div><span class="k">值符宫</span><span class="v" style="color:var(--gold);">艮 8</span></div>
+                <div><span class="k">本旬值符星</span><span class="v">天冲</span></div>
+                <div><span class="k">旬首宫</span><span class="v">震 3</span></div>
+              </div>
+            </div>
+
+            <div class="sheet-yiji">
+              <div class="sheet-yiji-h">
+                <span class="y">宜</span>
+                <span class="j">忌</span>
+              </div>
+              <div class="sheet-yiji-row">
+                <span class="chip jade">文教</span>
+                <span class="chip jade">会谈</span>
+                <span class="chip jade">读书</span>
+                <span class="chip jade">东向</span>
+                <span class="chip jade">静坐</span>
+              </div>
+              <div class="sheet-yiji-row">
+                <span class="chip chip-strike">动土</span>
+                <span class="chip chip-strike">入火</span>
+                <span class="chip chip-strike">争辩</span>
+              </div>
+              <div style="font-family:var(--mono);font-size:9.5px;color:var(--stone-400);margin-top:6px;letter-spacing:0.04em;">
+                依据 · 主用神 木 13% < 忌神 火 33% (运层供给度)
+              </div>
+            </div>
+
+            <div class="sheet-cta">
+              <a class="cta ghost" style="flex:1;font-size:12.5px;">看完整盘</a>
+              <a class="cta gold" style="flex:1;font-size:12.5px;">🔮 AI 释义</a>
+            </div>
+          </div>
+          <div class="home-bar"></div>
+        </div>
+      </div>
+    </article>
+
+
+    <!-- ─────────────── 05 · MING (命) ─────────────── -->
+    <article class="screen-block">
+      <div class="screen-head">
+        <div class="screen-i">05 · 命</div>
+        <h2 class="screen-t">命 · 本命盘</h2>
+        <p class="screen-n">出生切片 · 固定底图。<code>POST /api/bazi</code></p>
+      </div>
+      <div class="phone paper-tex">
+        <div class="island"></div>
+        <div class="phone-screen paper-tex">
+          <div class="status">
+            <span>9:41</span>
+            <span class="status-r">
+              <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor"><rect x="0" y="7" width="3" height="4"/><rect x="4.5" y="5" width="3" height="6"/><rect x="9" y="3" width="3" height="8"/><rect x="13.5" y="0" width="2.5" height="11"/></svg>
+              <svg width="15" height="11" viewBox="0 0 15 11" fill="currentColor"><path d="M7.5 0a8 8 0 0 0-5.4 2.1L3.4 3.5a6 6 0 0 1 8.2 0l1.3-1.4A8 8 0 0 0 7.5 0Z"/></svg>
+              <svg width="24" height="11" viewBox="0 0 24 11"><rect x="0.5" y="0.5" width="20" height="10" rx="2.5" fill="none" stroke="currentColor"/><rect x="2" y="2" width="17" height="7" rx="1" fill="currentColor"/><rect x="21.5" y="3.5" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+            </span>
+          </div>
+          <div class="screen-inner ming">
+            <div class="ming-head">
+              <div class="ming-head-l">
+                <span class="ming-pers">命 · NATAL · 出生即定</span>
+                <span class="ming-name">己土 偏强</span>
+                <span class="ming-loc">1987·09·17 · 15:00 · 长沙</span>
+              </div>
+              <div class="ming-head-r">
+                <span class="v">61<small>/100</small></span>
+                <span class="k">SCORE</span>
+              </div>
+            </div>
+            <div class="ming-tri">
+              <div class="col">
+                <div class="ming-tri-l">命格</div>
+                <div class="ming-tri-v">暗食神<small>格</small></div>
+              </div>
+              <div class="col">
+                <div class="ming-tri-l">主用神</div>
+                <div class="ming-tri-v" style="color:var(--mu);">木<small>官杀</small></div>
+              </div>
+              <div class="col">
+                <div class="ming-tri-l">忌神</div>
+                <div class="ming-tri-v" style="color:var(--vermilion);">火 土</div>
+              </div>
+            </div>
+            <div class="ming-pillars">
+              <div class="ming-p">
+                <span class="ming-p-l">年</span>
+                <span class="ming-p-gz"><b style="color:var(--huo);">丁</b><b style="color:var(--mu);">卯</b></span>
+                <span class="ming-p-sub">偏印 · 病</span>
+                <span class="ming-p-ss">将星</span>
+              </div>
+              <div class="ming-p">
+                <span class="ming-p-l">月</span>
+                <span class="ming-p-gz"><b style="color:var(--tu);">己</b><b style="color:var(--jin);">酉</b></span>
+                <span class="ming-p-sub">比肩·长生</span>
+                <span class="ming-p-ss">文昌·学堂</span>
+              </div>
+              <div class="ming-p">
+                <span class="ming-p-l">日</span>
+                <span class="ming-p-gz"><b style="color:var(--tu);">己</b><b style="color:var(--huo);">巳</b></span>
+                <span class="ming-p-sub">日主·帝旺</span>
+                <span class="ming-p-ss">驿马</span>
+              </div>
+              <div class="ming-p">
+                <span class="ming-p-l">时</span>
+                <span class="ming-p-gz"><b style="color:var(--shui);">壬</b><b style="color:var(--jin);">申</b></span>
+                <span class="ming-p-sub">伤官·沐浴</span>
+                <span class="ming-p-ss">&nbsp;</span>
+              </div>
+            </div>
+            <div class="ming-wx">
+              <div class="ming-wx-l">五行结构</div>
+              <div class="ming-wx-row"><span class="ming-wx-c" style="color:var(--mu);">木</span><div class="ming-wx-bar"><i style="width:11%;background:var(--mu);"></i></div><span class="ming-wx-pct">11%</span></div>
+              <div class="ming-wx-row"><span class="ming-wx-c" style="color:var(--huo);">火</span><div class="ming-wx-bar"><i style="width:22%;background:var(--huo);"></i></div><span class="ming-wx-pct">22%</span></div>
+              <div class="ming-wx-row"><span class="ming-wx-c" style="color:var(--tu);">土</span><div class="ming-wx-bar"><i style="width:23%;background:var(--tu);"></i></div><span class="ming-wx-pct">23%</span></div>
+              <div class="ming-wx-row"><span class="ming-wx-c" style="color:var(--jin);">金</span><div class="ming-wx-bar"><i style="width:32%;background:var(--jin);"></i></div><span class="ming-wx-pct">32%</span></div>
+              <div class="ming-wx-row"><span class="ming-wx-c" style="color:var(--shui);">水</span><div class="ming-wx-bar"><i style="width:12%;background:var(--shui);"></i></div><span class="ming-wx-pct">12%</span></div>
+            </div>
+            <div class="ming-cta">
+              <a class="cta ghost" style="flex:1;">→ 切到运</a>
+              <a class="cta gold" style="flex:1;">🔮 释义</a>
+            </div>
+          </div>
+          <nav class="tab-nav">
+            <div class="tab-item">
+              <div class="tab-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><polygon points="14,8 11,15 8,12 11,15" fill="currentColor"/></svg></div>
+              <div class="tab-label">纳吉</div>
+            </div>
+            <div class="tab-item on">
+              <div class="tab-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 6h16M4 12h16M4 18h16"/></svg></div>
+              <div class="tab-label">命</div>
+            </div>
+            <div class="tab-item">
+              <div class="tab-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="3,17 9,11 13,15 21,7"/><polyline points="14,7 21,7 21,14"/></svg></div>
+              <div class="tab-label">运</div>
+            </div>
+            <div class="tab-item">
+              <div class="tab-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg></div>
+              <div class="tab-label">我</div>
+            </div>
+          </nav>
+          <div class="home-bar"></div>
+        </div>
+      </div>
+    </article>
+
+
+    <!-- ─────────────── 06 · YUN (运 · 核心) ─────────────── -->
+    <article class="screen-block">
+      <div class="screen-head">
+        <div class="screen-i">06 · 运 · 核心</div>
+        <h2 class="screen-t">用神供给曲线</h2>
+        <p class="screen-n">命/运双行 + 大运十步 + 100 年。<code>POST /api/fortune</code></p>
+      </div>
+      <div class="phone paper-tex">
+        <div class="island"></div>
+        <div class="phone-screen paper-tex">
+          <div class="status">
+            <span>9:41</span>
+            <span class="status-r">
+              <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor"><rect x="0" y="7" width="3" height="4"/><rect x="4.5" y="5" width="3" height="6"/><rect x="9" y="3" width="3" height="8"/><rect x="13.5" y="0" width="2.5" height="11"/></svg>
+              <svg width="15" height="11" viewBox="0 0 15 11" fill="currentColor"><path d="M7.5 0a8 8 0 0 0-5.4 2.1L3.4 3.5a6 6 0 0 1 8.2 0l1.3-1.4A8 8 0 0 0 7.5 0Z"/></svg>
+              <svg width="24" height="11" viewBox="0 0 24 11"><rect x="0.5" y="0.5" width="20" height="10" rx="2.5" fill="none" stroke="currentColor"/><rect x="2" y="2" width="17" height="7" rx="1" fill="currentColor"/><rect x="21.5" y="3.5" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+            </span>
+          </div>
+          <div class="screen-inner scroll yun">
+            <div class="yun-top">
+              <span class="yun-top-l">运 · FORTUNE</span>
+              <span class="yun-top-r"><b>38.75</b> 岁 · 2026·06·17</span>
+            </div>
+
+            <div class="yun-jud-pill">
+              <div class="yun-jud-l">
+                <span class="yun-jud-lvl">大凶</span>
+                <span class="yun-jud-meta">judgment · 净增益</span>
+              </div>
+              <div class="yun-jud-score">−16</div>
+            </div>
+
+            <div class="yun-sum">
+              <b>忌神 33% 远超主用神 13%</b> — 流年大运对命局压制明显,宜守不宜攻、稳健渡过。
+            </div>
+
+            <div class="yun-pillars">
+              <div class="yun-prow">
+                <span class="yun-prow-l">命</span>
+                <div class="yun-prow-cells">
+                  <div class="yun-pcell"><span class="yun-pcell-l">年</span><span class="yun-pcell-gz"><b style="color:var(--huo);">丁</b><b style="color:var(--mu);">卯</b></span></div>
+                  <div class="yun-pcell"><span class="yun-pcell-l">月</span><span class="yun-pcell-gz"><b style="color:var(--tu);">己</b><b style="color:var(--jin);">酉</b></span></div>
+                  <div class="yun-pcell"><span class="yun-pcell-l">日</span><span class="yun-pcell-gz"><b style="color:var(--tu);">己</b><b style="color:var(--huo);">巳</b></span></div>
+                  <div class="yun-pcell"><span class="yun-pcell-l">时</span><span class="yun-pcell-gz"><b style="color:var(--shui);">壬</b><b style="color:var(--jin);">申</b></span></div>
+                </div>
+              </div>
+              <div class="yun-prow run">
+                <span class="yun-prow-l">运</span>
+                <div class="yun-prow-cells">
+                  <div class="yun-pcell"><span class="yun-pcell-l">大运</span><span class="yun-pcell-gz">乙巳</span></div>
+                  <div class="yun-pcell"><span class="yun-pcell-l">流年</span><span class="yun-pcell-gz">丙午</span></div>
+                  <div class="yun-pcell"><span class="yun-pcell-l">流月</span><span class="yun-pcell-gz">甲午</span></div>
+                  <div class="yun-pcell"><span class="yun-pcell-l">流日</span><span class="yun-pcell-gz">壬戌</span></div>
+                  <div class="yun-pcell"><span class="yun-pcell-l">流时</span><span class="yun-pcell-gz">乙巳</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="yun-dayun">
+              <div class="yun-dayun-h">
+                <span class="l">大运十步 · 顺行</span>
+                <span class="m">起运 3.21 岁</span>
+              </div>
+              <div class="yun-dstrip">
+                <div class="yun-dstep"><span class="yun-dstep-age">3</span><span class="yun-dstep-gz">戊申</span></div>
+                <div class="yun-dstep"><span class="yun-dstep-age">13</span><span class="yun-dstep-gz">丁未</span></div>
+                <div class="yun-dstep"><span class="yun-dstep-age">23</span><span class="yun-dstep-gz">丙午</span></div>
+                <div class="yun-dstep on"><span class="yun-dstep-age">33</span><span class="yun-dstep-gz">乙巳</span></div>
+                <div class="yun-dstep"><span class="yun-dstep-age">43</span><span class="yun-dstep-gz">甲辰</span></div>
+                <div class="yun-dstep"><span class="yun-dstep-age">53</span><span class="yun-dstep-gz">癸卯</span></div>
+                <div class="yun-dstep"><span class="yun-dstep-age">63</span><span class="yun-dstep-gz">壬寅</span></div>
+                <div class="yun-dstep"><span class="yun-dstep-age">73</span><span class="yun-dstep-gz">辛丑</span></div>
+                <div class="yun-dstep"><span class="yun-dstep-age">83</span><span class="yun-dstep-gz">庚子</span></div>
+                <div class="yun-dstep"><span class="yun-dstep-age">93</span><span class="yun-dstep-gz">己亥</span></div>
+              </div>
+            </div>
+
+            <div class="yun-curve">
+              <div class="yun-curve-h">
+                <span class="yun-curve-l">100 年用神供给曲线</span>
+                <div class="yun-curve-leg">
+                  <span class="mu">主木</span><span class="shui">副水</span><span class="huo">忌火</span>
+                </div>
+              </div>
+              <svg class="yun-curve-svg" viewBox="0 0 320 120" preserveAspectRatio="none">
+                <g opacity="0.55">
+                  <rect x="0" y="0" width="9" height="120" fill="rgba(120,113,108,0.10)"/>
+                  <rect x="9" y="0" width="60" height="120" fill="rgba(181,103,80,0.10)"/>
+                  <rect x="69" y="0" width="35" height="120" fill="rgba(130,52,40,0.14)"/>
+                  <rect x="104" y="0" width="32" height="120" fill="rgba(181,103,80,0.10)"/>
+                  <rect x="136" y="0" width="9" height="120" fill="rgba(120,113,108,0.10)"/>
+                  <rect x="145" y="0" width="20" height="120" fill="rgba(90,143,123,0.10)"/>
+                  <rect x="165" y="0" width="35" height="120" fill="rgba(61,82,48,0.14)"/>
+                  <rect x="200" y="0" width="24" height="120" fill="rgba(90,143,123,0.10)"/>
+                  <rect x="224" y="0" width="16" height="120" fill="rgba(120,113,108,0.10)"/>
+                  <rect x="240" y="0" width="30" height="120" fill="rgba(181,103,80,0.10)"/>
+                  <rect x="270" y="0" width="20" height="120" fill="rgba(130,52,40,0.14)"/>
+                  <rect x="290" y="0" width="30" height="120" fill="rgba(181,103,80,0.10)"/>
+                </g>
+                <line x1="0" y1="60" x2="320" y2="60" stroke="rgba(0,0,0,0.05)" stroke-width="0.5"/>
+                <g stroke="rgba(0,0,0,0.1)" stroke-dasharray="1 3" stroke-width="0.5">
+                  <line x1="9.6" y1="6" x2="9.6" y2="110"/>
+                  <line x1="73.6" y1="6" x2="73.6" y2="110"/>
+                  <line x1="137.6" y1="6" x2="137.6" y2="110"/>
+                  <line x1="201.6" y1="6" x2="201.6" y2="110"/>
+                  <line x1="265.6" y1="6" x2="265.6" y2="110"/>
+                </g>
+                <!-- 忌神 dashed -->
+                <path d="M 0,91 L 20,82 L 39,83 L 58,82 L 77,75 L 96,71 L 115,73 L 134,77 L 153,85 L 173,95 L 192,97 L 211,101 L 230,91 L 250,80 L 269,82 L 288,89 L 307,86 L 320,82"
+                  fill="none" stroke="var(--vermilion)" stroke-width="1.2" stroke-dasharray="3 2" stroke-opacity="0.7"/>
+                <!-- 副水 -->
+                <path d="M 0,105 L 20,110 L 39,112 L 58,110 L 77,111 L 96,111 L 115,108 L 134,106 L 153,104 L 173,99 L 192,103 L 211,100 L 230,104 L 250,113 L 269,110 L 288,113 L 307,111 L 320,108"
+                  fill="none" stroke="var(--shui)" stroke-width="1" stroke-opacity="0.7"/>
+                <!-- 主木(粗) -->
+                <path d="M 0,97 L 20,106 L 39,104 L 58,108 L 77,111 L 96,108 L 115,103 L 134,104 L 153,103 L 173,93 L 192,98 L 211,98 L 230,98 L 250,111 L 269,108 L 288,106 L 307,108 L 320,111"
+                  fill="none" stroke="var(--mu)" stroke-width="2" stroke-linejoin="round"/>
+                <!-- playhead -->
+                <line x1="124.8" y1="6" x2="124.8" y2="110" stroke="var(--ink-deep)" stroke-width="1"/>
+                <circle cx="124.8" cy="104" r="3.5" fill="var(--mu)" stroke="var(--paper)" stroke-width="1.5"/>
+                <line x1="0" y1="110" x2="320" y2="110" stroke="rgba(0,0,0,0.15)" stroke-width="0.5"/>
+                <g font-family="JetBrains Mono" font-size="7" fill="rgba(0,0,0,0.4)">
+                  <text x="0" y="118">0</text>
+                  <text x="74" y="118">23</text>
+                  <text x="122" y="118">38</text>
+                  <text x="170" y="118">53</text>
+                  <text x="220" y="118">70</text>
+                  <text x="308" y="118" text-anchor="end">100</text>
+                </g>
+              </svg>
+            </div>
+
+            <div class="yun-mile">
+              <div class="yun-mile-h">百年大节点 · 28 / 100</div>
+              <div class="yun-mile-row">
+                <span class="chip daji"><b>大吉</b> 56·癸亥</span>
+                <span class="chip daji"><b>大吉</b> 68·乙亥</span>
+                <span class="chip ji">吉 47·甲寅</span>
+                <span class="chip ji">吉 65·壬申</span>
+              </div>
+              <div class="yun-mile-row">
+                <span class="chip daxiong"><b>大凶</b> 26·癸巳</span>
+                <span class="chip daxiong"><b>大凶</b> 29·丙申</span>
+                <span class="chip daxiong"><b>大凶</b> 39·丙午</span>
+                <span class="chip daxiong"><b>大凶</b> 82·己丑</span>
+              </div>
+            </div>
+          </div>
+          <nav class="tab-nav">
+            <div class="tab-item">
+              <div class="tab-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><polygon points="14,8 11,15 8,12 11,15" fill="currentColor"/></svg></div>
+              <div class="tab-label">纳吉</div>
+            </div>
+            <div class="tab-item">
+              <div class="tab-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 6h16M4 12h16M4 18h16"/></svg></div>
+              <div class="tab-label">命</div>
+            </div>
+            <div class="tab-item on">
+              <div class="tab-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="3,17 9,11 13,15 21,7"/><polyline points="14,7 21,7 21,14"/></svg></div>
+              <div class="tab-label">运</div>
+            </div>
+            <div class="tab-item">
+              <div class="tab-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg></div>
+              <div class="tab-label">我</div>
+            </div>
+          </nav>
+          <div class="home-bar"></div>
+        </div>
+      </div>
+    </article>
+
+
+    <!-- ─────────────── 07 · YEAR DETAIL ─────────────── -->
+    <article class="screen-block">
+      <div class="screen-head">
+        <div class="screen-i">07 · 节点</div>
+        <h2 class="screen-t">大凶之年详情</h2>
+        <p class="screen-n">tap 大节点 chip 进入。<code>fortune.timeline[39]</code></p>
+      </div>
+      <div class="phone paper-tex">
+        <div class="island"></div>
+        <div class="phone-screen paper-tex">
+          <div class="status">
+            <span>9:41</span>
+            <span class="status-r">
+              <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor"><rect x="0" y="7" width="3" height="4"/><rect x="4.5" y="5" width="3" height="6"/><rect x="9" y="3" width="3" height="8"/><rect x="13.5" y="0" width="2.5" height="11"/></svg>
+              <svg width="15" height="11" viewBox="0 0 15 11" fill="currentColor"><path d="M7.5 0a8 8 0 0 0-5.4 2.1L3.4 3.5a6 6 0 0 1 8.2 0l1.3-1.4A8 8 0 0 0 7.5 0Z"/></svg>
+              <svg width="24" height="11" viewBox="0 0 24 11"><rect x="0.5" y="0.5" width="20" height="10" rx="2.5" fill="none" stroke="currentColor"/><rect x="2" y="2" width="17" height="7" rx="1" fill="currentColor"/><rect x="21.5" y="3.5" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+            </span>
+          </div>
+          <div class="screen-inner yd">
+            <a class="nav-back"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2L2.5 5L6 8"/></svg> 回曲线</a>
+            <div class="yd-head">
+              <div class="eyebrow">39 岁 · age 39</div>
+              <div class="yd-year">2026<small>丙午年</small></div>
+              <div class="yd-meta">judgment · 大凶 / 净增益 −16</div>
+              <div class="yd-pill">大凶 <small>−16</small></div>
+            </div>
+            <div class="yd-pillars">
+              <div class="yd-p"><span class="yd-p-l">流年</span><span class="yd-p-gz"><b style="color:var(--huo);">丙</b><b style="color:var(--huo);">午</b></span></div>
+              <div class="yd-p"><span class="yd-p-l">大运</span><span class="yd-p-gz"><b style="color:var(--mu);">乙</b><b style="color:var(--huo);">巳</b></span></div>
+              <div class="yd-p"><span class="yd-p-l">本命日</span><span class="yd-p-gz"><b style="color:var(--tu);">己</b><b style="color:var(--huo);">巳</b></span></div>
+            </div>
+            <div class="yd-supp">
+              <div class="yd-supp-cell">
+                <div class="yd-supp-l">主用神 木</div>
+                <div class="yd-supp-v mu">13<small>%</small></div>
+              </div>
+              <div class="yd-supp-cell">
+                <div class="yd-supp-l">忌神 火</div>
+                <div class="yd-supp-v huo">33<small>%</small></div>
+              </div>
+              <div class="yd-supp-cell">
+                <div class="yd-supp-l">忌神 土</div>
+                <div class="yd-supp-v huo">20<small>%</small></div>
+              </div>
+            </div>
+            <div class="yd-text">
+              <p>流年 <b>丙午</b> 火气大盛,叠加大运 <b>乙巳</b> 巳火生身,而本命己土偏强本就忌火土党旺;此年 <span class="mark-huo">忌神供给 33% 远超主用神 13%</span>,命局所喜的木官杀被火势耗散。</p>
+              <p>建议:<span class="mark-mu">不宜重大决策、新创、动土、扩张</span>;宜守宜静、修养、保健、内修。流月 <b>甲午</b>(7 月)与 <b>戊午</b>(6 月)为本年内最需谨慎区段。</p>
+            </div>
+            <div class="yd-cta">
+              <a class="cta gold">🔮 让 AI 详细释义</a>
+              <a class="cta ghost">查看 流月 / 流日</a>
+            </div>
+          </div>
+          <div class="home-bar"></div>
+        </div>
+      </div>
+    </article>
+
+
+    <!-- ─────────────── 08 · LLM READING ─────────────── -->
+    <article class="screen-block">
+      <div class="screen-head">
+        <div class="screen-i">08 · 释义</div>
+        <h2 class="screen-t">AI 释义 · 长文</h2>
+        <p class="screen-n">扶抑 / 调候流派 · 给出吉凶 + 行运建议。<code>POST /api/interpret</code></p>
+      </div>
+      <div class="phone paper-tex">
+        <div class="island"></div>
+        <div class="phone-screen paper-tex">
+          <div class="status">
+            <span>9:41</span>
+            <span class="status-r">
+              <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor"><rect x="0" y="7" width="3" height="4"/><rect x="4.5" y="5" width="3" height="6"/><rect x="9" y="3" width="3" height="8"/><rect x="13.5" y="0" width="2.5" height="11"/></svg>
+              <svg width="15" height="11" viewBox="0 0 15 11" fill="currentColor"><path d="M7.5 0a8 8 0 0 0-5.4 2.1L3.4 3.5a6 6 0 0 1 8.2 0l1.3-1.4A8 8 0 0 0 7.5 0Z"/></svg>
+              <svg width="24" height="11" viewBox="0 0 24 11"><rect x="0.5" y="0.5" width="20" height="10" rx="2.5" fill="none" stroke="currentColor"/><rect x="2" y="2" width="17" height="7" rx="1" fill="currentColor"/><rect x="21.5" y="3.5" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+            </span>
+          </div>
+          <div class="screen-inner llm">
+            <a class="nav-back"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2L2.5 5L6 8"/></svg> 命</a>
+            <div class="llm-head" style="margin-top:6px;">
+              <span class="llm-eyebrow">ai · interpretation</span>
+              <span class="llm-title">己土偏强 · 才气外显之命</span>
+              <div class="llm-schools">
+                <span class="chip gold"><b>扶抑</b></span>
+                <span class="chip">调候 · 辅</span>
+                <span class="chip ji">主木官杀</span>
+              </div>
+            </div>
+            <div class="llm-body">
+              <div class="llm-sec">
+                <h4>性格 与 才能</h4>
+                <p>己土生于酉月,食神当令而辛金暗藏成「<em>暗食神格</em>」,综合身强 61,五行<b>金 32 最旺、木 11 最缺</b> — 印火土比聚而泄秀有余、克制不足。这是一副<b>才气外显、需以贵气驾驭</b>的格局。</p>
+              </div>
+              <div class="llm-sec">
+                <h4>事业 / 适合的方向</h4>
+                <p>月柱<em>文昌+学堂</em>双现,主聪慧、有文笔与专业才华,<em>利文教、研发、设计、写作、出版</em>;年柱将星显领导潜质;时干壬水正财坐申金长生,财源有根,中年偏后渐稳。</p>
+              </div>
+              <div class="llm-sec">
+                <h4>需 留 意</h4>
+                <p>命<span class="neg">缺官杀木</span>,事业上易自由散漫、难受约束,宜主动接受规则与权威打磨;<span class="neg">火土过旺</span>,情绪上易固执、自我消耗。<b>用神为木(官)、水(财)</b>;<em>行木运、东方、青绿色、从事管理 / 法务 / 教育 / 出版有利</em>。</p>
+              </div>
+              <div class="llm-fade"></div>
+            </div>
+            <div class="llm-actions">
+              <a class="llm-act">换 角 度</a>
+              <a class="llm-act">保 存</a>
+              <a class="llm-act primary">分 享</a>
+            </div>
+          </div>
+          <div class="home-bar"></div>
+        </div>
+      </div>
+    </article>
+
+
+    <!-- ─────────────── 09 · ME (我 · 盘存档 + 徽章) ─────────────── -->
+    <article class="screen-block">
+      <div class="screen-head">
+        <div class="screen-i">09 · 我</div>
+        <h2 class="screen-t">盘存档 + 历史 + 徽章</h2>
+        <p class="screen-n">本命盘存档、纳吉历史、释义存档、修行徽章。借 buwanren ProfilePage IA</p>
+      </div>
+      <div class="phone paper-tex">
+        <div class="island"></div>
+        <div class="phone-screen paper-tex">
+          <div class="status">
+            <span>9:41</span>
+            <span class="status-r">
+              <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor"><rect x="0" y="7" width="3" height="4"/><rect x="4.5" y="5" width="3" height="6"/><rect x="9" y="3" width="3" height="8"/><rect x="13.5" y="0" width="2.5" height="11"/></svg>
+              <svg width="15" height="11" viewBox="0 0 15 11" fill="currentColor"><path d="M7.5 0a8 8 0 0 0-5.4 2.1L3.4 3.5a6 6 0 0 1 8.2 0l1.3-1.4A8 8 0 0 0 7.5 0Z"/></svg>
+              <svg width="24" height="11" viewBox="0 0 24 11"><rect x="0.5" y="0.5" width="20" height="10" rx="2.5" fill="none" stroke="currentColor"/><rect x="2" y="2" width="17" height="7" rx="1" fill="currentColor"/><rect x="21.5" y="3.5" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+            </span>
+          </div>
+          <div class="screen-inner scroll me">
+            <div class="me-head">
+              <div class="me-avatar">己</div>
+              <div>
+                <div class="me-name">己土偏强 · 默认主体</div>
+                <div class="me-sub">1987·09·17 · 15:00 · 长沙 · 男</div>
+              </div>
+            </div>
+
+            <div class="me-sec">
+              <div class="me-sec-h">
+                <div class="me-sec-t">本命盘 · 3 张</div>
+                <div class="me-sec-m">+ 添加</div>
+              </div>
+              <div class="me-card">
+                <div class="me-card-gz">己土</div>
+                <div class="me-card-meta">
+                  <div class="me-card-t">默认 · 1987 长沙男</div>
+                  <div class="me-card-s">偏强 61 · 暗食神 · 用木</div>
+                </div>
+                <span class="judge chip ji">吉运中</span>
+              </div>
+              <div class="me-card">
+                <div class="me-card-gz">辛金</div>
+                <div class="me-card-meta">
+                  <div class="me-card-t">公司盘 · 2018·03·15</div>
+                  <div class="me-card-s">偏弱 36 · 七杀格 · 用土</div>
+                </div>
+                <span class="judge chip ping">平稳</span>
+              </div>
+            </div>
+
+            <div class="me-sec">
+              <div class="me-sec-h">
+                <div class="me-sec-t">纳吉历史</div>
+                <div class="me-sec-m">5 / 86</div>
+              </div>
+              <div class="me-naji-list">
+                <div class="me-naji-row">
+                  <span class="me-naji-d">06·24 申时</span>
+                  <span class="me-naji-g">休门 · 东</span>
+                  <span class="me-naji-q">"巧者劳而智者忧"</span>
+                </div>
+                <div class="me-naji-row">
+                  <span class="me-naji-d">06·23 卯时</span>
+                  <span class="me-naji-g">开门 · 西北</span>
+                  <span class="me-naji-q">"知止而后有定"</span>
+                </div>
+                <div class="me-naji-row">
+                  <span class="me-naji-d">06·22 午时</span>
+                  <span class="me-naji-g">生门 · 东北</span>
+                  <span class="me-naji-q">"天地大美而不言"</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="me-sec">
+              <div class="me-sec-h">
+                <div class="me-sec-t">修行徽章 · 3 / 6</div>
+                <div class="me-sec-m">查看全部</div>
+              </div>
+              <div class="me-badges">
+                <div class="me-badge earned">
+                  <div class="me-badge-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="12,2 15,9 22,9 17,14 19,21 12,17 5,21 7,14 2,9 9,9"/></svg></div>
+                  <div class="me-badge-n">初入道门</div>
+                </div>
+                <div class="me-badge earned">
+                  <div class="me-badge-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><polygon points="14,8 11,15 8,12 11,15" fill="currentColor"/></svg></div>
+                  <div class="me-badge-n">静心修行</div>
+                </div>
+                <div class="me-badge earned">
+                  <div class="me-badge-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 21s-7-4-7-11a4 4 0 018-1 4 4 0 018 1c0 7-7 11-7 11"/></svg></div>
+                  <div class="me-badge-n">香缘之人</div>
+                </div>
+                <div class="me-badge">
+                  <div class="me-badge-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 5h18M5 5v15h14V5"/></svg></div>
+                  <div class="me-badge-n">持之以恒</div>
+                </div>
+                <div class="me-badge">
+                  <div class="me-badge-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg></div>
+                  <div class="me-badge-n">百卦通晓</div>
+                </div>
+                <div class="me-badge">
+                  <div class="me-badge-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/></svg></div>
+                  <div class="me-badge-n">禅修初成</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <nav class="tab-nav">
+            <div class="tab-item">
+              <div class="tab-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><polygon points="14,8 11,15 8,12 11,15" fill="currentColor"/></svg></div>
+              <div class="tab-label">纳吉</div>
+            </div>
+            <div class="tab-item">
+              <div class="tab-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 6h16M4 12h16M4 18h16"/></svg></div>
+              <div class="tab-label">命</div>
+            </div>
+            <div class="tab-item">
+              <div class="tab-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="3,17 9,11 13,15 21,7"/><polyline points="14,7 21,7 21,14"/></svg></div>
+              <div class="tab-label">运</div>
+            </div>
+            <div class="tab-item on">
+              <div class="tab-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg></div>
+              <div class="tab-label">我</div>
+            </div>
+          </nav>
+          <div class="home-bar"></div>
+        </div>
+      </div>
+    </article>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="footnote">
+    <div class="col">
+      <span><b>unmei · 命運</b></span>
+      <span>design v0.2 · 2026·06·25 · 借鉴 buwanren UI/UX</span>
+    </div>
+    <div class="col" style="text-align:right;">
+      <span>parent · <b>mingli</b> :6027 / 21 leaves</span>
+      <span>v0.1 archived · design.v0.1.html</span>
+      <span>targets · proto · mini · ios · android</span>
+    </div>
+  </footer>
+
+</body>
+</html>

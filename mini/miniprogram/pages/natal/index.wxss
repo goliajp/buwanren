@@ -1,0 +1,154 @@
+.hd { padding: 24rpx 0 32rpx; }
+.hd .eyebrow { margin-bottom: 20rpx; }
+.hd .title { font-size: 128rpx; line-height: 1; margin: 8rpx 0 16rpx; }
+.hd .subtitle { color: var(--ink-mid); }
+
+/* summary basic */
+.basic {
+  padding: 12rpx 0 24rpx;
+}
+.basic-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid var(--stone-line-x);
+}
+.basic-row:last-child { border-bottom: none; }
+.basic-k {
+  color: var(--stone-label);
+  font-size: 24rpx;
+  letter-spacing: 0.32em;
+}
+.basic-v {
+  font-size: 32rpx;
+  color: var(--ink);
+}
+.basic-v.serif {
+  font-family: "Songti SC", serif;
+  font-size: 40rpx;
+  font-weight: 500;
+}
+
+/* 缺 · 朱砂章大字卡 · 品牌核心 */
+.stamp-card {
+  background: var(--paper-panel);
+  border: 3rpx solid var(--stamp);
+  border-radius: 8rpx;
+  padding: 56rpx 32rpx 44rpx;
+  margin: 40rpx 0 24rpx;
+  text-align: center;
+  position: relative;
+}
+.stamp-label {
+  font-family: "Songti SC", serif;
+  font-size: 28rpx;
+  font-weight: 500;
+  color: var(--stamp);
+  letter-spacing: 0.4em;
+  margin-bottom: 12rpx;
+}
+.stamp-value {
+  font-family: "Songti SC", serif;
+  font-size: 220rpx;
+  font-weight: 500;
+  line-height: 1;
+  margin: 12rpx 0 20rpx;
+}
+.stamp-sub {
+  font-size: 22rpx;
+  color: var(--ink-faint);
+  letter-spacing: 0.2em;
+}
+
+/* 过 · chips */
+.over {
+  padding: 24rpx 0 8rpx;
+}
+.over-k {
+  color: var(--stone-label);
+  font-size: 24rpx;
+  letter-spacing: 0.32em;
+  margin-bottom: 20rpx;
+}
+.chips {
+  display: flex;
+  gap: 16rpx;
+  flex-wrap: wrap;
+}
+.chip {
+  font-family: "Songti SC", serif;
+  font-size: 44rpx;
+  font-weight: 500;
+  padding: 12rpx 28rpx;
+  border: 1rpx solid var(--stone-line);
+  border-radius: 4rpx;
+  min-width: 88rpx;
+  text-align: center;
+  line-height: 1.1;
+}
+
+.hint {
+  padding: 40rpx 32rpx;
+  text-align: center;
+  font-size: 28rpx;
+  color: var(--ink-mid);
+  line-height: 1.7;
+  letter-spacing: 0.04em;
+}
+
+.cta { text-align: center; padding: 24rpx 0; }
+.foot-hint {
+  text-align: center;
+  font-size: 20rpx;
+  color: var(--stone-label);
+  letter-spacing: 0.24em;
+  padding: 20rpx 0 0;
+}
+
+/* form */
+.form {
+  padding: 20rpx 0 8rpx;
+}
+.field {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 28rpx 0;
+  border-bottom: 1rpx solid var(--stone-line-x);
+}
+.field-k {
+  color: var(--stone-label);
+  font-size: 26rpx;
+  letter-spacing: 0.32em;
+}
+.field-v {
+  font-size: 30rpx;
+  color: var(--ink);
+}
+.field-v.mono {
+  font-family: "SF Mono", "Menlo", monospace;
+  font-size: 28rpx;
+  letter-spacing: 0.04em;
+}
+.field-input {
+  font-size: 30rpx;
+  color: var(--ink);
+  text-align: right;
+  min-width: 260rpx;
+  max-width: 400rpx;
+}
+.seg { display: flex; gap: 12rpx; }
+.seg-item {
+  padding: 12rpx 28rpx;
+  border: 1rpx solid var(--stone-line);
+  border-radius: 4rpx;
+  font-size: 26rpx;
+  color: var(--ink-mid);
+  letter-spacing: 0.14em;
+}
+.seg-item.on {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}

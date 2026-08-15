@@ -1,0 +1,17 @@
+# wx 开发者工具本地私有配置
+project.private.config.json
+
+# npm
+node_modules/
+package-lock.json
+
+# TS 编译产物(in-place 编译时是 .js 同名文件,不忽略;这里防 outDir 兜底)
+dist/
+
+# wx 开发者工具产物
+miniprogram/miniprogram_npm/
+
+# 编辑器
+.DS_Store
+*.swp
+*.log

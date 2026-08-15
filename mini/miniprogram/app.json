@@ -1,0 +1,30 @@
+{
+  "pages": [
+    "pages/today/index",
+    "pages/natal/index",
+    "pages/ask/index",
+    "pages/me/index"
+  ],
+  "window": {
+    "backgroundTextStyle": "light",
+    "navigationBarBackgroundColor": "#f0ede7",
+    "navigationBarTitleText": "不完人",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f0ede7"
+  },
+  "tabBar": {
+    "color": "#a29e97",
+    "selectedColor": "#1a1a1c",
+    "backgroundColor": "#f0ede7",
+    "borderStyle": "white",
+    "list": [
+      { "pagePath": "pages/today/index", "text": "今" },
+      { "pagePath": "pages/natal/index", "text": "命" },
+      { "pagePath": "pages/ask/index",   "text": "问" },
+      { "pagePath": "pages/me/index",    "text": "我" }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}

@@ -1,0 +1,125 @@
+/*
+ * 不完人 · 全局样式
+ * 铁墨 + 冷灰纸 + 朱砂章 · 五行五色
+ * palette 见 README · Songti/PingFang/SF Mono 系统栈,不加载外部字体
+ */
+
+page {
+  --paper:         #f0ede7;
+  --paper-inset:   #e8e5df;
+  --paper-panel:   #ffffff;
+  --ink:           #1a1a1c;
+  --ink-mid:       #4c4d52;
+  --ink-faint:     #85858c;
+  --stone-line:   #d8d5cf;
+  --stone-line-x: #e5e2dc;
+  --stone-label:  #a29e97;
+  --stamp:        #a83428;
+
+  --wx-mu:        #4d7a56;
+  --wx-huo:       #b8593a;
+  --wx-tu:        #a48260;
+  --wx-jin:       #7a7c85;
+  --wx-shui:      #446080;
+
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "PingFang SC", "Hiragino Sans GB", "Helvetica Neue", "Helvetica", sans-serif;
+  font-size: 28rpx;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+.serif {
+  font-family: "Songti SC", "STSong", "SimSun", serif;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.mono {
+  font-family: "SF Mono", "Menlo", "Courier New", monospace;
+  letter-spacing: 0.04em;
+}
+
+/* label · 微字 uppercase */
+.eyebrow {
+  font-family: "Helvetica Neue", "Helvetica", sans-serif;
+  font-size: 20rpx;
+  font-weight: 500;
+  color: var(--stone-label);
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+}
+
+.title {
+  font-family: "Songti SC", "STSong", serif;
+  font-size: 52rpx;
+  font-weight: 500;
+  color: var(--ink);
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+}
+
+.subtitle {
+  font-size: 24rpx;
+  color: var(--ink-mid);
+  letter-spacing: 0.16em;
+}
+
+.hr {
+  height: 1rpx;
+  background: var(--stone-line-x);
+  margin: 24rpx 0;
+}
+
+.card {
+  background: var(--paper-panel);
+  border: 1rpx solid var(--stone-line-x);
+  border-radius: 8rpx;
+  padding: 24rpx 28rpx;
+}
+
+button.btn {
+  background: var(--ink);
+  color: var(--paper);
+  border: none;
+  border-radius: 4rpx;
+  font-size: 28rpx;
+  letter-spacing: 0.16em;
+  padding: 20rpx 60rpx;
+  line-height: 1.4;
+  font-weight: 400;
+}
+button.btn::after { border: none; }
+button.btn[disabled] { opacity: 0.5; }
+
+button.btn.ghost {
+  background: transparent;
+  color: var(--ink-mid);
+  border: 1rpx solid var(--stone-line);
+}
+
+button.btn.stamp {
+  background: var(--stamp);
+  color: var(--paper);
+}
+
+/* 五行前景色 · 用 class wx-{五行拼音} 挂大字/chip */
+.wx-mu   { color: var(--wx-mu);   }
+.wx-huo  { color: var(--wx-huo);  }
+.wx-tu   { color: var(--wx-tu);   }
+.wx-jin  { color: var(--wx-jin);  }
+.wx-shui { color: var(--wx-shui); }
+
+/* 五行背景色 · 用于分布条 */
+.wx-mu-bg   { background: var(--wx-mu);   }
+.wx-huo-bg  { background: var(--wx-huo);  }
+.wx-tu-bg   { background: var(--wx-tu);   }
+.wx-jin-bg  { background: var(--wx-jin);  }
+.wx-shui-bg { background: var(--wx-shui); }
+
+.page {
+  padding: 48rpx 40rpx 96rpx;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
