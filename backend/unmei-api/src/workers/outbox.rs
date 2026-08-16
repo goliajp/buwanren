@@ -17,6 +17,8 @@ use std::time::Duration;
 use unmei_domain::commerce::events::DomainEvent;
 use uuid::Uuid;
 
+use unmei_app::fulfillment as app_fulfillment;
+
 use crate::state::AppState;
 
 const INTERVAL_SECS: u64 = 5;
@@ -93,8 +95,13 @@ async fn handle_event(st: &AppState, kind: &str, payload: &Value) -> anyhow::Res
             tracing::info!("event · OrderCreated {order_id}");
             Ok(())
         }
-        Ok(DomainEvent::OrderPaid { order_id, payment_id, .. }) => {
-            handle_order_paid(st, &order_id, &payment_id).await
+        Ok(DomainEvent::OrderPaid { order_id, .. }) => {
+            // 履约推进在用例层:一个事务、shipment 防重、重试不重复发 OrderFulfilled。
+            // 这里原有一份自己的实现,四处幂等漏洞,见 unmei_app::fulfillment 模块注释。
+            app_fulfillment::apply_order_paid(&st.db, &order_id)
+                .await
+                .map(|_| ())
+                .map_err(|e| anyhow::anyhow!("apply_order_paid {order_id}: {e}"))
         }
         Ok(DomainEvent::OrderFulfilled { order_id, .. }) => {
             tracing::info!("event · OrderFulfilled {order_id} · 用户应已被通知");
@@ -108,7 +115,10 @@ async fn handle_event(st: &AppState, kind: &str, payload: &Value) -> anyhow::Res
             handle_refund_completed(st, &refund_id).await
         }
         Ok(DomainEvent::ShipmentDelivered { shipment_id, order_id, .. }) => {
-            handle_shipment_delivered(st, &shipment_id, &order_id).await
+            app_fulfillment::apply_shipment_delivered(&st.db, &shipment_id, &order_id)
+                .await
+                .map(|_| ())
+                .map_err(|e| anyhow::anyhow!("apply_shipment_delivered {shipment_id}: {e}"))
         }
         Ok(other) => {
             tracing::info!("event · {} (no-op)", other.kind_str());
@@ -119,73 +129,6 @@ async fn handle_event(st: &AppState, kind: &str, payload: &Value) -> anyhow::Res
             Ok(())
         }
     }
-}
-
-/// OrderPaid → 对每个 async_compute 类 line 触发 fulfillment(mock:直接标 done + 触发 OrderFulfilled)
-async fn handle_order_paid(st: &AppState, order_id: &str, _payment_id: &str) -> anyhow::Result<()> {
-    let lines = sqlx::query(
-        r#"SELECT ol.id, ol.sku_id, s.product_id, p.fulfillment_kind
-           FROM order_line ol
-           JOIN sku s     ON s.id = ol.sku_id
-           JOIN product p ON p.id = s.product_id
-           WHERE ol.order_id=$1 AND ol.fulfillment_status='pending'"#,
-    ).bind(order_id).fetch_all(&st.db).await?;
-    if lines.is_empty() { return Ok(()); }
-
-    let mut all_done = true;
-    for l in lines {
-        let lid: String = l.try_get("id")?;
-        let kind: String = l.try_get("fulfillment_kind")?;
-        match kind.as_str() {
-            "instant" | "async_compute" => {
-                // mock:async_compute 直接标 done(实际:调 mingli-api 排盘)
-                sqlx::query("UPDATE order_line SET fulfillment_status='done', fulfillment_ref=jsonb_build_object('mocked', true, 'kind', $1) WHERE id=$2")
-                    .bind(&kind).bind(&lid).execute(&st.db).await?;
-            }
-            "shipping" => {
-                // 创建 shipment(preparing,等运营录单号)
-                let sid = format!("shp-{}", Uuid::new_v4());
-                sqlx::query(
-                    r#"INSERT INTO shipment(id, order_id, order_line_ids, carrier_code, status,
-                                            recipient_snapshot_json, shipping_method)
-                       SELECT $1, $2, ARRAY[$3]::text[], 'manual', 'preparing',
-                              COALESCE(om.shipping_address_json, '{}'::jsonb), 'standard'
-                       FROM order_meta om WHERE om.order_id=$2
-                       ON CONFLICT DO NOTHING"#,
-                ).bind(&sid).bind(order_id).bind(&lid).execute(&st.db).await?;
-                sqlx::query("UPDATE order_line SET fulfillment_status='processing' WHERE id=$1")
-                    .bind(&lid).execute(&st.db).await?;
-                all_done = false;
-            }
-            "manual" => {
-                sqlx::query("UPDATE order_line SET fulfillment_status='processing' WHERE id=$1")
-                    .bind(&lid).execute(&st.db).await?;
-                all_done = false;
-            }
-            _ => {}
-        }
-    }
-
-    let pending: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM order_line WHERE order_id=$1 AND fulfillment_status NOT IN ('done','failed')",
-    ).bind(order_id).fetch_one(&st.db).await?;
-
-    if all_done && pending == 0 {
-        sqlx::query("UPDATE order_record SET status='done', fulfilled_at=NOW() WHERE id=$1 AND status='paid'")
-            .bind(order_id).execute(&st.db).await?;
-        // 写 OrderFulfilled outbox(让下游也处理)。
-        // 这里原本是 `let _ = …` —— 事件写失败会被静默吞掉,订单标成 done
-        // 而下游永远收不到通知。让它冒出来,由 dispatcher 的重试机制接手。
-        unmei_app::outbox::write(&st.db, &DomainEvent::OrderFulfilled {
-            order_id: order_id.into(), occurred_at: chrono::Utc::now(),
-        }).await.map_err(|e| anyhow::anyhow!("write OrderFulfilled: {e}"))?;
-        tracing::info!("fulfillment · {order_id} all lines done → order.done");
-    } else {
-        sqlx::query("UPDATE order_record SET status='fulfilling' WHERE id=$1 AND status='paid'")
-            .bind(order_id).execute(&st.db).await?;
-        tracing::info!("fulfillment · {order_id} partially fulfilled (lines pending={pending})");
-    }
-    Ok(())
 }
 
 /// RefundCompleted → 财务挂账(收入冲销 + 银行存款流出)
@@ -239,26 +182,5 @@ async fn handle_refund_completed(st: &AppState, refund_id: &str) -> anyhow::Resu
 
     tx.commit().await?;
     tracing::info!("finance · 退款分录 {entry_id} posted: 冲销 ¥{} / 退银行存款", amount as f64 / 100.0);
-    Ok(())
-}
-
-/// ShipmentDelivered → 若 order 所有 line 都 done → mark order.done
-async fn handle_shipment_delivered(st: &AppState, shipment_id: &str, order_id: &str) -> anyhow::Result<()> {
-    // 把这个 shipment 覆盖的 line 标 done
-    sqlx::query(
-        r#"UPDATE order_line SET fulfillment_status='done'
-           WHERE order_id=$1 AND id = ANY(
-             SELECT unnest(order_line_ids) FROM shipment WHERE id=$2
-           )"#,
-    ).bind(order_id).bind(shipment_id).execute(&st.db).await?;
-
-    let pending: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM order_line WHERE order_id=$1 AND fulfillment_status NOT IN ('done','failed')",
-    ).bind(order_id).fetch_one(&st.db).await?;
-    if pending == 0 {
-        sqlx::query("UPDATE order_record SET status='done', fulfilled_at=NOW() WHERE id=$1 AND status IN ('paid','fulfilling')")
-            .bind(order_id).execute(&st.db).await?;
-        tracing::info!("shipment · {shipment_id} delivered → order {order_id} done");
-    }
     Ok(())
 }

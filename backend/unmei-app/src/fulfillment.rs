@@ -1,0 +1,207 @@
+//! 履约推进用例。
+//!
+//! 两个入口都是 outbox handler 调的,**重试是设计内行为**,所以幂等不是加分项
+//! 而是前提。原实现(`workers/outbox.rs` 的 `handle_order_paid` /
+//! `handle_shipment_delivered`)在这上面漏了四处:
+//!
+//! 1. 建 shipment 的 `ON CONFLICT DO NOTHING` 是**空守卫** —— shipment 表只有
+//!    主键唯一,而每次插入的 id 都是新 uuid,永远不冲突。INSERT 和标 line
+//!    `processing` 又不同事务:两者之间挂掉,重试就给同一条 line 发两个包裹。
+//!    现在用 `WHERE NOT EXISTS(该 line 已有 shipment)` 防重,且整个推进在一个事务里。
+//! 2. 收件快照从 `FROM order_meta WHERE order_id=…` 来 —— 订单没有 meta 行时
+//!    INSERT **静默插入 0 行**,line 却照样标 processing:包裹从此不存在,
+//!    line 永远 processing。改成子查询 COALESCE,meta 缺行照样建单。
+//! 3. `lines.is_empty()` 时提前 return —— 重试时若第一次挂在「订单状态结算」前,
+//!    行已全处理、订单永远停在 paid。现在空行也走结算。
+//! 4. 订单翻到 done 时发 `OrderFulfilled`,但只有 instant 路径发;shipping 路径
+//!    经 `ShipmentDelivered` 推到 done 时**不发**。统一发,且用 RETURNING 判定
+//!    「这次真的翻转了」才发 —— 重试不重复发(履约通知跑两遍就是发两次货的邻居)。
+
+use chrono::Utc;
+use sqlx::{PgPool, Row};
+use unmei_domain::commerce::events::DomainEvent;
+use unmei_domain::DomainError;
+
+use crate::outbox;
+use crate::DbResultExt;
+use crate::new_id;
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum FulfillmentOutcome {
+    /// 所有行履约完成,订单已翻到 done
+    Done,
+    /// 还有行在途(shipping / manual),订单标 fulfilling
+    Fulfilling { pending_lines: i64 },
+    /// 订单不在可推进状态(已 done / 已取消 / …),什么都没做
+    NotApplicable,
+}
+
+/// OrderPaid → 推进每条 pending 行的履约。
+///
+/// instant / async_compute:直接标 done(mock;真实现是调 mingli-api 排盘)。
+/// shipping:建 shipment(preparing,等运营录单号),行标 processing。
+/// manual:行标 processing,等人工。
+pub async fn apply_order_paid(pool: &PgPool, order_id: &str) -> Result<FulfillmentOutcome, DomainError> {
+    let mut tx = pool.begin().await.db()?;
+
+    // 锁订单行:两个 dispatcher tick 同时处理同一事件时,后到的等前面提交后
+    // 看到的是已推进的状态,不会双跑
+    let status: Option<String> = sqlx::query_scalar(
+        "SELECT status FROM order_record WHERE id=$1 FOR UPDATE",
+    )
+    .bind(order_id)
+    .fetch_optional(&mut *tx)
+    .await.db()?;
+    let Some(status) = status else {
+        return Err(DomainError::NotFound(format!("order {order_id}")));
+    };
+    if !["paid", "fulfilling"].contains(&status.as_str()) {
+        tx.commit().await.db()?;
+        return Ok(FulfillmentOutcome::NotApplicable);
+    }
+
+    let lines = sqlx::query(
+        r#"SELECT ol.id, p.fulfillment_kind
+           FROM order_line ol
+           JOIN sku s     ON s.id = ol.sku_id
+           JOIN product p ON p.id = s.product_id
+           WHERE ol.order_id=$1 AND ol.fulfillment_status='pending'"#,
+    )
+    .bind(order_id)
+    .fetch_all(&mut *tx)
+    .await.db()?;
+
+    for l in &lines {
+        let line_id: String = l.get("id");
+        let kind: String = l.get("fulfillment_kind");
+        match kind.as_str() {
+            "instant" | "async_compute" => {
+                sqlx::query(
+                    "UPDATE order_line SET fulfillment_status='done',
+                       fulfillment_ref=jsonb_build_object('mocked', true, 'kind', $1)
+                     WHERE id=$2",
+                )
+                .bind(&kind)
+                .bind(&line_id)
+                .execute(&mut *tx)
+                .await.db()?;
+            }
+            "shipping" => {
+                sqlx::query(
+                    r#"INSERT INTO shipment(id, order_id, order_line_ids, carrier_code, status,
+                                            recipient_snapshot_json, shipping_method)
+                       SELECT $1, $2, ARRAY[$3]::text[], 'manual', 'preparing',
+                              COALESCE((SELECT shipping_address_json FROM order_meta
+                                        WHERE order_id=$2), '{}'::jsonb),
+                              'standard'
+                       WHERE NOT EXISTS (
+                         SELECT 1 FROM shipment
+                         WHERE order_id=$2 AND $3 = ANY(order_line_ids)
+                       )"#,
+                )
+                .bind(new_id("shp"))
+                .bind(order_id)
+                .bind(&line_id)
+                .execute(&mut *tx)
+                .await.db()?;
+                sqlx::query("UPDATE order_line SET fulfillment_status='processing' WHERE id=$1")
+                    .bind(&line_id)
+                    .execute(&mut *tx)
+                    .await.db()?;
+            }
+            "manual" => {
+                sqlx::query("UPDATE order_line SET fulfillment_status='processing' WHERE id=$1")
+                    .bind(&line_id)
+                    .execute(&mut *tx)
+                    .await.db()?;
+            }
+            other => {
+                tracing::warn!(order_id, line_id, kind = other, "未知 fulfillment_kind,行留在 pending");
+            }
+        }
+    }
+
+    let outcome = settle_order_in_tx(&mut tx, order_id).await?;
+    tx.commit().await.db()?;
+    Ok(outcome)
+}
+
+/// ShipmentDelivered → 该运单覆盖的行标 done,全部完成则订单翻 done。
+pub async fn apply_shipment_delivered(
+    pool: &PgPool,
+    shipment_id: &str,
+    order_id: &str,
+) -> Result<FulfillmentOutcome, DomainError> {
+    let mut tx = pool.begin().await.db()?;
+
+    let status: Option<String> = sqlx::query_scalar(
+        "SELECT status FROM order_record WHERE id=$1 FOR UPDATE",
+    )
+    .bind(order_id)
+    .fetch_optional(&mut *tx)
+    .await.db()?;
+    if status.is_none() {
+        return Err(DomainError::NotFound(format!("order {order_id}")));
+    }
+
+    sqlx::query(
+        r#"UPDATE order_line SET fulfillment_status='done'
+           WHERE order_id=$1 AND id = ANY(
+             SELECT unnest(order_line_ids) FROM shipment WHERE id=$2
+           )"#,
+    )
+    .bind(order_id)
+    .bind(shipment_id)
+    .execute(&mut *tx)
+    .await.db()?;
+
+    let outcome = settle_order_in_tx(&mut tx, order_id).await?;
+    tx.commit().await.db()?;
+    Ok(outcome)
+}
+
+/// 结算订单状态:行全部到终态 → done + `OrderFulfilled`;否则 fulfilling。
+///
+/// `RETURNING` 保证事件只在**真的**翻转那一次发 —— 重试时 UPDATE 改不到行,
+/// 就不再发。事件写在同一个事务里,和业务状态同生共死。
+async fn settle_order_in_tx(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    order_id: &str,
+) -> Result<FulfillmentOutcome, DomainError> {
+    let pending: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM order_line WHERE order_id=$1 AND fulfillment_status NOT IN ('done','failed')",
+    )
+    .bind(order_id)
+    .fetch_one(&mut **tx)
+    .await.db()?;
+
+    if pending == 0 {
+        let flipped: Option<String> = sqlx::query_scalar(
+            "UPDATE order_record SET status='done', fulfilled_at=NOW()
+             WHERE id=$1 AND status IN ('paid','fulfilling')
+             RETURNING id",
+        )
+        .bind(order_id)
+        .fetch_optional(&mut **tx)
+        .await.db()?;
+
+        if flipped.is_some() {
+            outbox::write(
+                &mut **tx,
+                &DomainEvent::OrderFulfilled {
+                    order_id: order_id.to_string(),
+                    occurred_at: Utc::now(),
+                },
+            )
+            .await?;
+            tracing::info!(order_id, "履约完成,订单 done");
+        }
+        Ok(FulfillmentOutcome::Done)
+    } else {
+        sqlx::query("UPDATE order_record SET status='fulfilling' WHERE id=$1 AND status='paid'")
+            .bind(order_id)
+            .execute(&mut **tx)
+            .await.db()?;
+        Ok(FulfillmentOutcome::Fulfilling { pending_lines: pending })
+    }
+}
