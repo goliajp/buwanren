@@ -61,7 +61,12 @@ jobs:
       # 测试数落进文件,下一步据此断言它们真的跑了。
       # 没有这道断言的话,集成测试哪天悄悄退化成「无 DB 静默跳过」也看不出来 ——
       # 本地就踩过一次:15 passed,其实一个没跑。
+      #
+      # shell 必须显式写 bash:GitHub Actions 默认的内置 bash 调用**不带 pipefail**,
+      # `cargo test | tee` 会取 tee 的退出码 0,测试挂了这步照样绿。
+      # 显式 `shell: bash` 用的是 `bash -eo pipefail`,cargo 的非零码才能穿透管道。
       - name: cargo test
+        shell: bash
         run: cargo test --workspace 2>&1 | tee /tmp/test.log
 
       - name: assert the db-backed tests actually ran
