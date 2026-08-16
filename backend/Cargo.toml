@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["unmei-domain", "unmei-wx", "unmei-carrier", "unmei-api", "unmei-admin-api"]
+members = ["unmei-domain", "unmei-wx", "unmei-carrier", "unmei-app", "unmei-api", "unmei-admin-api"]
 
 [workspace.package]
 version = "0.2.0"
@@ -60,3 +60,4 @@ moka = { version = "0.12", features = ["future"] }
 unmei-domain  = { path = "unmei-domain" }
 unmei-wx      = { path = "unmei-wx" }
 unmei-carrier = { path = "unmei-carrier" }
+unmei-app     = { path = "unmei-app" }

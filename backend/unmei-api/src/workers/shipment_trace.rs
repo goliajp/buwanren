@@ -11,7 +11,7 @@ use chrono::Utc;
 use sqlx::Row;
 use std::time::Duration;
 use unmei_domain::commerce::adapters::TraceEvent;
-use unmei_domain::commerce::services_impl::apply_shipment_delivered;
+use unmei_app::shipment as app_shipment;
 use uuid::Uuid;
 
 use crate::state::AppState;
@@ -99,8 +99,8 @@ async fn apply_trace(st: &AppState, sid: &str, events: Vec<TraceEvent>) -> anyho
         let new_status = derive_status(&k);
         if new_status == "delivered" {
             // 走 service helper:同事务推 status + 写 ShipmentDelivered outbox
-            if let Err(e) = apply_shipment_delivered(&st.db, sid).await {
-                tracing::warn!("apply_shipment_delivered {sid}: {e}");
+            if let Err(e) = app_shipment::mark_delivered(&st.db, sid).await {
+                tracing::warn!("shipment::mark_delivered {sid}: {e}");
             }
         } else {
             sqlx::query(

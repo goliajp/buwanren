@@ -25,11 +25,9 @@ pub mod finance;
 
 pub mod state_machine;
 pub mod events;
-pub mod services;
 pub mod adapters;
 pub mod outbox;
 pub mod region;
-pub mod services_impl;
 
 pub use region::{Region, RegionMeta};
 

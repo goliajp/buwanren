@@ -14,13 +14,12 @@ use http::HeaderMap;
 use serde::Deserialize;
 use serde_json::{json, Value as J};
 use sqlx::{Column as _, Row, TypeInfo};
-use unmei_domain::commerce::adapters::{
-    CreatePaymentParam, WebhookEvent,
+use unmei_app::{
+    order as app_order, payment as app_payment, refund as app_refund, shipment as app_shipment,
+    Actor,
 };
-use unmei_domain::commerce::events::DomainEvent;
-use unmei_domain::commerce::outbox;
+use unmei_domain::commerce::adapters::{CreatePaymentParam, WebhookEvent};
 use unmei_domain::AppError;
-use uuid::Uuid;
 
 use crate::auth::{ApiError, AuthedUser};
 use crate::state::AppState;
@@ -160,96 +159,49 @@ struct CreateLine { sku_id: String, qty: i32 }
 
 async fn create_order(
     State(st): State<AppState>, AuthedUser(claims): AuthedUser,
+    headers: HeaderMap,
     Json(body): Json<CreateOrderBody>,
 ) -> Result<Json<J>, ApiError> {
-    if body.lines.is_empty() || body.lines.iter().any(|l| l.qty <= 0) {
-        return Err(ApiError::bad("invalid lines"));
-    }
-    let mut tx = st.db.begin().await.map_err(map_db)?;
-
-    let order_id = format!("ord-{}", Uuid::new_v4());
-    let mut subtotal: i64 = 0;
-    let mut order_lines: Vec<(String, String, i64, i32, i64, J)> = vec![]; // (line_id, sku_id, unit, qty, line_subtotal, snapshot)
-
-    for l in body.lines.iter() {
-        let row = sqlx::query(
-            r#"SELECT s.id, s.code, s.name, s.spec_json, s.weight_g,
-                      pb.price_minor, pb.currency
-               FROM sku s
-               LEFT JOIN LATERAL (
-                  SELECT price_minor, currency FROM price_book
-                  WHERE sku_id = s.id AND status='active'
-                    AND effective_from <= NOW()
-                    AND (effective_to IS NULL OR effective_to > NOW())
-                  ORDER BY effective_from DESC LIMIT 1
-               ) pb ON TRUE
-               WHERE s.id=$1 AND s.status='active'"#,
-        ).bind(&l.sku_id).fetch_optional(&mut *tx).await.map_err(map_db)?;
-        let row = row.ok_or_else(|| ApiError::not_found(format!("sku {}", l.sku_id)))?;
-
-        let unit: i64 = row.try_get("price_minor").map_err(|_| ApiError::bad(format!("sku {} 无激活价格", l.sku_id)))?;
-        let cur: String = row.try_get("currency").unwrap_or_else(|_| "CNY".into());
-        if cur != "CNY" { return Err(ApiError::bad("only CNY supported here")); }
-
-        let line_sub = unit * l.qty as i64;
-        subtotal += line_sub;
-        let snap = json!({
-            "sku_code": row.try_get::<String, _>("code").unwrap_or_default(),
-            "sku_name": row.try_get::<String, _>("name").unwrap_or_default(),
-            "spec":     row.try_get::<J, _>("spec_json").unwrap_or(J::Null),
-            "weight_g": row.try_get::<Option<i32>, _>("weight_g").ok().flatten(),
-        });
-        order_lines.push((format!("ol-{}", Uuid::new_v4()), l.sku_id.clone(), unit, l.qty, line_sub, snap));
-    }
-
-    // 简化:不计 promo / coupon(后续 PromotionService 接通);不计税/运费。
-    let total = subtotal;
-
-    sqlx::query(
-        r#"INSERT INTO order_record(
-              id, user_id, channel_origin, currency,
-              amount_subtotal_minor, amount_total_minor,
-              status, source_kind, region, ip, ua, expires_at, audit_note
-           ) VALUES ($1, $2, $3, 'CNY', $4, $5, 'unpaid', 'one_shot', $6, NULL, NULL,
-                     NOW() + INTERVAL '30 minutes', $7)"#,
-    ).bind(&order_id).bind(&claims.sub).bind(&body.channel_origin)
-     .bind(subtotal).bind(total).bind(&body.region)
-     .bind(body.note.clone().unwrap_or_default())
-     .execute(&mut *tx).await.map_err(map_db)?;
-
-    for (idx, (lid, sku_id, unit, qty, line_sub, snap)) in order_lines.iter().enumerate() {
-        sqlx::query(
-            r#"INSERT INTO order_line(
-                 id, order_id, line_no, sku_id, sku_snapshot_json,
-                 unit_price_minor, qty, line_subtotal_minor, fulfillment_status
-               ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending')"#,
-        ).bind(lid).bind(&order_id).bind((idx + 1) as i32).bind(sku_id).bind(snap)
-         .bind(unit).bind(qty).bind(line_sub)
-         .execute(&mut *tx).await.map_err(map_db)?;
-    }
-
-    sqlx::query(
-        r#"INSERT INTO order_meta(order_id, shipping_address_json, contact_json, extra_json)
-           VALUES ($1, $2, $3, '{}'::jsonb)"#,
-    ).bind(&order_id).bind(body.shipping_address).bind(body.contact)
-     .execute(&mut *tx).await.map_err(map_db)?;
-
-    sqlx::query(
-        r#"INSERT INTO order_event(id, order_id, kind, actor_kind, actor_id,
-                                   before_status, after_status, meta_json)
-           VALUES ($1, $2, 'OrderCreated', 'user', $3, NULL, 'unpaid', '{}'::jsonb)"#,
-    ).bind(format!("oe-{}", Uuid::new_v4())).bind(&order_id).bind(&claims.sub)
-     .execute(&mut *tx).await.map_err(map_db)?;
-
-    let _ = body.coupon_codes; // TODO PromotionService.redeem
-    tx.commit().await.map_err(map_db)?;
+    let created = app_order::create(&st.db, app_order::NewOrder {
+        user_id: claims.sub,
+        region: body.region,
+        channel_origin: body.channel_origin,
+        lines: body.lines.into_iter()
+            .map(|l| app_order::NewOrderLine { sku_id: l.sku_id, qty: l.qty })
+            .collect(),
+        shipping_address: body.shipping_address,
+        contact: body.contact,
+        coupon_codes: body.coupon_codes.unwrap_or_default(),
+        note: body.note,
+        // 旧实现这两列一直写 NULL,风控拿不到来源。JWT 里没有,只能从请求头取。
+        ip: client_ip(&headers),
+        ua: headers.get(http::header::USER_AGENT)
+            .and_then(|v| v.to_str().ok())
+            .map(str::to_string),
+    }).await?;
 
     Ok(Json(json!({
-        "order_id": order_id,
-        "amount_total_minor": total,
-        "currency": "CNY",
-        "status": "unpaid",
+        "order_id": created.order_id,
+        "amount_total_minor": created.amount_total_minor,
+        "currency": created.currency,
+        "status": created.status,
     })))
+}
+
+/// 从反代头里取客户端 IP。Cloudflare 在前,优先信 `CF-Connecting-IP`,
+/// 其次 `X-Forwarded-For` 的第一跳。都没有就是直连,拿不到就写 NULL。
+fn client_ip(headers: &HeaderMap) -> Option<String> {
+    headers.get("cf-connecting-ip")
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_string)
+        .or_else(|| {
+            headers.get(http::header::FORWARDED)
+                .or_else(|| headers.get("x-forwarded-for"))
+                .and_then(|v| v.to_str().ok())
+                .and_then(|s| s.split(',').next())
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+        })
 }
 
 // ─── Order · my list ─────────────────────────────────────────────
@@ -311,29 +263,8 @@ async fn cancel_my_order(
     State(st): State<AppState>, AuthedUser(c): AuthedUser, Path(id): Path<String>,
     Json(b): Json<CancelBody>,
 ) -> Result<Json<J>, ApiError> {
-    let mut tx = st.db.begin().await.map_err(map_db)?;
-    let cur: Option<String> = sqlx::query_scalar(
-        "SELECT status FROM order_record WHERE id=$1 AND user_id=$2 FOR UPDATE",
-    ).bind(&id).bind(&c.sub).fetch_optional(&mut *tx).await.map_err(map_db)?;
-    let cur = cur.ok_or_else(|| ApiError::not_found("order"))?;
-    if !["draft","unpaid"].contains(&cur.as_str()) {
-        return Err(ApiError::bad(format!("cannot cancel from {cur}; 已付订单需走退款")));
-    }
-    sqlx::query(
-        "UPDATE order_record SET status='cancelled', cancelled_at=NOW(), cancel_reason=$1, cancel_actor='user' WHERE id=$2",
-    ).bind(&b.reason).bind(&id).execute(&mut *tx).await.map_err(map_db)?;
-    sqlx::query(
-        r#"INSERT INTO order_event(id, order_id, kind, actor_kind, actor_id,
-                                   before_status, after_status, meta_json)
-           VALUES ($1, $2, 'OrderCancelled', 'user', $3, $4, 'cancelled', $5)"#,
-    ).bind(format!("oe-{}", Uuid::new_v4())).bind(&id).bind(&c.sub).bind(&cur)
-     .bind(json!({ "reason": b.reason }))
-     .execute(&mut *tx).await.map_err(map_db)?;
-    outbox::write(&mut *tx, &DomainEvent::OrderCancelled {
-        order_id: id.clone(), reason: b.reason.clone(), actor: c.sub.clone(),
-        occurred_at: Utc::now(),
-    }).await.map_err(|e| ApiError(AppError::Internal(format!("outbox: {e}"))))?;
-    tx.commit().await.map_err(map_db)?;
+    // owner 传 Some(...) → 用例层同时做归属校验,非属主一律 404
+    app_order::cancel(&st.db, &id, &b.reason, &Actor::user(&c.sub), Some(&c.sub)).await?;
     Ok(Json(json!({ "ok": true, "status": "cancelled" })))
 }
 
@@ -349,62 +280,41 @@ async fn pay_my_order(
     State(st): State<AppState>, AuthedUser(c): AuthedUser, Path(id): Path<String>,
     Json(b): Json<PayBody>,
 ) -> Result<Json<J>, ApiError> {
-    let order = sqlx::query(
-        "SELECT user_id, status, amount_total_minor, amount_paid_minor, currency FROM order_record WHERE id=$1",
-    ).bind(&id).fetch_optional(&st.db).await.map_err(map_db)?
-     .ok_or_else(|| ApiError::not_found("order"))?;
-    let uid: String = order.try_get("user_id").map_err(map_db)?;
-    if uid != c.sub { return Err(ApiError(AppError::Forbidden)); }
-    let status: String = order.try_get("status").map_err(map_db)?;
-    if status != "unpaid" { return Err(ApiError::bad(format!("status={status} 不可重发起支付"))); }
-    let total: i64 = order.try_get("amount_total_minor").map_err(map_db)?;
-    let paid: i64 = order.try_get("amount_paid_minor").map_err(map_db)?;
-    let due = total - paid;
-    let currency: String = order.try_get("currency").map_err(map_db)?;
-
+    // adapter 的挑选是 binary 自己的事(registry 在 AppState 里),
+    // 所以先让用例层占位落库,再拿着 PendingPayment 去调渠道。
     let adapter = st.payment_adapters.pick(&b.channel)
         .ok_or_else(|| ApiError::bad(format!("unsupported channel {}", b.channel)))?;
 
-    let payment_id = format!("pay-{}", Uuid::new_v4());
-    let expires_at = Utc::now() + chrono::Duration::minutes(30);
+    let pending = app_payment::start(
+        &st.db, &id, &c.sub, &b.channel, b.openid.as_deref(),
+    ).await?;
+
     let notify_url = std::env::var("UNMEI_PUBLIC_BASE")
         .unwrap_or_else(|_| "http://localhost:6028".into()) + "/v1/webhooks/wechat";
 
-    sqlx::query(
-        r#"INSERT INTO payment(id, order_id, user_id, channel, amount_minor, currency, status,
-                               channel_user_ref, expires_at, metadata_json)
-           VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8, '{}'::jsonb)"#,
-    ).bind(&payment_id).bind(&id).bind(&c.sub).bind(&b.channel)
-     .bind(due).bind(&currency).bind(&b.openid).bind(expires_at)
-     .execute(&st.db).await.map_err(map_db)?;
-
-    let param = CreatePaymentParam {
-        payment_id: payment_id.clone(),
-        order_id: id.clone(),
-        user_id: c.sub.clone(),
-        amount_minor: due,
-        currency: currency.clone(),
+    let outcome = adapter.create_payment(CreatePaymentParam {
+        payment_id: pending.payment_id.clone(),
+        order_id: pending.order_id.clone(),
+        user_id: pending.user_id.clone(),
+        amount_minor: pending.amount_minor,
+        currency: pending.currency.clone(),
         description: format!("订单 {id}"),
         channel_user_ref: b.openid.clone(),
         return_url: b.return_url.clone(),
         notify_url,
-        expires_at,
+        expires_at: pending.expires_at,
         metadata: json!({}),
-    };
-    let outcome = adapter.create_payment(param).await
-        .map_err(|e| ApiError(AppError::Internal(format!("adapter: {e}"))))?;
+    }).await.map_err(|e| ApiError(AppError::Internal(format!("adapter: {e}"))))?;
 
-    // 记 attempt
-    sqlx::query(
-        r#"INSERT INTO payment_attempt(id, payment_id, attempt_no, request_payload_json, response_payload_json)
-           VALUES ($1, $2, 1, $3, $4)"#,
-    ).bind(format!("pa-{}", Uuid::new_v4())).bind(&payment_id)
-     .bind(json!({ "channel": b.channel, "amount": due }))
-     .bind(serde_json::to_value(&outcome).map_err(|e| ApiError(AppError::Internal(e.to_string())))?)
-     .execute(&st.db).await.map_err(map_db)?;
+    app_payment::record_attempt(
+        &st.db,
+        &pending.payment_id,
+        json!({ "channel": b.channel, "amount": pending.amount_minor }),
+        serde_json::to_value(&outcome)?,
+    ).await?;
 
     Ok(Json(json!({
-        "payment_id": payment_id,
+        "payment_id": pending.payment_id,
         "outcome": outcome,
     })))
 }
@@ -422,40 +332,11 @@ async fn refund_my_order(
     State(st): State<AppState>, AuthedUser(c): AuthedUser, Path(id): Path<String>,
     Json(b): Json<RefundBody>,
 ) -> Result<Json<J>, ApiError> {
-    let order = sqlx::query("SELECT user_id, amount_paid_minor, amount_refunded_minor, currency FROM order_record WHERE id=$1")
-        .bind(&id).fetch_optional(&st.db).await.map_err(map_db)?
-        .ok_or_else(|| ApiError::not_found("order"))?;
-    if order.try_get::<String, _>("user_id").map_err(map_db)? != c.sub {
-        return Err(ApiError(AppError::Forbidden));
-    }
-    let paid: i64 = order.try_get("amount_paid_minor").map_err(map_db)?;
-    let refunded: i64 = order.try_get("amount_refunded_minor").map_err(map_db)?;
-    let remaining = paid - refunded;
-    let amt = b.amount_minor.unwrap_or(remaining);
-    if amt <= 0 || amt > remaining {
-        return Err(ApiError::bad(format!("amount {amt} 超出可退余额 {remaining}")));
-    }
-
-    let pid = match b.payment_id {
-        Some(p) => p,
-        None => {
-            // 自动选最近一笔成功 payment
-            let pp: Option<String> = sqlx::query_scalar(
-                "SELECT id FROM payment WHERE order_id=$1 AND status='success' ORDER BY paid_at DESC LIMIT 1",
-            ).bind(&id).fetch_optional(&st.db).await.map_err(map_db)?;
-            pp.ok_or_else(|| ApiError::bad("无成功支付可退"))?
-        }
-    };
-    let cur: String = order.try_get("currency").map_err(map_db)?;
-
-    let refund_id = format!("rfd-{}", Uuid::new_v4());
-    sqlx::query(
-        r#"INSERT INTO refund(id, order_id, payment_id, amount_minor, currency, reason_code, reason_text,
-                              actor_kind, actor_id, status)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, 'user', $8, 'requested')"#,
-    ).bind(&refund_id).bind(&id).bind(&pid).bind(amt).bind(&cur)
-     .bind(&b.reason_code).bind(b.reason_text.unwrap_or_default()).bind(&c.sub)
-     .execute(&st.db).await.map_err(map_db)?;
+    let refund_id = app_refund::request(
+        &st.db, &id, &c.sub,
+        b.payment_id, b.amount_minor,
+        &b.reason_code, b.reason_text.as_deref(),
+    ).await?;
     Ok(Json(json!({ "refund_id": refund_id, "status": "requested" })))
 }
 
@@ -546,55 +427,26 @@ async fn carrier_webhook(
     Ok(Json(json!({ "ok": true })))
 }
 
-async fn apply_payment_webhook(st: &AppState, channel_group: &str, ev: WebhookEvent) -> Result<(), ApiError> {
+async fn apply_payment_webhook(
+    st: &AppState, channel_group: &str, ev: WebhookEvent,
+) -> Result<(), ApiError> {
     use WebhookEvent::*;
     match ev {
         PaymentSucceeded { txn_id, paid_at, .. } => {
-            // 幂等 by (channel, channel_event_id) — 这里用 txn_id 作 event_id
-            sqlx::query(
-                r#"INSERT INTO payment_event(id, payment_id, kind, channel, channel_event_id, payload_json, received_at)
-                   SELECT $1, p.id, 'PaymentSucceededByCallback', p.channel, $2, '{}'::jsonb, NOW()
-                   FROM payment p WHERE p.channel_txn_id = $2 OR p.id = $2
-                   LIMIT 1"#,
-            ).bind(format!("pe-{}", Uuid::new_v4())).bind(&txn_id)
-             .execute(&st.db).await.map_err(map_db)?;
-            sqlx::query(
-                "UPDATE payment SET status='success', paid_at=$1, channel_txn_id=COALESCE(channel_txn_id, $2)
-                 WHERE (channel_txn_id=$2 OR id=$2) AND status IN ('pending','processing')",
-            ).bind(paid_at).bind(&txn_id).execute(&st.db).await.map_err(map_db)?;
-            // 同步 order
-            sqlx::query(
-                r#"UPDATE order_record o SET
-                     amount_paid_minor = amount_paid_minor + p.amount_minor,
-                     status = CASE WHEN o.amount_paid_minor + p.amount_minor >= o.amount_total_minor
-                                   THEN 'paid' ELSE o.status END,
-                     paid_at = COALESCE(o.paid_at, NOW())
-                   FROM payment p
-                   WHERE p.id IN (SELECT id FROM payment WHERE channel_txn_id=$1 OR id=$1)
-                     AND p.order_id = o.id"#,
-            ).bind(&txn_id).execute(&st.db).await.map_err(map_db)?;
-            tracing::info!("payment.success [{channel_group}] txn={txn_id}");
+            app_payment::apply_succeeded(&st.db, &txn_id, paid_at).await?
         }
         PaymentFailed { txn_id, code, msg } => {
-            sqlx::query(
-                "UPDATE payment SET status='failed', failure_code=$1, failure_msg=$2
-                 WHERE channel_txn_id=$3 OR id=$3",
-            ).bind(&code).bind(&msg).bind(&txn_id).execute(&st.db).await.map_err(map_db)?;
+            app_payment::apply_failed(&st.db, &txn_id, &code, &msg).await?
         }
-        PaymentExpired { txn_id } => {
-            sqlx::query("UPDATE payment SET status='expired' WHERE (channel_txn_id=$1 OR id=$1) AND status IN ('pending','processing')")
-                .bind(&txn_id).execute(&st.db).await.map_err(map_db)?;
-        }
+        PaymentExpired { txn_id } => app_payment::apply_expired(&st.db, &txn_id).await?,
         RefundSucceeded { refund_id, .. } => {
-            sqlx::query("UPDATE refund SET status='success', completed_at=NOW() WHERE channel_refund_id=$1 OR id=$1")
-                .bind(&refund_id).execute(&st.db).await.map_err(map_db)?;
+            app_refund::apply_succeeded(&st.db, &refund_id).await?
         }
         RefundFailed { refund_id, code, msg } => {
-            sqlx::query("UPDATE refund SET status='failed', failure_code=$1, failure_msg=$2 WHERE channel_refund_id=$3 OR id=$3")
-                .bind(&code).bind(&msg).bind(&refund_id).execute(&st.db).await.map_err(map_db)?;
+            app_refund::apply_failed(&st.db, &refund_id, &code, &msg).await?
         }
-        _ => {
-            tracing::warn!("unhandled webhook event in {channel_group}");
+        other => {
+            tracing::warn!(channel_group, event = ?other, "未处理的渠道回调事件");
         }
     }
     Ok(())
@@ -604,36 +456,7 @@ async fn apply_carrier_webhook(
     st: &AppState,
     ev: unmei_domain::commerce::adapters::TraceWebhookEvent,
 ) -> Result<(), ApiError> {
-    // 找 shipment by (carrier_code, tracking_no)
-    let row: Option<String> = sqlx::query_scalar(
-        "SELECT id FROM shipment WHERE carrier_code=$1 AND tracking_no=$2",
-    ).bind(&ev.carrier_code).bind(&ev.tracking_no)
-     .fetch_optional(&st.db).await.map_err(map_db)?;
-    let sid = row.ok_or_else(|| ApiError::not_found("shipment"))?;
-    for e in ev.events {
-        sqlx::query(
-            r#"INSERT INTO shipment_trace_event(
-                 id, shipment_id, event_at, event_kind, location, description,
-                 raw_source, raw_event_id, raw_payload_json
-               ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, '{}'::jsonb)
-               ON CONFLICT (id) DO NOTHING"#,
-        ).bind(format!("ste-{}", Uuid::new_v4())).bind(&sid)
-         .bind(e.event_at).bind(&e.kind).bind(&e.location).bind(&e.description)
-         .bind("webhook").bind(&e.raw_event_id)
-         .execute(&st.db).await.map_err(map_db)?;
-        // 推进 shipment.status
-        sqlx::query(
-            r#"UPDATE shipment SET status = CASE
-                 WHEN $1='delivered'          THEN 'delivered'
-                 WHEN $1='out_for_delivery'   THEN 'out_for_delivery'
-                 WHEN $1='picked_up'          THEN 'picked_up'
-                 WHEN $1='exception'          THEN 'exception'
-                 WHEN $1='returned'           THEN 'returned'
-                 ELSE 'in_transit' END,
-               delivered_at = CASE WHEN $1='delivered' THEN NOW() ELSE delivered_at END
-               WHERE id=$2"#,
-        ).bind(&e.kind).bind(&sid).execute(&st.db).await.map_err(map_db)?;
-    }
+    app_shipment::apply_trace_webhook(&st.db, ev).await?;
     Ok(())
 }
 

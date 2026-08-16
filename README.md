@@ -125,16 +125,19 @@ buwanren/
 | 阶段 | 内容 | 状态 |
 |---|---|---|
 | **P0** | 让工作区编译 —— 全仓统一到运行期 `sqlx::query()`,不再依赖 `.sqlx` 缓存或活库;补 CI | ✅ 2026-08-16 |
-| **P1** | 消双写 —— `routes/commerce.rs` 里的直接 SQL 提炼成 app 层用例,删掉 `unmei-domain/commerce/services_impl/` 里 2,451 LOC 的未验证死实现 | ⏳ |
-| **P2** | 依赖方向修正 —— SQL 全部收敛进 `unmei-pg`,`unmei-domain` 去 sqlx / 去 http。判据可机械化:`grep -rn 'sqlx\|axum\|http::\|reqwest' unmei-domain/src` 必须为 0(当前 215) | ⏳ |
+| **P1** | 消双写 —— 新建 `unmei-app` 承载全部写操作用例,两个 API crate 共用;删掉 `unmei-domain` 里 2,810 LOC 的未验证死实现与无人实现的 trait | ✅ 2026-08-16 |
+| **P2** | 依赖方向修正 —— SQL 全部收敛进 `unmei-pg`,`unmei-domain` 去 sqlx / 去 http。判据可机械化:`grep -rn 'sqlx\|axum\|http::\|reqwest' unmei-domain/src` 必须为 0(P0 时 215,P1 后 **24**) | ⏳ |
 
 **目标形态**:`unmei-api / unmei-admin-api → unmei-app → unmei-domain ← unmei-pg`,依赖单向。
 
+`unmei-app` 只收**写操作与状态迁移**。列表 / 详情这类只读查询仍在路由里 —— 它们两端不重叠(客户端按 `user_id` 过滤,后台按筛选条件),不存在双写,连同 SQL 一起归 P2。
+
 ### 已知欠账
 
-- `unmei-domain` 里有 11 个 `PgXxxService`(sqlx 落地)+ 聚合根 `#[derive(sqlx::FromRow)]`,依赖方向是倒的;且这批实现全仓只有 1 处被引用(`workers/shipment_trace.rs` 的 `apply_shipment_delivered`),真实路径走的是 route 里的直接 SQL
+- `unmei-domain` 剩下的 24 处基础设施引用:聚合根上的 `#[derive(sqlx::FromRow)]` / `sqlx::Type`、`outbox.rs` 里的 SQL、`adapters.rs` 的 `http::HeaderMap`。全是 P2 的活
 - `AppState.cache`(kevy-embedded)在两个 API crate 里都从未被读 —— admin 进程会开一个自己不用的 Store
 - `unmei-api/src/mingli.rs` 的 `QimenLite` / `QimenXun` / `health()` 是死代码
+- **`subscription` 表没有 `audit_note` 列**(其它 8 张商业表都有),所以订阅取消只能靠领域事件留痕,库里没有备注。要补需要一次 migration
 
 ## 致谢
 

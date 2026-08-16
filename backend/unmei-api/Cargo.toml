@@ -26,5 +26,6 @@ kevy-embedded.workspace = true
 unmei-domain.workspace = true
 unmei-wx.workspace = true
 unmei-carrier.workspace = true
+unmei-app.workspace = true
 async-trait = "0.1"
 http = "1"

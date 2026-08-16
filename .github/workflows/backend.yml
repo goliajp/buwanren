@@ -38,10 +38,14 @@ jobs:
 
       # ── 依赖方向护栏 · clean arch ────────────────────────────────
       # unmei-domain 是最内层:不许依赖 sqlx / axum / http / reqwest。
-      # 当前 domain 里还有 services_impl(sqlx 落地)与 FromRow 派生 —— 见 README
-      # 的 P1/P2。这一步暂时只**报告**，等 P2 收敛完再翻成失败门禁。
+      # P1 删掉 services_impl 后从 215 降到 24;剩下的是聚合根上的
+      # FromRow / sqlx::Type 派生、outbox.rs 的 SQL、adapters 里的 http::HeaderMap,
+      # 全部由 P2 收敛。到 0 之前这一步只报数,不当失败门禁。
       - name: domain purity report
         continue-on-error: true
         run: |
-          echo "== unmei-domain 中的基础设施引用（目标: 0）=="
-          grep -rn 'sqlx\|axum\|http::\|reqwest' unmei-domain/src | wc -l
+          COUNT=$(grep -rn 'sqlx\|axum\|http::\|reqwest' unmei-domain/src | wc -l | tr -d ' ')
+          echo "== unmei-domain 中的基础设施引用: $COUNT（P1 后基线 24，P2 目标 0）=="
+          if [ "$COUNT" -gt 24 ]; then
+            echo "::warning::domain 的基础设施引用比 P1 基线(24)还多，方向反了"
+          fi

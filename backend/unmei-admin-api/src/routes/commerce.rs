@@ -1,7 +1,10 @@
 //! /admin/commerce/* · commerce v2 全 10 工作台 routes
 //!
-//! 落地版本:**直接 sqlx**(不绕 service trait,trait 后续 turn 落)。
-//! 字段做实 + 筛选齐 + 状态 chip + 动作齐(approve / cancel / set-tracking / mark-exception …)。
+//! **写操作一律调 `unmei-app` 的用例层**,与客户端 API 共用同一份实现。
+//! 这里只做 HTTP 解析、鉴权、把 [`Actor`] 传进去。
+//!
+//! 只读的 list / detail 仍是本文件里的直接 sqlx —— 它们与客户端不重叠
+//! (客户端按 user_id 过滤,后台按筛选条件),不存在双写。SQL 的去向见 P2。
 
 use axum::{
     extract::{Path, Query, State},
@@ -12,6 +15,12 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as J};
 use sqlx::{Column as _, Row};
+use unmei_app::{
+    catalog as app_catalog, order as app_order, outbox_ops as app_outbox,
+    payment as app_payment, promotion as app_promotion, refund as app_refund,
+    risk as app_risk, shipment as app_shipment, subscription as app_subscription,
+    Actor,
+};
 use unmei_domain::AppError;
 
 use crate::auth::{Admin, ApiError};
@@ -215,13 +224,7 @@ async fn get_outbox(
 async fn retry_outbox(
     State(st): State<AppState>, _admin: Admin, Path(id): Path<String>,
 ) -> Result<Json<J>, ApiError> {
-    let res = sqlx::query(
-        r#"UPDATE outbox_event SET status='pending', next_attempt_at=NOW(), last_error=NULL
-           WHERE id=$1 AND status IN ('failed','dropped')"#,
-    ).bind(&id).execute(&st.db).await.map_err(map_db)?;
-    if res.rows_affected() == 0 {
-        return Err(ApiError::bad("event 非 failed/dropped 状态,不能 retry"));
-    }
+    app_outbox::retry(&st.db, &id).await?;
     Ok(Json(json!({"ok": true})))
 }
 
@@ -374,14 +377,10 @@ struct ToggleListingBody { status: String }
 async fn toggle_product_listing(
     State(st): State<AppState>, admin: Admin, Path(id): Path<String>, Json(body): Json<ToggleListingBody>,
 ) -> Result<Json<J>, ApiError> {
-    if !["draft","listed","delisted","discontinued"].contains(&body.status.as_str()) {
-        return Err(ApiError::bad("invalid status"));
-    }
-    let note = format!("admin {} → {}", admin.0.sub, body.status);
-    sqlx::query("UPDATE product SET status=$1, audit_note = audit_note || E'\\n' || $2 WHERE id=$3")
-        .bind(&body.status).bind(&note).bind(&id)
-        .execute(&st.db).await.map_err(map_db)?;
-    Ok(Json(json!({"ok":true, "status":body.status})))
+    let status = app_catalog::set_product_status(
+        &st.db, &id, &body.status, &Actor::admin(&admin.0.sub),
+    ).await?;
+    Ok(Json(json!({"ok":true, "status": status.as_str()})))
 }
 
 // ═══════════════════════════ Pricing ═══════════════════════════
@@ -411,24 +410,21 @@ async fn publish_price(
     State(st): State<AppState>, admin: Admin,
     Path(sku_id): Path<String>, Json(b): Json<PublishPriceBody>,
 ) -> Result<Json<J>, ApiError> {
-    let id = format!("pb-{}", uuid::Uuid::new_v4());
-    let from = b.effective_from.unwrap_or_else(Utc::now);
-    sqlx::query(
-        r#"INSERT INTO price_book(id, sku_id, currency, price_minor, region, platform,
-                                  effective_from, status, audit_note, created_by_admin_id)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,'active',$8,$9)"#,
-    ).bind(&id).bind(&sku_id).bind(&b.currency).bind(b.price_minor)
-     .bind(&b.region).bind(&b.platform).bind(from)
-     .bind(b.audit_note.unwrap_or_default()).bind(&admin.0.sub)
-     .execute(&st.db).await.map_err(map_db)?;
+    let id = app_catalog::publish_price(&st.db, &sku_id, app_catalog::NewPrice {
+        currency: b.currency,
+        price_minor: b.price_minor,
+        region: b.region,
+        platform: b.platform,
+        effective_from: b.effective_from,
+        audit_note: b.audit_note,
+    }, &Actor::admin(&admin.0.sub)).await?;
     Ok(Json(json!({"ok":true, "id":id})))
 }
 
 async fn expire_price(
     State(st): State<AppState>, _: Admin, Path(id): Path<String>,
 ) -> Result<Json<J>, ApiError> {
-    sqlx::query("UPDATE price_book SET status='expired', effective_to=NOW() WHERE id=$1")
-        .bind(&id).execute(&st.db).await.map_err(map_db)?;
+    app_catalog::expire_price(&st.db, &id).await?;
     Ok(Json(json!({"ok":true})))
 }
 
@@ -482,13 +478,10 @@ struct PromoStateBody { status: String }
 async fn update_promotion_state(
     State(st): State<AppState>, admin: Admin, Path(id): Path<String>, Json(b): Json<PromoStateBody>,
 ) -> Result<Json<J>, ApiError> {
-    if !["draft","scheduled","active","paused","exhausted","ended"].contains(&b.status.as_str()) {
-        return Err(ApiError::bad("invalid promotion status"));
-    }
-    let n = format!("admin {} → {}", admin.0.sub, b.status);
-    sqlx::query("UPDATE promotion SET status=$1, audit_note = audit_note || E'\\n' || $2 WHERE id=$3")
-        .bind(&b.status).bind(&n).bind(&id).execute(&st.db).await.map_err(map_db)?;
-    Ok(Json(json!({"ok":true})))
+    let status = app_promotion::set_status(
+        &st.db, &id, &b.status, &Actor::admin(&admin.0.sub),
+    ).await?;
+    Ok(Json(json!({"ok":true, "status": status.as_str()})))
 }
 
 async fn list_coupons(
@@ -556,15 +549,9 @@ async fn cancel_subscription(
     State(st): State<AppState>, admin: Admin, Path(id): Path<String>, Json(b): Json<CancelSubBody>,
 ) -> Result<Json<J>, ApiError> {
     let immediate = b.immediate.unwrap_or(false);
-    if immediate {
-        sqlx::query("UPDATE subscription SET status='cancelled', cancelled_at=NOW() WHERE id=$1")
-            .bind(&id).execute(&st.db).await.map_err(map_db)?;
-    } else {
-        sqlx::query("UPDATE subscription SET cancel_at_period_end=true WHERE id=$1")
-            .bind(&id).execute(&st.db).await.map_err(map_db)?;
-    }
-    let _ = b.reason; // 留入 audit_log
-    let _ = admin;
+    app_subscription::cancel(
+        &st.db, &id, immediate, b.reason.as_deref(), &Actor::admin(&admin.0.sub),
+    ).await?;
     Ok(Json(json!({"ok":true, "immediate": immediate})))
 }
 
@@ -665,31 +652,14 @@ struct CancelOrderBody { reason: String }
 async fn admin_cancel_order(
     State(st): State<AppState>, admin: Admin, Path(id): Path<String>, Json(b): Json<CancelOrderBody>,
 ) -> Result<Json<J>, ApiError> {
-    let mut tx = st.db.begin().await.map_err(map_db)?;
-    let cur: Option<String> = sqlx::query_scalar("SELECT status FROM order_record WHERE id=$1 FOR UPDATE")
-        .bind(&id).fetch_optional(&mut *tx).await.map_err(map_db)?;
-    let cur = cur.ok_or_else(|| ApiError::not_found("order"))?;
-    if !["draft","unpaid","paid","fulfilling"].contains(&cur.as_str()) {
-        return Err(ApiError::bad(format!("cannot cancel from status={cur}")));
-    }
-    sqlx::query(
-        r#"UPDATE order_record SET status='cancelled', cancelled_at=NOW(),
-              cancel_reason=$1, cancel_actor='admin' WHERE id=$2"#,
-    ).bind(&b.reason).bind(&id).execute(&mut *tx).await.map_err(map_db)?;
-    sqlx::query(
-        r#"INSERT INTO order_event(id, order_id, kind, actor_kind, actor_id,
-                                   before_status, after_status, meta_json)
-           VALUES ($1, $2, 'OrderCancelled', 'admin', $3, $4, 'cancelled', $5)"#,
-    ).bind(format!("oe-{}", uuid::Uuid::new_v4())).bind(&id).bind(&admin.0.sub)
-     .bind(&cur).bind(json!({"reason": b.reason}))
-     .execute(&mut *tx).await.map_err(map_db)?;
-    unmei_domain::commerce::outbox::write(&mut *tx,
-        &unmei_domain::commerce::events::DomainEvent::OrderCancelled {
-            order_id: id.clone(), reason: b.reason.clone(), actor: admin.0.sub.clone(),
-            occurred_at: chrono::Utc::now(),
-        },
-    ).await.map_err(|e| ApiError(AppError::Internal(format!("outbox: {e}"))))?;
-    tx.commit().await.map_err(map_db)?;
+    // owner 传 None → 后台不受归属限制。
+    //
+    // ⚠ 行为变更:旧实现允许从 `paid` / `fulfilling` 取消,但 domain 状态机的
+    // Paid → [Fulfilling, Done, RefundPartial, Refunded, Disputed] 里没有 Cancelled,
+    // 客户端路由也明说「已付订单需走退款」。三处语义原本互相打架。
+    // 现在统一以状态机为准:已付订单只能走退款,不能直接取消 ——
+    // 否则会留下「用户付了钱、订单被取消、没有退款记录」的窟窿。
+    app_order::cancel(&st.db, &id, &b.reason, &Actor::admin(&admin.0.sub), None).await?;
     Ok(Json(json!({"ok":true})))
 }
 
@@ -699,10 +669,7 @@ struct AnnotateBody { note: String }
 async fn annotate_order(
     State(st): State<AppState>, admin: Admin, Path(id): Path<String>, Json(b): Json<AnnotateBody>,
 ) -> Result<Json<J>, ApiError> {
-    let tag = format!("[{}] ", admin.0.sub);
-    let note = format!("{tag}{}", b.note);
-    sqlx::query("UPDATE order_record SET audit_note = audit_note || E'\\n' || $1 WHERE id=$2")
-        .bind(&note).bind(&id).execute(&st.db).await.map_err(map_db)?;
+    app_order::annotate(&st.db, &id, &b.note, &Actor::admin(&admin.0.sub)).await?;
     Ok(Json(json!({"ok":true})))
 }
 
@@ -796,16 +763,9 @@ struct MarkFailedBody { code: String, msg: String }
 async fn mark_payment_failed(
     State(st): State<AppState>, admin: Admin, Path(id): Path<String>, Json(b): Json<MarkFailedBody>,
 ) -> Result<Json<J>, ApiError> {
-    let cur: Option<String> = sqlx::query_scalar("SELECT status FROM payment WHERE id=$1").bind(&id)
-        .fetch_optional(&st.db).await.map_err(map_db)?;
-    let cur = cur.ok_or_else(|| ApiError::not_found("payment"))?;
-    if !["pending","processing","cancelling"].contains(&cur.as_str()) {
-        return Err(ApiError::bad(format!("cannot fail from status={cur}")));
-    }
-    sqlx::query(
-        "UPDATE payment SET status='failed', failure_code=$1, failure_msg=$2, audit_note = audit_note || E'\\n' || $3 WHERE id=$4",
-    ).bind(&b.code).bind(&b.msg).bind(format!("admin {} mark_failed", admin.0.sub)).bind(&id)
-     .execute(&st.db).await.map_err(map_db)?;
+    app_payment::mark_failed(
+        &st.db, &id, &b.code, &b.msg, &Actor::admin(&admin.0.sub),
+    ).await?;
     Ok(Json(json!({"ok":true})))
 }
 
@@ -839,46 +799,12 @@ async fn list_refunds(
 async fn approve_refund(
     State(st): State<AppState>, admin: Admin, Path(id): Path<String>,
 ) -> Result<Json<J>, ApiError> {
-    let mut tx = st.db.begin().await.map_err(map_db)?;
-    let row = sqlx::query(
-        "SELECT order_id, payment_id, amount_minor FROM refund WHERE id=$1 AND status='requested' FOR UPDATE",
-    ).bind(&id).fetch_optional(&mut *tx).await.map_err(map_db)?
-     .ok_or_else(|| ApiError::not_found("refund"))?;
-    let order_id: String = row.try_get("order_id").map_err(map_db)?;
-    let payment_id: String = row.try_get("payment_id").map_err(map_db)?;
-    let amount: i64 = row.try_get("amount_minor").map_err(map_db)?;
-
-    // mock 模式:approve → 直接 process → success(真接入要走 adapter.refund + webhook)
-    sqlx::query(
-        r#"UPDATE refund SET status='success', approved_at=NOW(), approved_by_admin_id=$1,
-             processed_at=NOW(), completed_at=NOW(),
-             channel_refund_id = 'MOCK_' || id
-           WHERE id=$2"#,
-    ).bind(&admin.0.sub).bind(&id).execute(&mut *tx).await.map_err(map_db)?;
-    // 同步 payment / order
-    sqlx::query(
-        r#"UPDATE payment SET status = CASE
-             WHEN $1 >= amount_minor THEN 'refunded' ELSE 'refunded_partial' END
-           WHERE id=$2"#,
-    ).bind(amount).bind(&payment_id).execute(&mut *tx).await.map_err(map_db)?;
-    sqlx::query(
-        r#"UPDATE order_record SET
-             amount_refunded_minor = amount_refunded_minor + $1,
-             status = CASE
-               WHEN amount_refunded_minor + $1 >= amount_total_minor THEN 'refunded'
-               WHEN status IN ('paid','fulfilling','done') THEN 'refund_partial'
-               ELSE status END
-           WHERE id=$2"#,
-    ).bind(amount).bind(&order_id).execute(&mut *tx).await.map_err(map_db)?;
-
-    // 写 RefundCompleted outbox(让 dispatcher 触发财务挂账)
-    let _ = unmei_domain::commerce::outbox::write(&mut *tx, &unmei_domain::commerce::events::DomainEvent::RefundCompleted {
-        refund_id: id.clone(),
-        occurred_at: chrono::Utc::now(),
-    }).await.map_err(|e| ApiError(AppError::Internal(format!("outbox: {e}"))))?;
-
-    tx.commit().await.map_err(map_db)?;
-    Ok(Json(json!({"ok":true, "status":"success", "note":"已 mock 模式直推到 success,真接入将由 adapter.refund() + webhook 推进"})))
+    app_refund::approve(&st.db, &id, &Actor::admin(&admin.0.sub)).await?;
+    Ok(Json(json!({
+        "ok": true,
+        "status": "success",
+        "note": "已 mock 模式直推到 success,真接入将由 adapter.refund() + webhook 推进"
+    })))
 }
 
 #[derive(Deserialize)]
@@ -887,10 +813,7 @@ struct DenyBody { reason: String }
 async fn deny_refund(
     State(st): State<AppState>, admin: Admin, Path(id): Path<String>, Json(b): Json<DenyBody>,
 ) -> Result<Json<J>, ApiError> {
-    sqlx::query(
-        "UPDATE refund SET status='cancelled', audit_note = audit_note || E'\\n' || $1 WHERE id=$2 AND status IN ('requested','failed')",
-    ).bind(format!("admin {} deny: {}", admin.0.sub, b.reason)).bind(&id)
-     .execute(&st.db).await.map_err(map_db)?;
+    app_refund::deny(&st.db, &id, &b.reason, &Actor::admin(&admin.0.sub)).await?;
     Ok(Json(json!({"ok":true})))
 }
 
@@ -970,16 +893,13 @@ struct AssignTrackingBody {
 async fn assign_shipment_tracking(
     State(st): State<AppState>, _admin: Admin, Path(id): Path<String>, Json(b): Json<AssignTrackingBody>,
 ) -> Result<Json<J>, ApiError> {
-    sqlx::query(
-        r#"UPDATE shipment SET carrier_code=$1, tracking_no=$2,
-            shipping_method=COALESCE($3, shipping_method),
-            cost_minor=COALESCE($4, cost_minor),
-            cost_currency=COALESCE($5, cost_currency),
-            status='picked_up', picked_up_at=COALESCE(picked_up_at, NOW())
-            WHERE id=$6"#,
-    ).bind(&b.carrier_code).bind(&b.tracking_no)
-     .bind(b.shipping_method).bind(b.cost_minor).bind(b.cost_currency).bind(&id)
-     .execute(&st.db).await.map_err(map_db)?;
+    app_shipment::assign_tracking(&st.db, &id, app_shipment::TrackingAssignment {
+        carrier_code: b.carrier_code,
+        tracking_no: b.tracking_no,
+        shipping_method: b.shipping_method,
+        cost_minor: b.cost_minor,
+        cost_currency: b.cost_currency,
+    }).await?;
     Ok(Json(json!({"ok":true})))
 }
 
@@ -989,10 +909,7 @@ struct MarkExceptionBody { reason: String }
 async fn mark_shipment_exception(
     State(st): State<AppState>, admin: Admin, Path(id): Path<String>, Json(b): Json<MarkExceptionBody>,
 ) -> Result<Json<J>, ApiError> {
-    sqlx::query(
-        "UPDATE shipment SET status='exception', audit_note = audit_note || E'\\n' || $1 WHERE id=$2",
-    ).bind(format!("admin {} exception: {}", admin.0.sub, b.reason)).bind(&id)
-     .execute(&st.db).await.map_err(map_db)?;
+    app_shipment::mark_exception(&st.db, &id, &b.reason, &Actor::admin(&admin.0.sub)).await?;
     Ok(Json(json!({"ok":true})))
 }
 
@@ -1053,12 +970,8 @@ struct RiskRuleStateBody { status: String }
 async fn update_risk_rule_state(
     State(st): State<AppState>, _admin: Admin, Path(id): Path<String>, Json(b): Json<RiskRuleStateBody>,
 ) -> Result<Json<J>, ApiError> {
-    if !["active","paused","retired"].contains(&b.status.as_str()) {
-        return Err(ApiError::bad("invalid status"));
-    }
-    sqlx::query("UPDATE risk_rule SET status=$1 WHERE id=$2")
-        .bind(&b.status).bind(&id).execute(&st.db).await.map_err(map_db)?;
-    Ok(Json(json!({"ok":true})))
+    let status = app_risk::set_rule_status(&st.db, &id, &b.status).await?;
+    Ok(Json(json!({"ok":true, "status": status.as_str()})))
 }
 
 async fn list_risk_events(

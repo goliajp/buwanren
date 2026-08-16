@@ -8,7 +8,7 @@ use axum::{
 };
 use jsonwebtoken::{encode, decode, EncodingKey, DecodingKey, Header, Validation, Algorithm};
 use serde::{Deserialize, Serialize};
-use unmei_domain::{AppError, ApiErrorBody};
+use unmei_domain::{AppError, ApiErrorBody, DomainError};
 
 use crate::state::AppState;
 
@@ -83,6 +83,12 @@ impl IntoResponse for ApiError {
     }
 }
 impl From<AppError> for ApiError { fn from(e: AppError) -> Self { Self(e) } }
+/// 用例层(`unmei-app`)的错误。状态码由 `DomainError::http_status()` 决定 ——
+/// NotFound→404 / Conflict→409 / Validation→422 / IllegalStateTransition→409,
+/// 路由不再手工判断该返回什么。
+impl From<DomainError> for ApiError {
+    fn from(e: DomainError) -> Self { Self(AppError::Domain(e)) }
+}
 impl From<sqlx::Error> for ApiError {
     fn from(e: sqlx::Error) -> Self { Self(AppError::Internal(format!("db: {e}"))) }
 }
