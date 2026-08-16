@@ -5,19 +5,27 @@
 set -e
 cd "$(dirname "$0")/.."
 
+DB_URL="${DATABASE_URL:-postgres://${POSTGRES_USER:-unmei}:${POSTGRES_PASSWORD:-unmei_dev_pwd}@localhost:${POSTGRES_PORT:-6032}/${POSTGRES_DB:-unmei}}"
+
 # 检查 mingli-api
 if ! curl -fsS http://localhost:6027/api/health > /dev/null; then
   echo "✗ mingli-api :6027 未就绪。请先 cd .. && cargo run -p mingli-api"
   exit 1
 fi
 
+# 检查 pg(migrations / seed 由 binary 启动时自己跑)
+if ! nc -z localhost "${POSTGRES_PORT:-6032}" 2>/dev/null; then
+  echo "✗ postgres :${POSTGRES_PORT:-6032} 未就绪。请先 bash scripts/setup-dev.sh"
+  exit 1
+fi
+
 # 启 unmei-api
-( cd backend && DATABASE_URL="sqlite:./unmei-api/unmei.db?mode=rwc" cargo run -p unmei-api ) &
+( cd backend && DATABASE_URL="$DB_URL" cargo run -p unmei-api ) &
 API_PID=$!
 echo "✓ unmei-api PID=$API_PID :6028"
 
 # 启 unmei-admin-api
-( cd backend && DATABASE_URL="sqlite:./unmei-api/unmei.db?mode=rwc" cargo run -p unmei-admin-api ) &
+( cd backend && DATABASE_URL="$DB_URL" cargo run -p unmei-admin-api ) &
 ADMIN_PID=$!
 echo "✓ unmei-admin-api PID=$ADMIN_PID :6029"
 

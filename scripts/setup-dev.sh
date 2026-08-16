@@ -1,49 +1,48 @@
 #!/usr/bin/env bash
-# unmei dev 一键准备:建库 + migrations + seed + sqlx prepare
-# 用法:cd backend && bash ../scripts/setup-dev.sh
+# unmei dev 一键准备:起 PG18 容器并等它健康。
+#
+# migrations 与 seed **不在这里跑** —— unmei-api / unmei-admin-api 启动时
+# 自己 sqlx::migrate! + 灌 seed/seed.sql(幂等 ON CONFLICT DO NOTHING)。
+#
+# 用法:bash scripts/setup-dev.sh
 
 set -euo pipefail
-cd "$(dirname "$0")/../backend"
+cd "$(dirname "$0")/.."
 
-DB="${DATABASE_URL:-sqlite:./unmei-api/unmei.db?mode=rwc}"
-DB_FILE="$(echo "$DB" | sed -E 's|^sqlite:||; s|\?.*$||')"
+PG_PORT="${POSTGRES_PORT:-6032}"
+PG_USER="${POSTGRES_USER:-unmei}"
+PG_DB="${POSTGRES_DB:-unmei}"
 
-echo "==> 数据库文件: $DB_FILE"
-mkdir -p "$(dirname "$DB_FILE")"
-
-# 检查 sqlite3
-if ! command -v sqlite3 >/dev/null 2>&1; then
-  echo "✗ 缺少 sqlite3 命令" >&2
-  exit 1
+if [ ! -f .env ]; then
+  echo "==> 没有 .env,从 .env.example 复制一份"
+  cp .env.example .env
 fi
 
-# migrations
-echo "==> 跑 migrations"
-sqlite3 "$DB_FILE" < migrations/20260625_initial.sql
+echo "==> 起 postgres18 容器"
+docker compose up -d postgres
 
-# seed(只在表为空时)
-N=$(sqlite3 "$DB_FILE" "SELECT COUNT(*) FROM quote;")
-if [ "$N" = "0" ]; then
-  echo "==> 写 seed 数据"
-  sqlite3 "$DB_FILE" < seed/seed.sql
-else
-  echo "==> 已有 $N 条 quote,跳过 seed"
-fi
-
-# sqlx prepare(需 sqlx-cli)
-if command -v cargo-sqlx >/dev/null 2>&1 || cargo sqlx --version >/dev/null 2>&1; then
-  export DATABASE_URL="$DB"
-  echo "==> 跑 cargo sqlx prepare(unmei-api)"
-  (cd unmei-api && cargo sqlx prepare --workspace -- --bin unmei-api)
-  echo "==> 跑 cargo sqlx prepare(unmei-admin-api)"
-  (cd unmei-admin-api && cargo sqlx prepare --workspace -- --bin unmei-admin-api)
-else
-  echo "! sqlx-cli 未安装,跳过 prepare"
-  echo "! 请运行: cargo install sqlx-cli --no-default-features --features rustls,sqlite"
-  echo "! 或:在 backend/ 设 SQLX_OFFLINE=false 让 cargo 在线检查"
-fi
+echo "==> 等健康检查通过"
+for i in $(seq 1 40); do
+  status=$(docker inspect -f '{{.State.Health.Status}}' unmei-postgres 2>/dev/null || echo "starting")
+  if [ "$status" = "healthy" ]; then
+    echo "    ✓ postgres healthy"
+    break
+  fi
+  if [ "$i" = "40" ]; then
+    echo "    ✗ 等了 80s 仍未健康,当前状态: $status" >&2
+    docker compose logs --tail 30 postgres >&2
+    exit 1
+  fi
+  sleep 2
+done
 
 echo ""
-echo "✓ 完成。数据库:$DB_FILE"
+echo "✓ 完成。"
+echo "  DATABASE_URL=postgres://${PG_USER}:\${POSTGRES_PASSWORD:-unmei_dev_pwd}@localhost:${PG_PORT}/${PG_DB}"
+echo ""
+echo "  下一步:"
+echo "    cd backend && cargo run -p unmei-api          # :6028 · 首次启动自动跑 migrations + seed"
+echo "    cd backend && cargo run -p unmei-admin-api    # :6029"
+echo "  或整栈一把梭:  docker compose up -d --build"
+echo ""
 echo "  · 默认管理员:admin@unmei.local / admin123"
-echo "  · 默认演示用户:u_demo(1987-09-17 长沙男)"

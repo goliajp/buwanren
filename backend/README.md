@@ -1,154 +1,106 @@
 # unmei backend
 
-Rust workspace: 3 crates · 2 binaries(`unmei-api` :6028, `unmei-admin-api` :6029)+ 1 shared lib(`unmei-domain`)。
+Rust workspace · **5 crate · 2 binary**。PostgreSQL 18 + kevy-embedded(in-process KV)。
 
-## 准备
+| crate | 角色 |
+|---|---|
+| `unmei-domain` | 共享 DTO + commerce v2 域模型(聚合根 / 状态机 / 领域事件 / port trait)+ Error |
+| `unmei-wx` | 微信生态 SDK(小程序登录 / 公众号 OAuth / 支付 v3) |
+| `unmei-carrier` | 物流 adapter(kuaidi100 / manual) |
+| `unmei-api` | 业务 BFF · :6028 · 客户端面 + webhook + 后台 worker |
+| `unmei-admin-api` | 运营后台 API · :6029 |
+
+> 依赖方向目前不干净:`unmei-domain` 里还有 11 个 `PgXxxService`(sqlx 落地)+ 聚合根 `#[derive(sqlx::FromRow)]`。
+> 目标形态与收敛计划见仓库根 `README.md` 的「Clean arch · 进行中」。
+
+## 跑起来
+
+### 用 docker-compose(推荐)
 
 ```bash
-# 1. sqlx-cli (一次性)
-cargo install sqlx-cli --no-default-features --features rustls,sqlite
-
-# 2. 数据库 + seed + sqlx prepare
-cd ..  # 到仓库根
-bash scripts/setup-dev.sh
+cd ..                       # 仓库根
+cp .env.example .env
+docker compose up -d --build
 ```
 
-## 跑
+pg / unmei-api / unmei-admin-api / webadmin 一起起。详见 `../QUICKSTART.md`。
+
+### 只起 pg,后端本地 cargo run
 
 ```bash
-# 业务 API
-DATABASE_URL="sqlite:./unmei-api/unmei.db?mode=rwc" \
-cargo run -p unmei-api
-
-# 后台 API
-DATABASE_URL="sqlite:./unmei-api/unmei.db?mode=rwc" \
-cargo run -p unmei-admin-api
+bash ../scripts/setup-dev.sh          # 起 pg18 容器并等健康
+cargo run -p unmei-api                # :6028
+cargo run -p unmei-admin-api          # :6029
 ```
+
+**migrations 与 seed 不用手动跑** —— 两个 binary 启动时自己 `sqlx::migrate!` + 灌 `seed/seed.sql`（幂等 `ON CONFLICT DO NOTHING`）。
+
+### 编译与测试
+
+```bash
+SQLX_OFFLINE=true cargo check --workspace --all-targets
+SQLX_OFFLINE=true cargo test --workspace
+```
+
+全仓统一用**运行期** `sqlx::query()` / `query_as()` / `query_scalar()`，**不用 `query!` 宏**，所以编译不连库、也不需要 `.sqlx` 缓存。CI 用 `SQLX_OFFLINE=true` 把这条约定钉死:谁重新引入 `query!` 宏，构建当场失败。
+
+代价说明白:这 58 处放弃了编译期 SQL 校验，换来的是「没有数据库也能构建」。SQL 正确性由 `scripts/e2e.sh` 的端到端 happy path 兜。
 
 ## 环境变量
 
 | 名 | 默认 | 说明 |
 |---|---|---|
-| `DATABASE_URL` | `sqlite:./unmei.db?mode=rwc` | sqlx 连接串 |
-| `MINGLI_API_BASE` | `http://localhost:6027` | mingli-api 地址 |
+| `DATABASE_URL` | `postgres://unmei:unmei_dev_pwd@localhost:6032/unmei` | PG 连接串 |
+| `MINGLI_API_BASE` | `http://localhost:6027` | mingli-api 算力源 |
+| `UNMEI_CACHE_DIR` | `./data/cache` | kevy-embedded AOF 落盘目录 |
+| `UNMEI_ADMIN_CACHE_DIR` | `./data/admin-cache` | admin 进程的同上 |
 | `UNMEI_JWT_SECRET` | dev 串 | 客户端 JWT 密钥 |
 | `UNMEI_ADMIN_JWT_SECRET` | dev 串 | 后台 JWT 密钥 |
-| `UNMEI_API_BIND` | `127.0.0.1:6028` | unmei-api 监听 |
-| `UNMEI_ADMIN_API_BIND` | `127.0.0.1:6029` | admin 监听 |
-| `RUST_LOG` | `debug` | tracing-subscriber |
+| `UNMEI_API_BIND` | `0.0.0.0:6028` | unmei-api 监听 |
+| `UNMEI_ADMIN_API_BIND` | `0.0.0.0:6029` | admin 监听 |
+| `WX_MP_APPID` / `WX_MP_SECRET` | 空 | 留空则微信走 mock，本地全链路仍可跑通 |
+| `KUAIDI100_CUSTOMER` / `KUAIDI100_KEY` | 空 | 留空则物流走 mock |
+| `RUST_LOG` | `info,...=debug,sqlx=warn` | tracing-subscriber |
 
-## 端点速查
+## 端点
 
-### unmei-api · `/v1/*`
-
-```
-POST   /v1/auth/anonymous
-POST   /v1/auth/wechat              # mock,留接入点
-GET    /v1/user/me
-PATCH  /v1/user/me
-GET    /v1/user/natals
-POST   /v1/user/natals
-DELETE /v1/user/natals/:id
-POST   /v1/user/natals/:id/activate
-GET    /v1/natal/:id/summary        # 客户端「本命简介卡」一句话
-POST   /v1/naji/spin                # ★ 核心:罗盘一抽
-GET    /v1/naji/history
-GET    /v1/naji/:id
-GET    /v1/product?category=&region=&platform=
-GET    /v1/activity?category=&region=
-GET    /v1/badge
-GET    /v1/user/me/badges
-GET    /v1/config                    # 启动拉差异化配置
-GET    /v1/health
-```
-
-### unmei-admin-api · `/admin/*`
-
-```
-POST   /admin/auth/login
-GET    /admin/dashboard/overview
-GET    /admin/users
-GET    /admin/users/:id
-GET    /admin/quotes
-POST   /admin/quotes
-PATCH  /admin/quotes/:id
-DELETE /admin/quotes/:id              # 实为 archived
-GET    /admin/products
-POST   /admin/products
-PATCH  /admin/products/:id
-GET    /admin/activities
-GET    /admin/feature_flags
-PATCH  /admin/feature_flags/:code
-GET    /admin/stats/dau
-GET    /admin/stats/naji_distribution
-GET    /admin/stats/products_top
-GET    /admin/mingli/health           # 转发 mingli-api 健康
-GET    /admin/health
-```
-
-## 数据库
-
-- 文件:`backend/unmei-api/unmei.db`(SQLite,演示用)
-- 生产改 PostgreSQL · 只需改 `DATABASE_URL` + sqlx-cli sqlite → postgres
-- migrations 在 `backend/migrations/`,sqlx 自动跑
-
-## 鉴权流程
-
-```
-客户端启动:
-  1. POST /v1/auth/anonymous { platform, region, locale }
-     → 返回 { token, user, expires_in: 30d }
-  2. 后续请求 header: Authorization: Bearer <token>
-
-后台:
-  1. POST /admin/auth/login { email, password }
-     → 返回 { token, name, roles, expires_in: 8h }
-  2. 后续请求 header: Authorization: Bearer <token>
-     → middleware 解 JWT → 注入 Admin claims
-     → 路由内 a.requires_role("content") 校验
-```
-
-## 业务核心:`/v1/naji/spin` 5 步
-
-```rust
-// routes/naji.rs::spin()
-1. 取 user(active_natal_id, platform, region, locale)
-2. 取 natal_summary(primary_yongshen, avoid_wuxing)
-3. 调 mingli-api /api/cast → 拿真奇门时盘
-4. ai_compose::
-   - pick_gate_by_yongshen(主用神 + 时辰)
-   - pick_quote(主用神 + 八门匹配,top-5 seed)
-   - pick_yiji(主用神 favor + 忌神 disfavor,top-8 取 5/3)
-   - pick_recommend(主用神 + region + platform 过滤)
-5. INSERT naji_record(t_chart 留真盘审计)
-   + 检查 badge 规则(count 类同步,streak 类入 worker)
-```
-
-## 算力隐式的关键
-
-`natal_summary` 表 = 桥。完整四柱 / 旺衰 / 用神 / 命格 / 神煞 算完后,只提取 5 字段:
-- `day_master`(「己土」)
-- `strength_level`(「偏强」)
-- `primary_yongshen / primary_role`(「木 / 官杀」)
-- `avoid_wuxing`(["火","土"])
-- `friendly_hint`(「东方 / 青绿 / 文教 …」一句话)
-
-`/v1/natal/:id/summary` 给客户端 — **永不暴露 strength_score / pattern_name / 完整四柱**。
-
-## 测试 / lint
+`unmei-api` 30 条 `/v1/*`，`unmei-admin-api` 58 条 `/admin/*`。清单不在这里手抄（抄了就会漂），直接从代码取：
 
 ```bash
-cargo check -p unmei-api
-cargo check -p unmei-admin-api
-cargo clippy -p unmei-api --all-targets
-cargo clippy -p unmei-admin-api --all-targets
+grep -rh '\.route("' unmei-api/src/routes/*.rs       | sed 's/.*\.route(//;s/,.*//' | tr -d '"' | sort -u
+grep -rh '\.route("' unmei-admin-api/src/routes/*.rs | sed 's/.*\.route(//;s/,.*//' | tr -d '" ' | sort -u
 ```
 
-## TODO(Beta)
+商业子系统的端点契约见 `../docs/commerce-architecture.md` §6。
 
-- 支付通道接入(微信 / IAP / Stripe)
-- worker crate(streak badge / 推荐重算 / 推送)
-- mock 微信改真授权 code → openid
-- 国际化:Quote / yiji / gate 多 locale 切换
-- PostgreSQL 平移(去 sqlite 特有)
-- 速率限制 / WAF 集成
+## 鉴权
+
+```
+客户端:
+  POST /v1/auth/anonymous { platform, region, locale }   → { token, user, expires_in: 30d }
+  或 POST /v1/auth/wx/miniprogram { code, nickname, avatar_url }
+  后续 header: Authorization: Bearer <token>
+
+后台:
+  POST /admin/auth/login { email, password }             → { token, name, roles, region_scope, expires_in: 8h }
+  后续 header: Authorization: Bearer <token>
+  路由内 a.requires_role("content") 校验角色;region_scope 控制 6 cell 可见范围
+```
+
+dev 默认管理员:`admin@unmei.local` / `admin123`。
+
+## 业务核心 · `/v1/naji/spin`
+
+`routes/naji.rs::spin()`：
+
+1. 取 `app_user`(active_natal_id / platform / region / locale)
+2. 取 `natal_summary`(primary_yongshen / avoid_wuxing)
+3. 调 mingli-api `/api/cast` 拿真奇门时盘，落 `naji_record.t_chart` 留审计
+4. `ai_compose::` 按主用神 + 时辰打分抽取 —— `pick_gate_by_yongshen` / `pick_quote` / `pick_yiji`
+5. 写 `naji_record` + 触发 count 类徽章
+
+seed 固定为 `hash(user_id, 年月日时)`，所以同一用户同一时辰结果稳定，跨时辰才换。
+
+## 后台 worker
+
+常驻 `unmei-api` 进程（`workers::spawn_all`）：`outbox` 事件分发 · `payment_sweep` 支付轮询 · `recon` 对账 · `shipment_trace` 物流追踪 · `subscription_billing` 订阅续费。

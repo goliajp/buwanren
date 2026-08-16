@@ -139,19 +139,20 @@ buwanren/
 │   ├── Dockerfile.api          ← cargo-chef 多阶段
 │   └── Dockerfile.admin-api
 │
-├── backend/                    ← Rust workspace(已切 PG18)
-│   ├── unmei-domain/           ← 共享 DTO + Error
-│   ├── unmei-wx/      NEW      ← 微信 SDK(mp / h5 / pay)
+├── backend/                    ← Rust workspace(PG18)
+│   ├── unmei-domain/           ← 共享 DTO + commerce 域模型 + Error
+│   ├── unmei-wx/               ← 微信 SDK(mp / h5 / pay)
+│   ├── unmei-carrier/          ← 物流 adapter(kuaidi100 / manual)
 │   ├── unmei-api/      :6028
 │   ├── unmei-admin-api/ :6029
-│   ├── migrations/             ← PG18 schema(14 业务表 + payment + wx_msg)
+│   ├── migrations/             ← PG18 schema(14 业务表 + commerce v2 + wx_msg)
 │   └── seed/                   ← PG 兼容 seed
-│
-├── backend-v0.1-sqlite-archive/  ← 备份 · 上版 SQLite demo
 │
 ├── webadmin/  :6030            ← React 19 后台
 ├── proto/     :6031            ← React 19 客户端原型
-├── mini/ ios/ android/         ← 多端派生(占位)
+├── mini/                       ← 微信小程序工程
+├── rooms/                      ← 像素村民屋工坊
+├── archive/                    ← 历史设计稿 / 另一条产品线调研,不参与构建
 └── design.html · architecture.md
 ```
 
