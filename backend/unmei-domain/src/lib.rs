@@ -9,34 +9,12 @@ pub use error::*;
 
 pub mod commerce;
 
-// ─── 平台 / 区域 ────────────────────────────────────────────────
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Platform {
-    Mini,
-    Ios,
-    Android,
-    Web,
-}
-impl Default for Platform { fn default() -> Self { Self::Web } }
-impl Platform {
-    pub fn as_str(&self) -> &'static str {
-        match self { Self::Mini=>"mini", Self::Ios=>"ios", Self::Android=>"android", Self::Web=>"web" }
-    }
-    pub fn from_str_lax(s: &str) -> Self {
-        match s { "mini"=>Self::Mini, "ios"=>Self::Ios, "android"=>Self::Android, _=>Self::Web }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Region { Cn, Hk, Tw, Jp, Us, Eu, Other }
-impl Default for Region { fn default() -> Self { Self::Cn } }
-impl Region {
-    pub fn as_str(&self) -> &'static str {
-        match self { Self::Cn=>"cn", Self::Hk=>"hk", Self::Tw=>"tw", Self::Jp=>"jp", Self::Us=>"us", Self::Eu=>"eu", Self::Other=>"other" }
-    }
-}
+// 区域模型见 [`commerce::Region`] —— 6 个 cell(cn / jp / kr / sea / na / zh_hant)
+// 外加一个只用于 admin scope 的虚拟 global。
+//
+// 这里原本还有一对 v0.1 留下的 `Platform` / `Region`,零引用,而且它那套
+// region 取值(Cn/Hk/Tw/Jp/Us/Eu/Other)与 6-cell 模型互相矛盾 ——
+// domain 里摆两个打架的 Region,比摆一个死类型更危险:总有人会 import 错那个。
 
 // ─── 用户公开侧 ────────────────────────────────────────────────
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -157,17 +135,15 @@ pub struct NajiSpinReq {
     pub question: Option<String>,
 }
 
-// ─── 商品 / 活动 / 徽章 公开侧 ──────────────────────────────────
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProductPublic {
-    pub id: String,
-    pub name: String,
-    pub sub_title: Option<String>,
-    pub category: String,
-    pub price_display: String,
-    pub image_url: Option<String>,
-    pub stock_status: String,      // 「现货」/「缺货」/「售罄」
-}
+// ─── 活动 / 徽章 公开侧 ────────────────────────────────────────
+//
+// 这里原本还有一个 `ProductPublic`(id/name/sub_title/category/price_display/
+// image_url/stock_status)—— v0.1 `/v1/product` 的响应形状。commerce v2 把
+// 端点换成了 `/v1/products`,返回的是 product 行本身(价格在 SKU 的 price_book 上,
+// 不在 product 上),这个 DTO 就没人用了。
+//
+// ⚠ `proto/src/pages/Product.tsx` 至今仍照着这个旧形状写,且请求的是已经不存在的
+// `/v1/product`。详见 README「已知欠账」。
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActivityPublic {
@@ -206,12 +182,8 @@ pub struct ClientConfig {
 }
 
 // ─── auth ────────────────────────────────────────────────────
-#[derive(Debug, Clone, Deserialize)]
-pub struct AuthHeaderHint {
-    pub platform: Option<String>,
-    pub region: Option<String>,
-    pub locale: Option<String>,
-}
+// (曾有一个 `AuthHeaderHint`,零引用 —— 平台 / 区域 / 语言实际是在
+//  `routes/config.rs` 里直接读 X-Platform / X-Region / X-Locale 头拿的)
 
 #[derive(Debug, Clone, Serialize)]
 pub struct AuthOut {

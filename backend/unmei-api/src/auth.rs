@@ -70,8 +70,6 @@ pub struct ApiError(pub AppError);
 
 impl ApiError {
     pub fn bad(msg: impl Into<String>) -> Self { Self(AppError::BadRequest(msg.into())) }
-    pub fn upstream(msg: impl Into<String>) -> Self { Self(AppError::Upstream(msg.into())) }
-    pub fn internal(msg: impl Into<String>) -> Self { Self(AppError::Internal(msg.into())) }
     pub fn not_found(msg: impl Into<String>) -> Self { Self(AppError::NotFound(msg.into())) }
 }
 

@@ -33,12 +33,6 @@ impl<'a> MingliClient<'a> {
         }
         Ok(r.json::<serde_json::Value>().await?)
     }
-
-    pub async fn health(&self) -> Result<serde_json::Value, ApiError> {
-        let url = format!("{}/api/health", self.base());
-        let r = self.state.http.get(&url).send().await?;
-        Ok(r.json::<serde_json::Value>().await?)
-    }
 }
 
 // ─── 取 cast 结果里 qimen 叶 + bazi 叶 ───────────────────────────
@@ -74,15 +68,6 @@ pub struct BaziYongshen {
     pub avoid_wuxing: Vec<String>,
 }
 
-// ─── Qimen chart 关键字段 ──────────────────────────────────────
-#[derive(Debug, Deserialize)]
-pub struct QimenLite {
-    pub time_ganzhi: String,
-    pub time_branch: u8,
-    pub xun: QimenXun,
-    pub zhi_fu_palace: u8,
-    pub zhi_fu_xing: String,
-    pub palace: Vec<String>,
-}
-#[derive(Debug, Deserialize)]
-pub struct QimenXun { pub head_ganzhi: String, pub head_yi: String, pub xunkong: [String;2] }
+// Qimen 时盘目前只以原始 JSON 落进 `naji_record.t_chart` 留档,没有解析成结构体。
+// 这里原有一对 `QimenLite` / `QimenXun` 反序列化目标,从未被构造过 ——
+// 真要用时照 mingli 当时的响应重新定义,比留着一份可能已经对不上的旧形状安全。

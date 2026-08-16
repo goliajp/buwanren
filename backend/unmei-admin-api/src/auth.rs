@@ -75,7 +75,6 @@ impl From<DomainError> for ApiError {
     fn from(e: DomainError) -> Self { Self(AppError::Domain(e)) }
 }
 impl ApiError {
-    pub fn bad(msg: impl Into<String>) -> Self { Self(AppError::BadRequest(msg.into())) }
     pub fn not_found(msg: impl Into<String>) -> Self { Self(AppError::NotFound(msg.into())) }
 }
 impl From<sqlx::Error> for ApiError { fn from(e: sqlx::Error) -> Self { Self(AppError::Internal(format!("db: {e}"))) } }

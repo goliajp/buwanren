@@ -9,7 +9,8 @@ use unmei_domain::{AppError, QuoteOut, RecommendOut};
 use crate::auth::ApiError;
 
 pub struct ChosenQuote { pub id: String, pub out: QuoteOut }
-pub struct ChosenGate { pub gate: String, pub direction: String, pub explain: String }
+// gate 本身调用方已经有了(是它传进来的),这里只回传解释与方位
+pub struct ChosenGate { pub direction: String, pub explain: String }
 
 /// 从 quote 池按主用神 / 八门偏好打分,top-K 中按 seed 取一(隐式个性化)
 pub async fn pick_quote(
@@ -81,7 +82,7 @@ pub async fn pick_gate_explain(pool: &PgPool, gate: &str, locale: &str) -> Resul
         Some(rr) => (rr.get("direction"), rr.get("benefit_text")),
         None => ("—".to_string(), "宜静".to_string()),
     };
-    Ok(ChosenGate { gate: gate.to_string(), direction: dir, explain: txt })
+    Ok(ChosenGate { direction: dir, explain: txt })
 }
 
 pub async fn pick_yiji(
