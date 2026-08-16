@@ -12261,9 +12261,9 @@ KKKyRRRRRRK.
     { id: 'chart',  node: 'MID', x: 660, y: 800, poses: ['sit'],   fps: 1, dur: [7, 11], flip: false, w: 2, say: '……', pSay: 0.3 },
     { id: 'almanac',node: 'NE',  x: 900, y: 560, poses: ['stand'], fps: 1, dur: [4, 7],  flip: true,  w: 1, say: '查一年', pSay: 0.4 },
     // ── 浇水记录(反差爱好)──
-    { id: 'water',  node: 'W',   x: 400, y: 1120, poses: ['wipe1', 'wipe2'], fps: 1.6, dur: [6, 10], flip: true, w: 3, say: '卯时三刻,十二毫升', pSay: 0.5 },
+    { id: 'water',  node: 'W',   x: 400, y: 1120, poses: ['wipe1', 'wipe2'], fps: 1.6, dur: [6, 10], flip: true, w: 3, say: '卯时三刻，十二毫升', pSay: 0.5 },
     { id: 'log',    node: 'W',   x: 400, y: 1440, poses: ['write'], fps: 1, dur: [7, 11], flip: true, w: 2, say: '记上', pSay: 0.4 },
-    { id: 'prune',  node: 'W',   x: 400, y: 1720, poses: ['wipe1', 'wipe2'], fps: 1.6, dur: [5, 8], flip: true, w: 2, say: '枯叶,拔了', pSay: 0.4 },
+    { id: 'prune',  node: 'W',   x: 400, y: 1720, poses: ['wipe1', 'wipe2'], fps: 1.6, dur: [5, 8], flip: true, w: 2, say: '枯叶，拔了', pSay: 0.4 },
     { id: 'deadp',  node: 'W',   x: 400, y: 1760, poses: ['gaze'], fps: 1, dur: [5, 9], flip: true, w: 1, say: '四十二号', pSay: 0.6 },
     // ── 擦拭 · 独处 ──
     { id: 'wipe',   node: 'MID', x: 460, y: 800, poses: ['wipe1', 'wipe2'], fps: 1.8, dur: [5, 8], flip: false, w: 2, say: '不能有灰', pSay: 0.4 },
@@ -14315,7 +14315,7 @@ KFKWWWWWWKFK
     scope: "character", fromRoom: 'tao',
     w: 400, h: 406, base: 406, foot: [8, 20, 384, 380],
     zLayer: "low",
-    clickable: true, say: "奇门遁甲，九宫八门。",
+    clickable: true, say: "奇门遁甲，九宫八门",
     draw(g) {
       const pxC=(cx,cy,r,color)=>{g.fillStyle=color
             for(let dy=-r;dy<=r;dy++){const dx=Math.sqrt(r*r-dy*dy)|0;g.fillRect(cx-dx,cy+dy,dx*2,1)}}
@@ -14638,7 +14638,7 @@ KFKWWWWWWKFK
     scope: "character", fromRoom: 'tao',
     w: 342, h: 130, base: 130, foot: [0, 122, 342, 8],
     zLayer: "low",
-    clickable: true, say: "珍珠奶茶，三分糖。",
+    clickable: true, say: "珍珠奶茶，三分糖",
     draw(g) {
       const pxC=(cx,cy,r,color)=>{g.fillStyle=color
             for(let dy=-r;dy<=r;dy++){const dx=Math.sqrt(r*r-dy*dy)|0;g.fillRect(cx-dx,cy+dy,dx*2,1)}}
@@ -14746,7 +14746,7 @@ KFKWWWWWWKFK
     scope: "character", fromRoom: 'tao',
     w: 320, h: 146, base: 146, foot: [0, 138, 320, 8],
     zLayer: "low",
-    clickable: true, say: "桃花岛的曲子，弹给你听。",
+    clickable: true, say: "桃花岛的曲子，弹给你听",
     draw(g) {
       const pxC=(cx,cy,r,color)=>{g.fillStyle=color
             for(let dy=-r;dy<=r;dy++){const dx=Math.sqrt(r*r-dy*dy)|0;g.fillRect(cx-dx,cy+dy,dx*2,1)}}
@@ -19150,7 +19150,7 @@ KFKWWWWWWKFK
   })
 
   def("bailu_dial_shi", {
-    clickable: true, say: '式盘。唐制,仿的',
+    clickable: true, say: '式盘。唐制，仿的',
     name: "式盘", cat: "法器", tags: ["天圆地方", "唐制", "仿"],
     scope: "character", fromRoom: 'bailu',
     w: 132, h: 132, base: 132, foot: [0, 0, 0, 0], zLayer: 'sort',
@@ -19293,7 +19293,7 @@ KFKWWWWWWKFK
   })
 
   def("bailu_rack_plants2", {
-    clickable: true, say: '中层。今年四月十一入的,卯时',
+    clickable: true, say: '中层。今年四月十一入的，卯时',
     name: "多肉架 · 中层", cat: "收纳", tags: ["今年新入", "盆小而齐"],
     scope: "character", fromRoom: 'bailu',
     w: 296, h: 152, base: 152, foot: [0, 108, 296, 44], zLayer: 'sort',
@@ -19334,7 +19334,7 @@ KFKWWWWWWKFK
   })
 
   def("bailu_rack_plants3", {
-    clickable: true, say: '下层这几盆,五年了',
+    clickable: true, say: '下层这几盆，五年了',
     sayDeep: ['养久了不用天天看', '……看一眼就知道缺不缺水', '人也是。可惜人不肯让我看那么久'],
     name: "多肉架 · 下层", cat: "收纳", tags: ["五年", "长得开", "看一眼就知道"],
     scope: "character", fromRoom: 'bailu',
@@ -19445,7 +19445,7 @@ KFKWWWWWWKFK
   })
 
   def("bailu_jars_soil", {
-    clickable: true, say: '土三成,石七成',
+    clickable: true, say: '土三成，石七成',
     name: "土与石子分装罐", cat: "器物", tags: ["分装", "三七开", "配比不变"],
     scope: "character", fromRoom: 'bailu',
     w: 180, h: 108, base: 108, foot: [0, 24, 180, 84], zLayer: 'sort',
@@ -19870,7 +19870,7 @@ KFKWWWWWWKFK
   })
 
   def("bailu_screen", {
-    clickable: true, say: '围屏。五扇,三横两竖',
+    clickable: true, say: '围屏。五扇，三横两竖',
     sayDeep: ['睡处该挡一挡', '……不为怕人看,屋里也没人', '为的是,醒来先看见画,不是看见门'],
     name: "五扇围屏", cat: "陈设", tags: ["围屏", "三横两竖", "挡在床后"],
     scope: "character", fromRoom: 'bailu',
