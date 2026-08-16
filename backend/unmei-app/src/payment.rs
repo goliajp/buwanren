@@ -9,8 +9,10 @@
 use chrono::{DateTime, Duration, Utc};
 use serde_json::{json, Value};
 use sqlx::{PgPool, Row};
+use unmei_domain::commerce::events::DomainEvent;
 use unmei_domain::DomainError;
 
+use crate::outbox;
 use crate::DbResultExt;
 use crate::{new_id, Actor};
 
@@ -184,18 +186,18 @@ pub async fn apply_succeeded(
 
     // 只有**真的**从 pending/processing 翻到 success 的那一次,才动订单金额。
     // RETURNING 把「这次到底改没改到行」变成可判断的值 —— 没有它就只能盲目累加。
-    let applied: Option<(String, i64)> = sqlx::query_as(
+    let applied: Option<(String, String, i64)> = sqlx::query_as(
         "UPDATE payment SET status='success', paid_at=$1,
            channel_txn_id=COALESCE(channel_txn_id, $2)
          WHERE (channel_txn_id=$2 OR id=$2) AND status IN ('pending','processing')
-         RETURNING order_id, amount_minor",
+         RETURNING id, order_id, amount_minor",
     )
     .bind(paid_at)
     .bind(txn_id)
     .fetch_optional(&mut *tx)
     .await.db()?;
 
-    let Some((order_id, amount_minor)) = applied else {
+    let Some((payment_id, order_id, amount_minor)) = applied else {
         // 这笔早就入过账了。渠道重推而已,不是错误 —— 提交空事务,回 200 让它别再推。
         tx.commit().await.db()?;
         tracing::debug!(txn_id, "payment.success 重复回调,已忽略");
@@ -206,21 +208,39 @@ pub async fn apply_succeeded(
     // 每收到一次回调就往订单上加一次钱。微信 24 小时内最多重推 15 次,
     // 于是一笔 199 元的订单能被记成实付 2985 元。
     // 由 `apply_succeeded_moves_order_to_paid_and_is_idempotent` 钉住。
-    sqlx::query(
+    let order_status: String = sqlx::query_scalar(
         r#"UPDATE order_record SET
              amount_paid_minor = amount_paid_minor + $1,
              status = CASE WHEN amount_paid_minor + $1 >= amount_total_minor
                            THEN 'paid' ELSE status END,
              paid_at = COALESCE(paid_at, NOW())
-           WHERE id = $2"#,
+           WHERE id = $2
+           RETURNING status"#,
     )
     .bind(amount_minor)
     .bind(&order_id)
-    .execute(&mut *tx)
+    .fetch_one(&mut *tx)
     .await.db()?;
 
+    // 订单这一刻才付清 → 发 OrderPaid,下游 dispatcher 据此推进履约。
+    //
+    // 这条事件原先只有 payment_sweep worker 会发,渠道回调这条路径不发 ——
+    // 也就是说真接入微信之后,走 webhook 进来的支付**永远不会触发履约**。
+    // 两条路径本来就该是同一件事,所以合并到这里。
+    if order_status == "paid" {
+        outbox::write(
+            &mut *tx,
+            &DomainEvent::OrderPaid {
+                order_id: order_id.clone(),
+                payment_id: payment_id.clone(),
+                occurred_at: paid_at,
+            },
+        )
+        .await?;
+    }
+
     tx.commit().await.db()?;
-    tracing::info!(txn_id, order_id, amount_minor, "payment.success");
+    tracing::info!(txn_id, order_id, amount_minor, order_status, "payment.success");
     Ok(())
 }
 

@@ -159,6 +159,13 @@ buwanren/
 
 这个 bug 是写用例层集成测试时被测出来的,不是读代码读出来的。
 
+顺带挖出**第三份支付入账实现** —— `workers/payment_sweep.rs` 里还有一份,
+P1 只审了 `routes/`,漏了 `workers/`。两份的差别全是 bug:
+它的订单 UPDATE 同样没有前置条件,payment UPDATE 连状态守卫都没有。
+而且它**发 `OrderPaid` 事件而回调那条路不发** —— 意味着真接入微信之后,
+走 webhook 进来的支付永远不会触发履约。现在 sweeper 改调同一条用例,
+`OrderPaid` 收进 `apply_succeeded`,两条路径合一。
+
 ### ⚠ 未修的资金漏洞 · 同一订单可被重复扣款
 
 **实测复现**(2026-08-16,本机 live 环境):

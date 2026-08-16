@@ -128,14 +128,49 @@ async fn apply_succeeded_moves_order_to_paid_and_is_idempotent() {
         19900
     );
 
-    // 渠道重复推同一笔回调是常态。第二次不该再加一遍钱 ——
-    // UPDATE 上的 `status IN ('pending','processing')` 守着这件事。
-    payment::apply_succeeded(&pool, &pending.payment_id, chrono::Utc::now()).await.expect("重复回调");
+    // 订单付清时要发 OrderPaid,dispatcher 靠它推进履约。
+    // 这条事件原先只有 payment_sweep worker 会发,回调这条路不发 ——
+    // 真接入微信后走 webhook 的支付就永远不会被履约。
+    assert_eq!(common::outbox_count(&pool, "OrderPaid", &order_id).await, 1);
+
+    // 渠道重复推同一笔回调是常态,微信 24 小时内最多推 15 次。
+    // 重推既不该重复入账,也不该重复发事件(否则履约会跑两遍)。
+    for _ in 0..3 {
+        payment::apply_succeeded(&pool, &pending.payment_id, chrono::Utc::now()).await.expect("重复回调");
+    }
     assert_eq!(
         common::scalar_i64(&pool, "SELECT amount_paid_minor FROM order_record WHERE id=$1", &order_id).await,
         19900,
         "重复回调不该重复入账"
     );
+    assert_eq!(
+        common::outbox_count(&pool, "OrderPaid", &order_id).await,
+        1,
+        "重复回调不该重复发 OrderPaid"
+    );
+}
+
+#[tokio::test]
+async fn partial_payment_does_not_mark_order_paid_or_emit_order_paid() {
+    let pool = db_or_skip!();
+    let (user, order_id) = unpaid_order(&pool, 20000).await;
+    let pending = payment::start(&pool, &order_id, &user, "wechat_jsapi", None).await.expect("start");
+    // 人为把这笔改成只付一半 —— 分期 / 混合支付的形态
+    sqlx::query("UPDATE payment SET amount_minor=5000 WHERE id=$1")
+        .bind(&pending.payment_id)
+        .execute(&pool)
+        .await
+        .expect("shrink payment");
+
+    payment::apply_succeeded(&pool, &pending.payment_id, chrono::Utc::now()).await.expect("callback");
+
+    // 没付清就不该翻成 paid,也不该触发履约
+    assert_eq!(common::order_status(&pool, &order_id).await.as_deref(), Some("unpaid"));
+    assert_eq!(
+        common::scalar_i64(&pool, "SELECT amount_paid_minor FROM order_record WHERE id=$1", &order_id).await,
+        5000
+    );
+    assert_eq!(common::outbox_count(&pool, "OrderPaid", &order_id).await, 0);
 }
 
 // ═══════════════════════════ 退款 ═══════════════════════════

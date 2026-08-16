@@ -9,9 +9,8 @@
 
 use sqlx::Row;
 use std::time::Duration;
+use unmei_app::payment as app_payment;
 use unmei_domain::commerce::adapters::WebhookEvent;
-use unmei_domain::commerce::events::DomainEvent;
-use unmei_app::outbox;
 
 use crate::state::AppState;
 
@@ -75,44 +74,19 @@ async fn sweep_once(st: &AppState) -> anyhow::Result<()> {
 async fn apply_event(st: &AppState, _channel: &str, ev: WebhookEvent) -> anyhow::Result<()> {
     use WebhookEvent::*;
     match ev {
+        // 主动轮询查到的「已支付」和渠道推过来的「已支付」是同一件事,
+        // 所以走同一条用例。这里原本有自己的一份 SQL —— 与 apply_succeeded
+        // 只有细微差别,而那些差别全是 bug:订单金额那条 UPDATE 没有前置条件
+        // (重复执行会重复入账),payment 那条连状态守卫都没有。
         PaymentSucceeded { txn_id, paid_at, .. } => {
-            // 找出会被更新到 success 的 payment + 关联 order
-            let row = sqlx::query(
-                "SELECT id, order_id FROM payment WHERE (channel_txn_id=$1 OR id=$1) AND status IN ('pending','processing') LIMIT 1",
-            ).bind(&txn_id).fetch_optional(&st.db).await?;
-            let Some(row) = row else { return Ok(()); };
-            let pay_id: String = row.try_get("id")?;
-            let order_id: String = row.try_get("order_id")?;
-
-            let mut tx = st.db.begin().await?;
-            sqlx::query(
-                "UPDATE payment SET status='success', paid_at=$1, channel_txn_id=COALESCE(channel_txn_id, $2) WHERE id=$3",
-            ).bind(paid_at).bind(&txn_id).bind(&pay_id).execute(&mut *tx).await?;
-            let order_paid_now: Option<i32> = sqlx::query_scalar(
-                r#"UPDATE order_record o SET
-                     amount_paid_minor = amount_paid_minor + p.amount_minor,
-                     status = CASE WHEN o.amount_paid_minor + p.amount_minor >= o.amount_total_minor
-                                   THEN 'paid' ELSE o.status END,
-                     paid_at = COALESCE(o.paid_at, NOW())
-                   FROM payment p
-                   WHERE p.id = $1 AND p.order_id = o.id
-                   RETURNING CASE WHEN o.status='paid' THEN 1 ELSE 0 END"#,
-            ).bind(&pay_id).fetch_optional(&mut *tx).await?;
-            // 写 OrderPaid 事件
-            if matches!(order_paid_now, Some(1)) {
-                outbox::write(&mut *tx, &DomainEvent::OrderPaid {
-                    order_id: order_id.clone(),
-                    payment_id: pay_id.clone(),
-                    occurred_at: paid_at,
-                })
+            app_payment::apply_succeeded(&st.db, &txn_id, paid_at)
                 .await
-                .map_err(|e| anyhow::anyhow!("outbox: {e}"))?;
-            }
-            tx.commit().await?;
+                .map_err(|e| anyhow::anyhow!("apply_succeeded {txn_id}: {e}"))?;
         }
         PaymentFailed { txn_id, code, msg } => {
-            sqlx::query("UPDATE payment SET status='failed', failure_code=$1, failure_msg=$2 WHERE (channel_txn_id=$3 OR id=$3) AND status IN ('pending','processing')")
-                .bind(&code).bind(&msg).bind(&txn_id).execute(&st.db).await?;
+            app_payment::apply_failed(&st.db, &txn_id, &code, &msg)
+                .await
+                .map_err(|e| anyhow::anyhow!("apply_failed {txn_id}: {e}"))?;
         }
         _ => {}
     }
