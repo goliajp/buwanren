@@ -17,7 +17,9 @@
     "sourceMap": true,
     "declaration": false,
     "resolveJsonModule": true,
-    "typeRoots": ["./node_modules/@types", "./typings"],
+    // miniprogram-api-typings 装在 node_modules/ 根下而不是 @types/ 下,
+    // typeRoots 漏了它 tsc 就报 TS2688 —— npm run check 因此一直跑不通
+    "typeRoots": ["./node_modules", "./node_modules/@types", "./typings"],
     "types": ["miniprogram-api-typings"],
     "lib": ["ES2020"]
   },

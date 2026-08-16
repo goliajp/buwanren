@@ -7,7 +7,10 @@ use crate::routes::user_public_from_row;
 
 pub fn router() -> Router<AppState> {
     Router::new()
-        .route("/v1/user/me", get(me).patch(patch_me))
+        // POST 与 PATCH 同义:微信小程序的 wx.request 不支持 PATCH
+        // (平台硬限制,method 只有 GET/POST/PUT/DELETE/OPTIONS/HEAD/TRACE/CONNECT),
+        // 只挂 PATCH 的话 mini 端永远改不了昵称头像。
+        .route("/v1/user/me", get(me).patch(patch_me).post(patch_me))
 }
 
 async fn me(

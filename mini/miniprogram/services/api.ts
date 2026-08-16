@@ -13,7 +13,9 @@
 import { CONFIG } from '../config/index'
 import { storage } from './storage'
 
-type Method = 'GET' | 'POST' | 'PATCH' | 'DELETE'
+// 注意没有 PATCH:wx.request 不支持它(平台硬限制)。
+// 语义上的「部分更新」走 POST,后端在同一路径上把 POST 与 PATCH 挂了同一个 handler。
+type Method = 'GET' | 'POST' | 'DELETE'
 
 export interface ApiError {
   status: number
@@ -83,7 +85,8 @@ export const api = {
   get: <T = unknown>(path: string): Promise<T> => request<T>(path, { method: 'GET' }),
   post: <T = unknown>(path: string, data?: Record<string, unknown>): Promise<T> =>
     request<T>(path, { method: 'POST', data }),
+  /** 部分更新。实际发 POST —— wx.request 不支持 PATCH,后端两个方法等价 */
   patch: <T = unknown>(path: string, data?: Record<string, unknown>): Promise<T> =>
-    request<T>(path, { method: 'PATCH', data }),
+    request<T>(path, { method: 'POST', data }),
   delete: <T = unknown>(path: string): Promise<T> => request<T>(path, { method: 'DELETE' }),
 }

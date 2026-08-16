@@ -84,7 +84,7 @@ function detailToResult(d: NajiDetail): NajiResult {
 }
 
 // 模块级 · 稳定 handler 引用
-let accHandler: ((res: WechatMiniprogram.OnAccelerometerChangeCallbackResult) => void) | null = null
+let accHandler: ((res: WechatMiniprogram.OnAccelerometerChangeListenerResult) => void) | null = null
 let accLastTs = 0
 let clockTimer: ReturnType<typeof setInterval> | null = null
 
@@ -250,7 +250,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     if (accHandler) return
     accLastTs = Date.now()
     const self = this
-    const handler: (res: WechatMiniprogram.OnAccelerometerChangeCallbackResult) => void = (res) => {
+    const handler: (res: WechatMiniprogram.OnAccelerometerChangeListenerResult) => void = (res) => {
       const now = Date.now()
       if (now - accLastTs < ACC_COOLDOWN_MS) return
       const mag = Math.abs(res.x) + Math.abs(res.y) + Math.abs(res.z)
@@ -266,7 +266,9 @@ Page<IData, WechatMiniprogram.IAnyObject>({
 
   disableAccel() {
     if (accHandler) {
-      wx.offAccelerometerChange(accHandler)
+      // typings 的 on/off 类型不对称:on 侧回调收 ListenerResult(x/y/z),
+      // off 侧却声明成 GeneralCallbackResult。解绑必须传同一个函数引用,cast 掉
+      wx.offAccelerometerChange(accHandler as unknown as WechatMiniprogram.OffAccelerometerChangeCallback)
       accHandler = null
     }
     wx.stopAccelerometer({ success() {}, fail() {}, complete() {} })
