@@ -60,6 +60,7 @@ UNMEI_SKIP_DB_TESTS=1 cargo test --workspace
 | `cargo test --workspace` | 用例层的语义:状态机拦没拦住、outbox 有没有跟业务写入同批提交、影响行数为 0 时报不报 404 | 一个 pg |
 | `scripts/e2e.sh` | 全链路**能走通**:下单 → 支付 → sweep → 履约 → 后台看得见 | pg + 两个服务 |
 | `scripts/verify-semantics.sh` | 走 HTTP 边界时**走不通的地方真的走不通**(状态码、错误 code) | pg + 两个服务 |
+| `scripts/browser-smoke.mjs` | 失败**在浏览器里真的被看见**(webadmin 通知条渲染 / TTL / 成功路径静默) | pg + admin-api + webadmin dev + bun/playwright |
 
 集成测试直接调用例层函数,比走 HTTP 快两个数量级,断言也更精确(能直接看库里的列);
 两个脚本验的是 HTTP 边界那一层的翻译对不对。互相不能替代。
