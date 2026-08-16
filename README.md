@@ -81,18 +81,21 @@ buwanren/
 │   └── Dockerfile.admin-api
 │
 ├── backend/                    ← Rust workspace · PG18
-│   ├── unmei-domain/           ← 共享 DTO + Error
-│   ├── unmei-wx/      NEW      ← 微信 SDK · 见 architecture.md §11
+│   ├── unmei-domain/           ← 共享 DTO + commerce 域模型 + Error
+│   ├── unmei-wx/               ← 微信 SDK · 见 architecture.md §11
+│   ├── unmei-carrier/          ← 物流 adapter(kuaidi100 / manual)
 │   ├── unmei-api/      :6028
 │   ├── unmei-admin-api/ :6029
-│   ├── migrations/             ← PG18 schema(14 业务表 + payment + wx_msg)
+│   ├── migrations/             ← PG18 schema(14 业务表 + commerce v2 + wx_msg)
 │   └── seed/                   ← PG 兼容 seed
 │
-├── backend-v0.1-sqlite-archive/  ← 备份 · 上版 SQLite demo
+├── docs/commerce-architecture.md  ← 商业子系统架构基线 v2.0
 │
-├── webadmin/  :6030
-├── proto/     :6031
-└── mini/ ios/ android/
+├── webadmin/  :6030            ← 运营后台 SPA(React 19)
+├── proto/     :6031            ← 客户端原型(React)
+├── mini/                       ← 微信小程序工程
+├── rooms/                      ← 像素村民屋工坊(2026-08-16 从 mini/ 拆出)
+└── archive/                    ← 历史设计稿 / 另一条产品线的调研,不参与构建
 ```
 
 ## 当前已落地 ✅
@@ -106,15 +109,32 @@ buwanren/
 - ✅ Rust workspace 切 sqlx-postgres
 - ✅ cargo-chef 多阶段镜像
 - ✅ 9 路由 + 10 admin 路由(SQL 已切 PG dialect)
+- ✅ **工作区编译通过 + 19 个单测全绿**(2026-08-16;此前 58 处 `sqlx::query!` 宏因缺 `.sqlx` 缓存从未编译过)
+- ✅ **CI**(`.github/workflows/backend.yml`)· check --all-targets + test
 
 ## 待续 ⏳(Beta1)
 
 - ⏳ 微信支付 v3 RSA-SHA256 签名 + 平台证书自动轮换
 - ⏳ 回调 AEAD_AES_256_GCM 解密
 - ⏳ 小程序 mp_decrypt(手机号 / 用户敏感数据)
-- ⏳ `cargo sqlx prepare` 离线缓存 + 真 cargo build 跑通验证
 - ⏳ 模板消息 / 订阅消息(`wx_message_log` 表已就位)
 - ⏳ 多支付通道(支付宝 / Apple IAP / Stripe)
+
+## Clean arch · 进行中
+
+| 阶段 | 内容 | 状态 |
+|---|---|---|
+| **P0** | 让工作区编译 —— 全仓统一到运行期 `sqlx::query()`,不再依赖 `.sqlx` 缓存或活库;补 CI | ✅ 2026-08-16 |
+| **P1** | 消双写 —— `routes/commerce.rs` 里的直接 SQL 提炼成 app 层用例,删掉 `unmei-domain/commerce/services_impl/` 里 2,451 LOC 的未验证死实现 | ⏳ |
+| **P2** | 依赖方向修正 —— SQL 全部收敛进 `unmei-pg`,`unmei-domain` 去 sqlx / 去 http。判据可机械化:`grep -rn 'sqlx\|axum\|http::\|reqwest' unmei-domain/src` 必须为 0(当前 215) | ⏳ |
+
+**目标形态**:`unmei-api / unmei-admin-api → unmei-app → unmei-domain ← unmei-pg`,依赖单向。
+
+### 已知欠账
+
+- `unmei-domain` 里有 11 个 `PgXxxService`(sqlx 落地)+ 聚合根 `#[derive(sqlx::FromRow)]`,依赖方向是倒的;且这批实现全仓只有 1 处被引用(`workers/shipment_trace.rs` 的 `apply_shipment_delivered`),真实路径走的是 route 里的直接 SQL
+- `AppState.cache`(kevy-embedded)在两个 API crate 里都从未被读 —— admin 进程会开一个自己不用的 Store
+- `unmei-api/src/mingli.rs` 的 `QimenLite` / `QimenXun` / `health()` 是死代码
 
 ## 致谢
 
