@@ -39,8 +39,14 @@ cargo run -p unmei-admin-api          # :6029
 
 ```bash
 SQLX_OFFLINE=true cargo check --workspace --all-targets
-SQLX_OFFLINE=true cargo test --workspace
+SQLX_OFFLINE=true cargo test --workspace          # 25 个单测,不需要数据库
+
+# 需要 pg + 两个服务在跑:
+bash ../scripts/e2e.sh                # happy path:下单 → 支付 → sweep → 履约
+bash ../scripts/verify-semantics.sh   # 边界:该拒的拒了吗、该 404 的 404 了吗
 ```
+
+两个集成脚本分工不同,别只跑一个:`e2e.sh` 证明**能走通**,`verify-semantics.sh` 证明**走不通的地方真的走不通**(混币种下单、越权取消、已付订单直接取消、幽灵 ID 的写操作)。
 
 全仓统一用**运行期** `sqlx::query()` / `query_as()` / `query_scalar()`，**不用 `query!` 宏**，所以编译不连库、也不需要 `.sqlx` 缓存。CI 用 `SQLX_OFFLINE=true` 把这条约定钉死:谁重新引入 `query!` 宏，构建当场失败。
 

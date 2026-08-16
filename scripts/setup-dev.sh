@@ -38,7 +38,8 @@ done
 
 echo ""
 echo "✓ 完成。"
-echo "  DATABASE_URL=postgres://${PG_USER}:\${POSTGRES_PASSWORD:-unmei_dev_pwd}@localhost:${PG_PORT}/${PG_DB}"
+PG_PASSWORD="${POSTGRES_PASSWORD:-unmei_dev_pwd}"
+echo "  DATABASE_URL=postgres://${PG_USER}:${PG_PASSWORD}@localhost:${PG_PORT}/${PG_DB}"
 echo ""
 echo "  下一步:"
 echo "    cd backend && cargo run -p unmei-api          # :6028 · 首次启动自动跑 migrations + seed"

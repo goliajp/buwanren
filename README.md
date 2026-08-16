@@ -142,6 +142,33 @@ buwanren/
 
 现在的切口已经留好了:`unmei-app` 里每个碰库的地方都写着 `.await.db()?`,那一行就是将来的 repository 边界。
 
+### ⚠ 未修的资金漏洞 · 同一订单可被重复扣款
+
+**实测复现**(2026-08-16,本机 live 环境):
+
+```
+订单 ord-e7587138…  应付 19900  实付 39800  已退 39800   ← 实付是应付的两倍
+  pay-387a0aa4…  success   19900
+  pay-7e39b28c…  refunded  19900
+```
+
+对同一笔未付订单连续调两次 `POST /v1/orders/:id/pay`,会创建**两条独立的 payment**。
+`payment::start()` 只校验订单状态是否 `unpaid` —— 第一次支付创建后订单仍是 `unpaid`,
+所以第二次照样放行。两笔都被 sweeper 推到 success 后,`apply_succeeded` 逐笔累加
+`amount_paid_minor`,系统欣然接受了两倍付款,而且随后把 39800 当作「全额退款」放过。
+
+**这是既有行为**,不是 P1 引入的(旧路由是同一套判断)。修它要选一条支付策略,
+是产品决定不是重构,所以留着等拍板。三条路:
+
+| 方案 | 行为 | 代价 |
+|---|---|---|
+| A · 拒绝并发支付 | 存在未过期的 pending payment 时,第二次 `/pay` 返回 409 | 用户放弃支付后要等 30 分钟过期才能重试 |
+| B · 顶掉旧的 | 新建前把旧 pending payment 置 cancelled | 用户可能正在旧的那笔付款页面上付 |
+| C · 只在入账时兜底 | `apply_succeeded` 里把 `amount_paid_minor` 封顶到订单总额 | 钱已经收了两次,只是账面不显示 —— 治标不治本 |
+
+顺带:`order_record` 上没有 `amount_paid_minor <= amount_total_minor` 的 CHECK 约束,
+加不加也一并拍。
+
 ### 已知欠账
 
 - `AppState.cache`(kevy-embedded)在两个 API crate 里都从未被读 —— admin 进程会开一个自己不用的 Store
