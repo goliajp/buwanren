@@ -1,7 +1,7 @@
 //! JWT 鉴权 — 极简,headers 取 token,middleware 注入 user_id
 
 use axum::{
-    extract::{FromRequestParts, State},
+    extract::FromRequestParts,
     http::{request::Parts, StatusCode, header::AUTHORIZATION},
     response::{IntoResponse, Response},
     Json,

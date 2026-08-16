@@ -1,6 +1,8 @@
 use axum::{routing::{get, patch}, Router, Json, extract::{State, Path}};
+use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use serde_json::json;
+use sqlx::Row;
 use crate::state::AppState;
 use crate::auth::{Admin, ApiError};
 
@@ -14,15 +16,16 @@ async fn list(
     State(st): State<AppState>,
     _: Admin,
 ) -> Result<Json<serde_json::Value>, ApiError> {
-    let rows = sqlx::query!(
+    let rows = sqlx::query(
         "SELECT code, default_on, by_platform, by_region, description, updated_at FROM feature_flag ORDER BY code"
     ).fetch_all(&st.db).await?;
     let items: Vec<serde_json::Value> = rows.into_iter().map(|r| json!({
-        "code": r.code, "default_on": r.default_on,
-        "by_platform": serde_json::from_value::<serde_json::Value>(r.by_platform.clone()).unwrap_or(json!({})),
-        "by_region": serde_json::from_value::<serde_json::Value>(r.by_region.clone()).unwrap_or(json!({})),
-        "description": r.description,
-        "updated_at": r.updated_at.to_rfc3339(),
+        "code": r.get::<String, _>("code"),
+        "default_on": r.get::<bool, _>("default_on"),
+        "by_platform": r.get::<serde_json::Value, _>("by_platform"),
+        "by_region": r.get::<serde_json::Value, _>("by_region"),
+        "description": r.get::<Option<String>, _>("description"),
+        "updated_at": r.get::<DateTime<Utc>, _>("updated_at").to_rfc3339(),
     })).collect();
     Ok(Json(json!({"items": items})))
 }
@@ -42,13 +45,16 @@ async fn update(
 ) -> Result<Json<serde_json::Value>, ApiError> {
     a.requires_role("operator")?;
     if let Some(v) = r.default_on {
-        sqlx::query!("UPDATE feature_flag SET default_on=$1, updated_at=NOW() WHERE code=$2", v, code).execute(&st.db).await?;
+        sqlx::query("UPDATE feature_flag SET default_on=$1, updated_at=NOW() WHERE code=$2")
+            .bind(v).bind(&code).execute(&st.db).await?;
     }
-    if let Some(v) = r.by_platform { let s = serde_json::to_value(&v)?;
-        sqlx::query!("UPDATE feature_flag SET by_platform=$1, updated_at=NOW() WHERE code=$2", s, code).execute(&st.db).await?;
+    if let Some(v) = r.by_platform {
+        sqlx::query("UPDATE feature_flag SET by_platform=$1, updated_at=NOW() WHERE code=$2")
+            .bind(v).bind(&code).execute(&st.db).await?;
     }
-    if let Some(v) = r.by_region { let s = serde_json::to_value(&v)?;
-        sqlx::query!("UPDATE feature_flag SET by_region=$1, updated_at=NOW() WHERE code=$2", s, code).execute(&st.db).await?;
+    if let Some(v) = r.by_region {
+        sqlx::query("UPDATE feature_flag SET by_region=$1, updated_at=NOW() WHERE code=$2")
+            .bind(v).bind(&code).execute(&st.db).await?;
     }
     Ok(Json(json!({"ok": true})))
 }

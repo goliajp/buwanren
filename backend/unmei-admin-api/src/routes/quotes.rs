@@ -1,6 +1,8 @@
-use axum::{routing::{get, patch, delete}, Router, Json, extract::{State, Path, Query}};
+use axum::{routing::{get, patch}, Router, Json, extract::{State, Path, Query}};
+use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use serde_json::json;
+use sqlx::Row;
 use uuid::Uuid;
 use crate::state::AppState;
 use crate::auth::{Admin, ApiError};
@@ -31,7 +33,7 @@ async fn list(
     let status = q.status.unwrap_or_default();
     let search = q.q.unwrap_or_default();
     let like = format!("%{search}%");
-    let rows = sqlx::query!(
+    let rows = sqlx::query(
         r#"SELECT id, book, chapter, text, locale, wuxing_affinity, gate_affinity,
                   sensitivity_score, status, created_at
            FROM quote
@@ -39,17 +41,21 @@ async fn list(
              AND ($2 = '' OR status = $2)
              AND ($3 = '' OR text LIKE $4)
            ORDER BY created_at DESC LIMIT $5 OFFSET $6"#,
-        book, status, search, like, size, off
-    ).fetch_all(&st.db).await?;
-    let total = sqlx::query!(r#"SELECT COUNT(*) as "c!: i64" FROM quote"#).fetch_one(&st.db).await?.c;
+    ).bind(&book).bind(&status).bind(&search).bind(&like).bind(size).bind(off)
+     .fetch_all(&st.db).await?;
+    let total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM quote")
+        .fetch_one(&st.db).await?;
     let items: Vec<serde_json::Value> = rows.into_iter().map(|r| json!({
-        "id": r.id, "book": r.book, "chapter": r.chapter, "text": r.text,
-        "locale": r.locale,
-        "wuxing": serde_json::from_value::<serde_json::Value>(r.wuxing_affinity.clone()).unwrap_or(json!([])),
-        "gate":   serde_json::from_value::<serde_json::Value>(r.gate_affinity.clone()).unwrap_or(json!([])),
-        "sensitivity": r.sensitivity_score,
-        "status": r.status,
-        "created_at": r.created_at,
+        "id": r.get::<String, _>("id"),
+        "book": r.get::<String, _>("book"),
+        "chapter": r.get::<Option<String>, _>("chapter"),
+        "text": r.get::<String, _>("text"),
+        "locale": r.get::<String, _>("locale"),
+        "wuxing": r.get::<serde_json::Value, _>("wuxing_affinity"),
+        "gate":   r.get::<serde_json::Value, _>("gate_affinity"),
+        "sensitivity": r.get::<i32, _>("sensitivity_score"),
+        "status": r.get::<String, _>("status"),
+        "created_at": r.get::<DateTime<Utc>, _>("created_at"),
     })).collect();
     Ok(Json(json!({"items": items, "page": page, "size": size, "total": total})))
 }
@@ -75,12 +81,13 @@ async fn create(
     let len = r.text.chars().count() as i32;
     let aff_w = serde_json::to_value(&r.wuxing_affinity)?;
     let aff_g = serde_json::to_value(&r.gate_affinity)?;
-    sqlx::query!(
+    sqlx::query(
         r#"INSERT INTO quote (id, book, chapter, text, length, locale,
                               wuxing_affinity, gate_affinity, sensitivity_score, created_by)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)"#,
-        id, r.book, r.chapter, r.text, len, r.locale, aff_w, aff_g, r.sensitivity_score, a.0.sub,
-    ).execute(&st.db).await?;
+    ).bind(&id).bind(&r.book).bind(&r.chapter).bind(&r.text).bind(len).bind(&r.locale)
+     .bind(aff_w).bind(aff_g).bind(r.sensitivity_score).bind(&a.0.sub)
+     .execute(&st.db).await?;
     Ok(Json(json!({"id": id, "ok": true})))
 }
 
@@ -102,21 +109,26 @@ async fn update(
     a.requires_role("content")?;
     if let Some(t) = r.text {
         let len = t.chars().count() as i32;
-        sqlx::query!("UPDATE quote SET text=$1, length=$2 WHERE id=$3", t, len, id).execute(&st.db).await?;
+        sqlx::query("UPDATE quote SET text=$1, length=$2 WHERE id=$3")
+            .bind(&t).bind(len).bind(&id).execute(&st.db).await?;
     }
     if let Some(w) = r.wuxing_affinity {
         let v = serde_json::to_value(&w)?;
-        sqlx::query!("UPDATE quote SET wuxing_affinity=$1 WHERE id=$2", v, id).execute(&st.db).await?;
+        sqlx::query("UPDATE quote SET wuxing_affinity=$1 WHERE id=$2")
+            .bind(v).bind(&id).execute(&st.db).await?;
     }
     if let Some(g) = r.gate_affinity {
         let v = serde_json::to_value(&g)?;
-        sqlx::query!("UPDATE quote SET gate_affinity=$1 WHERE id=$2", v, id).execute(&st.db).await?;
+        sqlx::query("UPDATE quote SET gate_affinity=$1 WHERE id=$2")
+            .bind(v).bind(&id).execute(&st.db).await?;
     }
     if let Some(s) = r.sensitivity_score {
-        sqlx::query!("UPDATE quote SET sensitivity_score=$1 WHERE id=$2", s, id).execute(&st.db).await?;
+        sqlx::query("UPDATE quote SET sensitivity_score=$1 WHERE id=$2")
+            .bind(s).bind(&id).execute(&st.db).await?;
     }
     if let Some(s) = r.status {
-        sqlx::query!("UPDATE quote SET status=$1 WHERE id=$2", s, id).execute(&st.db).await?;
+        sqlx::query("UPDATE quote SET status=$1 WHERE id=$2")
+            .bind(&s).bind(&id).execute(&st.db).await?;
     }
     Ok(Json(json!({"ok": true})))
 }
@@ -127,6 +139,7 @@ async fn remove(
     a: Admin,
 ) -> Result<Json<serde_json::Value>, ApiError> {
     a.requires_role("content")?;
-    sqlx::query!("UPDATE quote SET status='archived' WHERE id=$1", id).execute(&st.db).await?;
+    sqlx::query("UPDATE quote SET status='archived' WHERE id=$1")
+        .bind(&id).execute(&st.db).await?;
     Ok(Json(json!({"ok": true})))
 }

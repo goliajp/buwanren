@@ -1,7 +1,9 @@
 //! /admin/naji · 纳吉记录查询(管理面)
 use axum::{routing::get, Router, Json, extract::{State, Query}};
+use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use serde_json::json;
+use sqlx::Row;
 use crate::state::AppState;
 use crate::auth::{Admin, ApiError};
 
@@ -29,7 +31,7 @@ async fn list(
     let gate = q.gate.unwrap_or_default();
     let platform = q.platform.unwrap_or_default();
 
-    let rows = sqlx::query!(
+    let rows = sqlx::query(
         r#"SELECT n.id, n.user_id, n.asked_at, n.gate, n.direction, n.gate_explain,
                   n.suit_words, n.avoid_words,
                   u.nickname, u.platform, u.region
@@ -39,22 +41,23 @@ async fn list(
              AND ($2 = '' OR n.gate = $2)
              AND ($3 = '' OR u.platform = $3)
            ORDER BY n.asked_at DESC LIMIT $4 OFFSET $5"#,
-        user_id, gate, platform, size, offset
-    ).fetch_all(&st.db).await?;
+    ).bind(&user_id).bind(&gate).bind(&platform).bind(size).bind(offset)
+     .fetch_all(&st.db).await?;
 
-    let total = sqlx::query!(r#"SELECT COUNT(*) as "c!: i64" FROM naji_record"#).fetch_one(&st.db).await?.c;
+    let total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM naji_record")
+        .fetch_one(&st.db).await?;
     let items: Vec<serde_json::Value> = rows.into_iter().map(|r| json!({
-        "id": r.id,
-        "user_id": r.user_id,
-        "nickname": r.nickname,
-        "platform": r.platform,
-        "region": r.region,
-        "asked_at": r.asked_at.to_rfc3339(),
-        "gate": r.gate,
-        "direction": r.direction,
-        "gate_explain": r.gate_explain,
-        "suit_words": r.suit_words,
-        "avoid_words": r.avoid_words,
+        "id": r.get::<String, _>("id"),
+        "user_id": r.get::<String, _>("user_id"),
+        "nickname": r.get::<String, _>("nickname"),
+        "platform": r.get::<String, _>("platform"),
+        "region": r.get::<String, _>("region"),
+        "asked_at": r.get::<DateTime<Utc>, _>("asked_at").to_rfc3339(),
+        "gate": r.get::<String, _>("gate"),
+        "direction": r.get::<String, _>("direction"),
+        "gate_explain": r.get::<String, _>("gate_explain"),
+        "suit_words": r.get::<serde_json::Value, _>("suit_words"),
+        "avoid_words": r.get::<serde_json::Value, _>("avoid_words"),
     })).collect();
     Ok(Json(json!({"items": items, "page": page, "size": size, "total": total})))
 }

@@ -16,3 +16,6 @@ tracing.workspace = true
 async-trait = "0.1"
 http = "1"
 md-5 = "0.10"
+
+[dev-dependencies]
+tokio.workspace = true

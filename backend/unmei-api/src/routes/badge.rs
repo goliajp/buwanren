@@ -1,4 +1,6 @@
 use axum::{routing::get, Router, Json, extract::State};
+use chrono::{DateTime, Utc};
+use sqlx::Row;
 use unmei_domain::BadgePublic;
 use crate::state::AppState;
 use crate::auth::{AuthedUser, ApiError};
@@ -10,13 +12,13 @@ pub fn router() -> Router<AppState> {
 }
 
 async fn list(State(st): State<AppState>) -> Result<Json<Vec<BadgePublic>>, ApiError> {
-    let rows = sqlx::query!(
+    let rows = sqlx::query(
         "SELECT id, code, name, description, icon_url, points FROM badge WHERE status='active'"
     ).fetch_all(&st.db).await?;
     let v: Vec<BadgePublic> = rows.into_iter().map(|r| BadgePublic {
-        id: r.id, code: r.code, name: r.name,
-        description: r.description, icon_url: r.icon_url,
-        points: r.points as i32,
+        id: r.get("id"), code: r.get("code"), name: r.get("name"),
+        description: r.get("description"), icon_url: r.get("icon_url"),
+        points: r.get("points"),
         earned: false, earned_at: None,
     }).collect();
     Ok(Json(v))
@@ -26,20 +28,21 @@ async fn my(
     State(st): State<AppState>,
     AuthedUser(c): AuthedUser,
 ) -> Result<Json<Vec<BadgePublic>>, ApiError> {
-    let rows = sqlx::query!(
-        r#"SELECT b.id, b.code, b.name, b.description, b.icon_url, b.points,
-                  ub.earned_at as "earned_at?: chrono::DateTime<chrono::Utc>"
+    let rows = sqlx::query(
+        r#"SELECT b.id, b.code, b.name, b.description, b.icon_url, b.points, ub.earned_at
            FROM badge b LEFT JOIN user_badge ub ON ub.badge_id = b.id AND ub.user_id = $1
            WHERE b.status='active'
            ORDER BY (ub.earned_at IS NOT NULL) DESC, b.points ASC"#,
-        c.sub
-    ).fetch_all(&st.db).await?;
-    let v: Vec<BadgePublic> = rows.into_iter().map(|r| BadgePublic {
-        id: r.id, code: r.code, name: r.name,
-        description: r.description, icon_url: r.icon_url,
-        points: r.points as i32,
-        earned: r.earned_at.is_some(),
-        earned_at: r.earned_at.map(|t| t.to_rfc3339()),
+    ).bind(&c.sub).fetch_all(&st.db).await?;
+    let v: Vec<BadgePublic> = rows.into_iter().map(|r| {
+        let earned_at: Option<DateTime<Utc>> = r.get("earned_at");
+        BadgePublic {
+            id: r.get("id"), code: r.get("code"), name: r.get("name"),
+            description: r.get("description"), icon_url: r.get("icon_url"),
+            points: r.get("points"),
+            earned: earned_at.is_some(),
+            earned_at: earned_at.map(|t| t.to_rfc3339()),
+        }
     }).collect();
     Ok(Json(v))
 }

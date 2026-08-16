@@ -1,0 +1,47 @@
+name: backend
+
+on:
+  push:
+    branches: [main, develop]
+    paths: ['backend/**', '.github/workflows/backend.yml']
+  pull_request:
+    paths: ['backend/**', '.github/workflows/backend.yml']
+
+env:
+  CARGO_TERM_COLOR: always
+  # 全仓统一走运行期 sqlx::query() —— 编译不需要连库，也不需要 .sqlx 缓存。
+  # 若有人重新引入 sqlx::query! 宏，这一步会直接失败，这就是护栏本身。
+  SQLX_OFFLINE: "true"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
+
+      - name: cargo check
+        run: cargo check --workspace --all-targets
+
+      - name: cargo test
+        run: cargo test --workspace
+
+      # ── 依赖方向护栏 · clean arch ────────────────────────────────
+      # unmei-domain 是最内层:不许依赖 sqlx / axum / http / reqwest。
+      # 当前 domain 里还有 services_impl(sqlx 落地)与 FromRow 派生 —— 见 README
+      # 的 P1/P2。这一步暂时只**报告**，等 P2 收敛完再翻成失败门禁。
+      - name: domain purity report
+        continue-on-error: true
+        run: |
+          echo "== unmei-domain 中的基础设施引用（目标: 0）=="
+          grep -rn 'sqlx\|axum\|http::\|reqwest' unmei-domain/src | wc -l

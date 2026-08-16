@@ -1,4 +1,5 @@
 use axum::{routing::get, Router, Json, extract::State, http::HeaderMap};
+use sqlx::Row;
 use unmei_domain::ClientConfig;
 use crate::state::AppState;
 use crate::auth::{try_claims, ApiError};
@@ -29,17 +30,17 @@ async fn config(
         locale = v.to_string();
     }
 
-    let rows = sqlx::query!(
+    let rows = sqlx::query(
         "SELECT code, default_on, by_platform, by_region FROM feature_flag"
     ).fetch_all(&st.db).await?;
     let mut flags = serde_json::Map::new();
     for r in rows {
-        let by_p: serde_json::Value = serde_json::from_value(r.by_platform.clone()).unwrap_or(serde_json::Value::Null);
-        let by_r: serde_json::Value = serde_json::from_value(r.by_region.clone()).unwrap_or(serde_json::Value::Null);
-        let mut on = r.default_on;
+        let by_p: serde_json::Value = r.get("by_platform");
+        let by_r: serde_json::Value = r.get("by_region");
+        let mut on: bool = r.get("default_on");
         if let Some(v) = by_p.get(&platform).and_then(|x| x.as_bool()) { on = v; }
         if let Some(v) = by_r.get(&region).and_then(|x| x.as_bool()) { on = v; }
-        flags.insert(r.code, serde_json::Value::Bool(on));
+        flags.insert(r.get("code"), serde_json::Value::Bool(on));
     }
 
     Ok(Json(ClientConfig {

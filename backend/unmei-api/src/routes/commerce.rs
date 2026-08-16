@@ -171,7 +171,7 @@ async fn create_order(
     let mut subtotal: i64 = 0;
     let mut order_lines: Vec<(String, String, i64, i32, i64, J)> = vec![]; // (line_id, sku_id, unit, qty, line_subtotal, snapshot)
 
-    for (i, l) in body.lines.iter().enumerate() {
+    for l in body.lines.iter() {
         let row = sqlx::query(
             r#"SELECT s.id, s.code, s.name, s.spec_json, s.weight_g,
                       pb.price_minor, pb.currency

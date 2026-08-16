@@ -322,13 +322,10 @@ mod tests {
         assert_eq!(translate_status(None), "in_transit");
     }
 
-    #[test]
-    fn unsupported_carrier_rejected() {
+    #[tokio::test]
+    async fn unsupported_carrier_rejected() {
         let a = Kuaidi100Adapter::default();
-        let r = tokio_test::block_on(a.query_trace("dhl", "DHLXX"));
+        let r = a.query_trace("dhl", "DHLXX").await;
         assert!(matches!(r, Err(AdapterError::Config(_))));
     }
 }
-
-#[cfg(test)]
-extern crate tokio_test;

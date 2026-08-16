@@ -6,10 +6,12 @@
 
 use axum::{routing::{post, get}, Router, Json, extract::{State, Query}};
 use serde::Deserialize;
+use sqlx::Row;
 use unmei_domain::{AuthOut, UserPublic};
 use uuid::Uuid;
 use crate::state::AppState;
 use crate::auth::{issue, ApiError};
+use crate::routes::user_public_from_row;
 
 pub fn router() -> Router<AppState> {
     Router::new()
@@ -35,11 +37,11 @@ async fn anonymous(
     let plat = req.platform.unwrap_or_else(|| "web".into());
     let region = req.region.unwrap_or_else(|| "cn".into());
     let locale = req.locale.unwrap_or_else(|| "zh-CN".into());
-    sqlx::query!(
+    sqlx::query(
         r#"INSERT INTO app_user (id, platform, region, locale, is_anonymous)
            VALUES ($1,$2,$3,$4,TRUE)"#,
-        id, plat, region, locale,
-    ).execute(&st.db).await?;
+    ).bind(&id).bind(&plat).bind(&region).bind(&locale)
+     .execute(&st.db).await?;
     let user = UserPublic {
         id: id.clone(),
         nickname: "过客".into(),
@@ -75,44 +77,35 @@ async fn wx_miniprogram(
     // upsert · 优先按 unionid 找(多端打通);否则按 mp openid
     let openid = sess.openid;
     let unionid = sess.unionid;
-    let existing = sqlx::query!(
+    let existing = sqlx::query(
         r#"SELECT id, nickname, avatar_url, platform, region, locale, active_natal_id, is_anonymous
            FROM app_user
            WHERE wx_mp_openid = $1 OR (wx_unionid IS NOT NULL AND wx_unionid = $2)
            LIMIT 1"#,
-        openid, unionid
-    ).fetch_optional(&st.db).await?;
+    ).bind(&openid).bind(&unionid).fetch_optional(&st.db).await?;
 
     let user = if let Some(u) = existing {
         // 顺便回填可能缺的字段
-        sqlx::query!(
+        let uid: String = u.get("id");
+        sqlx::query(
             r#"UPDATE app_user
                SET wx_mp_openid = COALESCE(wx_mp_openid, $1),
                    wx_unionid   = COALESCE(wx_unionid,   $2),
                    last_active_at = NOW()
                WHERE id = $3"#,
-            openid, unionid, u.id
-        ).execute(&st.db).await?;
-        UserPublic {
-            id: u.id,
-            nickname: u.nickname,
-            avatar_url: u.avatar_url,
-            platform: u.platform,
-            region: u.region,
-            locale: u.locale,
-            active_natal_id: u.active_natal_id,
-            is_anonymous: u.is_anonymous,
-        }
+        ).bind(&openid).bind(&unionid).bind(&uid).execute(&st.db).await?;
+        user_public_from_row(&u)
     } else {
         let id = format!("u_wxmp_{}", Uuid::new_v4().simple());
         let nickname = req.nickname.unwrap_or_else(|| "微信用户".into());
         let region = req.region.unwrap_or_else(|| "cn".into());
-        sqlx::query!(
+        sqlx::query(
             r#"INSERT INTO app_user
                (id, wx_mp_openid, wx_unionid, nickname, avatar_url, platform, region, is_anonymous)
                VALUES ($1,$2,$3,$4,$5,'mini',$6,FALSE)"#,
-            id, openid, unionid, nickname, req.avatar_url, region
-        ).execute(&st.db).await?;
+        ).bind(&id).bind(&openid).bind(&unionid).bind(&nickname)
+         .bind(&req.avatar_url).bind(&region)
+         .execute(&st.db).await?;
         UserPublic {
             id,
             nickname,
@@ -162,37 +155,32 @@ async fn wx_h5_callback(
         .map_err(|e| ApiError::bad(format!("wx h5 cb: {e}")))?;
 
     // upsert · h5_openid 或 unionid
-    let existing = sqlx::query!(
+    let existing = sqlx::query(
         r#"SELECT id, nickname, avatar_url, platform, region, locale, active_natal_id, is_anonymous
            FROM app_user
            WHERE wx_h5_openid = $1 OR (wx_unionid IS NOT NULL AND wx_unionid = $2)
            LIMIT 1"#,
-        r.openid, r.unionid
-    ).fetch_optional(&st.db).await?;
+    ).bind(&r.openid).bind(&r.unionid).fetch_optional(&st.db).await?;
 
     let user = if let Some(u) = existing {
-        sqlx::query!(
+        let uid: String = u.get("id");
+        sqlx::query(
             r#"UPDATE app_user
                SET wx_h5_openid = COALESCE(wx_h5_openid, $1),
                    wx_unionid   = COALESCE(wx_unionid,   $2),
                    last_active_at = NOW()
                WHERE id = $3"#,
-            r.openid, r.unionid, u.id
-        ).execute(&st.db).await?;
-        UserPublic {
-            id: u.id, nickname: u.nickname, avatar_url: u.avatar_url,
-            platform: u.platform, region: u.region, locale: u.locale,
-            active_natal_id: u.active_natal_id, is_anonymous: u.is_anonymous,
-        }
+        ).bind(&r.openid).bind(&r.unionid).bind(&uid).execute(&st.db).await?;
+        user_public_from_row(&u)
     } else {
         let id = format!("u_wxh5_{}", Uuid::new_v4().simple());
         let region = req.region.unwrap_or_else(|| "cn".into());
-        sqlx::query!(
+        sqlx::query(
             r#"INSERT INTO app_user
                (id, wx_h5_openid, wx_unionid, nickname, platform, region, is_anonymous)
                VALUES ($1,$2,$3,'微信用户','web',$4,FALSE)"#,
-            id, r.openid, r.unionid, region
-        ).execute(&st.db).await?;
+        ).bind(&id).bind(&r.openid).bind(&r.unionid).bind(&region)
+         .execute(&st.db).await?;
         UserPublic {
             id, nickname: "微信用户".into(), avatar_url: None,
             platform: "web".into(), region, locale: "zh-CN".into(),

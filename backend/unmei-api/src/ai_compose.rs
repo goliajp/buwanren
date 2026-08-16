@@ -4,7 +4,7 @@
 //! 商品推荐部分由 commerce v2 CatalogService 接管,本文件只保留内容池抽取。
 
 use rand::{Rng, SeedableRng, rngs::StdRng};
-use sqlx::PgPool;
+use sqlx::{PgPool, Row};
 use unmei_domain::{AppError, QuoteOut, RecommendOut};
 use crate::auth::ApiError;
 
@@ -19,37 +19,36 @@ pub async fn pick_quote(
     locale: &str,
     seed: u64,
 ) -> Result<ChosenQuote, ApiError> {
-    let rows = sqlx::query!(
+    let rows = sqlx::query(
         r#"SELECT id, book, chapter, text, wuxing_affinity, gate_affinity
            FROM quote
            WHERE status='published' AND locale=$1"#,
-        locale,
-    )
-    .fetch_all(pool).await?;
+    ).bind(locale)
+     .fetch_all(pool).await?;
     if rows.is_empty() {
         return Err(ApiError(AppError::Internal("no published quote".into())));
     }
-    let mut scored: Vec<(f64, &str, &str, Option<&str>, &str)> = rows.iter().map(|r| {
-        let aff_w: Vec<String> = serde_json::from_value(r.wuxing_affinity.clone()).unwrap_or_default();
-        let aff_g: Vec<String> = serde_json::from_value(r.gate_affinity.clone()).unwrap_or_default();
+    let mut scored: Vec<(f64, String, String, Option<String>, String)> = rows.into_iter().map(|r| {
+        let aff_w: Vec<String> = serde_json::from_value(r.get("wuxing_affinity")).unwrap_or_default();
+        let aff_g: Vec<String> = serde_json::from_value(r.get("gate_affinity")).unwrap_or_default();
         let mut score = 1.0;
         if let Some(yw) = primary_yongshen { if aff_w.iter().any(|w| w == yw) { score += 3.0; } }
         if let Some(g)  = gate              { if aff_g.iter().any(|x| x == g) { score += 2.0; } }
-        (score, r.id.as_str(), r.book.as_str(), r.chapter.as_deref(), r.text.as_str())
+        (score, r.get("id"), r.get("book"), r.get("chapter"), r.get("text"))
     }).collect();
     scored.sort_by(|a,b| b.0.partial_cmp(&a.0).unwrap());
 
-    let top = scored.into_iter().take(5).collect::<Vec<_>>();
+    let mut top = scored.into_iter().take(5).collect::<Vec<_>>();
     let mut rng = StdRng::seed_from_u64(seed);
     let idx = rng.gen_range(0..top.len());
-    let (_, id, book, chapter, text) = &top[idx];
+    let (_, id, book, chapter, text) = top.swap_remove(idx);
     let source = match chapter {
         Some(c) if !c.is_empty() => format!("{book} · {c}"),
-        _ => (*book).to_string(),
+        _ => book,
     };
     Ok(ChosenQuote {
-        id: (*id).to_string(),
-        out: QuoteOut { text: (*text).to_string(), source },
+        id,
+        out: QuoteOut { text, source },
     })
 }
 
@@ -73,15 +72,14 @@ pub fn pick_gate_by_yongshen(primary_yongshen: Option<&str>, time_branch: u8, se
 }
 
 pub async fn pick_gate_explain(pool: &PgPool, gate: &str, locale: &str) -> Result<ChosenGate, ApiError> {
-    let r = sqlx::query!(
+    let r = sqlx::query(
         r#"SELECT direction, benefit_text FROM gate_word
            WHERE gate=$1 AND locale=$2 AND status='published'
            ORDER BY version DESC LIMIT 1"#,
-        gate, locale,
-    ).fetch_optional(pool).await?;
+    ).bind(gate).bind(locale).fetch_optional(pool).await?;
     let (dir, txt) = match r {
-        Some(rr) => (rr.direction, rr.benefit_text),
-        None => ("—".to_string(), "宜静.".to_string()),
+        Some(rr) => (rr.get("direction"), rr.get("benefit_text")),
+        None => ("—".to_string(), "宜静".to_string()),
     };
     Ok(ChosenGate { gate: gate.to_string(), direction: dir, explain: txt })
 }
@@ -93,36 +91,34 @@ pub async fn pick_yiji(
     locale: &str,
     seed: u64,
 ) -> Result<(Vec<String>, Vec<String>), ApiError> {
-    let yi_rows = sqlx::query!(
+    let yi_rows = sqlx::query(
         r#"SELECT word, favor_when_main_wuxing FROM yiji_word
            WHERE type='yi' AND status='published' AND locale=$1"#,
-        locale,
-    ).fetch_all(pool).await?;
-    let ji_rows = sqlx::query!(
+    ).bind(locale).fetch_all(pool).await?;
+    let ji_rows = sqlx::query(
         r#"SELECT word, disfavor_when_avoid_wuxing FROM yiji_word
            WHERE type='ji' AND status='published' AND locale=$1"#,
-        locale,
-    ).fetch_all(pool).await?;
+    ).bind(locale).fetch_all(pool).await?;
 
-    let mut yi_scored: Vec<(f64, &str)> = yi_rows.iter().map(|r| {
-        let aff: Vec<String> = serde_json::from_value(r.favor_when_main_wuxing.clone()).unwrap_or_default();
+    let mut yi_scored: Vec<(f64, String)> = yi_rows.into_iter().map(|r| {
+        let aff: Vec<String> = serde_json::from_value(r.get("favor_when_main_wuxing")).unwrap_or_default();
         let mut s = 1.0;
         if let Some(yw) = primary_yongshen { if aff.iter().any(|w| w == yw) { s += 5.0; } }
-        (s, r.word.as_str())
+        (s, r.get("word"))
     }).collect();
     yi_scored.sort_by(|a,b| b.0.partial_cmp(&a.0).unwrap());
 
-    let mut ji_scored: Vec<(f64, &str)> = ji_rows.iter().map(|r| {
-        let aff: Vec<String> = serde_json::from_value(r.disfavor_when_avoid_wuxing.clone()).unwrap_or_default();
+    let mut ji_scored: Vec<(f64, String)> = ji_rows.into_iter().map(|r| {
+        let aff: Vec<String> = serde_json::from_value(r.get("disfavor_when_avoid_wuxing")).unwrap_or_default();
         let mut s = 1.0;
         if aff.iter().any(|w| avoid_wuxing.iter().any(|aw| aw == w)) { s += 5.0; }
-        (s, r.word.as_str())
+        (s, r.get("word"))
     }).collect();
     ji_scored.sort_by(|a,b| b.0.partial_cmp(&a.0).unwrap());
 
     let mut rng = StdRng::seed_from_u64(seed.wrapping_add(91));
-    let yi_top: Vec<&str> = yi_scored.iter().take(10).map(|(_,w)| *w).collect();
-    let ji_top: Vec<&str> = ji_scored.iter().take(8).map(|(_,w)| *w).collect();
+    let yi_top: Vec<&str> = yi_scored.iter().take(10).map(|(_,w)| w.as_str()).collect();
+    let ji_top: Vec<&str> = ji_scored.iter().take(8).map(|(_,w)| w.as_str()).collect();
     let yi_chosen: Vec<String> = shuffle_take(&yi_top, 5, &mut rng).into_iter().map(String::from).collect();
     let ji_chosen: Vec<String> = shuffle_take(&ji_top, 3, &mut rng).into_iter().map(String::from).collect();
     Ok((yi_chosen, ji_chosen))
