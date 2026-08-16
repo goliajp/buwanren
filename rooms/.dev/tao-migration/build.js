@@ -32,7 +32,7 @@ const built = A.map(a => {
 ;(async () => {
   const b = await chromium.launch({ channel: 'chrome' })
   const p = await b.newPage()
-  await p.goto('file://' + '/Users/doracawl/workspace/goliajp/buwanren/mini/design.html')
+  await p.goto('file://' + '/Users/doracawl/workspace/goliajp/buwanren/rooms/design.html')
   await p.waitForTimeout(2500)
 
   // Measure on an oversized canvas with a margin: drawing on a bare 1440x2560

@@ -4,7 +4,10 @@
 
 ## 2026-07-19-orlando-rebuild.patch
 
-奥兰多（orlando）房间重建的未完成改动，877 行 diff，只动 `mini/design.html` 一个文件（+349 / −514）。
+奥兰多（orlando）房间重建的未完成改动，877 行 diff，只动 `design.html` 一个文件（+349 / −514）。
+
+> patch 里的路径写的是 `mini/design.html` —— 那是 2026-08-16 工坊从 `mini/` 拆到 `rooms/` 之前的旧位置。
+> 这份 patch 本来就不能直接 apply（见下），路径不改，保持与 diff 头一致。
 
 **来历**：这原本是 `labs/lab32-mingli` 仓库里的一个 git stash（`stash@{0}: On develop: orlando-rebuild-uncommitted`，2026-07-19 09:53 创建），从未提交过。2026-08-15 立项拆分、删除 lab32 目录时导出成 patch 存到这里，否则会随目录一起消失。
 

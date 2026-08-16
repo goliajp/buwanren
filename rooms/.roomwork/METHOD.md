@@ -90,7 +90,7 @@
 
 ## 2. 质量门禁(可机械检测的部分)
 
-`python3 mini/tools/planlint.py` —— 必须 0 违规。
+`python3 rooms/tools/planlint.py` —— 必须 0 违规。
 
 机器只能测空间违规,**测不出美术水准,更测不出"合不合适"**。门禁通过 ≠ 合格,还要过 S6 人工验收。
 注意 planlint **不含任何密度/数量指标**,以后也不要加 —— 数量不是质量。
@@ -291,7 +291,7 @@ draw(g, o) {
 
 - canvas 1440×2560;墙带 y0-440;门 (560,2380,320,130)
 - **UI 遮挡实测**:标题栏盖 y≤180,行动按钮盖 y≥2400(带 UI 截图才看得出)
-- 截图工具:`node mini/tools/shot.js <design.html 绝对路径> '<selector>' 'name:sec'` → `/tmp/rules/vil-<name>.png`
+- 截图工具:`node rooms/tools/shot.js <design.html 绝对路径> '<selector>' 'name:sec'` → `/tmp/rules/vil-<name>.png`
   - **必须绝对路径**,相对路径报 `ERR_INVALID_URL`
 - 编辑脚本注意:python 里 `sys.exit` 会导致后面的 `write` 不执行,前面成功的替换会一起丢失。失败要整个重跑并 grep 验证落盘
 - git:只 add 明确路径,**不要 `git add -A`**(上一轮把用户 5 个后端文件裹进房间 commit,回退时险些删掉)

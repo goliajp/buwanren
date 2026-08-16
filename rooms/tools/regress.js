@@ -15,7 +15,7 @@
 const { chromium } = require('playwright')
 const fs = require('fs'), crypto = require('crypto'), path = require('path')
 const FILE = process.argv[2], MODE = process.argv[3] || 'check'
-const BASE = process.argv[4] || 'mini/.roomwork/baseline/rooms.json'
+const BASE = process.argv[4] || 'rooms/.roomwork/baseline/rooms.json'
 if (!FILE) { console.error('用法: bun tools/regress.js <design.html 绝对路径> [check|save]'); process.exit(2) }
 ;(async () => {
   const b = await chromium.launch({ channel: 'chrome' })

@@ -107,7 +107,7 @@ ROOMS = [('AYUN_ROOM','ayunCanvas','阿云'), ('TAO_ROOM','taoCanvas','桃桃'),
          ('POPO_ROOM','popoCanvas','婆婆'), ('TENZ_ROOM','tenzCanvas','丹增')]
 
 def main():
-    path = sys.argv[1] if len(sys.argv) > 1 else 'mini/design.html'
+    path = sys.argv[1] if len(sys.argv) > 1 else 'rooms/design.html'
     s = parse(path)
     want = sys.argv[2:]
     rows = [stats(s, k, c, l) for k, c, l in ROOMS

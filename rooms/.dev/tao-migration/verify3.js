@@ -10,7 +10,7 @@ const bodyNoGrade = SRC.slice(6, 931).concat(SRC.slice(939, 956)).join('\n')
 ;(async () => {
   const b = await chromium.launch({ channel: 'chrome' })
   const p = await b.newPage()
-  await p.goto('file:///Users/doracawl/workspace/goliajp/buwanren/mini/design.html')
+  await p.goto('file:///Users/doracawl/workspace/goliajp/buwanren/rooms/design.html')
   await p.waitForTimeout(4000)
 
   const r = await p.evaluate((src) => {

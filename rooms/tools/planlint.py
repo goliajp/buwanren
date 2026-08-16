@@ -4,7 +4,7 @@
 规则 P2 家具不得进门口禁区 y>2280 且 x 420-1020(被 UI 按钮遮挡)
 规则 P3 家具不得进顶部禁区 y<180(被标题栏遮挡)"""
 import re,sys,json
-P='mini/design.html'
+P='rooms/design.html'
 s=open(P,encoding='utf-8').read()
 rooms=[(m.group(1),m.start()) for m in re.finditer(r'FULLROOMS\.(\w+)=\{',s)]
 rooms.append(('__END__',s.find('    var HUTS=[];')))

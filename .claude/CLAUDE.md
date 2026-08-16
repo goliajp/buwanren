@@ -58,7 +58,7 @@
 
 ```python
 import re
-s = open('mini/design.html', encoding='utf-8').read()
+s = open('rooms/design.html', encoding='utf-8').read()
 bad = [x for x in re.findall(r"say:\s*'([^']{2,60})'", s)
        if re.search(r'[一-龥][,?!;:]', x)]
 ```
@@ -69,5 +69,6 @@ bad = [x for x in re.findall(r"say:\s*'([^']{2,60})'", s)
 
 ## 其他
 
-- 房间/引擎的工作法见 `mini/.roomwork/PLAYBOOK.md`,开新房从那里起步
+- 房间/引擎的工作法见 `rooms/.roomwork/PLAYBOOK.md`,开新房从那里起步
+  （2026-08-16 拆分:村民屋工坊从 `mini/` 独立成 `rooms/`;`mini/` 现在只是微信小程序工程）
 - 只 `git add` 明确路径,不要 `git add -A` —— 曾把用户的后端文件卷进房间 commit

@@ -108,7 +108,7 @@ def check(path, key, canvas, label):
     return bad
 
 if __name__ == '__main__':
-    p = sys.argv[1] if len(sys.argv) > 1 else 'mini/design.html'
+    p = sys.argv[1] if len(sys.argv) > 1 else 'rooms/design.html'
     total = 0
     for key, cv, lab in [('AYUN_ROOM','ayunCanvas','阿云'), ('TAO_ROOM','taoCanvas','桃桃'),
                          ('POPO_ROOM','popoCanvas','婆婆'), ('TENZ_ROOM','tenzCanvas','丹增')]:

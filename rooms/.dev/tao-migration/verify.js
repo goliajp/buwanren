@@ -10,7 +10,7 @@ const DIR = __dirname
   const errs = []
   p.on('pageerror', e => errs.push('PAGEERROR ' + e.message))
   p.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') errs.push(m.type() + ': ' + m.text()) })
-  await p.goto('file:///Users/doracawl/workspace/goliajp/buwanren/mini/design.html')
+  await p.goto('file:///Users/doracawl/workspace/goliajp/buwanren/rooms/design.html')
   await p.waitForTimeout(4000)
 
   const base64 = fs.readFileSync(DIR + '/baseline.png').toString('base64')

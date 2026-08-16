@@ -289,8 +289,8 @@ window.roomState(room, patch)                      // 房间状态，**必须可
 
 ```bash
 export PATH="$HOME/.bun/bin:$PATH"
-bun tools/xxx.js "$PWD/mini/design.html"     # 必须绝对路径
-bun tools/regress.js "$PWD/mini/design.html" check   # 文件在前，模式在后
+bun tools/xxx.js "$PWD/rooms/design.html"     # 必须绝对路径
+bun tools/regress.js "$PWD/rooms/design.html" check   # 文件在前，模式在后
 #   写成 `regress.js check` 会把 check 当文件名 → ERR_INVALID_URL，看着像工具坏了
 bun build 文件 --outdir /tmp/out                    # 代替 node --check
 ```
