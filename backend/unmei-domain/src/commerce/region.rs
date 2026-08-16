@@ -14,8 +14,7 @@ use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
 /// 6 个区域 cell。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, sqlx::Type)]
-#[sqlx(type_name = "text", rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Region {
     /// 中国大陆 · CNY · 微信 / 支付宝 / 银联

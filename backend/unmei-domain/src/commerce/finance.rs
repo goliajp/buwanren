@@ -2,13 +2,12 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::FromRow;
 
 use super::enums::{
     AccountKind, JournalEntryStatus, JournalPostedBy, PeriodKind, PeriodState,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AccountChart {
     pub code: String,
     pub name: String,
@@ -18,7 +17,7 @@ pub struct AccountChart {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AccountingPeriod {
     pub id: String,
     pub kind: PeriodKind,
@@ -30,7 +29,7 @@ pub struct AccountingPeriod {
     pub closed_by_admin_id: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JournalEntry {
     pub id: String,
     pub period_id: String,
@@ -44,7 +43,7 @@ pub struct JournalEntry {
     pub status: JournalEntryStatus,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JournalLine {
     pub id: String,
     pub entry_id: String,

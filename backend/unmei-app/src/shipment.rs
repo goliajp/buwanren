@@ -4,7 +4,8 @@ use chrono::Utc;
 use sqlx::{PgPool, Row};
 use unmei_domain::commerce::adapters::TraceWebhookEvent;
 use unmei_domain::commerce::events::DomainEvent;
-use unmei_domain::commerce::outbox;
+use crate::DbResultExt;
+use crate::outbox;
 use unmei_domain::DomainError;
 
 use crate::{new_id, Actor};
@@ -39,7 +40,7 @@ pub async fn assign_tracking(
     .bind(&a.cost_currency)
     .bind(shipment_id)
     .execute(pool)
-    .await?
+    .await.db()?
     .rows_affected();
 
     if affected == 0 {
@@ -62,7 +63,7 @@ pub async fn mark_exception(
     .bind(format!("{} exception: {reason}", actor.label()))
     .bind(shipment_id)
     .execute(pool)
-    .await?
+    .await.db()?
     .rows_affected();
 
     if affected == 0 {
@@ -77,11 +78,11 @@ pub async fn mark_exception(
 /// 这是旧 `services_impl` 里**唯一**真被调用过的函数(`workers/shipment_trace.rs`),
 /// 所以删那个目录之前先把它搬到这里。
 pub async fn mark_delivered(pool: &PgPool, shipment_id: &str) -> Result<(), DomainError> {
-    let mut tx = pool.begin().await?;
+    let mut tx = pool.begin().await.db()?;
     let row = sqlx::query("SELECT order_id, status FROM shipment WHERE id=$1 FOR UPDATE")
         .bind(shipment_id)
         .fetch_optional(&mut *tx)
-        .await?
+        .await.db()?
         .ok_or_else(|| DomainError::NotFound(format!("shipment {shipment_id}")))?;
 
     let status: String = row.get("status");
@@ -93,7 +94,7 @@ pub async fn mark_delivered(pool: &PgPool, shipment_id: &str) -> Result<(), Doma
     sqlx::query("UPDATE shipment SET status='delivered', delivered_at=NOW() WHERE id=$1")
         .bind(shipment_id)
         .execute(&mut *tx)
-        .await?;
+        .await.db()?;
 
     outbox::write(
         &mut *tx,
@@ -105,7 +106,7 @@ pub async fn mark_delivered(pool: &PgPool, shipment_id: &str) -> Result<(), Doma
     )
     .await?;
 
-    tx.commit().await?;
+    tx.commit().await.db()?;
     Ok(())
 }
 
@@ -120,7 +121,7 @@ pub async fn apply_trace_webhook(pool: &PgPool, ev: TraceWebhookEvent) -> Result
     .bind(&ev.carrier_code)
     .bind(&ev.tracking_no)
     .fetch_optional(pool)
-    .await?;
+    .await.db()?;
     let shipment_id = shipment_id.ok_or_else(|| {
         DomainError::NotFound(format!(
             "shipment {} / {}",
@@ -128,7 +129,7 @@ pub async fn apply_trace_webhook(pool: &PgPool, ev: TraceWebhookEvent) -> Result
         ))
     })?;
 
-    let mut tx = pool.begin().await?;
+    let mut tx = pool.begin().await.db()?;
     for e in &ev.events {
         sqlx::query(
             r#"INSERT INTO shipment_trace_event(
@@ -145,7 +146,7 @@ pub async fn apply_trace_webhook(pool: &PgPool, ev: TraceWebhookEvent) -> Result
         .bind(&e.description)
         .bind(&e.raw_event_id)
         .execute(&mut *tx)
-        .await?;
+        .await.db()?;
 
         sqlx::query(
             r#"UPDATE shipment SET status = CASE
@@ -161,8 +162,8 @@ pub async fn apply_trace_webhook(pool: &PgPool, ev: TraceWebhookEvent) -> Result
         .bind(&e.kind)
         .bind(&shipment_id)
         .execute(&mut *tx)
-        .await?;
+        .await.db()?;
     }
-    tx.commit().await?;
+    tx.commit().await.db()?;
     Ok(())
 }

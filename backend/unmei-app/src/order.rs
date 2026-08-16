@@ -18,7 +18,8 @@ use serde_json::{json, Value};
 use sqlx::{PgPool, Row};
 use unmei_domain::commerce::enums::OrderStatus;
 use unmei_domain::commerce::events::DomainEvent;
-use unmei_domain::commerce::outbox;
+use crate::DbResultExt;
+use crate::outbox;
 use unmei_domain::commerce::state_machine::StateTransition;
 use unmei_domain::DomainError;
 
@@ -63,7 +64,7 @@ pub async fn create(pool: &PgPool, req: NewOrder) -> Result<CreatedOrder, Domain
         return Err(DomainError::Validation(format!("qty {} ≤ 0", bad.qty)));
     }
 
-    let mut tx = pool.begin().await?;
+    let mut tx = pool.begin().await.db()?;
     let order_id = new_id("ord");
     let now = Utc::now();
 
@@ -88,7 +89,7 @@ pub async fn create(pool: &PgPool, req: NewOrder) -> Result<CreatedOrder, Domain
         )
         .bind(&l.sku_id)
         .fetch_optional(&mut *tx)
-        .await?
+        .await.db()?
         .ok_or_else(|| DomainError::NotFound(format!("sku {}", l.sku_id)))?;
 
         let unit: i64 = row
@@ -149,7 +150,7 @@ pub async fn create(pool: &PgPool, req: NewOrder) -> Result<CreatedOrder, Domain
     .bind(&req.ua)
     .bind(req.note.clone().unwrap_or_default())
     .execute(&mut *tx)
-    .await?;
+    .await.db()?;
 
     for (idx, (line_id, sku_id, unit, qty, line_sub, snap)) in lines.iter().enumerate() {
         sqlx::query(
@@ -167,7 +168,7 @@ pub async fn create(pool: &PgPool, req: NewOrder) -> Result<CreatedOrder, Domain
         .bind(qty)
         .bind(line_sub)
         .execute(&mut *tx)
-        .await?;
+        .await.db()?;
     }
 
     sqlx::query(
@@ -178,7 +179,7 @@ pub async fn create(pool: &PgPool, req: NewOrder) -> Result<CreatedOrder, Domain
     .bind(&req.shipping_address)
     .bind(&req.contact)
     .execute(&mut *tx)
-    .await?;
+    .await.db()?;
 
     sqlx::query(
         r#"INSERT INTO order_event(id, order_id, kind, actor_kind, actor_id,
@@ -189,7 +190,7 @@ pub async fn create(pool: &PgPool, req: NewOrder) -> Result<CreatedOrder, Domain
     .bind(&order_id)
     .bind(&req.user_id)
     .execute(&mut *tx)
-    .await?;
+    .await.db()?;
 
     outbox::write(
         &mut *tx,
@@ -213,7 +214,7 @@ pub async fn create(pool: &PgPool, req: NewOrder) -> Result<CreatedOrder, Domain
         );
     }
 
-    tx.commit().await?;
+    tx.commit().await.db()?;
 
     Ok(CreatedOrder {
         order_id,
@@ -236,12 +237,12 @@ pub async fn cancel(
     actor: &Actor,
     owner: Option<&str>,
 ) -> Result<(), DomainError> {
-    let mut tx = pool.begin().await?;
+    let mut tx = pool.begin().await.db()?;
 
     let row = sqlx::query("SELECT status, user_id FROM order_record WHERE id=$1 FOR UPDATE")
         .bind(order_id)
         .fetch_optional(&mut *tx)
-        .await?
+        .await.db()?
         .ok_or_else(|| DomainError::NotFound(format!("order {order_id}")))?;
 
     let cur_str: String = row.get("status");
@@ -268,7 +269,7 @@ pub async fn cancel(
     .bind(actor.kind.as_str())
     .bind(order_id)
     .execute(&mut *tx)
-    .await?;
+    .await.db()?;
 
     sqlx::query(
         r#"INSERT INTO order_event(id, order_id, kind, actor_kind, actor_id,
@@ -282,7 +283,7 @@ pub async fn cancel(
     .bind(&cur_str)
     .bind(json!({ "reason": reason }))
     .execute(&mut *tx)
-    .await?;
+    .await.db()?;
 
     outbox::write(
         &mut *tx,
@@ -295,7 +296,7 @@ pub async fn cancel(
     )
     .await?;
 
-    tx.commit().await?;
+    tx.commit().await.db()?;
     Ok(())
 }
 
@@ -314,7 +315,7 @@ pub async fn annotate(
     .bind(format!("[{}] {note}", actor.label()))
     .bind(order_id)
     .execute(pool)
-    .await?
+    .await.db()?
     .rows_affected();
 
     // 旧的两份都不检查影响行数,批注一个不存在的订单会静默成功。
@@ -334,6 +335,6 @@ pub async fn expire_unpaid(pool: &PgPool) -> Result<u64, DomainError> {
            WHERE status='unpaid' AND expires_at < NOW()"#,
     )
     .execute(pool)
-    .await?;
+    .await.db()?;
     Ok(res.rows_affected())
 }

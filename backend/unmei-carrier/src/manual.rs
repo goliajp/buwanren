@@ -4,7 +4,7 @@
 //! query_trace 永远返回空列表(让 sweeper 不动这条);webhook 不支持。
 
 use async_trait::async_trait;
-use http::HeaderMap;
+use unmei_domain::commerce::adapters::WebhookHeaders;
 use unmei_domain::commerce::adapters::{
     AdapterError, CarrierAdapter, CarrierCapabilities, TraceEvent, TraceWebhookEvent,
 };
@@ -36,7 +36,7 @@ impl CarrierAdapter for ManualAdapter {
 
     async fn verify_webhook(
         &self,
-        _headers: &HeaderMap,
+        _headers: &WebhookHeaders,
         _body: &[u8],
     ) -> Result<TraceWebhookEvent, AdapterError> {
         Err(AdapterError::Unsupported)

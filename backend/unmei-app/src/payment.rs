@@ -11,6 +11,7 @@ use serde_json::{json, Value};
 use sqlx::{PgPool, Row};
 use unmei_domain::DomainError;
 
+use crate::DbResultExt;
 use crate::{new_id, Actor};
 
 /// 已在库里占好位、等着送去渠道下单的一笔支付。
@@ -42,7 +43,7 @@ pub async fn start(
     )
     .bind(order_id)
     .fetch_optional(pool)
-    .await?
+    .await.db()?
     .ok_or_else(|| DomainError::NotFound(format!("order {order_id}")))?;
 
     let owner: String = order.get("user_id");
@@ -79,7 +80,7 @@ pub async fn start(
     .bind(channel_user_ref)
     .bind(expires_at)
     .execute(pool)
-    .await?;
+    .await.db()?;
 
     Ok(PendingPayment {
         payment_id,
@@ -110,7 +111,7 @@ pub async fn record_attempt(
     .bind(request)
     .bind(response)
     .execute(pool)
-    .await?;
+    .await.db()?;
     Ok(())
 }
 
@@ -125,7 +126,7 @@ pub async fn mark_failed(
     let cur: Option<String> = sqlx::query_scalar("SELECT status FROM payment WHERE id=$1")
         .bind(payment_id)
         .fetch_optional(pool)
-        .await?;
+        .await.db()?;
     let cur = cur.ok_or_else(|| DomainError::NotFound(format!("payment {payment_id}")))?;
     if !["pending", "processing", "cancelling"].contains(&cur.as_str()) {
         return Err(DomainError::Conflict(format!("payment status={cur},不可置失败")));
@@ -139,7 +140,7 @@ pub async fn mark_failed(
     .bind(format!("{} mark_failed", actor.label()))
     .bind(payment_id)
     .execute(pool)
-    .await?;
+    .await.db()?;
     Ok(())
 }
 
@@ -154,7 +155,7 @@ pub async fn apply_succeeded(
     txn_id: &str,
     paid_at: DateTime<Utc>,
 ) -> Result<(), DomainError> {
-    let mut tx = pool.begin().await?;
+    let mut tx = pool.begin().await.db()?;
 
     sqlx::query(
         r#"INSERT INTO payment_event(id, payment_id, kind, channel, channel_event_id, payload_json, received_at)
@@ -165,7 +166,7 @@ pub async fn apply_succeeded(
     .bind(new_id("pe"))
     .bind(txn_id)
     .execute(&mut *tx)
-    .await?;
+    .await.db()?;
 
     sqlx::query(
         "UPDATE payment SET status='success', paid_at=$1,
@@ -175,7 +176,7 @@ pub async fn apply_succeeded(
     .bind(paid_at)
     .bind(txn_id)
     .execute(&mut *tx)
-    .await?;
+    .await.db()?;
 
     sqlx::query(
         r#"UPDATE order_record o SET
@@ -189,9 +190,9 @@ pub async fn apply_succeeded(
     )
     .bind(txn_id)
     .execute(&mut *tx)
-    .await?;
+    .await.db()?;
 
-    tx.commit().await?;
+    tx.commit().await.db()?;
     tracing::info!(txn_id, "payment.success");
     Ok(())
 }
@@ -205,7 +206,7 @@ pub async fn apply_failed(pool: &PgPool, txn_id: &str, code: &str, msg: &str) ->
     .bind(msg)
     .bind(txn_id)
     .execute(pool)
-    .await?;
+    .await.db()?;
     Ok(())
 }
 
@@ -216,7 +217,7 @@ pub async fn apply_expired(pool: &PgPool, txn_id: &str) -> Result<(), DomainErro
     )
     .bind(txn_id)
     .execute(pool)
-    .await?;
+    .await.db()?;
     Ok(())
 }
 

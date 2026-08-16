@@ -18,7 +18,7 @@
 
 use async_trait::async_trait;
 use chrono::{DateTime, NaiveDateTime, Utc};
-use http::HeaderMap;
+use unmei_domain::commerce::adapters::WebhookHeaders;
 use md5::{Digest, Md5};
 use serde::{Deserialize, Serialize};
 use std::env;
@@ -183,7 +183,7 @@ impl CarrierAdapter for Kuaidi100Adapter {
 
     async fn verify_webhook(
         &self,
-        _headers: &HeaderMap,
+        _headers: &WebhookHeaders,
         body: &[u8],
     ) -> Result<TraceWebhookEvent, AdapterError> {
         let payload: CallbackBody = serde_json::from_slice(body)

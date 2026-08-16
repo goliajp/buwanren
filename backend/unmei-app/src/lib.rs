@@ -28,6 +28,7 @@
 pub mod actor;
 pub mod catalog;
 pub mod order;
+pub mod outbox;
 pub mod outbox_ops;
 pub mod payment;
 pub mod promotion;
@@ -44,4 +45,22 @@ pub use unmei_domain::DomainError;
 /// 生成带前缀的主键。全仓 ID 形如 `ord-<uuid>` / `pay-<uuid>`。
 pub(crate) fn new_id(prefix: &str) -> String {
     format!("{prefix}-{}", uuid::Uuid::new_v4())
+}
+
+/// sqlx 错误 → [`DomainError::Repository`]。
+///
+/// domain 不认识 sqlx,所以这层转换必须显式发生在这里。孤儿规则也不允许
+/// 在本 crate 里给 `DomainError` 写 `From<sqlx::Error>`(两个类型都是外部的),
+/// 所以做成扩展方法:每个落库调用写 `.await.db()?`。
+///
+/// 啰嗦是故意的 —— 它标出了「这一行会碰数据库」,P2 把 SQL 抽到独立
+/// 持久化 crate 时,这些点就是切口。
+pub(crate) trait DbResultExt<T> {
+    fn db(self) -> Result<T, DomainError>;
+}
+
+impl<T> DbResultExt<T> for Result<T, sqlx::Error> {
+    fn db(self) -> Result<T, DomainError> {
+        self.map_err(|e| DomainError::Repository(e.to_string()))
+    }
 }

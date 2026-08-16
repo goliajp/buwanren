@@ -2,11 +2,10 @@
 
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::FromRow;
 
 use super::enums::{ReconBatchStatus, ReconRecordState, ReconSource};
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReconBatch {
     pub id: String,
     pub channel: String,
@@ -22,7 +21,7 @@ pub struct ReconBatch {
     pub raw_file_uri: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReconRecord {
     pub id: String,
     pub batch_id: String,

@@ -2,11 +2,10 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::FromRow;
 
 use super::enums::{ShipmentStatus, ShippingMethod};
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Shipment {
     pub id: String,
     pub order_id: String,
@@ -28,7 +27,7 @@ pub struct Shipment {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ShipmentTraceEvent {
     pub id: String,
     pub shipment_id: String,

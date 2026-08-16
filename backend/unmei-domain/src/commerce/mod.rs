@@ -7,7 +7,8 @@
 //! - 金额一律 `i64` minor unit + `Currency`(见 [`money`])
 //! - 时间一律 [`chrono::DateTime<Utc>`]
 //! - 主键一律 [`String`](UUID v4 字符串),便于跨服务复用 / idempotency
-//! - 状态字段一律 `TEXT + CHECK`,代码侧用 enum 派生 `sqlx::Type` (rename_all=snake_case)
+//! - 状态字段一律 `TEXT + CHECK`;enum 只提供 `as_str()` / `from_str_lax()`,
+//!   映射由持久化层负责 —— domain 不认识数据库
 
 pub mod money;
 pub mod enums;
@@ -26,7 +27,6 @@ pub mod finance;
 pub mod state_machine;
 pub mod events;
 pub mod adapters;
-pub mod outbox;
 pub mod region;
 
 pub use region::{Region, RegionMeta};

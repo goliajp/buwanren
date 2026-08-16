@@ -10,9 +10,8 @@ pub use error::*;
 pub mod commerce;
 
 // ─── 平台 / 区域 ────────────────────────────────────────────────
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-#[sqlx(rename_all = "lowercase")]
 pub enum Platform {
     Mini,
     Ios,

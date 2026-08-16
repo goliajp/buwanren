@@ -86,6 +86,51 @@ pub struct ChannelTxnRow {
     pub paid_at: Option<DateTime<Utc>>,
 }
 
+/// 回调请求的头部,**不绑定任何 HTTP 库**。
+///
+/// 原本这里直接收 `&http::HeaderMap`,于是 domain 这一最内层多出一个
+/// `http` 依赖,而所有实现方(`unmei-wx` / `unmei-carrier`)其实一个 header
+/// 都没读(签名验签还没接)。参数不能删 —— 微信支付 v3 验签要
+/// `Wechatpay-Signature` / `-Timestamp` / `-Nonce` / `-Serial` 四个头 ——
+/// 所以换成中立类型,等真验签落地时它就位。
+///
+/// 名字按 HTTP 语义大小写不敏感,内部统一小写存放。
+#[derive(Debug, Clone, Default)]
+pub struct WebhookHeaders(Vec<(String, String)>);
+
+impl WebhookHeaders {
+    pub fn new() -> Self {
+        Self(Vec::new())
+    }
+
+    pub fn insert(&mut self, name: impl AsRef<str>, value: impl Into<String>) {
+        self.0.push((name.as_ref().to_ascii_lowercase(), value.into()));
+    }
+
+    pub fn get(&self, name: &str) -> Option<&str> {
+        let want = name.to_ascii_lowercase();
+        self.0.iter().find(|(k, _)| *k == want).map(|(_, v)| v.as_str())
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&str, &str)> {
+        self.0.iter().map(|(k, v)| (k.as_str(), v.as_str()))
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+impl<K: AsRef<str>, V: Into<String>> FromIterator<(K, V)> for WebhookHeaders {
+    fn from_iter<I: IntoIterator<Item = (K, V)>>(iter: I) -> Self {
+        let mut h = Self::new();
+        for (k, v) in iter {
+            h.insert(k, v);
+        }
+        h
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum AdapterError {
     #[error("network: {0}")] Network(String),
@@ -108,7 +153,7 @@ pub trait PaymentAdapter: Send + Sync + 'static {
     async fn cancel_payment(&self, payment_id: &str) -> Result<(), AdapterError>;
     async fn refund(&self, req: RefundParam) -> Result<RefundResp, AdapterError>;
     async fn query_refund(&self, refund_id: &str) -> Result<WebhookEvent, AdapterError>;
-    async fn verify_webhook(&self, headers: &http::HeaderMap, body: &[u8]) -> Result<WebhookEvent, AdapterError>;
+    async fn verify_webhook(&self, headers: &WebhookHeaders, body: &[u8]) -> Result<WebhookEvent, AdapterError>;
     async fn pull_settlement(&self, day: NaiveDate, currency: &str) -> Result<Vec<ChannelTxnRow>, AdapterError>;
 }
 
@@ -150,7 +195,7 @@ pub trait CarrierAdapter: Send + Sync + 'static {
 
     async fn verify_webhook(
         &self,
-        headers: &http::HeaderMap,
+        headers: &WebhookHeaders,
         body: &[u8],
     ) -> Result<TraceWebhookEvent, AdapterError>;
 }

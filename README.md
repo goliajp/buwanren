@@ -126,18 +126,28 @@ buwanren/
 |---|---|---|
 | **P0** | 让工作区编译 —— 全仓统一到运行期 `sqlx::query()`,不再依赖 `.sqlx` 缓存或活库;补 CI | ✅ 2026-08-16 |
 | **P1** | 消双写 —— 新建 `unmei-app` 承载全部写操作用例,两个 API crate 共用;删掉 `unmei-domain` 里 2,810 LOC 的未验证死实现与无人实现的 trait | ✅ 2026-08-16 |
-| **P2** | 依赖方向修正 —— SQL 全部收敛进 `unmei-pg`,`unmei-domain` 去 sqlx / 去 http。判据可机械化:`grep -rn 'sqlx\|axum\|http::\|reqwest' unmei-domain/src` 必须为 0(P0 时 215,P1 后 **24**) | ⏳ |
+| **P2** | 依赖方向修正 —— `unmei-domain` 去 sqlx / 去 http,成为纯内层 | ✅ 2026-08-16 |
 
-**目标形态**:`unmei-api / unmei-admin-api → unmei-app → unmei-domain ← unmei-pg`,依赖单向。
+**当前形态**:`unmei-api / unmei-admin-api → unmei-app → unmei-domain`,依赖单向。
 
-`unmei-app` 只收**写操作与状态迁移**。列表 / 详情这类只读查询仍在路由里 —— 它们两端不重叠(客户端按 `user_id` 过滤,后台按筛选条件),不存在双写,连同 SQL 一起归 P2。
+`unmei-domain` 的依赖树现在只剩 `serde` / `serde_json` / `chrono` / `uuid` / `thiserror` / `async-trait` —— 没有数据库、没有 HTTP、没有 Web 框架。CI 有一条**硬门禁**盯着这件事(`cargo tree -p unmei-domain` 命中 sqlx/axum/reqwest/hyper/tower 即构建失败),用依赖树而不是 grep 源码,注释骗不过它,间接引入也躲不掉。
+
+`unmei-app` 只收**写操作与状态迁移**。列表 / 详情这类只读查询仍在路由里 —— 它们两端不重叠(客户端按 `user_id` 过滤,后台按筛选条件),不存在双写。
+
+### 待定 · 要不要再抽一个 `unmei-pg`
+
+原计划 P2 还包含「SQL 全部收敛进 `unmei-pg`」。做完前半程后**建议先不做**,理由写在这里等拍板:
+
+抽 `unmei-pg` 意味着在 domain 里定义约 30 个 repository trait 方法,而实现只会有一个(Postgres),也没有测试替身要用它。这正是 P1 刚删掉的 2,810 行的形态 —— 一套没人实现第二遍的接口。等出现第二个驱动方(测试替身 / 只读副本 / 换存储)再抽,那时接口形状由真实需求决定,而不是猜。
+
+现在的切口已经留好了:`unmei-app` 里每个碰库的地方都写着 `.await.db()?`,那一行就是将来的 repository 边界。
 
 ### 已知欠账
 
-- `unmei-domain` 剩下的 24 处基础设施引用:聚合根上的 `#[derive(sqlx::FromRow)]` / `sqlx::Type`、`outbox.rs` 里的 SQL、`adapters.rs` 的 `http::HeaderMap`。全是 P2 的活
 - `AppState.cache`(kevy-embedded)在两个 API crate 里都从未被读 —— admin 进程会开一个自己不用的 Store
 - `unmei-api/src/mingli.rs` 的 `QimenLite` / `QimenXun` / `health()` 是死代码
 - **`subscription` 表没有 `audit_note` 列**(其它 8 张商业表都有),所以订阅取消只能靠领域事件留痕,库里没有备注。要补需要一次 migration
+- 后台的只读列表查询仍是路由里的直接 sqlx(约 90 处),不是双写,但也不在用例层
 
 ## 致谢
 

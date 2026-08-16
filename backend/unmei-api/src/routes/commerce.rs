@@ -18,7 +18,7 @@ use unmei_app::{
     order as app_order, payment as app_payment, refund as app_refund, shipment as app_shipment,
     Actor,
 };
-use unmei_domain::commerce::adapters::{CreatePaymentParam, WebhookEvent};
+use unmei_domain::commerce::adapters::{CreatePaymentParam, WebhookEvent, WebhookHeaders};
 use unmei_domain::AppError;
 
 use crate::auth::{ApiError, AuthedUser};
@@ -409,7 +409,7 @@ async fn wx_webhook(
 ) -> Result<Json<J>, ApiError> {
     // 默认 JSAPI adapter 跑回调路径(对 v3 各子模式 verify 行为相同)
     let adapter = st.payment_adapters.wechat_jsapi.clone();
-    let ev = adapter.verify_webhook(&headers, body.as_ref()).await
+    let ev = adapter.verify_webhook(&to_webhook_headers(&headers), body.as_ref()).await
         .map_err(|e| ApiError(AppError::BadRequest(format!("verify: {e}"))))?;
     apply_payment_webhook(&st, "wechat", ev).await?;
     Ok(Json(json!({ "code": "SUCCESS", "message": "OK" })))
@@ -421,7 +421,7 @@ async fn carrier_webhook(
 ) -> Result<Json<J>, ApiError> {
     let adapter = st.carrier_adapters.pick(&provider)
         .ok_or_else(|| ApiError::bad(format!("unknown provider {provider}")))?;
-    let ev = adapter.verify_webhook(&headers, body.as_ref()).await
+    let ev = adapter.verify_webhook(&to_webhook_headers(&headers), body.as_ref()).await
         .map_err(|e| ApiError(AppError::BadRequest(format!("verify: {e}"))))?;
     apply_carrier_webhook(&st, ev).await?;
     Ok(Json(json!({ "ok": true })))
@@ -460,3 +460,14 @@ async fn apply_carrier_webhook(
     Ok(())
 }
 
+
+/// axum 的 `HeaderMap` → domain 的传输中立 [`WebhookHeaders`]。
+///
+/// 端口不该认识具体 HTTP 库,转换就发生在这条边界上。
+/// 非 UTF-8 的头直接跳过 —— 验签用得到的头(微信 v3 的 signature /
+/// timestamp / nonce / serial)全是 ASCII。
+fn to_webhook_headers(h: &HeaderMap) -> WebhookHeaders {
+    h.iter()
+        .filter_map(|(k, v)| v.to_str().ok().map(|v| (k.as_str(), v)))
+        .collect()
+}

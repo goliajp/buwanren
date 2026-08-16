@@ -25,6 +25,7 @@ use sqlx::{PgPool, Row};
 use unmei_domain::commerce::enums::RiskRuleStatus;
 use unmei_domain::DomainError;
 
+use crate::DbResultExt;
 use crate::new_id;
 
 // ═══════════════════════════ 规则管理 ═══════════════════════════
@@ -42,7 +43,7 @@ pub async fn set_rule_status(
         .bind(status.as_str())
         .bind(rule_id)
         .execute(pool)
-        .await?
+        .await.db()?
         .rows_affected();
 
     if affected == 0 {
@@ -83,7 +84,7 @@ pub async fn evaluate(pool: &PgPool, ctx: &RiskEvalContext) -> Result<RiskDecisi
     )
     .bind(&ctx.kind)
     .fetch_all(pool)
-    .await?;
+    .await.db()?;
 
     let env = build_env(ctx);
     let mut matched: Vec<String> = Vec::new();
@@ -124,7 +125,7 @@ pub async fn evaluate(pool: &PgPool, ctx: &RiskEvalContext) -> Result<RiskDecisi
         .bind(&decided)
         .bind(&ctx.extras)
         .execute(pool)
-        .await?;
+        .await.db()?;
     }
 
     Ok(RiskDecision {

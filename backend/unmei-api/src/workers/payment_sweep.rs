@@ -11,7 +11,7 @@ use sqlx::Row;
 use std::time::Duration;
 use unmei_domain::commerce::adapters::WebhookEvent;
 use unmei_domain::commerce::events::DomainEvent;
-use unmei_domain::commerce::outbox;
+use unmei_app::outbox;
 
 use crate::state::AppState;
 

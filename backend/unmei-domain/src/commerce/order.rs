@@ -2,13 +2,12 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::FromRow;
 
 use super::enums::{
     LineFulfillmentStatus, OrderEventActor, OrderSourceKind, OrderStatus, ReceiptKind,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Order {
     pub id: String,
     pub user_id: String,
@@ -41,7 +40,7 @@ pub struct Order {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrderLine {
     pub id: String,
     pub order_id: String,
@@ -59,7 +58,7 @@ pub struct OrderLine {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrderEvent {
     pub id: String,
     pub order_id: String,
@@ -72,7 +71,7 @@ pub struct OrderEvent {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrderMeta {
     pub order_id: String,
     pub shipping_address_json: Option<serde_json::Value>,

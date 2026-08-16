@@ -7,8 +7,7 @@ use serde::{Deserialize, Serialize};
 macro_rules! str_enum {
     ($(#[$m:meta])* $name:ident { $( $variant:ident => $s:literal ),* $(,)? }) => {
         $(#[$m])*
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, sqlx::Type)]
-        #[sqlx(type_name = "text", rename_all = "snake_case")]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
         #[serde(rename_all = "snake_case")]
         pub enum $name {
             $( $variant, )*

@@ -2,11 +2,10 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::FromRow;
 
 use super::enums::{PriceStatus, PriceTierKind};
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PriceBook {
     pub id: String,
     pub sku_id: String,
@@ -24,7 +23,7 @@ pub struct PriceBook {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PriceRule {
     pub id: String,
     pub name: String,

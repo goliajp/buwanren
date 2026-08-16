@@ -3,13 +3,15 @@ name = "unmei-domain"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "领域层 · 纯类型 / 状态机 / 领域事件 / 端口契约。不认识数据库,不认识 HTTP"
 
+# ⚠ 这里**不许**出现 sqlx / axum / http / reqwest。
+# 依赖方向是 api → app → domain ← 持久化实现,domain 是最内层。
+# CI(.github/workflows/backend.yml)会扫 unmei-domain/src,加回去会报警。
 [dependencies]
 serde.workspace = true
 serde_json.workspace = true
 chrono.workspace = true
 uuid.workspace = true
-sqlx.workspace = true
 thiserror.workspace = true
 async-trait = "0.1"
-http = "1"

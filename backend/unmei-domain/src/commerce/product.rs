@@ -2,11 +2,10 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::FromRow;
 
 use super::enums::{FulfillmentKind, ProductKind, ProductStatus, SkuStatus, StockKind};
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Product {
     pub id: String,
     pub code: String,
@@ -31,7 +30,7 @@ pub struct Product {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Sku {
     pub id: String,
     pub product_id: String,

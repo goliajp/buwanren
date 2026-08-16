@@ -174,7 +174,7 @@ async fn handle_order_paid(st: &AppState, order_id: &str, _payment_id: &str) -> 
         sqlx::query("UPDATE order_record SET status='done', fulfilled_at=NOW() WHERE id=$1 AND status='paid'")
             .bind(order_id).execute(&st.db).await?;
         // 写 OrderFulfilled outbox(让下游也处理)
-        let _ = unmei_domain::commerce::outbox::write(&st.db, &DomainEvent::OrderFulfilled {
+        let _ = unmei_app::outbox::write(&st.db, &DomainEvent::OrderFulfilled {
             order_id: order_id.into(), occurred_at: chrono::Utc::now(),
         }).await;
         tracing::info!("fulfillment · {order_id} all lines done → order.done");

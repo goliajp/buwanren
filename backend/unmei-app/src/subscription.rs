@@ -3,7 +3,8 @@
 use chrono::Utc;
 use sqlx::PgPool;
 use unmei_domain::commerce::events::DomainEvent;
-use unmei_domain::commerce::outbox;
+use crate::DbResultExt;
+use crate::outbox;
 use unmei_domain::DomainError;
 
 use crate::Actor;
@@ -27,7 +28,7 @@ pub async fn cancel(
     reason: Option<&str>,
     actor: &Actor,
 ) -> Result<(), DomainError> {
-    let mut tx = pool.begin().await?;
+    let mut tx = pool.begin().await.db()?;
 
     let affected = if immediate {
         sqlx::query(
@@ -35,13 +36,13 @@ pub async fn cancel(
         )
         .bind(subscription_id)
         .execute(&mut *tx)
-        .await?
+        .await.db()?
         .rows_affected()
     } else {
         sqlx::query("UPDATE subscription SET cancel_at_period_end=true WHERE id=$1")
             .bind(subscription_id)
             .execute(&mut *tx)
-            .await?
+            .await.db()?
             .rows_affected()
     };
 
@@ -70,6 +71,6 @@ pub async fn cancel(
         "subscription.cancel"
     );
 
-    tx.commit().await?;
+    tx.commit().await.db()?;
     Ok(())
 }

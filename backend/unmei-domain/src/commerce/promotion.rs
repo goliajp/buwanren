@@ -2,11 +2,10 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::FromRow;
 
 use super::enums::{CouponState, PromotionKind, PromotionStatus};
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Promotion {
     pub id: String,
     pub code: Option<String>,
@@ -30,7 +29,7 @@ pub struct Promotion {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Coupon {
     pub id: String,
     pub code: Option<String>,
@@ -46,7 +45,7 @@ pub struct Coupon {
     pub audit_note: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CouponRedemption {
     pub id: String,
     pub coupon_id: String,

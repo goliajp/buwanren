@@ -5,6 +5,7 @@ use sqlx::PgPool;
 use unmei_domain::commerce::enums::ProductStatus;
 use unmei_domain::DomainError;
 
+use crate::DbResultExt;
 use crate::{new_id, Actor};
 
 /// 上下架。状态取值由 domain 的 [`ProductStatus`] 判定 ——
@@ -25,7 +26,7 @@ pub async fn set_product_status(
     .bind(format!("{} → {}", actor.label(), status.as_str()))
     .bind(product_id)
     .execute(pool)
-    .await?
+    .await.db()?
     .rows_affected();
 
     if affected == 0 {
@@ -59,7 +60,7 @@ pub async fn publish_price(
     let exists: Option<String> = sqlx::query_scalar("SELECT id FROM sku WHERE id=$1")
         .bind(sku_id)
         .fetch_optional(pool)
-        .await?;
+        .await.db()?;
     if exists.is_none() {
         return Err(DomainError::NotFound(format!("sku {sku_id}")));
     }
@@ -80,7 +81,7 @@ pub async fn publish_price(
     .bind(p.audit_note.unwrap_or_default())
     .bind(actor.id.as_deref())
     .execute(pool)
-    .await?;
+    .await.db()?;
     Ok(id)
 }
 
@@ -91,7 +92,7 @@ pub async fn expire_price(pool: &PgPool, price_id: &str) -> Result<(), DomainErr
     )
     .bind(price_id)
     .execute(pool)
-    .await?
+    .await.db()?
     .rows_affected();
 
     if affected == 0 {

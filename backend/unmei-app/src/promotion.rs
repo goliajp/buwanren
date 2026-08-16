@@ -4,6 +4,7 @@ use sqlx::PgPool;
 use unmei_domain::commerce::enums::PromotionStatus;
 use unmei_domain::DomainError;
 
+use crate::DbResultExt;
 use crate::Actor;
 
 /// 改促销活动状态。合法取值由 [`PromotionStatus`] 判定,
@@ -24,7 +25,7 @@ pub async fn set_status(
     .bind(format!("{} → {}", actor.label(), status.as_str()))
     .bind(promotion_id)
     .execute(pool)
-    .await?
+    .await.db()?
     .rows_affected();
 
     if affected == 0 {

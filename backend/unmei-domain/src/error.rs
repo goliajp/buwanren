@@ -16,7 +16,10 @@ pub enum DomainError {
     #[error("blocked by risk rule {rule_id}: {action}")] RiskBlocked { rule_id: String, action: String },
     #[error("insufficient: {0}")] Insufficient(String),
     #[error("adapter: {0}")] Adapter(String),
-    #[error("sqlx: {0}")] Sqlx(#[from] sqlx::Error),
+    /// 持久化层失败。**刻意只收字符串** —— domain 不认识任何数据库驱动,
+    /// 这个变体以前是 `Sqlx(#[from] sqlx::Error)`,等于让最内层依赖 sqlx。
+    /// 转换发生在持久化层(见 `unmei-app` 的 `DbResultExt`)。
+    #[error("repository: {0}")] Repository(String),
     #[error("serde: {0}")] Serde(#[from] serde_json::Error),
     #[error("internal: {0}")] Internal(String),
 }
@@ -31,7 +34,7 @@ impl DomainError {
             Self::RiskBlocked { .. } => 423,
             Self::Insufficient(_) => 422,
             Self::Adapter(_) => 502,
-            Self::Sqlx(_) | Self::Serde(_) | Self::Internal(_) => 500,
+            Self::Repository(_) | Self::Serde(_) | Self::Internal(_) => 500,
         }
     }
     pub fn code(&self) -> &'static str {
@@ -44,7 +47,7 @@ impl DomainError {
             Self::RiskBlocked { .. } => "risk_blocked",
             Self::Insufficient(_) => "insufficient",
             Self::Adapter(_) => "adapter",
-            Self::Sqlx(_) => "db",
+            Self::Repository(_) => "repository",
             Self::Serde(_) => "serde",
             Self::Internal(_) => "internal",
         }

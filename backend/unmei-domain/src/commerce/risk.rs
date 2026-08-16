@@ -2,11 +2,10 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::FromRow;
 
 use super::enums::{RiskAction, RiskCaseSeverity, RiskCaseState, RiskKind, RiskRuleStatus};
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RiskRule {
     pub id: String,
     pub name: String,
@@ -22,7 +21,7 @@ pub struct RiskRule {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RiskEvent {
     pub id: String,
     pub kind: String,
@@ -35,7 +34,7 @@ pub struct RiskEvent {
     pub decided_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RiskCase {
     pub id: String,
     pub kind: String,

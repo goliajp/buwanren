@@ -37,15 +37,19 @@ jobs:
         run: cargo test --workspace
 
       # ── 依赖方向护栏 · clean arch ────────────────────────────────
-      # unmei-domain 是最内层:不许依赖 sqlx / axum / http / reqwest。
-      # P1 删掉 services_impl 后从 215 降到 24;剩下的是聚合根上的
-      # FromRow / sqlx::Type 派生、outbox.rs 的 SQL、adapters 里的 http::HeaderMap,
-      # 全部由 P2 收敛。到 0 之前这一步只报数,不当失败门禁。
-      - name: domain purity report
-        continue-on-error: true
+      # unmei-domain 是最内层:不许依赖任何数据库 / HTTP / Web 框架。
+      # 依赖方向是 api → app → domain ← 持久化实现。
+      #
+      # 判据用依赖树而不是 grep 源码 —— 注释里提到 sqlx 不算违规,
+      # 而通过某个中间 crate 间接引入却是真违规,只有依赖树看得见。
+      # P0 时 domain/src 里有 215 处基础设施引用,P1 后 24,P2 归零。
+      - name: domain purity gate
         run: |
-          COUNT=$(grep -rn 'sqlx\|axum\|http::\|reqwest' unmei-domain/src | wc -l | tr -d ' ')
-          echo "== unmei-domain 中的基础设施引用: $COUNT（P1 后基线 24，P2 目标 0）=="
-          if [ "$COUNT" -gt 24 ]; then
-            echo "::warning::domain 的基础设施引用比 P1 基线(24)还多，方向反了"
+          echo "== unmei-domain 依赖树 =="
+          cargo tree -p unmei-domain
+          if cargo tree -p unmei-domain | grep -qE '(sqlx|axum|reqwest|hyper|tower)'; then
+            echo "::error::unmei-domain 依赖了基础设施库。domain 是最内层，依赖方向反了。"
+            echo "把持久化 / 传输相关的东西放到 unmei-app 或适配器 crate 里。"
+            exit 1
           fi
+          echo "✓ domain 纯净"

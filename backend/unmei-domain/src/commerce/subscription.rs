@@ -2,13 +2,12 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::FromRow;
 
 use super::enums::{
     BillingPeriod, CancelPolicy, InvoiceStatus, PlanStatus, SubscriptionStatus,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Plan {
     pub id: String,
     pub sku_id: String,
@@ -25,7 +24,7 @@ pub struct Plan {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Subscription {
     pub id: String,
     pub user_id: String,
@@ -44,7 +43,7 @@ pub struct Subscription {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubscriptionInvoice {
     pub id: String,
     pub subscription_id: String,

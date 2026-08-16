@@ -3,7 +3,8 @@
 use chrono::Utc;
 use sqlx::{PgPool, Row};
 use unmei_domain::commerce::events::DomainEvent;
-use unmei_domain::commerce::outbox;
+use crate::DbResultExt;
+use crate::outbox;
 use unmei_domain::DomainError;
 
 use crate::{new_id, Actor};
@@ -27,7 +28,7 @@ pub async fn request(
     )
     .bind(order_id)
     .fetch_optional(pool)
-    .await?
+    .await.db()?
     .ok_or_else(|| DomainError::NotFound(format!("order {order_id}")))?;
 
     let owner: String = order.get("user_id");
@@ -53,7 +54,7 @@ pub async fn request(
         )
         .bind(order_id)
         .fetch_optional(pool)
-        .await?
+        .await.db()?
         .ok_or_else(|| DomainError::Validation("无成功支付可退".into()))?,
     };
 
@@ -74,7 +75,7 @@ pub async fn request(
     .bind(reason_text.unwrap_or_default())
     .bind(user_id)
     .execute(pool)
-    .await?;
+    .await.db()?;
 
     Ok(refund_id)
 }
@@ -85,7 +86,7 @@ pub async fn request(
 /// 由渠道 webhook 推到 success。`RefundCompleted` 事件照写,
 /// dispatcher 据此做财务复式挂账。
 pub async fn approve(pool: &PgPool, refund_id: &str, actor: &Actor) -> Result<(), DomainError> {
-    let mut tx = pool.begin().await?;
+    let mut tx = pool.begin().await.db()?;
 
     let row = sqlx::query(
         "SELECT order_id, payment_id, amount_minor FROM refund
@@ -93,7 +94,7 @@ pub async fn approve(pool: &PgPool, refund_id: &str, actor: &Actor) -> Result<()
     )
     .bind(refund_id)
     .fetch_optional(&mut *tx)
-    .await?
+    .await.db()?
     .ok_or_else(|| DomainError::NotFound(format!("refund {refund_id} (或状态非 requested)")))?;
 
     let order_id: String = row.get("order_id");
@@ -109,7 +110,7 @@ pub async fn approve(pool: &PgPool, refund_id: &str, actor: &Actor) -> Result<()
     .bind(actor.id.as_deref())
     .bind(refund_id)
     .execute(&mut *tx)
-    .await?;
+    .await.db()?;
 
     sqlx::query(
         r#"UPDATE payment SET status = CASE
@@ -119,7 +120,7 @@ pub async fn approve(pool: &PgPool, refund_id: &str, actor: &Actor) -> Result<()
     .bind(amount)
     .bind(&payment_id)
     .execute(&mut *tx)
-    .await?;
+    .await.db()?;
 
     sqlx::query(
         r#"UPDATE order_record SET
@@ -133,7 +134,7 @@ pub async fn approve(pool: &PgPool, refund_id: &str, actor: &Actor) -> Result<()
     .bind(amount)
     .bind(&order_id)
     .execute(&mut *tx)
-    .await?;
+    .await.db()?;
 
     outbox::write(
         &mut *tx,
@@ -144,7 +145,7 @@ pub async fn approve(pool: &PgPool, refund_id: &str, actor: &Actor) -> Result<()
     )
     .await?;
 
-    tx.commit().await?;
+    tx.commit().await.db()?;
     Ok(())
 }
 
@@ -162,7 +163,7 @@ pub async fn deny(
     .bind(format!("{} deny: {reason}", actor.label()))
     .bind(refund_id)
     .execute(pool)
-    .await?
+    .await.db()?
     .rows_affected();
 
     // 旧实现不看影响行数:驳回一个不存在的、或已经成功的退款都会返回 ok:true。
@@ -182,7 +183,7 @@ pub async fn apply_succeeded(pool: &PgPool, channel_refund_id: &str) -> Result<(
     )
     .bind(channel_refund_id)
     .execute(pool)
-    .await?;
+    .await.db()?;
     Ok(())
 }
 
@@ -200,6 +201,6 @@ pub async fn apply_failed(
     .bind(msg)
     .bind(channel_refund_id)
     .execute(pool)
-    .await?;
+    .await.db()?;
     Ok(())
 }

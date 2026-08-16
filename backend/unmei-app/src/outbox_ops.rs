@@ -1,10 +1,12 @@
 //! Outbox 运维用例。
 //!
-//! 事件的**写入**在 `unmei-domain::commerce::outbox`(要跟业务事务同批提交,
+//! 事件的**写入**在 [`crate::outbox`](crate::outbox)(要跟业务事务同批提交,
 //! 所以必须能接受一个 `&mut Transaction`);这里只放后台的运维动作。
 
 use sqlx::PgPool;
 use unmei_domain::DomainError;
+
+use crate::DbResultExt;
 
 /// 把一条失败 / 丢弃的事件重新排进待发队列。
 pub async fn retry(pool: &PgPool, event_id: &str) -> Result<(), DomainError> {
@@ -14,7 +16,7 @@ pub async fn retry(pool: &PgPool, event_id: &str) -> Result<(), DomainError> {
     )
     .bind(event_id)
     .execute(pool)
-    .await?
+    .await.db()?
     .rows_affected();
 
     if affected == 0 {

@@ -12,7 +12,7 @@
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use http::HeaderMap;
+use unmei_domain::commerce::adapters::WebhookHeaders;
 use std::sync::Arc;
 use unmei_domain::commerce::adapters::{
     AdapterCapabilities, AdapterError, ChannelTxnRow, CreatePaymentParam, CreatePaymentResp,
@@ -149,7 +149,7 @@ impl PaymentAdapter for WechatAdapter {
         })
     }
 
-    async fn verify_webhook(&self, _headers: &HeaderMap, body: &[u8]) -> Result<WebhookEvent, AdapterError> {
+    async fn verify_webhook(&self, _headers: &WebhookHeaders, body: &[u8]) -> Result<WebhookEvent, AdapterError> {
         // 真接入:
         //  1. 验 v3 头(Wechatpay-Serial / Wechatpay-Signature / Wechatpay-Timestamp / Wechatpay-Nonce)
         //  2. RSA-PSS / RSA-PKCS1v15 + SHA256 验签(平台证书)
