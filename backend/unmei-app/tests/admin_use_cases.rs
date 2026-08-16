@@ -187,6 +187,105 @@ async fn cancel_unknown_subscription_is_not_found() {
     assert!(matches!(err, DomainError::NotFound(_)));
 }
 
+// ═══════════════════════════ 续费 ═══════════════════════════
+
+#[tokio::test]
+async fn renew_extends_the_period_and_records_an_order() {
+    let pool = db_or_skip!();
+    let sub_id = subscription_fixture(&pool).await;
+    let before: chrono::DateTime<chrono::Utc> = sqlx::query_scalar(
+        "SELECT current_period_end FROM subscription WHERE id=$1",
+    )
+    .bind(&sub_id)
+    .fetch_one(&pool)
+    .await
+    .expect("period end");
+
+    let outcome = subscription::renew_due(&pool, &sub_id).await.expect("renew");
+    let subscription::RenewOutcome::Renewed { order_id, period_end, .. } = outcome else {
+        panic!("期望 Renewed,实际 {outcome:?}");
+    };
+
+    assert!(period_end > before, "周期该被延长");
+    assert_eq!(
+        common::scalar_string(&pool, "SELECT status FROM order_record WHERE id=$1", &order_id).await.as_deref(),
+        Some("paid")
+    );
+    // 旧实现一条事件都不发,续费对 dispatcher 和财务是隐形的
+    assert_eq!(common::outbox_count(&pool, "SubscriptionRenewed", &sub_id).await, 1);
+}
+
+#[tokio::test]
+async fn renew_does_not_charge_a_subscription_cancelled_at_period_end() {
+    let pool = db_or_skip!();
+    let sub_id = subscription_fixture(&pool).await;
+
+    // 用户点了「到期不续」
+    subscription::cancel(&pool, &sub_id, false, Some("不续了"), &Actor::user("u1"))
+        .await
+        .expect("cancel at period end");
+
+    // ★ 旧 worker 的选行条件里根本没有 cancel_at_period_end 这一项,
+    //   到期照样建订单、建支付、延周期 —— 用户明确说了不续还是被扣钱。
+    let outcome = subscription::renew_due(&pool, &sub_id).await.expect("renew_due");
+    assert_eq!(outcome, subscription::RenewOutcome::StoppedAtPeriodEnd);
+
+    assert_eq!(
+        common::scalar_string(&pool, "SELECT status FROM subscription WHERE id=$1", &sub_id).await.as_deref(),
+        Some("cancelled")
+    );
+    // 一分钱都不该收
+    let user_id = common::scalar_string(&pool, "SELECT user_id FROM subscription WHERE id=$1", &sub_id)
+        .await
+        .expect("user");
+    assert_eq!(
+        common::scalar_i64(&pool, "SELECT COUNT(*) FROM order_record WHERE user_id=$1", &user_id).await,
+        0,
+        "到期不续不该产生任何订单"
+    );
+    // `cancel(immediate=false)` 说好事件留到这一刻发
+    assert_eq!(common::outbox_count(&pool, "SubscriptionCancelled", &sub_id).await, 1);
+    // 别再被下一个 tick 捞出来
+    let next: Option<chrono::DateTime<chrono::Utc>> = sqlx::query_scalar(
+        "SELECT next_billing_attempt_at FROM subscription WHERE id=$1",
+    )
+    .bind(&sub_id)
+    .fetch_one(&pool)
+    .await
+    .expect("next attempt");
+    assert!(next.is_none(), "停掉之后不该再排下一次续费");
+}
+
+#[tokio::test]
+async fn renew_without_an_active_price_stops_retrying_instead_of_looping() {
+    let pool = db_or_skip!();
+    let sub_id = subscription_fixture_without_price(&pool).await;
+
+    let outcome = subscription::renew_due(&pool, &sub_id).await.expect("renew_due");
+    assert_eq!(outcome, subscription::RenewOutcome::Unpriced);
+
+    // 旧实现直接 return,`next_billing_attempt_at` 原封不动 ——
+    // 这条订阅会被每 5 分钟重新选出来一次,永远。
+    let next: Option<chrono::DateTime<chrono::Utc>> = sqlx::query_scalar(
+        "SELECT next_billing_attempt_at FROM subscription WHERE id=$1",
+    )
+    .bind(&sub_id)
+    .fetch_one(&pool)
+    .await
+    .expect("next attempt");
+    assert!(next.is_none(), "收不了钱就该停止重试,而不是每个 tick 重来");
+}
+
+#[tokio::test]
+async fn renew_skips_subscriptions_that_are_no_longer_active() {
+    let pool = db_or_skip!();
+    let sub_id = subscription_fixture(&pool).await;
+    subscription::cancel(&pool, &sub_id, true, None, &Actor::admin("a")).await.expect("cancel now");
+
+    let outcome = subscription::renew_due(&pool, &sub_id).await.expect("renew_due");
+    assert_eq!(outcome, subscription::RenewOutcome::NotDue);
+}
+
 // ═══════════════════════════ 物流 ═══════════════════════════
 
 #[tokio::test]
@@ -320,8 +419,18 @@ fn new_price(currency: &str, price_minor: i64) -> catalog::NewPrice {
 }
 
 async fn subscription_fixture(pool: &sqlx::PgPool) -> String {
-    let user = common::user(pool).await;
     let sku = common::sku_with_price(pool, "CNY", 4800).await;
+    subscription_on_sku(pool, sku).await
+}
+
+/// 套餐挂在一个没有激活价的 SKU 上 —— 测「收不了钱」那条分支。
+async fn subscription_fixture_without_price(pool: &sqlx::PgPool) -> String {
+    let sku = common::sku_without_price(pool).await;
+    subscription_on_sku(pool, sku).await
+}
+
+async fn subscription_on_sku(pool: &sqlx::PgPool, sku: String) -> String {
+    let user = common::user(pool).await;
     let plan_id = common::uniq("plan");
     let sub_id = common::uniq("sub");
     // plan 挂在 SKU 上,价格来自 price_book —— 没有自己的 price_minor/currency 列

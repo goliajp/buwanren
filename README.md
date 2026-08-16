@@ -166,6 +166,40 @@ P1 只审了 `routes/`,漏了 `workers/`。两份的差别全是 bug:
 走 webhook 进来的支付永远不会触发履约。现在 sweeper 改调同一条用例,
 `OrderPaid` 收进 `apply_succeeded`,两条路径合一。
 
+### ✅ 已修的资金漏洞 · 「到期不续」的订阅照样被扣钱
+
+`subscription_billing` worker 的选行条件是:
+
+```sql
+WHERE status IN ('active','past_due','trialing')
+  AND next_billing_attempt_at <= NOW()
+```
+
+**没有 `cancel_at_period_end`**。用户点了「到期不续」只是把这个标打上,
+worker 从不看它 —— 到期照样建订单、建支付、延周期。实测当前开发库里
+有 **8 条已声明不续的订阅仍符合这个条件**,旧代码会把它们全部扣款。
+
+同一个 worker 另外两处:
+
+- **五步写入没有事务**(建发票 / 建订单 / 建支付 / 改发票 / 改订阅),
+  中间挂掉会留下「钱收了但周期没延长」这种状态
+- **收不了钱时不清 `next_billing_attempt_at`** —— 没有激活价的订阅会被
+  每 5 分钟重新捞出来一次,永远
+
+续费整段搬进 `unmei_app::subscription::renew_due`:一个事务、先认取消标记、
+收不了钱就停止重试、补发 `SubscriptionRenewed` 事件(旧实现一条事件都不发,
+续费对 dispatcher 和财务是隐形的)。worker 只剩「选出到期的」。
+
+### ✅ 已修 · 退款财务分录不平且会重复入账
+
+`handle_refund_completed` 的分录头与分录行是两次独立写入,后者失败就留下
+一条没有明细的 `journal_entry` —— 一本不平的账。而且 outbox 事件会重试,
+只要在写分录行时挂过一次,重试就会为同一笔退款再记一整套分录。
+现已包进事务,并按 `business_ref_id` 判重。
+
+同一文件里 `OrderFulfilled` 事件的写入结果原本被 `let _ =` 吞掉:
+事件写失败订单照样标 done,下游永远收不到。现在让它冒出来交给重试机制。
+
 ### ⚠ 未修的资金漏洞 · 同一订单可被重复扣款
 
 **实测复现**(2026-08-16,本机 live 环境):
@@ -199,6 +233,13 @@ P1 只审了 `routes/`,漏了 `workers/`。两份的差别全是 bug:
 - `unmei-api/src/mingli.rs` 的 `QimenLite` / `QimenXun` / `health()` 是死代码
 - **`subscription` 表没有 `audit_note` 列**(其它 8 张商业表都有),所以订阅取消只能靠领域事件留痕,库里没有备注。要补需要一次 migration
 - 后台的只读列表查询仍是路由里的直接 sqlx(约 90 处),不是双写,但也不在用例层
+- **订阅 dunning 阶梯没实现** —— `subscription_billing` 的文件头注释写着
+  「T+0 / T+1d / T+3d / T+7d 重试,attempt_count > 3 → past_due → grace → expired」,
+  代码里一条都没有。mock 收款永远成功,所以这条路从没走过。真接入渠道前必须补
+- **对账只比流水号,不比金额** —— `recon` 用 `channel_txn_id` 匹配到 payment 就标
+  `matched`,金额对不上也照标。而对账的意义正在于抓金额差异
+- `subscription` 表没有 `audit_note` 列(其它 8 张商业表都有),订阅相关操作
+  只能靠领域事件留痕
 
 ## 致谢
 

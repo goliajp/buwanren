@@ -173,10 +173,12 @@ async fn handle_order_paid(st: &AppState, order_id: &str, _payment_id: &str) -> 
     if all_done && pending == 0 {
         sqlx::query("UPDATE order_record SET status='done', fulfilled_at=NOW() WHERE id=$1 AND status='paid'")
             .bind(order_id).execute(&st.db).await?;
-        // 写 OrderFulfilled outbox(让下游也处理)
-        let _ = unmei_app::outbox::write(&st.db, &DomainEvent::OrderFulfilled {
+        // 写 OrderFulfilled outbox(让下游也处理)。
+        // 这里原本是 `let _ = …` —— 事件写失败会被静默吞掉,订单标成 done
+        // 而下游永远收不到通知。让它冒出来,由 dispatcher 的重试机制接手。
+        unmei_app::outbox::write(&st.db, &DomainEvent::OrderFulfilled {
             order_id: order_id.into(), occurred_at: chrono::Utc::now(),
-        }).await;
+        }).await.map_err(|e| anyhow::anyhow!("write OrderFulfilled: {e}"))?;
         tracing::info!("fulfillment · {order_id} all lines done → order.done");
     } else {
         sqlx::query("UPDATE order_record SET status='fulfilling' WHERE id=$1 AND status='paid'")
@@ -187,10 +189,29 @@ async fn handle_order_paid(st: &AppState, order_id: &str, _payment_id: &str) -> 
 }
 
 /// RefundCompleted → 财务挂账(收入冲销 + 银行存款流出)
+///
+/// 两条以前没有、但账务上必须有的性质:
+///
+/// **一个事务**。分录头和分录行原本是两次独立写入,后者失败就留下一条
+/// 没有明细的 `journal_entry` —— 一本不平的账,而且没人会发现。
+///
+/// **幂等**。outbox 事件会重试(`MAX_ATTEMPTS` 次)。原来只要在写分录行时挂掉,
+/// 重试就会为同一笔退款再记一整套分录,账上凭空多出一笔冲销。
+/// 现在先按 `business_ref_id` 查有没有记过。
 async fn handle_refund_completed(st: &AppState, refund_id: &str) -> anyhow::Result<()> {
+    let mut tx = st.db.begin().await?;
+
+    let posted: Option<String> = sqlx::query_scalar(
+        "SELECT id FROM journal_entry WHERE business_kind='refund' AND business_ref_id=$1 LIMIT 1",
+    ).bind(refund_id).fetch_optional(&mut *tx).await?;
+    if let Some(existing) = posted {
+        tracing::debug!("finance · 退款 {refund_id} 已挂账于 {existing},跳过");
+        return Ok(());
+    }
+
     let row = sqlx::query(
         "SELECT order_id, payment_id, amount_minor, currency FROM refund WHERE id=$1",
-    ).bind(refund_id).fetch_optional(&st.db).await?;
+    ).bind(refund_id).fetch_optional(&mut *tx).await?;
     let Some(r) = row else { return Ok(()); };
     let order_id: String = r.try_get("order_id")?;
     let amount: i64 = r.try_get("amount_minor")?;
@@ -198,7 +219,7 @@ async fn handle_refund_completed(st: &AppState, refund_id: &str) -> anyhow::Resu
 
     let period_id: String = sqlx::query_scalar(
         "SELECT id FROM accounting_period WHERE kind='month' AND state='open' ORDER BY year DESC, sub DESC LIMIT 1",
-    ).fetch_one(&st.db).await?;
+    ).fetch_one(&mut *tx).await?;
 
     let entry_id = format!("je-{}", Uuid::new_v4());
     sqlx::query(
@@ -206,7 +227,7 @@ async fn handle_refund_completed(st: &AppState, refund_id: &str) -> anyhow::Resu
            VALUES ($1, $2, $3, 'system', 'refund', $4, 'posted')"#,
     ).bind(&entry_id).bind(&period_id)
      .bind(format!("退款 {refund_id} 冲销订单 {order_id}"))
-     .bind(refund_id).execute(&st.db).await?;
+     .bind(refund_id).execute(&mut *tx).await?;
 
     sqlx::query(
         r#"INSERT INTO journal_line(id, entry_id, line_no, account_code, debit_minor, credit_minor, currency, ref_kind, ref_id, note) VALUES
@@ -214,8 +235,9 @@ async fn handle_refund_completed(st: &AppState, refund_id: &str) -> anyhow::Resu
              ($6, $2, 2, '1001', 0, $3, $4, 'refund', $5, '银行存款流出')"#,
     ).bind(format!("jl-{}", Uuid::new_v4())).bind(&entry_id)
      .bind(amount).bind(&currency).bind(refund_id)
-     .bind(format!("jl-{}", Uuid::new_v4())).execute(&st.db).await?;
+     .bind(format!("jl-{}", Uuid::new_v4())).execute(&mut *tx).await?;
 
+    tx.commit().await?;
     tracing::info!("finance · 退款分录 {entry_id} posted: 冲销 ¥{} / 退银行存款", amount as f64 / 100.0);
     Ok(())
 }
