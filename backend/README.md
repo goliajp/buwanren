@@ -39,14 +39,30 @@ cargo run -p unmei-admin-api          # :6029
 
 ```bash
 SQLX_OFFLINE=true cargo check --workspace --all-targets
-SQLX_OFFLINE=true cargo test --workspace          # 25 个单测,不需要数据库
 
-# 需要 pg + 两个服务在跑:
-bash ../scripts/e2e.sh                # happy path:下单 → 支付 → sweep → 履约
-bash ../scripts/verify-semantics.sh   # 边界:该拒的拒了吗、该 404 的 404 了吗
+# 只起个 pg 就能跑全部 70 个测试(45 个用例层集成测试要真库)
+bash ../scripts/setup-dev.sh
+TEST_DATABASE_URL=postgres://unmei:unmei_dev_pwd@localhost:6032/unmei \
+  cargo test --workspace
+
+# 真跑不了数据库时,必须显式声明 —— 没有静默跳过
+UNMEI_SKIP_DB_TESTS=1 cargo test --workspace
 ```
 
-两个集成脚本分工不同,别只跑一个:`e2e.sh` 证明**能走通**,`verify-semantics.sh` 证明**走不通的地方真的走不通**(混币种下单、越权取消、已付订单直接取消、幽灵 ID 的写操作)。
+> 为什么不给静默跳过:一开始就是那么写的,结果 `cargo test` 报 15 passed 而
+> 一个都没跑(测试框架把 skip 输出吞了)。假绿比没有测试更糟。现在不配库
+> 直接 panic 并给出两条路;CI 另有一道断言,通过数低于 60 就判定集成测试没跑起来。
+
+### 三层验证,别只跑一层
+
+| 跑什么 | 证明什么 | 要什么 |
+|---|---|---|
+| `cargo test --workspace` | 用例层的语义:状态机拦没拦住、outbox 有没有跟业务写入同批提交、影响行数为 0 时报不报 404 | 一个 pg |
+| `scripts/e2e.sh` | 全链路**能走通**:下单 → 支付 → sweep → 履约 → 后台看得见 | pg + 两个服务 |
+| `scripts/verify-semantics.sh` | 走 HTTP 边界时**走不通的地方真的走不通**(状态码、错误 code) | pg + 两个服务 |
+
+集成测试直接调用例层函数,比走 HTTP 快两个数量级,断言也更精确(能直接看库里的列);
+两个脚本验的是 HTTP 边界那一层的翻译对不对。互相不能替代。
 
 全仓统一用**运行期** `sqlx::query()` / `query_as()` / `query_scalar()`，**不用 `query!` 宏**，所以编译不连库、也不需要 `.sqlx` 缓存。CI 用 `SQLX_OFFLINE=true` 把这条约定钉死:谁重新引入 `query!` 宏，构建当场失败。
 

@@ -142,6 +142,23 @@ buwanren/
 
 现在的切口已经留好了:`unmei-app` 里每个碰库的地方都写着 `.await.db()?`,那一行就是将来的 repository 边界。
 
+### ✅ 已修的资金漏洞 · 渠道重推回调会重复入账
+
+`payment::apply_succeeded` 里,更新订单金额的那条 SQL **没有任何前置条件**,
+每收到一次回调就往 `amount_paid_minor` 上加一次。而渠道重推是常态不是异常 ——
+微信支付在 24 小时内最多重推 15 次,直到拿到成功响应。一笔 199 元的订单
+能被记成实付 2985 元。
+
+同时 `payment_event` 的插入漏了 `ON CONFLICT`,重推会撞
+`uq_payment_event_channel_eid`(这个唯一索引**本来就是为幂等建的**)直接报错,
+于是渠道收到 500、继续重推,循环到重试耗尽。
+
+两处都已修:插入加 `ON CONFLICT … DO NOTHING`;订单金额改成只在 payment
+**真的**从 `pending/processing` 翻到 `success` 那一次才动(用 `RETURNING` 判定)。
+由 `apply_succeeded_moves_order_to_paid_and_is_idempotent` 钉住。
+
+这个 bug 是写用例层集成测试时被测出来的,不是读代码读出来的。
+
 ### ⚠ 未修的资金漏洞 · 同一订单可被重复扣款
 
 **实测复现**(2026-08-16,本机 live 环境):
