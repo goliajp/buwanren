@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useApiMutation } from '../lib/feedback';
 import { commerce } from '../lib/api';
 import PageHeader from '../components/PageHeader';
 import FilterBar from '../components/FilterBar';
@@ -32,11 +33,11 @@ export default function Refunds() {
     ];
   }, [list.data]);
 
-  const approve = useMutation({
+  const approve = useApiMutation({
     mutationFn: (id: string) => commerce.approveRefund(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['refunds'] }),
   });
-  const deny = useMutation({
+  const deny = useApiMutation({
     mutationFn: (v: { id: string; reason: string }) => commerce.denyRefund(v.id, v.reason),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['refunds'] }),
   });

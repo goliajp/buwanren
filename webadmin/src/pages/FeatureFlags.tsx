@@ -1,4 +1,5 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useApiMutation } from '../lib/feedback';
 import { api } from '../lib/api';
 import PageHeader from '../components/PageHeader';
 import { ts } from '../components/util';
@@ -22,7 +23,7 @@ export default function FeatureFlags() {
     queryFn: () => api.get<{ items: FlagRow[] }>('/feature_flags'),
   });
 
-  const update = useMutation({
+  const update = useApiMutation({
     mutationFn: ({ code, body }: { code: string; body: any }) => api.patch(`/feature_flags/${code}`, body),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['feature_flags'] }),
   });

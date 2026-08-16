@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useApiMutation } from '../lib/feedback';
 import { commerce } from '../lib/api';
 import PageHeader from '../components/PageHeader';
 import FilterBar from '../components/FilterBar';
@@ -27,7 +28,7 @@ export default function Products() {
     queryFn: () => commerce.getProduct(detailId!),
     enabled: !!detailId,
   });
-  const toggle = useMutation({
+  const toggle = useApiMutation({
     mutationFn: (v: { id: string; status: string }) => commerce.toggleProductListing(v.id, v.status),
     onSuccess: () => { qc.invalidateQueries({queryKey:['products']}); qc.invalidateQueries({queryKey:['product']}); },
   });

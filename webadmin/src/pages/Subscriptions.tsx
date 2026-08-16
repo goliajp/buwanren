@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useApiMutation } from '../lib/feedback';
 import { commerce } from '../lib/api';
 import PageHeader from '../components/PageHeader';
 import FilterBar from '../components/FilterBar';
@@ -21,7 +22,7 @@ export default function Subscriptions() {
     placeholderData: (p) => p,
   });
 
-  const cancel = useMutation({
+  const cancel = useApiMutation({
     mutationFn: (v: { id: string; immediate: boolean; reason: string }) =>
       commerce.cancelSubscription(v.id, v.immediate, v.reason),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['subscriptions'] }),

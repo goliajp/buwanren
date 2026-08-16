@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useApiMutation } from '../lib/feedback';
 import { commerce } from '../lib/api';
 import PageHeader from '../components/PageHeader';
 import { rel, ts, yuan, shortId, statusChip } from '../components/util';
@@ -34,11 +35,11 @@ export default function Pricing() {
     enabled: !!skuId,
   });
 
-  const publish = useMutation({
+  const publish = useApiMutation({
     mutationFn: (b: any) => commerce.publishPrice(skuId!, b),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['prices', skuId] }),
   });
-  const expire = useMutation({
+  const expire = useApiMutation({
     mutationFn: (id: string) => commerce.expirePrice(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['prices', skuId] }),
   });

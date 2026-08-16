@@ -56,9 +56,26 @@ async function request(path: string, opts: RequestInit = {}): Promise<any> {
       localStorage.removeItem('unmei_admin_auth');
       window.location.href = '/login';
     }
-    throw new Error(err.error || `HTTP ${res.status}`);
+    throw new ApiError(res.status, err.code, err.error || `HTTP ${res.status}`);
   }
   return res.json();
+}
+
+/**
+ * 后端错误响应体是 `{ error, code }`。
+ *
+ * `code` 原本被整个丢掉,只留下给人读的 `error` 文本 —— 于是调用方想按错误
+ * 类型分支处理时,只能去 match 字符串。现在把它带出来。
+ */
+export class ApiError extends Error {
+  constructor(
+    readonly status: number,
+    readonly code: string | undefined,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
 }
 
 export const api = {

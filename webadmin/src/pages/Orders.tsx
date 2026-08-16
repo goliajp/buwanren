@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useApiMutation } from '../lib/feedback';
 import { commerce } from '../lib/api';
 import PageHeader from '../components/PageHeader';
 import FilterBar from '../components/FilterBar';
@@ -130,8 +131,15 @@ export default function Orders() {
 }
 
 function OrderActions({ order, onChanged }: { order: any; onChanged: () => void }) {
-  const cancellable = ['draft','unpaid','paid','fulfilling'].includes(order.status);
-  const cancelMut = useMutation({
+  // 与后端状态机对齐:Paid → [Fulfilling, Done, RefundPartial, Refunded, Disputed],
+  // 没有 Cancelled。已付订单要走退款,直接取消会留下「钱收了、订单没了、
+  // 没有退款记录」的窟窿,后端现在会返回 409。
+  //
+  // 这里原本抄了一份旧的 ['draft','unpaid','paid','fulfilling'],
+  // 结果是按钮照给、点下去后端拒绝 —— 前端手抄后端枚举的老问题。
+  const cancellable = ['draft', 'unpaid'].includes(order.status);
+  const needsRefundInstead = ['paid', 'fulfilling', 'done'].includes(order.status);
+  const cancelMut = useApiMutation({
     mutationFn: (reason: string) => commerce.cancelOrder(order.id, reason),
     onSuccess: onChanged,
   });
@@ -141,6 +149,10 @@ function OrderActions({ order, onChanged }: { order: any; onChanged: () => void 
         onClick={() => {
           const r = prompt('取消理由?'); if (r) cancelMut.mutate(r);
         }}><X size={13}/> 取消订单</button>
+      {/* 按钮置灰要说明为什么,否则运营只会以为是坏了 */}
+      {needsRefundInstead && (
+        <span className="text-[11px] text-ink-5 ml-2">已付订单请走退款</span>
+      )}
     </>
   );
 }

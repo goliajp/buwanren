@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useApiMutation } from '../lib/feedback';
 import { commerce } from '../lib/api';
 import PageHeader from '../components/PageHeader';
 import FilterBar from '../components/FilterBar';
@@ -28,7 +29,7 @@ export default function Outbox() {
     queryFn: () => commerce.getOutbox(detailId!),
     enabled: !!detailId,
   });
-  const retry = useMutation({
+  const retry = useApiMutation({
     mutationFn: (id: string) => commerce.retryOutbox(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['outbox'] }),
   });

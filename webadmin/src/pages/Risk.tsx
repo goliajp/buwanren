@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useApiMutation } from '../lib/feedback';
 import { commerce } from '../lib/api';
 import PageHeader from '../components/PageHeader';
 import Pagination from '../components/Pagination';
@@ -19,7 +20,7 @@ export default function Risk() {
     queryKey: ['risk-cases', page], queryFn: () => commerce.listRiskCases({ page, size: 50 }), enabled: tab === 'cases',
   });
 
-  const setState = useMutation({
+  const setState = useApiMutation({
     mutationFn: (v: { id: string; status: string }) => commerce.updateRiskRuleState(v.id, v.status),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['risk-rules'] }),
   });

@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useApiMutation } from '../lib/feedback';
 import { commerce } from '../lib/api';
 import PageHeader from '../components/PageHeader';
 import FilterBar from '../components/FilterBar';
@@ -105,11 +106,11 @@ export default function Shipments() {
 }
 
 function ShipActions({ s, onChanged }: { s: any; onChanged: () => void }) {
-  const assign = useMutation({
+  const assign = useApiMutation({
     mutationFn: (b: any) => commerce.assignTracking(s.id, b),
     onSuccess: onChanged,
   });
-  const exc = useMutation({
+  const exc = useApiMutation({
     mutationFn: (reason: string) => commerce.markShipmentException(s.id, reason),
     onSuccess: onChanged,
   });

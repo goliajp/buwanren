@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useApiMutation } from '../lib/feedback';
 import { commerce } from '../lib/api';
 import PageHeader from '../components/PageHeader';
 import FilterBar from '../components/FilterBar';
@@ -109,7 +110,7 @@ export default function Payments() {
 
 function PayActions({ p, onChanged }: { p: any; onChanged: () => void }) {
   const can = ['pending','processing','cancelling'].includes(p.status);
-  const mut = useMutation({
+  const mut = useApiMutation({
     mutationFn: (b: { code: string; msg: string }) => commerce.markPaymentFailed(p.id, b.code, b.msg),
     onSuccess: onChanged,
   });

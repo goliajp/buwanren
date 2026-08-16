@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useApiMutation } from '../lib/feedback';
 import { commerce } from '../lib/api';
 import PageHeader from '../components/PageHeader';
 import FilterBar from '../components/FilterBar';
@@ -36,7 +37,7 @@ export default function Promotions() {
     enabled: !!detailId,
   });
 
-  const setState = useMutation({
+  const setState = useApiMutation({
     mutationFn: (v: { id: string; status: string }) => commerce.updatePromotionState(v.id, v.status),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['promotions'] }),
   });

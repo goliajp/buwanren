@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { authAtom, setAuthAtom, activeRegionAtom, setActiveRegionAtom } from '../store/auth';
 import { commerce } from '../lib/api';
+import Notices from './Notices';
 
 interface Item { to: string; label: string; cn: string; icon: any; }
 const groups: { title: string; items: Item[] }[] = [
@@ -92,6 +93,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <TopBar />
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
+      <Notices />
     </div>
   );
 }
