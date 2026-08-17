@@ -14,6 +14,7 @@ const [FILE, X, Y, W, H, WAIT, CID, OUT] = [process.argv[2], +process.argv[3], +
     return c.toDataURL()
   }, [X, Y, W, H, CID])
   const fs = require('fs')
+const path = require('path')
   fs.writeFileSync('/tmp/rules/'+OUT+'.png', Buffer.from(dataUrl.split(',')[1], 'base64'))
   console.log('✓ /tmp/rules/'+OUT+'.png')
   await b.close()

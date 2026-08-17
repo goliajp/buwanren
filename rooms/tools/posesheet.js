@@ -1,6 +1,7 @@
 // 卧姿一览:仰卧 / 侧卧(左右)三向并排
 const { chromium } = require('playwright')
 const fs = require('fs')
+const path = require('path')
 ;(async () => {
   const b = await chromium.launch({ channel: 'chrome' })
   const p = await b.newPage()
@@ -18,7 +19,7 @@ const fs = require('fs')
     })
     return cv.toDataURL()
   })
-  fs.writeFileSync('/tmp/rules/POSESHEET.png', Buffer.from(d.split(',')[1], 'base64'))
+  fs.mkdirSync('/tmp/rules', { recursive: true }), fs.writeFileSync('/tmp/rules/POSESHEET.png', Buffer.from(d.split(',')[1], 'base64'))
   console.log('✓ /tmp/rules/POSESHEET.png')
   await b.close()
 })()

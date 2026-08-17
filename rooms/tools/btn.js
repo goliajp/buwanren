@@ -1,6 +1,7 @@
 const { chromium } = require('playwright')
 const ROOMARG = process.argv[3] || ''
 const fs = require('fs')
+const path = require('path')
 ;(async () => {
   const b = await chromium.launch({ channel: 'chrome' })
   const p = await b.newPage({ viewport: { width: 1200, height: 1000 } })
@@ -16,22 +17,25 @@ const fs = require('fs')
     window.__R = window[key]; window.__RK = key
     window.__RBASE = key.replace(/_ROOM$/, '').toLowerCase()
   }, (ROOMARG || '').toUpperCase().replace(/(_ROOM)?$/, '_ROOM'))
+  // 同 nobubble:选了房还按阿云的按钮,报出来的是两间房拌在一起的状态
+  const base = await p.evaluate(() => window.__RBASE)
+  console.log('房间:' + base)
   const before = await p.evaluate(() => !!(window.__R && window.__R.performing))
-  await p.click('#ayunCastBtn')
+  await p.click(`#${base}CastBtn`)
   await p.waitForTimeout(1200)
   const after = await p.evaluate(() => ({
     performing: !!window.__R.performing,
-    label: document.getElementById('ayunCastBtn').textContent
+    label: document.getElementById(window.__RBASE + 'CastBtn').textContent
   }))
   console.log('点击前 performing=' + before)
   console.log('点击后 performing=' + after.performing + ' · 按钮文字「' + after.label + '」')
   const d = await p.evaluate(() => {
-    const src = document.getElementById('ayunCanvas')
+    const src = document.getElementById(window.__RBASE + 'Canvas')
     const c = document.createElement('canvas'); c.width = 560; c.height = 620
     c.getContext('2d').drawImage(src, 460, 700, 560, 620, 0, 0, 560, 620)
     return c.toDataURL()
   })
-  fs.writeFileSync('/tmp/rules/BTN.png', Buffer.from(d.split(',')[1], 'base64'))
+  fs.mkdirSync('/tmp/rules', { recursive: true }), fs.writeFileSync('/tmp/rules/BTN.png', Buffer.from(d.split(',')[1], 'base64'))
   console.log('✓ /tmp/rules/BTN.png')
   await b.close()
 })()

@@ -25,14 +25,21 @@ const fs = require('fs')
 const file = process.argv[2]
 if (!file) { console.error('用法: node hardcodelint.js <design.html> [canvas名...]'); process.exit(2) }
 const src = fs.readFileSync(file, 'utf8')
+// 清单自己长出来 —— 从前写死四间,沈砚白鹭的硬编码从来没被这道 lint 看过。
+// 约定同 tools/rooms.js:window.<NAME>_ROOM → <name>Canvas
 const rooms = process.argv.slice(3).length ? process.argv.slice(3)
-  : ['ayunCanvas', 'taoCanvas', 'popoCanvas', 'tenzCanvas']
+  : [...src.matchAll(/window\.([A-Z][A-Z0-9]*)_ROOM\s*=\s*\{/g)]
+      .map(m => m[1].toLowerCase() + 'Canvas')
+      .filter((v, i, a) => a.indexOf(v) === i)
+if (!rooms.length) { console.error('✗ 一间房都没发现 —— 格式变了还是路径给错了?查不到东西的 lint 必须失败'); process.exit(2) }
 
 let total = 0
 
 for (const room of rooms) {
   const i = src.indexOf(`getElementById('${room}')`)
-  if (i < 0) { console.log(`\n— ${room}：未找到，跳过`); continue }
+  // 「跳过」不能是免费的:清单是从 window.<NAME>_ROOM 长出来的,找不到对应画布
+  // 说明约定断了,那间房的硬编码谁都没在查 —— 记一笔,别静静滑过去。
+  if (i < 0) { console.log(`\n— ${room}：未找到画布,那间房这道 lint 没查`); total++; continue }
   const raw = src.slice(i, src.indexOf('</script>', i))
   // 注释里的示例代码不是代码。把注释挖空成等长空白 —— 保长度所以行号不变,
   // 否则「不要写 st.x + 40」这句说明本身会被记成一处违规。

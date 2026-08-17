@@ -1,6 +1,7 @@
 const { chromium } = require('playwright')
 const ROOMARG = process.argv[3] || ''
 const fs = require('fs')
+const path = require('path')
 ;(async () => {
   const b = await chromium.launch({ channel: 'chrome' })
   const p = await b.newPage()
@@ -28,7 +29,7 @@ const fs = require('fs')
     c2.getContext('2d').drawImage(cv, 460, 700, 560, 620, 0, 0, 560, 620)
     return c2.toDataURL()
   })
-  fs.writeFileSync('/tmp/rules/PERFORM.png', Buffer.from(d.split(',')[1], 'base64'))
+  fs.mkdirSync('/tmp/rules', { recursive: true }), fs.writeFileSync('/tmp/rules/PERFORM.png', Buffer.from(d.split(',')[1], 'base64'))
   console.log('✓ /tmp/rules/PERFORM.png')
   await b.close()
 })()

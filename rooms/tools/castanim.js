@@ -1,6 +1,7 @@
 const { chromium } = require('playwright')
 const ROOMARG = process.argv[3] || ''
 const fs = require('fs')
+const path = require('path')
 ;(async () => {
   const b = await chromium.launch({ channel: 'chrome' })
   const p = await b.newPage()
@@ -37,7 +38,7 @@ const fs = require('fs')
   })
   // 四拍拼成一张
   const { createCanvas, loadImage } = { createCanvas: null, loadImage: null }
-  frames.forEach((f, i) => fs.writeFileSync('/tmp/rules/CAST' + i + '.png', Buffer.from(f.split(',')[1], 'base64')))
+  frames.forEach((f, i) => fs.mkdirSync('/tmp/rules', { recursive: true }), fs.writeFileSync('/tmp/rules/CAST' + i + '.png', Buffer.from(f.split(',')[1], 'base64')))
   console.log('✓ 四拍已导出 CAST0..3 (月将加时 / 四课 / 三传 / 定局)')
   await b.close()
 })()

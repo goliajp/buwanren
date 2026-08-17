@@ -15,7 +15,7 @@ const ROOMARG = process.argv[3] || ''
     window.__R = window[key]; window.__RK = key
     window.__RBASE = key.replace(/_ROOM$/, '').toLowerCase()
   }, (ROOMARG || '').toUpperCase().replace(/(_ROOM)?$/, '_ROOM'))
-  await p.click('#ayunCastBtn')
+  await p.click(`#${await p.evaluate(() => window.__RBASE)}CastBtn`)
   for (const ms of [200, 2000, 5000, 8000]) {
     await p.waitForTimeout(ms === 200 ? 200 : ms === 2000 ? 1800 : ms === 5000 ? 3000 : 3000)
     const r = await p.evaluate(() => ({
@@ -25,11 +25,11 @@ const ROOMARG = process.argv[3] || ''
     }))
     console.log('  +' + String(ms).padStart(4) + 'ms  pending=' + r.pending + '  performing=' + r.performing + '  ' + r.dbg)
   }
-  await p.click('#ayunCastBtn')   // 收课
+  await p.click(`#${await p.evaluate(() => window.__RBASE)}CastBtn`)   // 收课
   await p.waitForTimeout(600)
   const off = await p.evaluate(() => ({
     pending: !!window.__R.performPending, performing: !!window.__R.performing,
-    label: document.getElementById('ayunCastBtn').textContent }))
+    label: document.getElementById(window.__RBASE + 'CastBtn').textContent }))
   console.log('  收课后  pending=' + off.pending + '  performing=' + off.performing + '  「' + off.label + '」')
   await b.close()
 })()

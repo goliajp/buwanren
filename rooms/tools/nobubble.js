@@ -15,15 +15,19 @@ const ROOMARG = process.argv[3] || ''
     window.__R = window[key]; window.__RK = key
     window.__RBASE = key.replace(/_ROOM$/, '').toLowerCase()
   }, (ROOMARG || '').toUpperCase().replace(/(_ROOM)?$/, '_ROOM'))
-  await p.click('#ayunCastBtn')
+  // 选了房却按阿云的按钮、读阿云的画布,等于把两间房的状态混着报 ——
+  // 比「只支持阿云」更糟,因为输出看起来是针对所选房间的。
+  const base = await p.evaluate(() => window.__RBASE)
+  console.log('房间:' + base)
+  await p.click(`#${base}CastBtn`)
   console.log('点击后逐拍采样(走路途中不应有气泡):')
   for (let i = 0; i < 9; i++) {
     await p.waitForTimeout(600)
-    const r = await p.evaluate(() => {
-      const c = document.getElementById('ayunCanvas'), R = window.__R
+    const r = await p.evaluate((id) => {
+      const c = document.getElementById(id), R = window.__R
       const said = (c && c.__interaction && c.__interaction.said) ? c.__interaction.said.text : null
       return { performing: !!R.performing, said: said, dbg: R._dbg }
-    })
+    }, base + 'Canvas')
     const flag = (!r.performing && r.said) ? '   ★走路途中却有气泡' : ''
     console.log('  +' + String((i + 1) * 600).padStart(4) + 'ms  performing=' + (r.performing ? 'T' : 'F') +
                 '  气泡=' + (r.said ? '「' + r.said + '」' : '无') + flag)
