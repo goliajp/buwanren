@@ -12,6 +12,7 @@ chrono.workspace = true
 uuid.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true          # 幂等键的请求指纹
 tracing.workspace = true
 async-trait = "0.1"
 

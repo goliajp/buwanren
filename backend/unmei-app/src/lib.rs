@@ -28,6 +28,7 @@
 pub mod actor;
 pub mod catalog;
 pub mod fulfillment;
+pub mod idempotency;
 pub mod order;
 pub mod outbox;
 pub mod outbox_ops;

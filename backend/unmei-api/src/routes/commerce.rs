@@ -6,12 +6,13 @@
 
 use axum::{
     extract::{Path, Query, State},
+    response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
 };
 use chrono::{DateTime, Utc};
 use http::HeaderMap;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as J};
 use sqlx::{Column as _, Row, TypeInfo};
 use unmei_app::{
@@ -20,6 +21,8 @@ use unmei_app::{
 };
 use unmei_domain::commerce::adapters::{CreatePaymentParam, WebhookEvent, WebhookHeaders};
 use unmei_domain::AppError;
+
+use crate::idem;
 
 use crate::auth::{ApiError, AuthedUser};
 use crate::state::AppState;
@@ -143,7 +146,7 @@ async fn get_product(
 }
 
 // ─── Order · create ──────────────────────────────────────────────
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 struct CreateOrderBody {
     lines: Vec<CreateLine>,
     #[serde(default = "default_region")] region: String,
@@ -154,13 +157,28 @@ struct CreateOrderBody {
     note: Option<String>,
 }
 fn default_channel_origin() -> String { "web".into() }
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 struct CreateLine { sku_id: String, qty: i32 }
 
 async fn create_order(
     State(st): State<AppState>, AuthedUser(claims): AuthedUser,
     headers: HeaderMap,
     Json(body): Json<CreateOrderBody>,
+) -> Result<Response, ApiError> {
+    // 幂等键(D6):同键同参返回首次结果。连按两次「下单」不会建出两张单。
+    let fp_body = serde_json::to_value(&body).unwrap_or(json!({}));
+    let guard = match idem::begin(&st, &headers, Some(&claims.sub), "/v1/orders", &fp_body).await? {
+        idem::Begin::Replay(resp) => return Ok(resp),
+        idem::Begin::Proceed(g) => g,
+    };
+
+    let out = create_order_inner(&st, claims, &headers, body).await;
+    guard.settle(&st, &out).await;
+    out.map(IntoResponse::into_response)
+}
+
+async fn create_order_inner(
+    st: &AppState, claims: crate::auth::Claims, headers: &HeaderMap, body: CreateOrderBody,
 ) -> Result<Json<J>, ApiError> {
     let created = app_order::create(&st.db, app_order::NewOrder {
         user_id: claims.sub,
@@ -174,7 +192,7 @@ async fn create_order(
         coupon_codes: body.coupon_codes.unwrap_or_default(),
         note: body.note,
         // 旧实现这两列一直写 NULL,风控拿不到来源。JWT 里没有,只能从请求头取。
-        ip: client_ip(&headers),
+        ip: client_ip(headers),
         ua: headers.get(http::header::USER_AGENT)
             .and_then(|v| v.to_str().ok())
             .map(str::to_string),
@@ -269,7 +287,7 @@ async fn cancel_my_order(
 }
 
 // ─── Order · pay ─────────────────────────────────────────────────
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 struct PayBody {
     channel: String,            // wechat_jsapi/h5/native/mp
     openid: Option<String>,     // JSAPI/MP 必填
@@ -278,15 +296,35 @@ struct PayBody {
 
 async fn pay_my_order(
     State(st): State<AppState>, AuthedUser(c): AuthedUser, Path(id): Path<String>,
+    headers: HeaderMap,
     Json(b): Json<PayBody>,
+) -> Result<Response, ApiError> {
+    // 幂等键(D6)。这一处是那个实测漏洞的现场:连按两次「支付」,
+    // 产生两笔各自成功的支付,应付 19900 实付 39800。
+    // 路径带上订单 id —— 同一个键用在两张单上没有意义,该被当成参数不同拒掉。
+    let fp_body = serde_json::to_value(&b).unwrap_or(json!({}));
+    let path = format!("/v1/orders/{id}/pay");
+    let guard = match idem::begin(&st, &headers, Some(&c.sub), &path, &fp_body).await? {
+        idem::Begin::Replay(resp) => return Ok(resp),
+        idem::Begin::Proceed(g) => g,
+    };
+    let out = pay_my_order_inner(&st, &c.sub, &id, b).await;
+    guard.settle(&st, &out).await;
+    out.map(IntoResponse::into_response)
+}
+
+async fn pay_my_order_inner(
+    st: &AppState, user: &str, id: &str, b: PayBody,
 ) -> Result<Json<J>, ApiError> {
+    let (c_sub, id) = (user, id.to_string());
+    let id = &id;
     // adapter 的挑选是 binary 自己的事(registry 在 AppState 里),
     // 所以先让用例层占位落库,再拿着 PendingPayment 去调渠道。
     let adapter = st.payment_adapters.pick(&b.channel)
         .ok_or_else(|| ApiError::bad(format!("unsupported channel {}", b.channel)))?;
 
     let pending = app_payment::start(
-        &st.db, &id, &c.sub, &b.channel, b.openid.as_deref(),
+        &st.db, id, c_sub, &b.channel, b.openid.as_deref(),
     ).await?;
 
     let notify_url = std::env::var("UNMEI_PUBLIC_BASE")

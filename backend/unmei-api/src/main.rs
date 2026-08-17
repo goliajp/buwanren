@@ -3,6 +3,7 @@
 
 mod state;
 mod auth;
+mod idem;
 mod mingli;
 mod routes;
 mod ai_compose;
