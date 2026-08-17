@@ -20532,7 +20532,9 @@ KFKWWWWWWKFK
   def("bailu_whisk", {
     clickable: true, say: '拂尘',
     name: "拂尘", cat: "法器", tags: ["马尾", "道门"], scope: "character", fromRoom: 'bailu',
-    w: 68, h: 204, base: 204, foot: [48, 176, 20, 28], zLayer: 'sort',   // 宽 24 时右缘 72 > w=68,越界
+    // foot 原为 [48,176,24,28]:右缘 72 越出 w=68,而且整块在拂尘右边的空处 ——
+    // 实测着地段是 x28–35、实体底边 y189,原 foot 覆盖率 0%,角色直接从拂尘身上穿过去。
+    w: 68, h: 204, base: 204, foot: [24, 170, 16, 20], zLayer: 'sort',
     draw(g) {
       g.save(); g.scale(0.5, 0.5)
       g.fillStyle = 'rgba(46,44,38,0.16)'; g.fillRect(8, 190, 52, 7)
