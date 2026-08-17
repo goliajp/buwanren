@@ -33,6 +33,7 @@ pub mod outbox;
 pub mod outbox_ops;
 pub mod payment;
 pub mod promotion;
+pub mod recon;
 pub mod refund;
 pub mod risk;
 pub mod shipment;

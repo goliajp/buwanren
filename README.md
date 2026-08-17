@@ -247,6 +247,21 @@ worker 从不看它 —— 到期照样建订单、建支付、延周期。实�
   客户端幂等键用(防双击重复下单);要么实现要么删表,一并等拍板
 - `subscription` 表没有 `audit_note` 列(其它 8 张商业表都有),订阅相关操作
   只能靠领域事件留痕
+- **★ 回调匹配键对不上真渠道** —— 2026-08-17 做对账(台账 D9)时发现。
+  `payment.channel_txn_id` 全仓只有一个写入点:`apply_succeeded` 的
+  `COALESCE(channel_txn_id, $2)`,而它的 WHERE 是 `channel_txn_id=$2 OR id=$2`。
+  微信真回调里 `$2` 取的是 **`transaction_id`**(渠道自己的号,见
+  `unmei-wx/src/adapter.rs` 的 `verify_webhook`):这个号既不等于我们的 payment id,
+  那一列此刻又是 NULL —— **两个条件都不成立,UPDATE 影响 0 行,这笔支付永远不会入账**。
+  今天看不出来,是因为 mock 的 `query_payment` 把 `txn_id` 填成 payment_id 本身,
+  `payment_sweep` 于是能 by-id 命中,测试也全绿。
+  连带后果:那一列存的是我们自己的 id,不是渠道流水号,所以拿真渠道账单来对账
+  会把每一笔都判成 `missing_in_internal`。
+  根因是 `WebhookEvent::PaymentSucceeded` 只有一个 `txn_id` 字段,
+  把「我方单号 out_trade_no」和「渠道流水号 transaction_id」混成了一个 ——
+  领域事件 `DomainEvent::PaymentSucceeded` 倒是两个字段都有。
+  修法:适配器事件拆成两个字段,`apply_succeeded` 按我方单号定位、把渠道号写进
+  `channel_txn_id`。**要在「渠道真凭据」那一步之前修,否则一开真凭据就是零入账。**
 
 ## 致谢
 

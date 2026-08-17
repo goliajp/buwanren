@@ -1,15 +1,14 @@
 //! recon_scheduler · 每日 02:30(Asia/Shanghai)对每个有 settlement_pull 能力的渠道,
 //! 拉前一天账单 + 对账 + insert recon_batch / recon_record。
 //!
-//! 实现路径:
-//! 1. 计算上次拉取的日期(以 Shanghai 时区切日)
-//! 2. for each channel: adapter.pull_settlement(yesterday)
-//! 3. INSERT batch + records (match by channel_txn_id)
-//! 4. 异常项标 has_discrepancy
+//! 这里只管【什么时候拉、跟谁拉】。拉回来之后怎么比、怎么落库,
+//! 在 `unmei_app::recon` —— 那是业务写操作,只能有一份实现,
+//! 而且放在那里才测得到(worker 里的 SQL 没有任何测试够得着)。
 
 use chrono::{Duration as ChronoDuration, Timelike, Utc};
 use std::time::Duration;
-use uuid::Uuid;
+
+use unmei_app::recon;
 
 use crate::state::AppState;
 
@@ -45,42 +44,23 @@ async fn run_recon(st: &AppState) -> anyhow::Result<()> {
     ];
 
     for (channel, adapter) in channels {
-        // 检查今天有没有跑过
-        let exists: Option<String> = sqlx::query_scalar(
-            "SELECT id FROM recon_batch WHERE channel=$1 AND batch_date=$2 AND source='channel_pulled' LIMIT 1",
-        ).bind(channel).bind(yesterday).fetch_optional(&st.db).await?;
-        if exists.is_some() { continue; }
-
         match adapter.pull_settlement(yesterday, "CNY").await {
             Ok(rows) => {
-                let bid = format!("rb-{}", Uuid::new_v4());
-                let total_count = rows.len() as i32;
-                let total_amount: i64 = rows.iter().map(|r| r.amount_minor).sum();
-
-                sqlx::query(
-                    r#"INSERT INTO recon_batch(id, channel, batch_date, source, total_count, total_amount_minor, currency, status, pulled_at)
-                       VALUES ($1, $2, $3, 'channel_pulled', $4, $5, 'CNY', 'pulled', NOW())"#,
-                ).bind(&bid).bind(channel).bind(yesterday).bind(total_count).bind(total_amount)
-                 .execute(&st.db).await?;
-
-                let mut mismatches = 0;
-                for r in rows {
-                    let matched: Option<String> = sqlx::query_scalar(
-                        "SELECT id FROM payment WHERE channel_txn_id=$1 LIMIT 1",
-                    ).bind(&r.channel_txn_id).fetch_optional(&st.db).await?;
-                    let state = if matched.is_some() { "matched" } else { mismatches += 1; "missing_in_internal" };
-                    sqlx::query(
-                        r#"INSERT INTO recon_record(id, batch_id, channel_txn_id, channel_amount_minor, channel_status, matched_payment_id, match_state)
-                           VALUES ($1, $2, $3, $4, $5, $6, $7)"#,
-                    ).bind(format!("rr-{}", Uuid::new_v4())).bind(&bid)
-                     .bind(&r.channel_txn_id).bind(r.amount_minor).bind(&r.status)
-                     .bind(matched).bind(state).execute(&st.db).await?;
-                }
-
-                let final_status = if mismatches > 0 { "has_discrepancy" } else { "matched" };
-                sqlx::query("UPDATE recon_batch SET status=$1, matched_at=NOW() WHERE id=$2")
-                    .bind(final_status).bind(&bid).execute(&st.db).await?;
-                tracing::info!("recon · {channel} {yesterday}: {total_count} txns, {mismatches} mismatch -> {final_status}");
+                let rows: Vec<recon::SettlementRow> = rows
+                    .into_iter()
+                    .map(|r| recon::SettlementRow {
+                        channel_txn_id: r.channel_txn_id,
+                        amount_minor: r.amount_minor,
+                        status: r.status,
+                    })
+                    .collect();
+                let out = recon::ingest_settlement(&st.db, channel, yesterday, "CNY", &rows).await?;
+                if out.skipped { continue; }
+                tracing::info!(
+                    "recon · {channel} {yesterday}: {} 笔 · 对上 {} · 金额不符 {} · 内部缺单 {} -> {}",
+                    out.total_count, out.matched, out.amount_mismatch,
+                    out.missing_in_internal, out.status
+                );
             }
             Err(e) => tracing::warn!("pull_settlement {channel} {yesterday}: {e}"),
         }
