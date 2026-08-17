@@ -167,7 +167,7 @@
     <div><div class="n">35</div><div class="l">门术数</div></div>
     <div><div class="n">33</div><div class="l">条关系</div></div>
     <div><div class="n hot">0</div><div class="l">村子进产品</div></div>
-    <div><div class="n ok">5<span style="font-size:15px;color:var(--ink-4)">/48</span></div><div class="l">工序已完成</div></div>
+    <div><div class="n ok">6<span style="font-size:15px;color:var(--ink-4)">/48</span></div><div class="l">工序已完成</div></div>
   </div>
 </header>
 
@@ -303,10 +303,16 @@
       <div class="gate"><b>门禁</b><span>CI 在 GitHub 上真跑过一次并全绿 —— 已达成（run 31986020286）</span></div>
     </div></div>
 
-    <div class="step"><div class="num">06</div><div class="body">
+    <div class="step done"><div class="num">✓</div><div class="body">
       <h4>后端待决账一次结清</h4>
       <p>台账 D6 / D8 / D9 / D10 / D11 六条一起做，一条一个 commit：幂等键与金额 CHECK、dunning 阶梯、对账比金额、删 proto、删 admin 的空 Store。风控接线（D7）留到阶段 B——它要跟建单一起测。</p>
-      <div class="gate"><b>门禁</b><span>每条都有对着真库跑的集成测试；<code>e2e.sh</code> 与 <code>verify-semantics.sh</code> 仍全绿</span></div>
+      <div class="done-note"><b>做完了</b>　五条一条一个 commit。测试 80 → 108（新增 28 条全部对着真 Postgres 跑），<code>verify-semantics</code> 23/23、<code>e2e</code> 全链路 LIVE 通过。<br>
+      <b>D6 重复扣款</b>　端到端验过而不只是单元层：带同一个幂等键连按两次 <code>/pay</code> 只产生一笔支付且第二次返回首次结果；同键换参数 400；<b>不带键仍然两笔</b>——这就是这个修法的形状，它保护的是带键的客户端。占键与判重必须是同一条语句：先 SELECT 再 INSERT 会让两个并发请求双双看到「没有」然后双双执行，那正是漏洞本身，测试用 8 个并发请求钉住只有一个拿到执行权。<code>order_record</code> 的金额上限用 <code>NOT VALID</code> 加——库里已有两行超收各 19900（复现漏洞时留下的），约束该止住新的伤害，不该销毁旧伤害的证据。<br>
+      <b>D8 dunning</b>　没有阶梯时一次失败不是丢一笔钱，是永久失联：事务回滚、<code>next_billing_attempt_at</code> 原地不动、worker 每 5 分钟重来一次直到有人手改库。阶梯写成一张表而不是一串 if——间隔是产品参数，改它不该动控制流。它今天就有真调用方（worker 的错误分支），这点要紧：<code>risk::evaluate</code> 就是实现完整、测试齐全、零调用方，本可以再来一个。<br>
+      <b>D9 对账</b>　差一分即 <code>amount_mismatch</code>，不做自动容差。匹配逻辑从 worker 挪进用例层——worker 里的 SQL 没有任何测试够得着。<br>
+      <b>D10 / D11</b>　删 <code>proto/</code>（20 个文件，物页面自 commerce v2 起就在拿 404）与 admin 那个没人读的 kevy Store（连带 volume、环境变量、文档六处）。<br>
+      <b>★ 顺带翻出一条更重的</b>　做 D9 写 fixture 时不得不回答「渠道流水号从哪来」，才发现 <code>payment.channel_txn_id</code> 全仓只有一个写入点，而微信真回调传的 <code>transaction_id</code> 既不等于我们的 payment id、那一列此刻又是 NULL——<b>UPDATE 影响 0 行，真回调永远不会入账</b>。今天看不出来是因为 mock 把 txn_id 填成 payment_id。已记进 README，<b>必须在「渠道真凭据」那一步之前修</b>。没有顺手改：那是重新定义回调契约，不在台账里。</div>
+      <div class="gate"><b>门禁</b><span>每条都有对着真库跑的集成测试；<code>e2e.sh</code> 与 <code>verify-semantics.sh</code> 仍全绿 —— 已达成</span></div>
     </div></div>
   </div>
 </section>
