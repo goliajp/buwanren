@@ -22,6 +22,5 @@ reqwest.workspace = true
 jsonwebtoken.workspace = true
 argon2.workspace = true
 rand.workspace = true
-kevy-embedded.workspace = true
 unmei-domain.workspace = true
 unmei-app.workspace = true

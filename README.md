@@ -228,12 +228,10 @@ worker 从不看它 —— 到期照样建订单、建支付、延周期。实�
 
 ### 已知欠账
 
-- `AppState.cache`(kevy-embedded)在两个 API crate 里都是未读字段。`unmei-api`
-  那份至少 Store 本身给了 `WxSdk` 用;**`unmei-admin-api` 那份彻底没用** ——
-  开一个 Store、写一个 AOF 文件、docker 挂一个 volume、`.env.example` 记一个
-  `UNMEI_ADMIN_CACHE_DIR`,全为了没人读的东西。删它要连带改
-  `state.rs` / `main.rs` / `docker-compose.yml` / `.env.example` / README,
-  所以留着等一句话拍板
+- `AppState.cache`(kevy-embedded)在 `unmei-api` 里仍是未读字段,但那份 Store
+  本身给了 `WxSdk` 用,所以留着。`unmei-admin-api` 那份彻底没用,已于 2026-08-17
+  删除(台账 D11):一个 Store、一个 AOF 文件、一个 docker volume、一个环境变量,
+  全为了没人读的字段
 - **`subscription` 表没有 `audit_note` 列**(其它 8 张商业表都有),所以订阅取消只能靠领域事件留痕,库里没有备注。要补需要一次 migration
 - 后台的只读列表查询仍是路由里的直接 sqlx(约 90 处),不是双写,但也不在用例层
 - **订阅 dunning 阶梯没实现** —— `subscription_billing` 的文件头注释写着

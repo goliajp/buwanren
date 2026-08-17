@@ -26,18 +26,10 @@ async fn main() -> anyhow::Result<()> {
         .connect(&db_url).await?;
     sqlx::migrate!("../migrations").run(&pool).await?;
 
-    // kevy-embedded · in-process KV(admin 进程独立一份,不跨进程共享)
-    let cache_dir = std::env::var("UNMEI_ADMIN_CACHE_DIR")
-        .unwrap_or_else(|_| "./data/admin-cache".to_string());
-    std::fs::create_dir_all(&cache_dir).ok();
-    let cfg = kevy_embedded::Config::default().with_persist(&cache_dir);
-    let cache = kevy_embedded::Store::open(cfg)
-        .map_err(|e| anyhow::anyhow!("kevy-embedded open: {e}"))?;
-
     let mingli_base = std::env::var("MINGLI_API_BASE")
         .unwrap_or_else(|_| "http://localhost:6027".to_string());
 
-    let state = AppState::new(pool, cache, mingli_base);
+    let state = AppState::new(pool, mingli_base);
 
     let app = Router::new()
         .merge(routes::auth::router())

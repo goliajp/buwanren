@@ -77,15 +77,12 @@ services:
     command: ["/app/unmei-admin-api"]
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-unmei}:${POSTGRES_PASSWORD:-unmei_dev_pwd}@postgres:5432/${POSTGRES_DB:-unmei}
-      UNMEI_ADMIN_CACHE_DIR: /var/lib/unmei/admin-cache
       MINGLI_API_BASE: ${MINGLI_API_BASE:-http://host.docker.internal:6027}
       UNMEI_ADMIN_JWT_SECRET: ${UNMEI_ADMIN_JWT_SECRET:-dev_admin_jwt_secret_change_me_in_prod_32chars}
       UNMEI_ADMIN_API_BIND: 0.0.0.0:6029
       RUST_LOG: ${RUST_LOG:-info,unmei_admin_api=debug,sqlx=warn}
     ports:
       - "${UNMEI_ADMIN_API_PORT:-6029}:6029"
-    volumes:
-      - admin_cache:/var/lib/unmei/admin-cache
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:
@@ -118,7 +115,6 @@ services:
 volumes:
   pg_data:
   api_cache:
-  admin_cache:
 
 networks:
   unmei_net:
