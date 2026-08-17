@@ -491,3 +491,47 @@ mod tests {
         assert!(e.eval(&env));
     }
 }
+
+// ═══════════════════════ 接线开关(台账 D7)═══════════════════════
+
+/// 风控现在拦不拦单。
+///
+/// 默认 **false** —— 规则照跑、事件照落、**一单不拦**。这是上线策略的一部分,
+/// 不是「以后再说」:后台风控台先看到真实命中率,运营再逐条把规则改成拦截判定,
+/// 那时把 `UNMEI_RISK_ENFORCE=1` 打开。
+///
+/// 为什么要这个开关,而不是直接接上就完事:今天库里 4 条激活规则的判定是
+/// `review` / `challenge`,**没有一条是 log_only**。照原样接线,上线当天就开始
+/// 拦真单 —— 而规则从来没在真流量上跑过,没人知道它们的命中率是 0.1% 还是 30%。
+///
+/// 也不能为了「先不拦」就干脆不调 `evaluate` —— 那样规则永远等不到数据,
+/// 风控台永远是空的,这条路会一直停在「实现完整、零调用方」。
+pub fn enforcing() -> bool {
+    matches!(std::env::var("UNMEI_RISK_ENFORCE").as_deref(), Ok("1") | Ok("true"))
+}
+
+/// 这些判定意味着「这一单别往下走了」。`review` / `challenge` 要人介入,
+/// 所以也算拦 —— 拦下来交给人,不是放过去。
+const BLOCKING: &[&str] = &["block", "reject", "review", "challenge"];
+
+/// 跑一遍风控并按开关决定拦不拦。命中一律落 `risk_event`(在 `evaluate` 里),
+/// 观察模式下额外打一行日志,写明「如果开了会怎样」。
+pub async fn gate(pool: &PgPool, ctx: &RiskEvalContext) -> Result<(), DomainError> {
+    let d = evaluate(pool, ctx).await?;
+    if d.matched_rule_ids.is_empty() {
+        return Ok(());
+    }
+    let blocking = BLOCKING.contains(&d.action.as_str());
+    if blocking && enforcing() {
+        return Err(DomainError::RiskBlocked {
+            rule_id: d.matched_rule_ids.join(","),
+            action: d.action,
+        });
+    }
+    tracing::info!(
+        kind = %ctx.kind, action = %d.action, rules = ?d.matched_rule_ids,
+        enforcing = enforcing(),
+        "风控命中{}", if blocking { "(观察模式,本可拦下)" } else { "" }
+    );
+    Ok(())
+}

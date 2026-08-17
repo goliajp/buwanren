@@ -60,11 +60,14 @@ pub async fn apply_order_paid(pool: &PgPool, order_id: &str) -> Result<Fulfillme
         return Ok(FulfillmentOutcome::NotApplicable);
     }
 
+    // user_id 与 villager_id 一起取回来:御守行要靠它们写入住。
+    // 分两次查的话,中间那段时间足够订单被改掉。
     let lines = sqlx::query(
-        r#"SELECT ol.id, p.fulfillment_kind
+        r#"SELECT ol.id, p.fulfillment_kind, s.villager_id, o.user_id
            FROM order_line ol
-           JOIN sku s     ON s.id = ol.sku_id
-           JOIN product p ON p.id = s.product_id
+           JOIN sku s          ON s.id = ol.sku_id
+           JOIN product p      ON p.id = s.product_id
+           JOIN order_record o ON o.id = ol.order_id
            WHERE ol.order_id=$1 AND ol.fulfillment_status='pending'"#,
     )
     .bind(order_id)
@@ -108,6 +111,28 @@ pub async fn apply_order_paid(pool: &PgPool, order_id: &str) -> Result<Fulfillme
                     .bind(&line_id)
                     .execute(&mut *tx)
                     .await.db()?;
+            }
+            // 御守:付了钱,这位不完人就住进你的村子。走同一条履约管线,不另开一条。
+            "residency" => {
+                let villager_id: Option<String> = l.get("villager_id");
+                let user_id: String = l.get("user_id");
+                let Some(villager_id) = villager_id else {
+                    // SKU 没标是谁的御守 —— 这是配置错误,不能默默把行标成 done。
+                    // 留在 pending,后台看得见,人能去把 sku.villager_id 补上。
+                    tracing::error!(order_id, line_id, "御守 SKU 没有 villager_id,行留在 pending");
+                    continue;
+                };
+                let out = crate::residency::move_in_from_line(&mut tx, &user_id, &villager_id, &line_id).await?;
+                sqlx::query(
+                    "UPDATE order_line SET fulfillment_status='done',
+                       fulfillment_ref=jsonb_build_object('kind','residency','villager_id',$1,'new',$2)
+                     WHERE id=$3",
+                )
+                .bind(&villager_id)
+                .bind(out.is_new())
+                .bind(&line_id)
+                .execute(&mut *tx)
+                .await.db()?;
             }
             "manual" => {
                 sqlx::query("UPDATE order_line SET fulfillment_status='processing' WHERE id=$1")

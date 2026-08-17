@@ -64,6 +64,18 @@ pub async fn create(pool: &PgPool, req: NewOrder) -> Result<CreatedOrder, Domain
         return Err(DomainError::Validation(format!("qty {} ≤ 0", bad.qty)));
     }
 
+    // 风控(台账 D7)。默认观察模式:规则照跑、事件照落、一单不拦 ——
+    // 开关在 `risk::enforcing()`,由运营看过真实命中率之后再翻。
+    crate::risk::gate(pool, &crate::risk::RiskEvalContext {
+        kind: "pre_order".into(),
+        user_id: Some(req.user_id.clone()),
+        order_id: None,
+        payment_id: None,
+        amount_minor: None,
+        user_age_days: None,
+        extras: serde_json::json!({ "lines": req.lines.len(), "region": req.region }),
+    }).await?;
+
     let mut tx = pool.begin().await.db()?;
     let order_id = new_id("ord");
     let now = Utc::now();

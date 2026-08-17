@@ -39,6 +39,17 @@ pub async fn start(
     channel: &str,
     channel_user_ref: Option<&str>,
 ) -> Result<PendingPayment, DomainError> {
+    // 风控(台账 D7)。这一处是钱真要动的地方,所以两个接线点里它更要紧。
+    crate::risk::gate(pool, &crate::risk::RiskEvalContext {
+        kind: "pre_pay".into(),
+        user_id: Some(user_id.to_string()),
+        order_id: Some(order_id.to_string()),
+        payment_id: None,
+        amount_minor: None,
+        user_age_days: None,
+        extras: serde_json::json!({ "channel": channel }),
+    }).await?;
+
     let order = sqlx::query(
         "SELECT user_id, status, amount_total_minor, amount_paid_minor, currency
          FROM order_record WHERE id=$1",
