@@ -167,7 +167,7 @@
     <div><div class="n">35</div><div class="l">门术数</div></div>
     <div><div class="n">33</div><div class="l">条关系</div></div>
     <div><div class="n hot">0</div><div class="l">村子进产品</div></div>
-    <div><div class="n ok">3<span style="font-size:15px;color:var(--ink-4)">/48</span></div><div class="l">工序已完成</div></div>
+    <div><div class="n ok">4<span style="font-size:15px;color:var(--ink-4)">/48</span></div><div class="l">工序已完成</div></div>
   </div>
 </header>
 
@@ -279,11 +279,17 @@
       <div class="gate"><b>门禁</b><span>全库无「foot 比实际宽 &gt;130%」的素材，且无「落地却没被 foot 圈住」的坨 —— 已达成</span></div>
     </div></div>
 
-    <div class="step"><div class="num">04</div><div class="body">
+    <div class="step done"><div class="num">✓</div><div class="body">
       <h4>拆包：design.html 变成构建产物</h4>
       <p>这是阶段 A 的主工程，也是唯一高风险的一步。切成 <code>engine/</code>（39 个函数）、<code>assets/</code>（按房分模块的 prefab 库）、<code>rooms/&lt;id&gt;.js</code>（plan + acts + perform）、<code>bible/</code>（B0–B12 转成文档）。构建脚本把它们拼回一个 design.html。</p>
       <p><b>为什么风险可控</b>：判据是纯机械的——拆完重新构建，<code>regress</code> 的哈希必须与拆前<b>逐个相同</b>。渲染是像素级确定的，改动了什么它一定看得见。</p>
-      <div class="gate warn"><b>硬门禁</b><span>拆前拆后 <code>regress</code> 哈希逐个一致；任一不同即回滚重来，不许「看着差不多」</span></div>
+      <div class="done-note"><b>做完了</b>　没有重写成模块，而是<b>按字节切片再原样拼回</b>——这样判据可以比工序单定的那条更硬：拼回来的文件与拆前<b>逐字节相同</b>（两边 sha256 都是 <code>81990f63</code>）。哈希一致只证明渲染没变，逐字节相同证明什么都没变。<br>
+      树的形状就是工序单要的四分：<code>bible/</code>（页面样式、B0–B12 正文、角色表）· <code>engine/</code>（村图、角色、气泡、校验、布局辅助、渲染管线、两张表的渲染）· <code>assets/</code>（401 件素材按房分文件）· <code>rooms/</code>（六间房的 canvas 脚本）。共 34 个源文件 + <code>manifest.json</code>。<br>
+      401 个 <code>def</code> 恰好落在 <b>8 段连续区间、零交错</b>，所以按房分文件不用挪动任何顺序。沈砚与丹增各留两个文件（素材是分两批加的，合并就得重排字节）。<br>
+      两处边界细节决定文件读不读得通：分节要切在<b>横幅注释的第一行</b>，切在下一行的话每个文件都会以半个注释收尾、下一个从注释中间开始；共享绘制原语与 <code>def()</code> 声明夹在丹增第二批与阿云之间（靠函数提升才能被前面的代码用到），单独成 <code>_prim.js</code>，否则它们会莫名其妙地出现在 <code>assets/ayun.js</code> 顶上。<br>
+      往返双向都验过：改源码树 → build，产物跟着变；撤回改动 → build，回到原字节。<code>build.js --check</code> 比对产物与源码树，变异测试新增一条「有人直接改了构建产物」，16/16 全抓到。产物开头加了醒目横幅说明它是生成的。<br>
+      <b>要你知道的代价</b>：这些 <code>.js</code> 是同一个大 IIFE 的片段，<b>单个文件不是合法 JS</b>（括号在别的文件里闭合），要查语法得先 build 再查产物。换掉这个代价就要改成真模块，那意味着放弃「逐字节相同」这条判据——我选了后者优先，因为拆 5MB 单文件时「什么都没变」比「看着没变」值钱得多。你要另一种，说一声。</div>
+      <div class="gate"><b>硬门禁</b><span>拆前拆后 <code>regress</code> 哈希逐个一致 —— 已达成，且更强：产物逐字节相同</span></div>
     </div></div>
 
     <div class="step"><div class="num">05</div><div class="body">
