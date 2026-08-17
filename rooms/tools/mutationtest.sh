@@ -23,6 +23,7 @@ gate() { # gate <名字> <文件>
     pathlint)     python3 rooms/tools/pathlint.py "$2" >/dev/null 2>&1 ;;
     regress)      bun rooms/tools/regress.js      "$2" check >/dev/null 2>&1 ;;
     blobscan)     bun rooms/tools/blobscan.js     "$2" --gate-only >/dev/null 2>&1 ;;
+    buildsync)    bun rooms/tools/build.js --check --out="$2" >/dev/null 2>&1 ;;
   esac
 }
 
@@ -82,12 +83,16 @@ mutate "foot 挪到实体旁边的空处" blobscan "$(setfoot bailu_whisk '48, 1
 
 mutate "foot 比实体宽一倍" blobscan "$(setfoot bailu_whisk '0, 170, 68, 20')"
 
+# design.html 现在是构建产物。直接改它的人必须被拦住 —— 否则下一次 build 悄悄盖掉他的改动
+mutate "有人直接改了构建产物" buildsync \
+  "s = s + '\\n<!-- 手改产物 -->\\n'"
+
 mutate "任一像素变了" regress \
   "s=s.replace(\"['bailu_broom', 220, 2040]\",\"['bailu_broom', 340, 2040]\",1); assert '340, 2040' in s"
 
 echo
 echo "── 对照:未变异的源码,同一批门禁必须全绿 ──"
-for g in assetlint roomaudit hardcodelint pathlint regress blobscan; do
+for g in assetlint roomaudit hardcodelint pathlint regress blobscan buildsync; do
   if gate "$g" "$SRC"; then printf '  ✓ %-14s 绿\n' "$g"; pass=$((pass+1))
   else printf '  ✗ %-14s 在【干净】源码上就报红 —— 变异测试的结论不可信\n' "$g"; fail=$((fail+1)); fi
 done

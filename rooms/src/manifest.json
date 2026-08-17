@@ -1,0 +1,201 @@
+{
+  "source": "design.html",
+  "parts": [
+    {
+      "kind": "html",
+      "files": [
+        "bible/glue-01.html"
+      ]
+    },
+    {
+      "kind": "style",
+      "open": "<style>",
+      "close": "</style>",
+      "files": [
+        "bible/page.css"
+      ]
+    },
+    {
+      "kind": "html",
+      "files": [
+        "bible/glue-02.html"
+      ]
+    },
+    {
+      "kind": "style",
+      "open": "<style>",
+      "close": "</style>",
+      "files": [
+        "bible/charsheet.css"
+      ]
+    },
+    {
+      "kind": "html",
+      "files": [
+        "bible/glue-03.html"
+      ]
+    },
+    {
+      "kind": "script",
+      "open": "<script>",
+      "close": "</script>",
+      "files": [
+        "bible/charsheet.js"
+      ]
+    },
+    {
+      "kind": "html",
+      "files": [
+        "bible/glue-04.html"
+      ]
+    },
+    {
+      "kind": "script",
+      "open": "<script>",
+      "close": "</script>",
+      "files": [
+        "engine/village.js"
+      ]
+    },
+    {
+      "kind": "html",
+      "text": "\n\n"
+    },
+    {
+      "kind": "script",
+      "open": "<script>",
+      "close": "</script>",
+      "files": [
+        "rooms/ayun.js"
+      ]
+    },
+    {
+      "kind": "html",
+      "text": "\n\n"
+    },
+    {
+      "kind": "script",
+      "open": "<script>",
+      "close": "</script>",
+      "files": [
+        "rooms/tao.js"
+      ]
+    },
+    {
+      "kind": "html",
+      "text": "\n\n"
+    },
+    {
+      "kind": "script",
+      "open": "<script>",
+      "close": "</script>",
+      "files": [
+        "rooms/popo.js"
+      ]
+    },
+    {
+      "kind": "html",
+      "text": "\n\n"
+    },
+    {
+      "kind": "script",
+      "open": "<script>",
+      "close": "</script>",
+      "files": [
+        "rooms/tenz.js"
+      ]
+    },
+    {
+      "kind": "html",
+      "text": "\n\n"
+    },
+    {
+      "kind": "script",
+      "open": "<script>",
+      "close": "</script>",
+      "files": [
+        "rooms/bailu.js"
+      ]
+    },
+    {
+      "kind": "html",
+      "text": "\n\n"
+    },
+    {
+      "kind": "script",
+      "open": "<script>",
+      "close": "</script>",
+      "files": [
+        "rooms/shenyan.js"
+      ]
+    },
+    {
+      "kind": "html",
+      "text": "\n\n\n\n\n\n\n\n\n\n\n"
+    },
+    {
+      "kind": "script",
+      "open": "<script>",
+      "close": "</script>",
+      "files": [
+        "assets/_head.js",
+        "assets/tao.js",
+        "assets/popo.js",
+        "assets/tenz.js",
+        "assets/shenyan.js",
+        "assets/bailu.js",
+        "assets/shenyan-2.js",
+        "assets/tenz-2.js",
+        "assets/_prim.js",
+        "assets/ayun.js",
+        "engine/actors.js",
+        "engine/actor-fx.js",
+        "engine/asset-lint.js",
+        "engine/layout.js",
+        "assets/glyphs.js",
+        "assets/surfaces.js",
+        "engine/render.js"
+      ]
+    },
+    {
+      "kind": "html",
+      "text": "\n\n"
+    },
+    {
+      "kind": "script",
+      "open": "<script>",
+      "close": "</script>",
+      "files": [
+        "engine/asset-table.js"
+      ]
+    },
+    {
+      "kind": "html",
+      "text": "\n\n"
+    },
+    {
+      "kind": "script",
+      "open": "<script>",
+      "close": "</script>",
+      "files": [
+        "rooms/ayun-plan.js"
+      ]
+    },
+    {
+      "kind": "html",
+      "text": "\n\n"
+    },
+    {
+      "kind": "script",
+      "open": "<script>",
+      "close": "</script>",
+      "files": [
+        "engine/pose-sheet.js"
+      ]
+    },
+    {
+      "kind": "html",
+      "text": "\n</body>\n</html>\n"
+    }
+  ]
+}

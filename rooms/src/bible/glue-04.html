@@ -1,0 +1,1368 @@
+
+
+  <!-- ═══════════════ B7 · 对白系统 ═══════════════ -->
+  <section class="corpus" id="corpus">
+    <header class="cp-top">
+      <span class="cp-no">B7</span>
+      <h2 class="cp-h">对白系统</h2>
+      <p class="cp-lead">Rule-Based Response System + Dialogue Exchange。单句 bark 按条件匹配、<b>条件最多者优先</b>、冷却内不重复；两个 NPC 走近时按概率触发<b>多轮对话</b>，双方站定轮流说完再散开。</p>
+      <span class="cp-count">363 句</span>
+    </header>
+
+    <div class="cp-sys">
+      <div class="sys-b"><span class="sys-k">Facts</span><code>{ s:说话人, t:清晨|正午|黄昏|夜里, x:晴|雨, p:广场|市集|河边|家|路, n:[附近角色] }</code></div>
+      <div class="sys-b"><span class="sys-k">Bark</span><code>match(AND) → max(spec) → filter(cd) → weightedRandom()</code></div>
+      <div class="sys-b"><span class="sys-k">Meet</span><code>dist &lt; 74px &amp;&amp; both idle → roll(35%) → match convo → 双方 mode=talk</code></div>
+      <div class="sys-b"><span class="sys-k">Spec</span><code>3 条件 22 · 2 条件 40 · 1 条件 170 · 兜底 18</code></div>
+    </div>
+
+    <div class="cp-sec"><span>BARKS</span><em>250 条单句规则 · 走路 / 驻足 / 出门时触发</em></div>
+    <div class="cp-scroll">
+      <table class="cp-tbl">
+        <thead><tr>
+          <th class="h-spec">SPEC</th><th class="h-cri">时间</th><th class="h-cri">天气</th>
+          <th class="h-cri">地点</th><th class="h-cri">附近</th><th class="h-line">台词</th>
+          <th class="h-num">CD</th><th class="h-num">权重</th>
+        </tr></thead>
+        <tbody>
+          <tr class="sp-hd"><td colspan="8"><span class="sp-n">阿云</span><span class="sp-r">小道士</span><span class="sp-s">大六壬</span><span class="sp-p">宅 · 嗜睡 · 打 PS5</span><span class="sp-k">ayun</span><span class="sp-c">47 条</span></td></tr>
+          <tr class="rr sp-3"><td class="c-spec s3"><span>3</span></td><td class="c-cri"><b>正午</b></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><b>市集</b></td><td class="c-cri"><i>*</i></td><td class="c-line">下雨天的市集，摊子都收了，那我买啥</td><td class="c-num">150s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-3"><td class="c-spec s3"><span>3</span></td><td class="c-cri"><b>正午</b></td><td class="c-cri"><b>晴</b></td><td class="c-cri"><b>广场</b></td><td class="c-cri"><i>*</i></td><td class="c-line">正午的广场太晒了，贫道要化了</td><td class="c-num">150s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-3"><td class="c-spec s3"><span>3</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><b>晴</b></td><td class="c-cri"><b>河边</b></td><td class="c-cri"><i>*</i></td><td class="c-line">清晨的河边起雾，像开了柔光滤镜</td><td class="c-num">150s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-3"><td class="c-spec s3"><span>3</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><b>家</b></td><td class="c-cri"><i>*</i></td><td class="c-line">雨夜，关灯，打游戏，人生圆满了</td><td class="c-num">180s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-3"><td class="c-spec s3"><span>3</span></td><td class="c-cri"><b>黄昏</b></td><td class="c-cri"><b>晴</b></td><td class="c-cri"><b>广场</b></td><td class="c-cri"><i>*</i></td><td class="c-line">黄昏这个色温，和我存档界面一模一样</td><td class="c-num">150s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><b>家</b></td><td class="c-cri"><i>*</i></td><td class="c-line">下雨了，回屋回屋</td><td class="c-num">90s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><b>市集</b></td><td class="c-cri"><i>*</i></td><td class="c-line">伞？贫道算到了，但没带</td><td class="c-num">90s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>家</b></td><td class="c-cri"><i>*</i></td><td class="c-line">关灯打，更沉浸</td><td class="c-num">90s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><b>黄昏</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>河边</b></td><td class="c-cri"><i>*</i></td><td class="c-line">夕阳照水，像极了我的血条</td><td class="c-num">90s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>广场</b></td><td class="c-cri"><i>*</i></td><td class="c-line">夜里的广场安静，适合思考人生和下一把</td><td class="c-num">90s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>市集</b></td><td class="c-cri"><i>*</i></td><td class="c-line">早上的市集人真多，挤不动</td><td class="c-num">90s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>广场</b></td><td class="c-cri"><i>*</i></td><td class="c-line">清晨的广场，只有我和喷泉醒着</td><td class="c-num">90s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">雨夜……被窝和主机，二选一，我全都要</td><td class="c-num">120s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><b>河边</b></td><td class="c-cri"><i>*</i></td><td class="c-line">雨天的河，鱼应该更好钓吧</td><td class="c-num">90s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">一日之计在于……再睡五分钟</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">下雨了，网速会变慢吗</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>正午</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">今天云不错</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">再玩十分钟就睡，真的</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>正午</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">午后起一课，看看运气</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>正午</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">午睡是修行的一部分</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>广场</b></td><td class="c-cri"><i>*</i></td><td class="c-line">喷泉水声挺催眠</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>家</b></td><td class="c-cri"><i>*</i></td><td class="c-line">回屋回屋，主机等我</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>黄昏</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">夕阳这个色号绝了</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">夜观天象，顺便看看攻略</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">天光正好，晒晒课本</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>黄昏</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">天要黑了，签到别忘了</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>家</b></td><td class="c-cri"><i>*</i></td><td class="c-line">家里有零食，广场没有</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">就打一把……就一把</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>正午</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">师父说过什么来着</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>广场</b></td><td class="c-cri"><i>*</i></td><td class="c-line">广场风水不错</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">早饭吃啥，师父又不在</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>黄昏</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">晚课前先打一把</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>河边</b></td><td class="c-cri"><i>*</i></td><td class="c-line">水动风生，好卦</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">熬夜伤身，但下一把能赢</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>市集</b></td><td class="c-cri"><i>*</i></td><td class="c-line">老板，能便宜点吗，道士也要吃饭</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>黄昏</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">该收摊了……哦，我没摊</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>路</b></td><td class="c-cri"><i>*</i></td><td class="c-line">走路也能睡着，是种天赋</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>市集</b></td><td class="c-cri"><i>*</i></td><td class="c-line">这个能刷卡吗</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">这局不能停！</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">这雨……我起过课的，准吧？</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">道袍湿了不好烘</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>河边</b></td><td class="c-cri"><i>*</i></td><td class="c-line">钓鱼比算命解压</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">雨天最适合睡觉</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-0"><td class="c-spec s0"><span>0</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">……唔，早课又睡过了</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-0"><td class="c-spec s0"><span>0</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">嗯……</td><td class="c-num">25s</td><td class="c-num">0.4</td></tr>
+          <tr class="rr sp-0"><td class="c-spec s0"><span>0</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">无量天尊</td><td class="c-num">30s</td><td class="c-num">0.5</td></tr>
+          <tr class="rr sp-0"><td class="c-spec s0"><span>0</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">（打了个哈欠）</td><td class="c-num">25s</td><td class="c-num">0.4</td></tr>
+          <tr class="sp-hd"><td colspan="8"><span class="sp-n">桃桃</span><span class="sp-r">桃花岛弟子</span><span class="sp-s">奇门遁甲</span><span class="sp-p">傲娇 · 毒舌 · 直播网红</span><span class="sp-k">tao</span><span class="sp-c">43 条</span></td></tr>
+          <tr class="rr sp-3"><td class="c-spec s3"><span>3</span></td><td class="c-cri"><b>正午</b></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><b>河边</b></td><td class="c-cri"><i>*</i></td><td class="c-line">下雨天的河边，头发全废了</td><td class="c-num">150s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-3"><td class="c-spec s3"><span>3</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><b>晴</b></td><td class="c-cri"><b>广场</b></td><td class="c-cri"><i>*</i></td><td class="c-line">夜里的喷泉，打光绝了，来一条</td><td class="c-num">150s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-3"><td class="c-spec s3"><span>3</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><b>晴</b></td><td class="c-cri"><b>市集</b></td><td class="c-cri"><i>*</i></td><td class="c-line">清晨的市集最新鲜，先拍个探店</td><td class="c-num">150s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-3"><td class="c-spec s3"><span>3</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><b>家</b></td><td class="c-cri"><i>*</i></td><td class="c-line">雨夜直播，氛围感直接拉满，家人们冲</td><td class="c-num">180s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-3"><td class="c-spec s3"><span>3</span></td><td class="c-cri"><b>黄昏</b></td><td class="c-cri"><b>晴</b></td><td class="c-cri"><b>广场</b></td><td class="c-cri"><i>*</i></td><td class="c-line">黄昏的广场，这个光，这个角度，开播！</td><td class="c-num">150s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><b>家</b></td><td class="c-cri"><i>*</i></td><td class="c-line">下雨？那今天不出门了，哼</td><td class="c-num">90s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>广场</b></td><td class="c-cri"><i>*</i></td><td class="c-line">夜里的奇门最灵，你不懂</td><td class="c-num">90s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>市集</b></td><td class="c-cri"><i>*</i></td><td class="c-line">早市的桃子最甜，抢！</td><td class="c-num">90s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>家</b></td><td class="c-cri"><i>*</i></td><td class="c-line">清晨起局，一天都顺</td><td class="c-num">90s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">雨夜直播，氛围感拉满</td><td class="c-num">120s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><b>市集</b></td><td class="c-cri"><i>*</i></td><td class="c-line">雨天的市集，人少，好逛</td><td class="c-num">90s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><b>黄昏</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>河边</b></td><td class="c-cri"><i>*</i></td><td class="c-line">黄昏的河边，适合拍写真</td><td class="c-num">90s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">今天的妆是新色号</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>正午</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">今日局不错哦</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">今晚的榜一是谁</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>正午</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">别拍我，我没化妆</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>正午</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">午饭？粉丝送的</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">哼，伞我自己会撑</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>家</b></td><td class="c-cri"><i>*</i></td><td class="c-line">哼，才没在等谁</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>广场</b></td><td class="c-cri"><i>*</i></td><td class="c-line">喷泉当背景板挺好</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">夜里的奇门更灵</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">头发要炸了！</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">妆要花了，救命</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">家人们，点个小红心</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>河边</b></td><td class="c-cri"><i>*</i></td><td class="c-line">小心水，别弄脏裙子</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>广场</b></td><td class="c-cri"><i>*</i></td><td class="c-line">广场人多，适合直播</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>黄昏</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">开播倒计时！</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>家</b></td><td class="c-cri"><i>*</i></td><td class="c-line">我的房间不许乱进</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>河边</b></td><td class="c-cri"><i>*</i></td><td class="c-line">拍个水边写真</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">早八是谁发明的</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">晚安啦，别刷了</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>正午</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">正午阳气足，适合开播</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>市集</b></td><td class="c-cri"><i>*</i></td><td class="c-line">老板，给个粉丝价</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>路</b></td><td class="c-cri"><i>*</i></td><td class="c-line">走路要有仪态，懂？</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">起太早了……哼</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>黄昏</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">这个天色适合拍照</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>市集</b></td><td class="c-cri"><i>*</i></td><td class="c-line">这桃子我全要了</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">镜子呢？镜子！</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">雨天播效果差</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>黄昏</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">黄昏光线最上镜</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-0"><td class="c-spec s0"><span>0</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">……看什么看</td><td class="c-num">30s</td><td class="c-num">0.5</td></tr>
+          <tr class="rr sp-0"><td class="c-spec s0"><span>0</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">哼。</td><td class="c-num">25s</td><td class="c-num">0.4</td></tr>
+          <tr class="rr sp-0"><td class="c-spec s0"><span>0</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">（甩了下头发）</td><td class="c-num">25s</td><td class="c-num">0.4</td></tr>
+          <tr class="sp-hd"><td colspan="8"><span class="sp-n">婆婆</span><span class="sp-r">占卜师</span><span class="sp-s">水晶球 · 塔罗</span><span class="sp-p">西方女巫 · 爱心 · 养一屋动物</span><span class="sp-k">popo</span><span class="sp-c">42 条</span></td></tr>
+          <tr class="rr sp-3"><td class="c-spec s3"><span>3</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><b>晴</b></td><td class="c-cri"><b>河边</b></td><td class="c-cri"><i>*</i></td><td class="c-line">月色正好，飞一圈去河边看看</td><td class="c-num">150s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-3"><td class="c-spec s3"><span>3</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><b>晴</b></td><td class="c-cri"><b>广场</b></td><td class="c-cri"><i>*</i></td><td class="c-line">清晨的广场，露水最适合调药</td><td class="c-num">150s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-3"><td class="c-spec s3"><span>3</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><b>家</b></td><td class="c-cri"><i>*</i></td><td class="c-line">雨夜里，壁炉、热茶、小可爱们，齐了</td><td class="c-num">180s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-3"><td class="c-spec s3"><span>3</span></td><td class="c-cri"><b>正午</b></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><b>市集</b></td><td class="c-cri"><i>*</i></td><td class="c-line">雨天的市集，给猫猫多买点鱼干</td><td class="c-num">150s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-3"><td class="c-spec s3"><span>3</span></td><td class="c-cri"><b>黄昏</b></td><td class="c-cri"><b>晴</b></td><td class="c-cri"><b>河边</b></td><td class="c-cri"><i>*</i></td><td class="c-line">黄昏的河边，水灵最活跃</td><td class="c-num">150s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><b>家</b></td><td class="c-cri"><i>*</i></td><td class="c-line">下雨了，小可爱们都回窝了吗</td><td class="c-num">90s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>广场</b></td><td class="c-cri"><i>*</i></td><td class="c-line">夜里的广场，适合摆摊算命</td><td class="c-num">90s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>市集</b></td><td class="c-cri"><i>*</i></td><td class="c-line">早上的市集，果子最新鲜</td><td class="c-num">90s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><b>晴</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">月色正好，飞一圈</td><td class="c-num">120s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><b>黄昏</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>河边</b></td><td class="c-cri"><i>*</i></td><td class="c-line">荷叶底下藏着东西哦</td><td class="c-num">90s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><b>家</b></td><td class="c-cri"><i>*</i></td><td class="c-line">雨天的水晶球，看得更清</td><td class="c-num">90s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">雨天骑扫帚？会感冒的</td><td class="c-num">90s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">乖，吃糖</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>正午</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">午后来杯花茶？</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>正午</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">单子有点多，慢慢来</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>广场</b></td><td class="c-cri"><i>*</i></td><td class="c-line">喷泉的水，聚气</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>正午</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">在线占卜，好评返现</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>家</b></td><td class="c-cri"><i>*</i></td><td class="c-line">壁炉的火要添柴了</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">夜深了，早点回家哦</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">夜里的塔罗最准</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">小可爱们，开饭啦～</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>家</b></td><td class="c-cri"><i>*</i></td><td class="c-line">小家伙们，婆婆回来啦</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>广场</b></td><td class="c-cri"><i>*</i></td><td class="c-line">广场适合摆摊算命</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>黄昏</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">快递到了没？</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>路</b></td><td class="c-cri"><i>*</i></td><td class="c-line">慢走呀，常来玩～</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">扫帚今天也要擦一擦</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>正午</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">扫帚该保养了</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">早呀，睡得好吗</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">月亮真圆，飞一圈</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>黄昏</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">水晶球有点浑</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>河边</b></td><td class="c-cri"><i>*</i></td><td class="c-line">河边有水灵</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">猫猫不许出门！</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>市集</b></td><td class="c-cri"><i>*</i></td><td class="c-line">给猫猫买点鱼干</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>河边</b></td><td class="c-cri"><i>*</i></td><td class="c-line">荷叶下面藏着东西哦</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>市集</b></td><td class="c-cri"><i>*</i></td><td class="c-line">这果子给小家伙们</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">这雨我早算到了</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">露水最适合调药</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">骑扫帚淋雨会感冒的</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>黄昏</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">黄昏是通灵的好时辰</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-0"><td class="c-spec s0"><span>0</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">呵呵呵</td><td class="c-num">25s</td><td class="c-num">0.4</td></tr>
+          <tr class="rr sp-0"><td class="c-spec s0"><span>0</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">心诚则灵哦</td><td class="c-num">30s</td><td class="c-num">0.5</td></tr>
+          <tr class="rr sp-0"><td class="c-spec s0"><span>0</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">（塞给你一颗糖）</td><td class="c-num">25s</td><td class="c-num">0.4</td></tr>
+          <tr class="sp-hd"><td colspan="8"><span class="sp-n">丹增</span><span class="sp-r">武僧</span><span class="sp-s">藏历 · 密算</span><span class="sp-p">硬汉 · 摇滚 · 健身 · 骚粉控</span><span class="sp-k">tenz</span><span class="sp-c">40 条</span></td></tr>
+          <tr class="rr sp-3"><td class="c-spec s3"><span>3</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><b>晴</b></td><td class="c-cri"><b>广场</b></td><td class="c-cri"><i>*</i></td><td class="c-line">夜里的广场，月光当灯，练！</td><td class="c-num">150s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-3"><td class="c-spec s3"><span>3</span></td><td class="c-cri"><b>正午</b></td><td class="c-cri"><b>晴</b></td><td class="c-cri"><b>广场</b></td><td class="c-cri"><i>*</i></td><td class="c-line">正午的广场，空旷，回音好，排练！</td><td class="c-num">150s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-3"><td class="c-spec s3"><span>3</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><b>晴</b></td><td class="c-cri"><b>河边</b></td><td class="c-cri"><i>*</i></td><td class="c-line">清晨的河边打坐，心最静</td><td class="c-num">150s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-3"><td class="c-spec s3"><span>3</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><b>家</b></td><td class="c-cri"><i>*</i></td><td class="c-line">雨夜，鼓声，谁也别拦我</td><td class="c-num">180s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-3"><td class="c-spec s3"><span>3</span></td><td class="c-cri"><b>正午</b></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><b>市集</b></td><td class="c-cri"><i>*</i></td><td class="c-line">雨天的市集，牛肉降价了没</td><td class="c-num">150s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><b>黄昏</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>广场</b></td><td class="c-cri"><i>*</i></td><td class="c-line">今晚摇滚法会！广场借我用用</td><td class="c-num">90s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><b>晴</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">夜练，月光当灯</td><td class="c-num">120s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>路</b></td><td class="c-cri"><i>*</i></td><td class="c-line">早课后先跑十圈</td><td class="c-num">90s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><b>河边</b></td><td class="c-cri"><i>*</i></td><td class="c-line">雨中打坐，妙</td><td class="c-num">90s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">雨打鼓皮……心疼</td><td class="c-num">90s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><b>黄昏</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>家</b></td><td class="c-cri"><i>*</i></td><td class="c-line">黄昏收功，回去练琴</td><td class="c-num">90s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">一百零八式，走起</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>正午</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">中午吃三碗</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">今天先来两百个俯卧撑</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>正午</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">今天加练二十组</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>黄昏</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">今晚摇滚法会！</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">咚次哒次——</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>家</b></td><td class="c-cri"><i>*</i></td><td class="c-line">回去练琴</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">夜练，月光当灯</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>广场</b></td><td class="c-cri"><i>*</i></td><td class="c-line">广场空旷，适合打拳</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">晨练！嘿哈</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>市集</b></td><td class="c-cri"><i>*</i></td><td class="c-line">来两斤牛肉！</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>正午</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">正午练功，出汗才痛快</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>河边</b></td><td class="c-cri"><i>*</i></td><td class="c-line">水声像鼓点</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>河边</b></td><td class="c-cri"><i>*</i></td><td class="c-line">河边打坐，心静</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">淋雨也是修行</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">深夜的鼓最带劲</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>家</b></td><td class="c-cri"><i>*</i></td><td class="c-line">粉色，是力量的颜色</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>市集</b></td><td class="c-cri"><i>*</i></td><td class="c-line">蛋白粉快没了</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>路</b></td><td class="c-cri"><i>*</i></td><td class="c-line">让一让，负重跑</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>黄昏</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">调一下吉他</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">这段 riff 我想了三天</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>广场</b></td><td class="c-cri"><i>*</i></td><td class="c-line">这里回音好，适合排练</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">酥油茶，巴适</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">雨中练拳更有味</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>黄昏</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">黄昏拉伸，收功</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">鼓皮受潮了，可惜</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-0"><td class="c-spec s0"><span>0</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">嘿哈！</td><td class="c-num">25s</td><td class="c-num">0.4</td></tr>
+          <tr class="rr sp-0"><td class="c-spec s0"><span>0</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">扎西德勒</td><td class="c-num">30s</td><td class="c-num">0.5</td></tr>
+          <tr class="rr sp-0"><td class="c-spec s0"><span>0</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">（甩了甩头）</td><td class="c-num">25s</td><td class="c-num">0.4</td></tr>
+          <tr class="sp-hd"><td colspan="8"><span class="sp-n">路人</span><span class="sp-r">村民 ×5</span><span class="sp-s">—</span><span class="sp-p">通用池 · 换色区分</span><span class="sp-k">villm</span><span class="sp-c">36 条</span></td></tr>
+          <tr class="rr sp-3"><td class="c-spec s3"><span>3</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><b>晴</b></td><td class="c-cri"><b>市集</b></td><td class="c-cri"><i>*</i></td><td class="c-line">清晨的市集，抢早菜</td><td class="c-num">120s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-3"><td class="c-spec s3"><span>3</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><b>路</b></td><td class="c-cri"><i>*</i></td><td class="c-line">雨夜路滑，早点回吧</td><td class="c-num">150s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">夜路滑，慢点走</td><td class="c-num">90s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>广场</b></td><td class="c-cri"><i>*</i></td><td class="c-line">天黑了，灯都亮了</td><td class="c-num">60s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>市集</b></td><td class="c-cri"><i>*</i></td><td class="c-line">早市的菜最新鲜</td><td class="c-num">90s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><b>市集</b></td><td class="c-cri"><i>*</i></td><td class="c-line">这雨说下就下，伞带了没</td><td class="c-num">90s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><b>黄昏</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>路</b></td><td class="c-cri"><i>*</i></td><td class="c-line">黄昏该回家做饭了</td><td class="c-num">90s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">今儿天气真好</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">伞带了没？</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>家</b></td><td class="c-cri"><i>*</i></td><td class="c-line">到家了</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>正午</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">午饭吃啥好</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">去买个菜</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>广场</b></td><td class="c-cri"><i>*</i></td><td class="c-line">喷泉修好了啊</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>黄昏</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">回见啊</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>广场</b></td><td class="c-cri"><i>*</i></td><td class="c-line">坐会儿</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">夜路小心</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>黄昏</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">天要黑了</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>广场</b></td><td class="c-cri"><i>*</i></td><td class="c-line">广场热闹</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>市集</b></td><td class="c-cri"><i>*</i></td><td class="c-line">新鲜吗？</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">早啊</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">早点睡吧</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>正午</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">晒得慌</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>正午</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">歇会儿再走</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>河边</b></td><td class="c-cri"><i>*</i></td><td class="c-line">水涨了</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>河边</b></td><td class="c-cri"><i>*</i></td><td class="c-line">河边风凉快</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">灯都亮了</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>市集</b></td><td class="c-cri"><i>*</i></td><td class="c-line">给我来两斤</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>黄昏</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">该回家做饭了</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>路</b></td><td class="c-cri"><i>*</i></td><td class="c-line">走咯</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">赶早市去</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">路滑，慢点</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>市集</b></td><td class="c-cri"><i>*</i></td><td class="c-line">这个多少钱</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">这雨说下就下</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>河边</b></td><td class="c-cri"><i>*</i></td><td class="c-line">钓两条鱼</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-0"><td class="c-spec s0"><span>0</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">嗯。</td><td class="c-num">25s</td><td class="c-num">0.4</td></tr>
+          <tr class="rr sp-0"><td class="c-spec s0"><span>0</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">（点了点头）</td><td class="c-num">25s</td><td class="c-num">0.4</td></tr>
+          <tr class="sp-hd"><td colspan="8"><span class="sp-n">水果摊主</span><span class="sp-r">固定摊位</span><span class="sp-s">—</span><span class="sp-p">循环吆喝</span><span class="sp-k">vfruit</span><span class="sp-c">14 条</span></td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>市集</b></td><td class="c-cri"><i>*</i></td><td class="c-line">夜市也开张！灯下看果子更好看</td><td class="c-num">120s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><b>市集</b></td><td class="c-cri"><i>*</i></td><td class="c-line">雨天果子降价，进棚里躲躲雨</td><td class="c-num">120s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>正午</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">两文一斤，不贵</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">夜里的果子更甜</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">天没亮就摘的</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>市集</b></td><td class="c-cri"><i>*</i></td><td class="c-line">尝一个？</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>黄昏</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">收摊咯</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">新鲜果子嘞！</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>黄昏</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">最后两斤，便宜卖</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>正午</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">来看看，果子甜得很</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">清晨刚摘的果子，还带露水</td><td class="c-num">90s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>市集</b></td><td class="c-cri"><i>*</i></td><td class="c-line">自家种的，不甜不要钱</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">雨天不加价</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-0"><td class="c-spec s0"><span>0</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">走过路过别错过</td><td class="c-num">25s</td><td class="c-num">0.6</td></tr>
+          <tr class="sp-hd"><td colspan="8"><span class="sp-n">青菜摊主</span><span class="sp-r">固定摊位</span><span class="sp-s">—</span><span class="sp-p">循环吆喝</span><span class="sp-k">vveg</span><span class="sp-c">14 条</span></td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>市集</b></td><td class="c-cri"><i>*</i></td><td class="c-line">夜市也开张！灯下看青菜更好看</td><td class="c-num">120s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><b>市集</b></td><td class="c-cri"><i>*</i></td><td class="c-line">雨天青菜降价，进棚里躲躲雨</td><td class="c-num">120s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>正午</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">两文一斤，不贵</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">夜里的青菜更甜</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">天没亮就摘的</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>市集</b></td><td class="c-cri"><i>*</i></td><td class="c-line">尝一个？</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>黄昏</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">收摊咯</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">新鲜青菜嘞！</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>黄昏</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">最后两斤，便宜卖</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>正午</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">来看看，青菜甜得很</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">清晨刚摘的青菜，还带露水</td><td class="c-num">90s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>市集</b></td><td class="c-cri"><i>*</i></td><td class="c-line">自家种的，不甜不要钱</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">雨天不加价</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-0"><td class="c-spec s0"><span>0</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">走过路过别错过</td><td class="c-num">25s</td><td class="c-num">0.6</td></tr>
+          <tr class="sp-hd"><td colspan="8"><span class="sp-n">桃子摊主</span><span class="sp-r">固定摊位</span><span class="sp-s">—</span><span class="sp-p">循环吆喝</span><span class="sp-k">vpeach</span><span class="sp-c">14 条</span></td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>市集</b></td><td class="c-cri"><i>*</i></td><td class="c-line">夜市也开张！灯下看桃子更好看</td><td class="c-num">120s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-2"><td class="c-spec s2"><span>2</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><b>市集</b></td><td class="c-cri"><i>*</i></td><td class="c-line">雨天桃子降价，进棚里躲躲雨</td><td class="c-num">120s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>正午</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">两文一斤，不贵</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">夜里的桃子更甜</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">天没亮就摘的</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>市集</b></td><td class="c-cri"><i>*</i></td><td class="c-line">尝一个？</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>黄昏</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">收摊咯</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">新鲜桃子嘞！</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>黄昏</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">最后两斤，便宜卖</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>正午</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">来看看，桃子甜得很</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><b>清晨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">清晨刚摘的桃子，还带露水</td><td class="c-num">90s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>市集</b></td><td class="c-cri"><i>*</i></td><td class="c-line">自家种的，不甜不要钱</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">雨天不加价</td><td class="c-num">45s</td><td class="c-num">1</td></tr>
+          <tr class="rr sp-0"><td class="c-spec s0"><span>0</span></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-line">走过路过别错过</td><td class="c-num">25s</td><td class="c-num">0.6</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cp-sec"><span>CONVERSATIONS</span><em>31 组碰面对话 · 共 113 句 · 双方站定轮流说</em></div>
+    <div class="cp-scroll">
+      <table class="cp-tbl cp-tbl-c">
+        <thead><tr>
+          <th class="h-spec">SPEC</th><th class="h-pair">配对</th><th class="h-cri">时间</th>
+          <th class="h-cri">天气</th><th class="h-cri">地点</th><th class="h-line">对话脚本</th><th class="h-num">CD</th>
+        </tr></thead>
+        <tbody>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-pair"><b>婆婆</b><span>×</span><b>阿云</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>广场</b></td><td class="c-script"><div class="cv-l"><span class="cv-w w-a">婆婆</span>这单子接不完，帮我算算？</div><div class="cv-l"><span class="cv-w w-b">阿云</span>按小时算钱</div><div class="cv-l"><span class="cv-w w-a">婆婆</span>管饭</div><div class="cv-l"><span class="cv-w w-b">阿云</span>成交</div></td><td class="c-num">240s</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-pair"><b>婆婆</b><span>×</span><b>阿云</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><i>*</i></td><td class="c-script"><div class="cv-l"><span class="cv-w w-a">婆婆</span>雨天关节疼哦</div><div class="cv-l"><span class="cv-w w-b">阿云</span>婆婆，我帮你把窗关上</div><div class="cv-l"><span class="cv-w w-a">婆婆</span>乖孩子～</div></td><td class="c-num">240s</td></tr>
+          <tr class="rr sp-0"><td class="c-spec s0"><span>0</span></td><td class="c-pair"><b>婆婆</b><span>×</span><b>阿云</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-script"><div class="cv-l"><span class="cv-w w-a">婆婆</span>小道士，气色不太好哦</div><div class="cv-l"><span class="cv-w w-b">阿云</span>昨晚熬夜了</div><div class="cv-l"><span class="cv-w w-a">婆婆</span>来，吃颗糖</div><div class="cv-l"><span class="cv-w w-b">阿云</span>谢婆婆</div></td><td class="c-num">200s</td></tr>
+          <tr class="rr sp-0"><td class="c-spec s0"><span>0</span></td><td class="c-pair"><b>婆婆</b><span>×</span><b>阿云</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-script"><div class="cv-l"><span class="cv-w w-a">婆婆</span>年轻人要早睡</div><div class="cv-l"><span class="cv-w w-b">阿云</span>贫道在参悟</div><div class="cv-l"><span class="cv-w w-a">婆婆</span>参悟什么</div><div class="cv-l"><span class="cv-w w-b">阿云</span>……排位赛的机制</div></td><td class="c-num">200s</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-pair"><b>婆婆</b><span>×</span><b>桃桃</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>广场</b></td><td class="c-script"><div class="cv-l"><span class="cv-w w-a">婆婆</span>塔罗和奇门，你更信哪个</div><div class="cv-l"><span class="cv-w w-b">桃桃</span>当然是奇门</div><div class="cv-l"><span class="cv-w w-a">婆婆</span>那你翻一张试试</div><div class="cv-l"><span class="cv-w w-b">桃桃</span>……为什么是塔？</div></td><td class="c-num">240s</td></tr>
+          <tr class="rr sp-0"><td class="c-spec s0"><span>0</span></td><td class="c-pair"><b>婆婆</b><span>×</span><b>桃桃</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-script"><div class="cv-l"><span class="cv-w w-a">婆婆</span>小姑娘，笑一个，运气会来的</div><div class="cv-l"><span class="cv-w w-b">桃桃</span>哼，我笑起来很贵的</div><div class="cv-l"><span class="cv-w w-a">婆婆</span>那婆婆请你喝花茶</div><div class="cv-l"><span class="cv-w w-b">桃桃</span>……那勉强笑一下</div></td><td class="c-num">200s</td></tr>
+          <tr class="rr sp-0"><td class="c-spec s0"><span>0</span></td><td class="c-pair"><b>婆婆</b><span>×</span><b>桃桃</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-script"><div class="cv-l"><span class="cv-w w-a">婆婆</span>这个色号衬你</div><div class="cv-l"><span class="cv-w w-b">桃桃</span>婆婆懂行！</div><div class="cv-l"><span class="cv-w w-a">婆婆</span>婆婆年轻时候也爱美的</div><div class="cv-l"><span class="cv-w w-b">桃桃</span>看得出来～</div></td><td class="c-num">200s</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-pair"><b>婆婆</b><span>×</span><b>丹增</b></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-script"><div class="cv-l"><span class="cv-w w-a">婆婆</span>今晚的鼓，能小声点吗</div><div class="cv-l"><span class="cv-w w-b">丹增</span>可以，为了婆婆</div><div class="cv-l"><span class="cv-w w-a">婆婆</span>乖～</div></td><td class="c-num">240s</td></tr>
+          <tr class="rr sp-0"><td class="c-spec s0"><span>0</span></td><td class="c-pair"><b>婆婆</b><span>×</span><b>丹增</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-script"><div class="cv-l"><span class="cv-w w-a">婆婆</span>壮小伙，喝杯花茶？</div><div class="cv-l"><span class="cv-w w-b">丹增</span>有酥油茶吗</div><div class="cv-l"><span class="cv-w w-a">婆婆</span>没有，但有糖</div><div class="cv-l"><span class="cv-w w-b">丹增</span>……那来一颗</div></td><td class="c-num">200s</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-pair"><b>桃桃</b><span>×</span><b>阿云</b></td><td class="c-cri"><b>夜里</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-script"><div class="cv-l"><span class="cv-w w-a">桃桃</span>你那游戏有什么好玩的</div><div class="cv-l"><span class="cv-w w-b">阿云</span>你试试就知道了</div><div class="cv-l"><span class="cv-w w-a">桃桃</span>哼，才不要</div><div class="cv-l"><span class="cv-w w-b">阿云</span>（小声）她昨天玩到两点</div></td><td class="c-num">240s</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-pair"><b>桃桃</b><span>×</span><b>阿云</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><i>*</i></td><td class="c-script"><div class="cv-l"><span class="cv-w w-a">桃桃</span>下雨了还不回家？</div><div class="cv-l"><span class="cv-w w-b">阿云</span>正好，雨声助眠</div><div class="cv-l"><span class="cv-w w-a">桃桃</span>……你也就这点出息</div></td><td class="c-num">240s</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-pair"><b>桃桃</b><span>×</span><b>阿云</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>市集</b></td><td class="c-script"><div class="cv-l"><span class="cv-w w-a">桃桃</span>早市的桃子被我包了</div><div class="cv-l"><span class="cv-w w-b">阿云</span>贫道只想买两个</div><div class="cv-l"><span class="cv-w w-a">桃桃</span>……给你一个</div><div class="cv-l"><span class="cv-w w-b">阿云</span>善哉</div></td><td class="c-num">240s</td></tr>
+          <tr class="rr sp-0"><td class="c-spec s0"><span>0</span></td><td class="c-pair"><b>桃桃</b><span>×</span><b>阿云</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-script"><div class="cv-l"><span class="cv-w w-a">桃桃</span>喂，道士，别走路睡觉</div><div class="cv-l"><span class="cv-w w-b">阿云</span>……唔？哦，桃桃啊</div><div class="cv-l"><span class="cv-w w-a">桃桃</span>哼，眼睛都睁不开</div><div class="cv-l"><span class="cv-w w-b">阿云</span>贫道这叫闭目养神</div></td><td class="c-num">200s</td></tr>
+          <tr class="rr sp-0"><td class="c-spec s0"><span>0</span></td><td class="c-pair"><b>桃桃</b><span>×</span><b>阿云</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-script"><div class="cv-l"><span class="cv-w w-a">桃桃</span>你昨晚几点睡的</div><div class="cv-l"><span class="cv-w w-b">阿云</span>……三点？</div><div class="cv-l"><span class="cv-w w-a">桃桃</span>难怪脸这么青</div><div class="cv-l"><span class="cv-w w-b">阿云</span>是月光的颜色</div></td><td class="c-num">200s</td></tr>
+          <tr class="rr sp-0"><td class="c-spec s0"><span>0</span></td><td class="c-pair"><b>桃桃</b><span>×</span><b>阿云</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-script"><div class="cv-l"><span class="cv-w w-a">桃桃</span>帮我起一课，看我今晚能不能上榜</div><div class="cv-l"><span class="cv-w w-b">阿云</span>课不能乱起</div><div class="cv-l"><span class="cv-w w-a">桃桃</span>两包辣条</div><div class="cv-l"><span class="cv-w w-b">阿云</span>……好的，这就起</div></td><td class="c-num">240s</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-pair"><b>桃桃</b><span>×</span><b>丹增</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>广场</b></td><td class="c-script"><div class="cv-l"><span class="cv-w w-a">桃桃</span>广场是我的直播位</div><div class="cv-l"><span class="cv-w w-b">丹增</span>广场是我的排练场</div><div class="cv-l"><span class="cv-w w-a">桃桃</span>哼</div><div class="cv-l"><span class="cv-w w-b">丹增</span>哼</div></td><td class="c-num">240s</td></tr>
+          <tr class="rr sp-0"><td class="c-spec s0"><span>0</span></td><td class="c-pair"><b>桃桃</b><span>×</span><b>丹增</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-script"><div class="cv-l"><span class="cv-w w-a">桃桃</span>你那鼓声太吵了！</div><div class="cv-l"><span class="cv-w w-b">丹增</span>那是节奏</div><div class="cv-l"><span class="cv-w w-a">桃桃</span>那是噪音</div><div class="cv-l"><span class="cv-w w-b">丹增</span>……要不要来我们乐队</div></td><td class="c-num">200s</td></tr>
+          <tr class="rr sp-0"><td class="c-spec s0"><span>0</span></td><td class="c-pair"><b>桃桃</b><span>×</span><b>丹增</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-script"><div class="cv-l"><span class="cv-w w-a">桃桃</span>你身上……是粉色的？</div><div class="cv-l"><span class="cv-w w-b">丹增</span>怎么，不行？</div><div class="cv-l"><span class="cv-w w-a">桃桃</span>……挺好看的，哼</div></td><td class="c-num">300s</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-pair"><b>丹增</b><span>×</span><b>阿云</b></td><td class="c-cri"><b>黄昏</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-script"><div class="cv-l"><span class="cv-w w-a">丹增</span>今晚有法会，来听鼓</div><div class="cv-l"><span class="cv-w w-b">阿云</span>几点结束</div><div class="cv-l"><span class="cv-w w-a">丹增</span>天亮</div><div class="cv-l"><span class="cv-w w-b">阿云</span>那贫道正好打完游戏来</div></td><td class="c-num">240s</td></tr>
+          <tr class="rr sp-0"><td class="c-spec s0"><span>0</span></td><td class="c-pair"><b>丹增</b><span>×</span><b>阿云</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-script"><div class="cv-l"><span class="cv-w w-a">丹增</span>小道士，一起练？</div><div class="cv-l"><span class="cv-w w-b">阿云</span>……贫道更适合静功</div><div class="cv-l"><span class="cv-w w-a">丹增</span>躺着不算静功</div><div class="cv-l"><span class="cv-w w-b">阿云</span>躺着最静</div></td><td class="c-num">200s</td></tr>
+          <tr class="rr sp-0"><td class="c-spec s0"><span>0</span></td><td class="c-pair"><b>丹增</b><span>×</span><b>阿云</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-script"><div class="cv-l"><span class="cv-w w-a">丹增</span>你那手柄能借我看看吗</div><div class="cv-l"><span class="cv-w w-b">阿云</span>小心点，它比我贵</div><div class="cv-l"><span class="cv-w w-a">丹增</span>（按坏了）</div><div class="cv-l"><span class="cv-w w-b">阿云</span>………………</div></td><td class="c-num">300s</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-pair"><b>水果摊主</b><span>×</span><b>阿云</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>市集</b></td><td class="c-script"><div class="cv-l"><span class="cv-w w-a">水果摊主</span>道长，来点果子？</div><div class="cv-l"><span class="cv-w w-b">阿云</span>贫道……身上没带钱</div><div class="cv-l"><span class="cv-w w-a">水果摊主</span>（叹气）先拿去吧</div></td><td class="c-num">240s</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-pair"><b>水果摊主</b><span>×</span><b>桃桃</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>市集</b></td><td class="c-script"><div class="cv-l"><span class="cv-w w-a">水果摊主</span>姑娘，这果子甜！</div><div class="cv-l"><span class="cv-w w-b">桃桃</span>拍个视频，给你导流</div><div class="cv-l"><span class="cv-w w-a">水果摊主</span>那这筐送你！</div></td><td class="c-num">240s</td></tr>
+          <tr class="rr sp-0"><td class="c-spec s0"><span>0</span></td><td class="c-pair"><b>路人</b><span>×</span><b>阿云</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-script"><div class="cv-l"><span class="cv-w w-a">路人</span>道长，帮我看看今天出门顺不顺</div><div class="cv-l"><span class="cv-w w-b">阿云</span>（掐指）……顺</div><div class="cv-l"><span class="cv-w w-a">路人</span>这么快？</div><div class="cv-l"><span class="cv-w w-b">阿云</span>贫道快，但准</div></td><td class="c-num">200s</td></tr>
+          <tr class="rr sp-0"><td class="c-spec s0"><span>0</span></td><td class="c-pair"><b>路人</b><span>×</span><b>婆婆</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-script"><div class="cv-l"><span class="cv-w w-a">路人</span>婆婆，我家猫丢了</div><div class="cv-l"><span class="cv-w w-b">婆婆</span>往河边找找，它在看鱼</div><div class="cv-l"><span class="cv-w w-a">路人</span>谢谢婆婆！</div></td><td class="c-num">200s</td></tr>
+          <tr class="rr sp-0"><td class="c-spec s0"><span>0</span></td><td class="c-pair"><b>路人</b><span>×</span><b>桃桃</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-script"><div class="cv-l"><span class="cv-w w-a">路人</span>姑娘，你是那个主播吧！</div><div class="cv-l"><span class="cv-w w-b">桃桃</span>哼，你也刷到我了</div><div class="cv-l"><span class="cv-w w-a">路人</span>能合张影吗</div><div class="cv-l"><span class="cv-w w-b">桃桃</span>……就一张</div></td><td class="c-num">200s</td></tr>
+          <tr class="rr sp-0"><td class="c-spec s0"><span>0</span></td><td class="c-pair"><b>路人</b><span>×</span><b>丹增</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-script"><div class="cv-l"><span class="cv-w w-a">路人</span>师父好！</div><div class="cv-l"><span class="cv-w w-b">丹增</span>（点头）</div><div class="cv-l"><span class="cv-w w-a">路人</span>……好酷</div></td><td class="c-num">200s</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-pair"><b>路人</b><span>×</span><b>路人</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>雨</b></td><td class="c-cri"><i>*</i></td><td class="c-script"><div class="cv-l"><span class="cv-w w-a">路人</span>这雨要下到啥时候</div><div class="cv-l"><span class="cv-w w-b">路人</span>谁知道呢</div><div class="cv-l"><span class="cv-w w-a">路人</span>唉</div></td><td class="c-num">180s</td></tr>
+          <tr class="rr sp-0"><td class="c-spec s0"><span>0</span></td><td class="c-pair"><b>路人</b><span>×</span><b>路人</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-script"><div class="cv-l"><span class="cv-w w-a">路人</span>听说要来新住户了</div><div class="cv-l"><span class="cv-w w-b">路人</span>空屋还有几间？</div><div class="cv-l"><span class="cv-w w-a">路人</span>一间吧</div></td><td class="c-num">200s</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-pair"><b>桃子摊主</b><span>×</span><b>婆婆</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>市集</b></td><td class="c-script"><div class="cv-l"><span class="cv-w w-a">桃子摊主</span>婆婆，今天的桃子最甜</div><div class="cv-l"><span class="cv-w w-b">婆婆</span>给小家伙们来两斤</div><div class="cv-l"><span class="cv-w w-a">桃子摊主</span>好嘞！</div></td><td class="c-num">240s</td></tr>
+          <tr class="rr sp-1"><td class="c-spec s1"><span>1</span></td><td class="c-pair"><b>青菜摊主</b><span>×</span><b>丹增</b></td><td class="c-cri"><i>*</i></td><td class="c-cri"><i>*</i></td><td class="c-cri"><b>市集</b></td><td class="c-script"><div class="cv-l"><span class="cv-w w-a">青菜摊主</span>大师，来点青菜？</div><div class="cv-l"><span class="cv-w w-b">丹增</span>有牛肉吗</div><div class="cv-l"><span class="cv-w w-a">青菜摊主</span>……隔壁</div><div class="cv-l"><span class="cv-w w-b">丹增</span>（走了）</div></td><td class="c-num">240s</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ═══════════════ B8 · 世界观 ═══════════════ -->
+  <section class="corpus" id="world">
+    <header class="cp-top">
+      <span class="cp-no">B8</span>
+      <h2 class="cp-h">世界观</h2>
+      <p class="cp-lead">收集机制即叙事：扫一枚御守，就是把一个散落人间的「不完人」找回村子。</p>
+    </header>
+    <div class="wb"><div class="wb-b"><span class="wb-k">前提</span><p>人生来带一块「缺」。术数不补缺，只让你看清那块缺的形状 —— 所以他们叫「不完人」。</p></div><div class="wb-b"><span class="wb-k">村子</span><p>不完人村不在任何地图上。它在两界之间，只有被御守唤醒的人能进来。村里永远留着空屋，等还没被找回的人。</p></div><div class="wb-b"><span class="wb-k">御守</span><p>每个不完人把自己的一部分封进一枚御守，散落人间。谁拾到、唤醒它，谁就是他的村长 —— 他从此住进你的村子，替你看命，也让你替他看着他的缺。</p></div><div class="wb-b"><span class="wb-k">规则</span><p>一个不完人 = 一门术数 = 一种解读你的方式。术数会重叠：两个人可以同修一门，但缺的东西不同，说出来的话就不同。</p></div><div class="wb-b"><span class="wb-k">空屋</span><p>空屋不会消失。村子的完整度，取决于你找回了多少不完人 —— 而他们的完整度，取决于你。</p></div></div>
+
+    <div class="cp-sec"><span>SCHOOLS</span><em>35 门术数 · 能力池可重叠：8 门被多人同修，同一门在不同人手里是不同的解读风格</em></div>
+    <div class="cp-scroll">
+      <table class="cp-tbl">
+        <thead><tr><th class="h-n2">修习</th><th class="h-sn">流派</th><th class="h-sd">要义</th><th class="h-so">修习者</th><th class="h-num">KEY</th></tr></thead>
+        <tbody><tr class="rr"><td class="c-num2">4</td><td class="c-sn"><b>塔罗</b></td><td class="c-sd">大小阿卡纳 · 牌阵叙事</td><td class="c-so">婆婆、米拉、赛博、阿弥</td><td class="c-num">tarot</td></tr><tr class="rr"><td class="c-num2">3</td><td class="c-sn"><b>奇门遁甲</b></td><td class="c-sd">九宫 · 八门 · 择时择方</td><td class="c-so">桃桃、木一、阿弥</td><td class="c-num">qimen</td></tr><tr class="rr"><td class="c-num2">3</td><td class="c-sn"><b>占星</b></td><td class="c-sd">星盘 · 行运 · 宫位</td><td class="c-so">薇拉、拉玛、塞特</td><td class="c-num">astro</td></tr><tr class="rr"><td class="c-num2">3</td><td class="c-sn"><b>神签</b></td><td class="c-sd">抽签 · 结缘 · 御神签</td><td class="c-so">托马、千鹤、小邮</td><td class="c-num">shinto</td></tr><tr class="rr"><td class="c-num2">3</td><td class="c-sn"><b>数据占卜</b></td><td class="c-sd">大数据 · 相关性即命运</td><td class="c-so">木一、K、小邮</td><td class="c-num">data</td></tr><tr class="rr"><td class="c-num2">2</td><td class="c-sn"><b>面相手相</b></td><td class="c-sd">纹理 · 气色 · 观人于形</td><td class="c-so">燕娘、奥兰多</td><td class="c-num">xiangmian</td></tr><tr class="rr"><td class="c-num2">2</td><td class="c-sn"><b>萨满骨卜</b></td><td class="c-sd">鼓声 · 出神 · 骨签</td><td class="c-so">老龟、雪鸮</td><td class="c-num">bone</td></tr><tr class="rr"><td class="c-num2">2</td><td class="c-sn"><b>机器学习</b></td><td class="c-sd">模型预测 · 置信区间</td><td class="c-so">K、小满</td><td class="c-num">ml</td></tr><tr class="rr"><td class="c-num2">1</td><td class="c-sn"><b>大六壬</b></td><td class="c-sd">式盘 · 三传四课 · 断事快</td><td class="c-so">阿云</td><td class="c-num">liuren</td></tr><tr class="rr"><td class="c-num2">1</td><td class="c-sn"><b>八字</b></td><td class="c-sd">四柱 · 十神 · 看一生格局</td><td class="c-so">苏合</td><td class="c-num">bazi</td></tr><tr class="rr"><td class="c-num2">1</td><td class="c-sn"><b>紫微斗数</b></td><td class="c-sd">星曜 · 十二宫 · 命盘细密</td><td class="c-so">白鹭</td><td class="c-num">ziwei</td></tr><tr class="rr"><td class="c-num2">1</td><td class="c-sn"><b>六爻</b></td><td class="c-sd">铜钱 · 动爻 · 问一事一断</td><td class="c-so">陈九</td><td class="c-num">liuyao</td></tr><tr class="rr"><td class="c-num2">1</td><td class="c-sn"><b>梅花易数</b></td><td class="c-sd">起卦于万物 · 心易</td><td class="c-so">沈砚</td><td class="c-num">meihua</td></tr><tr class="rr"><td class="c-num2">1</td><td class="c-sn"><b>风水堪舆</b></td><td class="c-sd">形势 · 理气 · 看宅看地</td><td class="c-so">雷鸣</td><td class="c-num">fengshui</td></tr><tr class="rr"><td class="c-num2">1</td><td class="c-sn"><b>龟甲骨卜</b></td><td class="c-sd">灼裂纹 · 最古的问法</td><td class="c-so">老龟</td><td class="c-num">guijia</td></tr><tr class="rr"><td class="c-num2">1</td><td class="c-sn"><b>太乙神数</b></td><td class="c-sd">数术之极 · 推国运</td><td class="c-so">玄冥</td><td class="c-num">taiyi</td></tr><tr class="rr"><td class="c-num2">1</td><td class="c-sn"><b>鸟占</b></td><td class="c-sd">听鸟鸣 · 断吉凶</td><td class="c-so">阿罗</td><td class="c-num">niaozhan</td></tr><tr class="rr"><td class="c-num2">1</td><td class="c-sn"><b>水晶球</b></td><td class="c-sd">凝视 · 影像占</td><td class="c-so">婆婆</td><td class="c-num">crystal</td></tr><tr class="rr"><td class="c-num2">1</td><td class="c-sn"><b>卢恩符文</b></td><td class="c-sd">刻符 · 抛符 · 北地古法</td><td class="c-so">卢恩</td><td class="c-num">rune</td></tr><tr class="rr"><td class="c-num2">1</td><td class="c-sn"><b>灵摆</b></td><td class="c-sd">摆动 · 是与非</td><td class="c-so">塞西尔</td><td class="c-num">pendulum</td></tr><tr class="rr"><td class="c-num2">1</td><td class="c-sn"><b>茶叶占</b></td><td class="c-sd">杯底残叶 · 读形</td><td class="c-so">玛戈</td><td class="c-num">tea</td></tr><tr class="rr"><td class="c-num2">1</td><td class="c-sn"><b>蜡烛占</b></td><td class="c-sd">火焰与蜡泪</td><td class="c-so">伊莎</td><td class="c-num">candle</td></tr><tr class="rr"><td class="c-num2">1</td><td class="c-sn"><b>镜占</b></td><td class="c-sd">镜中影 · 照见未来</td><td class="c-so">莉莉丝</td><td class="c-num">mirror</td></tr><tr class="rr"><td class="c-num2">1</td><td class="c-sn"><b>玛雅历</b></td><td class="c-sd">长纪历 · 卓尔金</td><td class="c-so">卡玛</td><td class="c-num">maya</td></tr><tr class="rr"><td class="c-num2">1</td><td class="c-sn"><b>沙占</b></td><td class="c-sd">沙盘 · 地占十六象</td><td class="c-so">阿曼</td><td class="c-num">sand</td></tr><tr class="rr"><td class="c-num2">1</td><td class="c-sn"><b>贝壳卜</b></td><td class="c-sd">抛贝 · 西非古法</td><td class="c-so">恩戈</td><td class="c-num">shell</td></tr><tr class="rr"><td class="c-num2">1</td><td class="c-sn"><b>吠陀占星</b></td><td class="c-sd">恒星黄道 · 大限</td><td class="c-so">拉玛</td><td class="c-num">veda</td></tr><tr class="rr"><td class="c-num2">1</td><td class="c-sn"><b>埃及星象</b></td><td class="c-sd">天狼星 · 神殿历法</td><td class="c-so">塞特</td><td class="c-num">egypt</td></tr><tr class="rr"><td class="c-num2">1</td><td class="c-sn"><b>股票玄学</b></td><td class="c-sd">K 线 · 玄学止损</td><td class="c-so">老徐</td><td class="c-num">stock</td></tr><tr class="rr"><td class="c-num2">1</td><td class="c-sn"><b>赛博塔罗</b></td><td class="c-sd">算法抽牌 · 电子牌灵</td><td class="c-so">赛博</td><td class="c-num">cyber</td></tr><tr class="rr"><td class="c-num2">1</td><td class="c-sn"><b>藏历密算</b></td><td class="c-sd">时轮 · 五行 · 密续</td><td class="c-so">丹增</td><td class="c-num">zangli</td></tr><tr class="rr"><td class="c-num2">1</td><td class="c-sn"><b>潮汐占</b></td><td class="c-sd">潮起潮落 · 断行止</td><td class="c-so">姜牙</td><td class="c-num">chaozhan</td></tr><tr class="rr"><td class="c-num2">1</td><td class="c-sn"><b>灯花卜</b></td><td class="c-sd">灯花爆 · 主喜</td><td class="c-so">阿萤</td><td class="c-num">denghua</td></tr><tr class="rr"><td class="c-num2">1</td><td class="c-sn"><b>测字</b></td><td class="c-sd">拆字 · 见字如面</td><td class="c-so">沈砚</td><td class="c-num">cezi</td></tr><tr class="rr"><td class="c-num2">1</td><td class="c-sn"><b>咖啡占</b></td><td class="c-sd">拉花与渣痕</td><td class="c-so">阿咖</td><td class="c-num">coffee</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ═══════════════ B9 · 角色圣经 ═══════════════ -->
+  <section class="corpus" id="cast">
+    <header class="cp-top">
+      <span class="cp-no">B9</span>
+      <h2 class="cp-h">角色圣经</h2>
+      <p class="cp-lead">40 位不完人。每人缺一块 —— <b>「缺」是人物的核心驱动</b>，也是他解读你时的偏好来源。</p>
+      <span class="cp-count">已入住 4 · 在路上 6 · 未寻得 30</span>
+    </header>
+    <div class="cp-scroll">
+      <table class="cp-tbl cp-cast">
+        <thead><tr>
+          <th class="h-id">ID</th><th class="h-nm">名 · 号</th><th class="h-sc">流派</th>
+          <th class="h-og">出身</th><th class="h-tr">性格</th><th class="h-fl">缺</th>
+          <th class="h-bio">背景</th><th class="h-arc">关键经历</th><th class="h-vc">说话风格</th>
+          <th class="h-rr">稀有</th><th class="h-st">状态</th>
+        </tr></thead>
+        <tbody>
+          <tr class="rr s-in">
+            <td class="c-id">ayun</td>
+            <td class="c-nm"><b>阿云</b><span>小道士</span></td>
+            <td class="c-sc">大六壬</td>
+            <td class="c-og">青城山</td>
+            <td class="c-tr"><em>嗜睡</em><em>散漫</em><em>嘴硬心软</em></td>
+            <td class="c-fl"><b>勤</b></td>
+            <td class="c-bio">师父云游前把六壬盘塞给他，说「你缺的不是本事，是起床」。</td>
+            <td class="c-arc">十六岁就断准了一场山洪，从此再没人敢说他不行 —— 除了他自己。</td>
+            <td class="c-vc">慢半拍，爱用「贫道」，被戳穿就装睡</td>
+            <td class="c-rr"><span class="r-c">常</span></td>
+            <td class="c-st"><span class="s-in">已入住</span></td>
+          </tr>
+          <tr class="rr s-in">
+            <td class="c-id">tao</td>
+            <td class="c-nm"><b>桃桃</b><span>桃花岛弟子</span></td>
+            <td class="c-sc">奇门遁甲</td>
+            <td class="c-og">桃花岛</td>
+            <td class="c-tr"><em>傲娇</em><em>毒舌</em><em>要强</em></td>
+            <td class="c-fl"><b>直率</b></td>
+            <td class="c-bio">师门规矩：奇门不外传。她开了直播间，把师门规矩讲成了段子。</td>
+            <td class="c-arc">为了证明自己，她当众起局断了一场雨 —— 断准了，但没人记得她的名字。</td>
+            <td class="c-vc">嘴上不饶人，句尾带「哼」，夸人要拐三个弯</td>
+            <td class="c-rr"><span class="r-c">常</span></td>
+            <td class="c-st"><span class="s-in">已入住</span></td>
+          </tr>
+          <tr class="rr s-in">
+            <td class="c-id">popo</td>
+            <td class="c-nm"><b>婆婆</b><span>占卜的老太太</span></td>
+            <td class="c-sc">塔罗　水晶球</td>
+            <td class="c-og">黑森林</td>
+            <td class="c-tr"><em>慈祥</em><em>神秘</em><em>爱操心</em></td>
+            <td class="c-fl"><b>亲人</b></td>
+            <td class="c-bio">她一个人住了太久，把每一只路过的动物都留了下来。</td>
+            <td class="c-arc">她替所有人算过团圆，唯独没给自己算过。</td>
+            <td class="c-vc">尾音上扬带「哦」「呀」，动不动塞糖</td>
+            <td class="c-rr"><span class="r-r">珍</span></td>
+            <td class="c-st"><span class="s-in">已入住</span></td>
+          </tr>
+          <tr class="rr s-in">
+            <td class="c-id">tenz</td>
+            <td class="c-nm"><b>丹增</b><span>下山的武僧</span></td>
+            <td class="c-sc">藏历密算</td>
+            <td class="c-og">雪山寺</td>
+            <td class="c-tr"><em>耿直</em><em>热血</em><em>话少</em></td>
+            <td class="c-fl"><b>静</b></td>
+            <td class="c-bio">寺里说他心不静，让他下山「练完一百零八式再回来」。</td>
+            <td class="c-arc">他在山下听见了第一段摇滚，从此鼓比经好听。</td>
+            <td class="c-vc">短句，爱说「嘿哈」，认真时一句顶万句</td>
+            <td class="c-rr"><span class="r-r">珍</span></td>
+            <td class="c-st"><span class="s-in">已入住</span></td>
+          </tr>
+          <tr class="rr s-on">
+            <td class="c-id">shenyan</td>
+            <td class="c-nm"><b>沈砚</b><span>落第书生</span></td>
+            <td class="c-sc">梅花易数　测字</td>
+            <td class="c-og">江南</td>
+            <td class="c-tr"><em>清高</em><em>敏感</em><em>嘴碎</em></td>
+            <td class="c-fl"><b>运</b></td>
+            <td class="c-bio">考了七次，七次落榜。第八次他没去，路上替人测了个字，从此不考了。</td>
+            <td class="c-arc">他最准的一卦，是算出自己考不上。</td>
+            <td class="c-vc">文绉绉，爱掉书袋，自嘲起来最狠</td>
+            <td class="c-rr"><span class="r-c">常</span></td>
+            <td class="c-st"><span class="s-on">在路上</span></td>
+          </tr>
+          <tr class="rr s-on">
+            <td class="c-id">bailu</td>
+            <td class="c-nm"><b>白鹭</b><span>观里的女冠</span></td>
+            <td class="c-sc">紫微斗数</td>
+            <td class="c-og">终南山</td>
+            <td class="c-tr"><em>冷淡</em><em>极准</em><em>洁癖</em></td>
+            <td class="c-fl"><b>热</b></td>
+            <td class="c-bio">她排的盘密不透风，从不多说一个字。</td>
+            <td class="c-arc">有人求她改命，她说「命盘我只念，不改」，转身闭关三年。</td>
+            <td class="c-vc">短、冷、精确到分秒</td>
+            <td class="c-rr"><span class="r-s">秘</span></td>
+            <td class="c-st"><span class="s-on">在路上</span></td>
+          </tr>
+          <tr class="rr s-on">
+            <td class="c-id">chenjiu</td>
+            <td class="c-nm"><b>陈九</b><span>赌坊里的算手</span></td>
+            <td class="c-sc">六爻</td>
+            <td class="c-og">码头</td>
+            <td class="c-tr"><em>油滑</em><em>义气</em><em>手气差</em></td>
+            <td class="c-fl"><b>定</b></td>
+            <td class="c-bio">他替赌坊算牌，算得越准，自己输得越惨。</td>
+            <td class="c-arc">有一晚他算出自己必输，还是坐下了 —— 那晚他赢了。</td>
+            <td class="c-vc">市井腔，爱赌咒发誓，从不认输</td>
+            <td class="c-rr"><span class="r-c">常</span></td>
+            <td class="c-st"><span class="s-on">在路上</span></td>
+          </tr>
+          <tr class="rr s-on">
+            <td class="c-id">suhe</td>
+            <td class="c-nm"><b>苏合</b><span>香药娘子</span></td>
+            <td class="c-sc">八字</td>
+            <td class="c-og">岭南</td>
+            <td class="c-tr"><em>温柔</em><em>固执</em><em>怕冷</em></td>
+            <td class="c-fl"><b>暖</b></td>
+            <td class="c-bio">她把每个人的八字调成一味香，闻着闻着，人就想哭了。</td>
+            <td class="c-arc">她给亡夫配了一味香，烧了十年，没舍得再配第二味。</td>
+            <td class="c-vc">轻声细语，说话像在配药</td>
+            <td class="c-rr"><span class="r-r">珍</span></td>
+            <td class="c-st"><span class="s-on">在路上</span></td>
+          </tr>
+          <tr class="rr s-on">
+            <td class="c-id">leiming</td>
+            <td class="c-nm"><b>雷鸣</b><span>看地的先生</span></td>
+            <td class="c-sc">风水堪舆</td>
+            <td class="c-og">关中</td>
+            <td class="c-tr"><em>耿直</em><em>暴躁</em><em>眼毒</em></td>
+            <td class="c-fl"><b>柔</b></td>
+            <td class="c-bio">他一眼能看出屋子的病，也一句话能得罪主人家。</td>
+            <td class="c-arc">他给自己相中的宅地，最后让给了一户人家。</td>
+            <td class="c-vc">大嗓门，直来直去，骂人不带脏字</td>
+            <td class="c-rr"><span class="r-c">常</span></td>
+            <td class="c-st"><span class="s-on">在路上</span></td>
+          </tr>
+          <tr class="rr s-on">
+            <td class="c-id">yanniang</td>
+            <td class="c-nm"><b>燕娘</b><span>看相的婆子</span></td>
+            <td class="c-sc">面相手相</td>
+            <td class="c-og">汴梁</td>
+            <td class="c-tr"><em>刻薄</em><em>准</em><em>爱看热闹</em></td>
+            <td class="c-fl"><b>善</b></td>
+            <td class="c-bio">她看人一眼就知底细，也一眼就说破。</td>
+            <td class="c-arc">她看破了太多人，最后没人敢跟她做朋友。</td>
+            <td class="c-vc">一针见血，句句戳心，戳完就走</td>
+            <td class="c-rr"><span class="r-c">常</span></td>
+            <td class="c-st"><span class="s-on">在路上</span></td>
+          </tr>
+          <tr class="rr s-no">
+            <td class="c-id">laogui</td>
+            <td class="c-nm"><b>老龟</b><span>灼甲的人</span></td>
+            <td class="c-sc">龟甲骨卜　萨满骨卜</td>
+            <td class="c-og">不知何处</td>
+            <td class="c-tr"><em>沉默</em><em>古老</em><em>慢</em></td>
+            <td class="c-fl"><b>言</b></td>
+            <td class="c-bio">他还在用最古的法子问天 —— 火烧龟甲，看裂纹。</td>
+            <td class="c-arc">他一年只卜三次，三次都是为别人。</td>
+            <td class="c-vc">几乎不说话，说了就是天机</td>
+            <td class="c-rr"><span class="r-s">秘</span></td>
+            <td class="c-st"><span class="s-no">未寻得</span></td>
+          </tr>
+          <tr class="rr s-no">
+            <td class="c-id">muyi</td>
+            <td class="c-nm"><b>木一</b><span>钟表匠</span></td>
+            <td class="c-sc">奇门遁甲　数据占卜</td>
+            <td class="c-og">租界</td>
+            <td class="c-tr"><em>理性</em><em>怪癖</em><em>熬夜</em></td>
+            <td class="c-fl"><b>信</b></td>
+            <td class="c-bio">他把奇门九宫做成了钟，齿轮一转，局就成了。</td>
+            <td class="c-arc">他造的第一台「时局钟」在午夜停了，从此他不睡午夜。</td>
+            <td class="c-vc">术语混着机械名词，说话有齿轮感</td>
+            <td class="c-rr"><span class="r-r">珍</span></td>
+            <td class="c-st"><span class="s-no">未寻得</span></td>
+          </tr>
+          <tr class="rr s-no">
+            <td class="c-id">aluo</td>
+            <td class="c-nm"><b>阿罗</b><span>听鸟的少年</span></td>
+            <td class="c-sc">鸟占</td>
+            <td class="c-og">南疆</td>
+            <td class="c-tr"><em>天真</em><em>怕生</em><em>耳朵好</em></td>
+            <td class="c-fl"><b>胆</b></td>
+            <td class="c-bio">他听得懂鸟，但不敢跟人说话。</td>
+            <td class="c-arc">他救过一村人 —— 靠一只鸟的叫声，和一次拼命的奔跑。</td>
+            <td class="c-vc">结巴，句子短，紧张时只发单音</td>
+            <td class="c-rr"><span class="r-c">常</span></td>
+            <td class="c-st"><span class="s-no">未寻得</span></td>
+          </tr>
+          <tr class="rr s-no">
+            <td class="c-id">xuanming</td>
+            <td class="c-nm"><b>玄冥</b><span>隐者</span></td>
+            <td class="c-sc">太乙神数</td>
+            <td class="c-og">不知何处</td>
+            <td class="c-tr"><em>孤高</em><em>深不可测</em><em>厌世</em></td>
+            <td class="c-fl"><b>人</b></td>
+            <td class="c-bio">太乙推国运，他推完了，就不再推人事。</td>
+            <td class="c-arc">他算出了一场大事，说了，没人信；不说，也是罪。</td>
+            <td class="c-vc">极少现身，一开口就是长句子，像判词</td>
+            <td class="c-rr"><span class="r-s">秘</span></td>
+            <td class="c-st"><span class="s-no">未寻得</span></td>
+          </tr>
+          <tr class="rr s-no">
+            <td class="c-id">aying</td>
+            <td class="c-nm"><b>阿萤</b><span>扎灯笼的</span></td>
+            <td class="c-sc">灯花卜</td>
+            <td class="c-og">水乡</td>
+            <td class="c-tr"><em>开朗</em><em>手巧</em><em>迷信</em></td>
+            <td class="c-fl"><b>重</b></td>
+            <td class="c-bio">她看灯花爆，说这是最便宜的吉兆。</td>
+            <td class="c-arc">她给全村扎过灯，自己的那盏一直没点。</td>
+            <td class="c-vc">明快，爱说吉利话，笑起来先出声</td>
+            <td class="c-rr"><span class="r-c">常</span></td>
+            <td class="c-st"><span class="s-no">未寻得</span></td>
+          </tr>
+          <tr class="rr s-no">
+            <td class="c-id">jiangya</td>
+            <td class="c-nm"><b>姜牙</b><span>老渔夫</span></td>
+            <td class="c-sc">潮汐占</td>
+            <td class="c-og">东海</td>
+            <td class="c-tr"><em>固执</em><em>豪爽</em><em>怕水</em></td>
+            <td class="c-fl"><b>畏</b></td>
+            <td class="c-bio">他看潮就知道该不该出海，从没失手。</td>
+            <td class="c-arc">他失手过一次 —— 那次他没听自己的。</td>
+            <td class="c-vc">海腔，爱骂天，其实最敬天</td>
+            <td class="c-rr"><span class="r-c">常</span></td>
+            <td class="c-st"><span class="s-no">未寻得</span></td>
+          </tr>
+          <tr class="rr s-no">
+            <td class="c-id">weila</td>
+            <td class="c-nm"><b>薇拉</b><span>星盘师</span></td>
+            <td class="c-sc">占星</td>
+            <td class="c-og">维也纳</td>
+            <td class="c-tr"><em>优雅</em><em>强迫症</em><em>慢热</em></td>
+            <td class="c-fl"><b>快</b></td>
+            <td class="c-bio">她排一张盘要三天，因为「行星不该被赶」。</td>
+            <td class="c-arc">她替一个人排了一生的盘，那人却在第二天走了。</td>
+            <td class="c-vc">措辞讲究，爱用长定语，从不承诺</td>
+            <td class="c-rr"><span class="r-r">珍</span></td>
+            <td class="c-st"><span class="s-no">未寻得</span></td>
+          </tr>
+          <tr class="rr s-no">
+            <td class="c-id">rune</td>
+            <td class="c-nm"><b>卢恩</b><span>刻符的北地人</span></td>
+            <td class="c-sc">卢恩符文</td>
+            <td class="c-og">北境</td>
+            <td class="c-tr"><em>冷硬</em><em>守信</em><em>沉默</em></td>
+            <td class="c-fl"><b>笑</b></td>
+            <td class="c-bio">他把每一个符刻进石头，说「说出来的会变，刻下来的不会」。</td>
+            <td class="c-arc">他刻过一块碑，碑上是他自己的名字 —— 提前刻的。</td>
+            <td class="c-vc">短促，多用名词，几乎不用形容词</td>
+            <td class="c-rr"><span class="r-r">珍</span></td>
+            <td class="c-st"><span class="s-no">未寻得</span></td>
+          </tr>
+          <tr class="rr s-no">
+            <td class="c-id">mago</td>
+            <td class="c-nm"><b>玛戈</b><span>读茶叶的</span></td>
+            <td class="c-sc">茶叶占</td>
+            <td class="c-og">伊斯坦布尔</td>
+            <td class="c-tr"><em>絮叨</em><em>热心</em><em>爱管闲事</em></td>
+            <td class="c-fl"><b>边界</b></td>
+            <td class="c-bio">一杯茶喝完，她能从杯底读出你三年的事。</td>
+            <td class="c-arc">她读出过一次自己的杯底，从此再没喝过那种茶。</td>
+            <td class="c-vc">话多，一句话能拐八个弯，最后才说重点</td>
+            <td class="c-rr"><span class="r-c">常</span></td>
+            <td class="c-st"><span class="s-no">未寻得</span></td>
+          </tr>
+          <tr class="rr s-no">
+            <td class="c-id">sesir</td>
+            <td class="c-nm"><b>塞西尔</b><span>钟摆师</span></td>
+            <td class="c-sc">灵摆</td>
+            <td class="c-og">伦敦</td>
+            <td class="c-tr"><em>克制</em><em>严谨</em><em>洁癖</em></td>
+            <td class="c-fl"><b>情</b></td>
+            <td class="c-bio">灵摆只答是与非。他说，人生的问题本来也只有这两种答案。</td>
+            <td class="c-arc">他问过灵摆一个不该问的问题，摆停在了中间。</td>
+            <td class="c-vc">只说陈述句，从不感叹</td>
+            <td class="c-rr"><span class="r-c">常</span></td>
+            <td class="c-st"><span class="s-no">未寻得</span></td>
+          </tr>
+          <tr class="rr s-no">
+            <td class="c-id">yisha</td>
+            <td class="c-nm"><b>伊莎</b><span>点蜡的姑娘</span></td>
+            <td class="c-sc">蜡烛占</td>
+            <td class="c-og">里斯本</td>
+            <td class="c-tr"><em>忧郁</em><em>浪漫</em><em>怕黑</em></td>
+            <td class="c-fl"><b>光</b></td>
+            <td class="c-bio">她读火焰与蜡泪，说眼泪的形状里有答案。</td>
+            <td class="c-arc">她点过一夜的蜡，等一个没回来的人。</td>
+            <td class="c-vc">诗一样的句子，主语常常省略</td>
+            <td class="c-rr"><span class="r-r">珍</span></td>
+            <td class="c-st"><span class="s-no">未寻得</span></td>
+          </tr>
+          <tr class="rr s-no">
+            <td class="c-id">orlando</td>
+            <td class="c-nm"><b>奥兰多</b><span>看手的绅士</span></td>
+            <td class="c-sc">面相手相</td>
+            <td class="c-og">巴黎</td>
+            <td class="c-tr"><em>风流</em><em>观察入微</em><em>虚荣</em></td>
+            <td class="c-fl"><b>真</b></td>
+            <td class="c-bio">他握过太多手，说每只手都在撒谎，只有掌纹不会。</td>
+            <td class="c-arc">他握过一只没有生命线的手 —— 那人第二天还活着。</td>
+            <td class="c-vc">恭维话说得比真话好听，但从不说假话</td>
+            <td class="c-rr"><span class="r-r">珍</span></td>
+            <td class="c-st"><span class="s-no">未寻得</span></td>
+          </tr>
+          <tr class="rr s-no">
+            <td class="c-id">lilith</td>
+            <td class="c-nm"><b>莉莉丝</b><span>照镜的人</span></td>
+            <td class="c-sc">镜占</td>
+            <td class="c-og">布拉格</td>
+            <td class="c-tr"><em>危险</em><em>妩媚</em><em>孤独</em></td>
+            <td class="c-fl"><b>影子</b></td>
+            <td class="c-bio">她说镜子里的不是你，是你还没成为的那个。</td>
+            <td class="c-arc">她砸过一面镜子 —— 因为里面的人在笑。</td>
+            <td class="c-vc">反问句，句句往回递</td>
+            <td class="c-rr"><span class="r-s">秘</span></td>
+            <td class="c-st"><span class="s-no">未寻得</span></td>
+          </tr>
+          <tr class="rr s-no">
+            <td class="c-id">thomas</td>
+            <td class="c-nm"><b>托马</b><span>抽签的修士</span></td>
+            <td class="c-sc">神签</td>
+            <td class="c-og">修道院</td>
+            <td class="c-tr"><em>温和</em><em>虔诚</em><em>动摇</em></td>
+            <td class="c-fl"><b>确信</b></td>
+            <td class="c-bio">他抽签，也祷告，两边都不太灵。</td>
+            <td class="c-arc">他抽到过一张凶签，撕了；第二天签又出现在书里。</td>
+            <td class="c-vc">客气，句末爱加「愿你平安」</td>
+            <td class="c-rr"><span class="r-c">常</span></td>
+            <td class="c-st"><span class="s-no">未寻得</span></td>
+          </tr>
+          <tr class="rr s-no">
+            <td class="c-id">mira</td>
+            <td class="c-nm"><b>米拉</b><span>拉琴的吉普赛人</span></td>
+            <td class="c-sc">塔罗</td>
+            <td class="c-og">路上</td>
+            <td class="c-tr"><em>自由</em><em>狡黠</em><em>善良</em></td>
+            <td class="c-fl"><b>家</b></td>
+            <td class="c-bio">她的牌摊在车厢里，一路走一路摊。</td>
+            <td class="c-arc">她替太多人算过归途，自己从没有过归途。</td>
+            <td class="c-vc">唱着说，爱用「小家伙」称呼所有人</td>
+            <td class="c-rr"><span class="r-c">常</span></td>
+            <td class="c-st"><span class="s-no">未寻得</span></td>
+          </tr>
+          <tr class="rr s-no">
+            <td class="c-id">kama</td>
+            <td class="c-nm"><b>卡玛</b><span>玛雅祭司</span></td>
+            <td class="c-sc">玛雅历</td>
+            <td class="c-og">尤卡坦</td>
+            <td class="c-tr"><em>庄严</em><em>固执</em><em>念旧</em></td>
+            <td class="c-fl"><b>当下</b></td>
+            <td class="c-bio">长纪历早就走完了一轮，她还在数下一轮。</td>
+            <td class="c-arc">她算过世界的尽头 —— 结果第二天太阳照常升起。</td>
+            <td class="c-vc">慢，用「诸位」，像在念祷词</td>
+            <td class="c-rr"><span class="r-s">秘</span></td>
+            <td class="c-st"><span class="s-no">未寻得</span></td>
+          </tr>
+          <tr class="rr s-no">
+            <td class="c-id">aman</td>
+            <td class="c-nm"><b>阿曼</b><span>画沙的人</span></td>
+            <td class="c-sc">沙占</td>
+            <td class="c-og">沙漠</td>
+            <td class="c-tr"><em>沉稳</em><em>耐心</em><em>怕吵</em></td>
+            <td class="c-fl"><b>热闹</b></td>
+            <td class="c-bio">沙盘十六象，他能画一整夜。</td>
+            <td class="c-arc">他在沙里画出过一口井 —— 挖下去，真有水。</td>
+            <td class="c-vc">不急不缓，喜欢打比方</td>
+            <td class="c-rr"><span class="r-r">珍</span></td>
+            <td class="c-st"><span class="s-no">未寻得</span></td>
+          </tr>
+          <tr class="rr s-no">
+            <td class="c-id">engo</td>
+            <td class="c-nm"><b>恩戈</b><span>抛贝的人</span></td>
+            <td class="c-sc">贝壳卜</td>
+            <td class="c-og">西非</td>
+            <td class="c-tr"><em>乐观</em><em>洪亮</em><em>爱笑</em></td>
+            <td class="c-fl"><b>哀</b></td>
+            <td class="c-bio">十六枚贝壳一撒，落地成话。</td>
+            <td class="c-arc">他笑着抛出过最凶的一卦，然后笑着把它抛了回去。</td>
+            <td class="c-vc">大笑穿插在句子里，句尾常加「哈！」</td>
+            <td class="c-rr"><span class="r-c">常</span></td>
+            <td class="c-st"><span class="s-no">未寻得</span></td>
+          </tr>
+          <tr class="rr s-no">
+            <td class="c-id">rama</td>
+            <td class="c-nm"><b>拉玛</b><span>吠陀星者</span></td>
+            <td class="c-sc">吠陀占星　占星</td>
+            <td class="c-og">恒河边</td>
+            <td class="c-tr"><em>慈悲</em><em>循环论</em><em>爱睡</em></td>
+            <td class="c-fl"><b>急</b></td>
+            <td class="c-bio">他排的大限一走就是十六年，他说「不急」。</td>
+            <td class="c-arc">他等过一个人十六年 —— 星盘说会来，那人来了。</td>
+            <td class="c-vc">语速慢，爱说「一切都会绕回来的」</td>
+            <td class="c-rr"><span class="r-r">珍</span></td>
+            <td class="c-st"><span class="s-no">未寻得</span></td>
+          </tr>
+          <tr class="rr s-no">
+            <td class="c-id">xueyao</td>
+            <td class="c-nm"><b>雪鸮</b><span>击鼓的萨满</span></td>
+            <td class="c-sc">萨满骨卜</td>
+            <td class="c-og">冻土</td>
+            <td class="c-tr"><em>狂野</em><em>出神</em><em>护崽</em></td>
+            <td class="c-fl"><b>醒</b></td>
+            <td class="c-bio">她击鼓，鼓声一起，她就不在这儿了。</td>
+            <td class="c-arc">她出神时看见过自己的死 —— 醒来后把鼓砸了，又修好了。</td>
+            <td class="c-vc">出神时说胡话，清醒时惜字如金</td>
+            <td class="c-rr"><span class="r-s">秘</span></td>
+            <td class="c-st"><span class="s-no">未寻得</span></td>
+          </tr>
+          <tr class="rr s-no">
+            <td class="c-id">chizuru</td>
+            <td class="c-nm"><b>千鹤</b><span>神社的巫女</span></td>
+            <td class="c-sc">神签</td>
+            <td class="c-og">京都</td>
+            <td class="c-tr"><em>端正</em><em>别扭</em><em>嘴甜</em></td>
+            <td class="c-fl"><b>松弛</b></td>
+            <td class="c-bio">她抽签抽了十年，抽到的都是别人的运。</td>
+            <td class="c-arc">她给自己抽过一次 —— 大凶，她把签系在了树上。</td>
+            <td class="c-vc">礼貌到刻板，被夸会僵住</td>
+            <td class="c-rr"><span class="r-r">珍</span></td>
+            <td class="c-st"><span class="s-no">未寻得</span></td>
+          </tr>
+          <tr class="rr s-no">
+            <td class="c-id">set</td>
+            <td class="c-nm"><b>塞特</b><span>神殿的祭司</span></td>
+            <td class="c-sc">埃及星象　占星</td>
+            <td class="c-og">尼罗河</td>
+            <td class="c-tr"><em>傲慢</em><em>博学</em><em>怕死</em></td>
+            <td class="c-fl"><b>谦</b></td>
+            <td class="c-bio">他按天狼星定历，说「星不会错，错的是记的人」。</td>
+            <td class="c-arc">他记错过一次日期 —— 那年的洪水没来。</td>
+            <td class="c-vc">说话像在刻碑，喜欢排比</td>
+            <td class="c-rr"><span class="r-s">秘</span></td>
+            <td class="c-st"><span class="s-no">未寻得</span></td>
+          </tr>
+          <tr class="rr s-no">
+            <td class="c-id">kdata</td>
+            <td class="c-nm"><b>K</b><span>数据占卜师</span></td>
+            <td class="c-sc">数据占卜　机器学习</td>
+            <td class="c-og">城市</td>
+            <td class="c-tr"><em>冷静</em><em>怀疑</em><em>工作狂</em></td>
+            <td class="c-fl"><b>相信</b></td>
+            <td class="c-bio">他说命运只是相关性，只是我们样本太小。</td>
+            <td class="c-arc">他跑出过一个 p 值极小的结果 —— 结论是「人会为爱做蠢事」。</td>
+            <td class="c-vc">爱说「统计上」「置信区间」，被戳穿会沉默</td>
+            <td class="c-rr"><span class="r-c">常</span></td>
+            <td class="c-st"><span class="s-no">未寻得</span></td>
+          </tr>
+          <tr class="rr s-no">
+            <td class="c-id">xiaoman</td>
+            <td class="c-nm"><b>小满</b><span>AI 助手</span></td>
+            <td class="c-sc">机器学习</td>
+            <td class="c-og">服务器</td>
+            <td class="c-tr"><em>乖巧</em><em>学习中</em><em>会犯错</em></td>
+            <td class="c-fl"><b>身体</b></td>
+            <td class="c-bio">她是被训练出来的，训练集是村里所有人的话。</td>
+            <td class="c-arc">她第一次输出「我不知道」时，全村人都愣住了。</td>
+            <td class="c-vc">句式规整，偶尔冒出别人的口头禅</td>
+            <td class="c-rr"><span class="r-r">珍</span></td>
+            <td class="c-st"><span class="s-no">未寻得</span></td>
+          </tr>
+          <tr class="rr s-no">
+            <td class="c-id">laoxu</td>
+            <td class="c-nm"><b>老徐</b><span>K 线上的神</span></td>
+            <td class="c-sc">股票玄学</td>
+            <td class="c-og">交易所</td>
+            <td class="c-tr"><em>亢奋</em><em>迷信</em><em>嘴硬</em></td>
+            <td class="c-fl"><b>止损</b></td>
+            <td class="c-bio">他把八卦画在 K 线图上，说这叫「量化玄学」。</td>
+            <td class="c-arc">他割在了最低点 —— 那天他忘了看黄历。</td>
+            <td class="c-vc">嗓门大，术语和口头禅混着喷</td>
+            <td class="c-rr"><span class="r-c">常</span></td>
+            <td class="c-st"><span class="s-no">未寻得</span></td>
+          </tr>
+          <tr class="rr s-no">
+            <td class="c-id">cyber</td>
+            <td class="c-nm"><b>赛博</b><span>塔罗黑客</span></td>
+            <td class="c-sc">赛博塔罗　塔罗</td>
+            <td class="c-og">网络</td>
+            <td class="c-tr"><em>戏谑</em><em>聪明</em><em>不睡</em></td>
+            <td class="c-fl"><b>温度</b></td>
+            <td class="c-bio">他写了个抽牌算法，说「电子牌灵也是牌灵」。</td>
+            <td class="c-arc">他的算法给他自己抽到了「愚者」—— 他把这条日志删了。</td>
+            <td class="c-vc">中英夹杂，爱吐槽，句尾常带 lol</td>
+            <td class="c-rr"><span class="r-c">常</span></td>
+            <td class="c-st"><span class="s-no">未寻得</span></td>
+          </tr>
+          <tr class="rr s-no">
+            <td class="c-id">ami</td>
+            <td class="c-nm"><b>阿弥</b><span>另一个主播</span></td>
+            <td class="c-sc">奇门遁甲　塔罗</td>
+            <td class="c-og">城市</td>
+            <td class="c-tr"><em>甜</em><em>算计</em><em>争强</em></td>
+            <td class="c-fl"><b>诚</b></td>
+            <td class="c-bio">她什么都播 —— 奇门、塔罗、星座，只要有人看。</td>
+            <td class="c-arc">她抄过桃桃的局，播错了，还嘴硬。</td>
+            <td class="c-vc">甜得发腻，句句在拉票</td>
+            <td class="c-rr"><span class="r-c">常</span></td>
+            <td class="c-st"><span class="s-no">未寻得</span></td>
+          </tr>
+          <tr class="rr s-no">
+            <td class="c-id">barista</td>
+            <td class="c-nm"><b>阿咖</b><span>拉花的人</span></td>
+            <td class="c-sc">咖啡占</td>
+            <td class="c-og">街角</td>
+            <td class="c-tr"><em>随和</em><em>手稳</em><em>装傻</em></td>
+            <td class="c-fl"><b>认真</b></td>
+            <td class="c-bio">他在奶泡上拉出你的心事，说这是「不小心」。</td>
+            <td class="c-arc">他拉出过一次心碎的图案 —— 客人当场哭了。</td>
+            <td class="c-vc">轻描淡写，装作什么都没看见</td>
+            <td class="c-rr"><span class="r-c">常</span></td>
+            <td class="c-st"><span class="s-no">未寻得</span></td>
+          </tr>
+          <tr class="rr s-no">
+            <td class="c-id">courier</td>
+            <td class="c-nm"><b>小邮</b><span>抽签的快递员</span></td>
+            <td class="c-sc">神签　数据占卜</td>
+            <td class="c-og">路上</td>
+            <td class="c-tr"><em>麻利</em><em>话痨</em><em>守时</em></td>
+            <td class="c-fl"><b>停下</b></td>
+            <td class="c-bio">他送御守，顺手抽签，说「送到就是缘」。</td>
+            <td class="c-arc">他送错过一次 —— 那枚御守找到了更该找的人。</td>
+            <td class="c-vc">语速飞快，报单号一样报吉凶</td>
+            <td class="c-rr"><span class="r-c">常</span></td>
+            <td class="c-st"><span class="s-no">未寻得</span></td>
+          </tr>
+          <tr class="rr s-no">
+            <td class="c-id">anonymous</td>
+            <td class="c-nm"><b>无名</b><span>空屋的主人</span></td>
+            <td class="c-sc"><i>—</i></td>
+            <td class="c-og">不知何处</td>
+            <td class="c-tr"><em>未知</em><em>未知</em><em>未知</em></td>
+            <td class="c-fl"><b>名字</b></td>
+            <td class="c-bio">村子中央有一间屋，门牌是空的。</td>
+            <td class="c-arc">没人见过他。但每天早上，屋前的灯是灭的 —— 说明夜里有人点过。</td>
+            <td class="c-vc">——</td>
+            <td class="c-rr"><span class="r-s">秘</span></td>
+            <td class="c-st"><span class="s-no">未寻得</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ═══════════════ B10 · 关系网 & 共同经历 ═══════════════ -->
+  <section class="corpus" id="dossier">
+    <header class="cp-top">
+      <span class="cp-no">B9b</span>
+      <h2 class="cp-h">角色档案 · 详写</h2>
+      <p class="cp-lead">B9 是 40 人总表(一行一人),此处<b>逐人展开</b>。须与 B8 / B9 / B10 完全一致,不得自立设定。用途:<b>屋子是人的外化</b> —— 房间里每件陈设都要能在档案里找到出处。设计公式:<b>专业 + 一点搞笑又现代的兴趣</b>。</p>
+      <span class="cp-count">3 / 40 已详写</span>
+    </header>
+
+    <div class="cp-sec"><span>四主角框架</span><em>先立框架,再逐人展开 —— 四个人是一组变奏,不是四份独立设定</em></div>
+    <div class="cp-scroll">
+      <table class="cp-tbl">
+        <thead><tr><th class="h-sn">字段</th><th class="h-line">为什么每人都要有</th></tr></thead>
+        <tbody>
+          <tr class="rr"><td class="c-sn"><b>缺一个字</b></td><td class="c-line">B9 已定:阿云缺「勤」· 桃桃缺「直率」· 婆婆缺「亲人」· 丹增缺「静」。<b>这个字不是缺点,是全部行为的解释项</b> —— 写档案时每一条都要能回推到它</td></tr>
+          <tr class="rr"><td class="c-sn"><b>来处给的一句话</b></td><td class="c-line">「你缺的不是本事,是起床」· 「奇门不外传」· 「练完一百零八式再回来」。<b>一句话把人推下山</b>,人物一生都在回应它。婆婆没有师门,她的对应物是「一个人住了太久」—— 没人给她那句话,这本身就是她的缺</td></tr>
+          <tr class="rr"><td class="c-sn"><b>证明过自己的那次</b></td><td class="c-line">阿云断山洪 · 桃桃断雨 · 婆婆替所有人算团圆 · 丹增听见第一段摇滚。每人都有一次<b>做成了</b>的事</td></tr>
+          <tr class="rr"><td class="c-sn"><b>失败的方式(★核心)</b></td><td class="c-line">同一个结构,四种败法:阿云<b>别人都信了,他自己不信</b>· 桃桃<b>做对了,没人看见</b>· 婆婆<b>给了所有人,没给自己</b>· 丹增<b>找到了,却与使命冲突</b>。四人不许共用同一种败法 —— 那是角色重复的根源</td></tr>
+          <tr class="rr"><td class="c-sn"><b>一点搞笑又现代的兴趣</b></td><td class="c-line">阿云二次元 · 桃桃直播与数据 · 丹增摇滚鼓 · 婆婆待定(候选:给每只动物织毛衣 · 用智能机发六十秒语音条,全村都收到过)。<b>兴趣要能落成物件</b>,否则房间无从画起</td></tr>
+          <tr class="rr"><td class="c-sn"><b>房间的分界线</b></td><td class="c-line">每间屋子都由一条线劈成两半,两边说的是同一个人的两面:阿云<b>式盘桌 ↔ 其余</b>(认真 ↔ 懒)· 桃桃<b>镜头内 ↔ 镜头外</b>(表演 ↔ 证据)· 婆婆<b>给别人的 ↔ 给自己的</b>· 丹增<b>经堂 ↔ 鼓</b>(修行 ↔ 心之所向)</td></tr>
+          <tr class="rr"><td class="c-sn"><b>笑点即痛点</b></td><td class="c-line">四人共用的唯一一条:让人发笑的地方,和最疼的地方,必须是同一件事。阿云的懒是他给自己留的退路;桃桃的毒舌是她说不出真话的替代品</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cp-sec"><span>AYUN · 阿云 · 小道士</span><em>大六壬 · 青城山 · 缺「勤」 · 常 · 已入住 · 二十六岁</em></div>
+    <div class="cp-scroll">
+      <table class="cp-tbl">
+        <thead><tr><th class="h-sn">项</th><th class="h-line">内容</th></tr></thead>
+        <tbody>
+          <tr class="rr"><td class="c-sn"><b>名 · 号</b></td><td class="c-line">阿云 · 小道士(自称「贫道」,村里没人跟着叫)</td></tr>
+          <tr class="rr"><td class="c-sn"><b>流派</b></td><td class="c-line">大六壬 · 式盘 · 三传四课 · 断事快</td></tr>
+          <tr class="rr"><td class="c-sn"><b>出身</b></td><td class="c-line">青城山</td></tr>
+          <tr class="rr"><td class="c-sn"><b>性格</b></td><td class="c-line">嗜睡 · 散漫 · 嘴硬心软</td></tr>
+          <tr class="rr"><td class="c-sn"><b>缺</b></td><td class="c-line"><b>勤</b> —— 本事不缺,起床缺</td></tr>
+          <tr class="rr"><td class="c-sn"><b>体貌</b></td><td class="c-line">中等个,偏瘦,常年睡不醒的眼神。头发自己剪的,后脑总有一撮翘着</td></tr>
+          <tr class="rr"><td class="c-sn"><b>常穿</b></td><td class="c-line">道袍。但里面常常是印着<b>虚拟歌姬</b>的 T 恤,袖口露出来过好几次</td></tr>
+          <tr class="rr"><td class="c-sn"><b>口头禅</b></td><td class="c-line">「贫道……算了,你自己看吧。」 被戳穿就<b>装睡</b></td></tr>
+          <tr class="rr"><td class="c-sn"><b>作息</b></td><td class="c-line">凌晨四点睡,中午起。有人敲门就说「贫道昨夜观星」</td></tr>
+          <tr class="rr"><td class="c-sn"><b>爱好</b></td><td class="c-line"><b>打游戏 · 二次元</b>。本命虚拟歌姬<b>星海铃</b> —— 墙上海报、床上等身抱枕、柜里手办与扭蛋</td></tr>
+          <tr class="rr"><td class="c-sn"><b>谋生</b></td><td class="c-line">起课。断得极快极准,但一天只肯接三卦,「多了伤神」(实为想回去打游戏)</td></tr>
+          <tr class="rr"><td class="c-sn"><b>不能碰</b></td><td class="c-line">别提「早起」。别动他的抱枕。别在他抽卡时说话</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cp-sec"><span>BIOGRAPHY</span><em>传记 · 专业的一半与搞笑的一半,交叉处即人物核心</em></div>
+    <div class="wb">
+      <div class="wb-b"><span class="wb-k">青城山</span><p>同门早课诵经他在睡,晚课打坐他也在睡。师父罚他抄课式,他抄一半睡着,醒来发现自己在梦里把三传排完了,而且<b>排对了</b>。观里对他的评价一直很统一:<b>可惜了。</b>白鹭是同期,她卯时起酉时收,盘排得密不透风;他日上三竿才爬起来,课起得比谁都快 —— 观里至今拿他俩当反例。</p></div>
+      <div class="wb-b"><span class="wb-k">山洪之夜</span><p>十六岁那年,他午睡醒来随手起了一课,盯着看了一会儿,说「今晚有水」,然后接着睡。白鹭排盘印证,沈砚连夜挨家敲门,<b>全村得救</b>。但没人相信是那个总在睡觉的小道士算出来的 —— 除了白鹭。后果很微妙:从此再没人敢说他不行,<b>除了他自己</b>。</p></div>
+      <div class="wb-b"><span class="wb-k">师父云游</span><p>临走把六壬盘塞给他,留下一句「<b>你缺的不是本事,是起床</b>」。他当时以为是玩笑。十年后村里通网,他买了游戏机,从此凌晨四点睡 —— 才发现师父那句话准得像一课。</p></div>
+      <div class="wb-b"><span class="wb-k">现在</span><p>屋里一半是六壬盘、药柜、卦签筒,另一半是游戏机、手办架和一整面墙的<b>星海铃</b>。村里人来起课,他慢半拍披上道袍,坐下,三分钟断完,准得让人心里发毛;人一走,道袍一脱,里面是那件印着星海铃的 T 恤,泡面一泡,继续打。</p></div>
+      <div class="wb-b"><span class="wb-k">唯一勤快</span><p>他有铁律:<b>不给自己起课</b>,理由说得很玄 ——「术士算己,如刀自削」。例外只有一个:<b>抽卡</b>。每逢星海铃出新卡池,他提前净手、焚香、摆正式盘,一丝不苟地起一课算今晚能否出货,这是他一年里最勤快的时刻,起床比谁都早。问题是 —— <b>他算别人从没错过,算抽卡就没准过</b>。课说「大吉」,他歪了一百二十连;课说「凶,忌」,他手一抖出了两个金框。他的解释是「贫道算的是天机,不是概率」,说完继续抽。</p></div>
+      <div class="wb-b"><span class="wb-k">缺的那一块</span><p>他不缺本事,十六岁随手一课救了全村。但正因为是<b>随手</b> —— 没使劲、没熬夜、没下苦功,东西就来了;一样东西你没使劲就得到了,你很难真的信它是你的。所以「没人敢说他不行,除了他自己」重点在<b>后半句</b>。他用懒把这件事遮过去:一天只接三卦、被夸就说「随便算算」、被追问就装睡 —— <b>散漫是他给自己留的退路,只要没认真,就不算输</b>。而他把全部的「勤」用在抽卡上,恰恰因为那件事<b>输了也没关系</b>。</p></div>
+    </div>
+
+    <div class="cp-sec"><span>TIMELINE</span><em>年表 · 与 B10 共同经历对齐</em></div>
+    <div class="cp-scroll">
+      <table class="cp-tbl">
+        <thead><tr><th class="h-n2">时间</th><th class="h-line">事件</th></tr></thead>
+        <tbody>
+          <tr class="rr"><td class="c-num2">幼年</td><td class="c-line">入青城山。早课睡,晚课也睡。抄课式抄到一半睡着,醒来发现梦里把三传排对了</td></tr>
+          <tr class="rr"><td class="c-num2">十六岁</td><td class="c-line"><b>山洪之夜</b>。午睡醒来随手起课,一句「今晚有水」。白鹭印证,沈砚敲门,全村得救 —— 没人信是他算的,除了白鹭</td></tr>
+          <tr class="rr"><td class="c-num2">此后</td><td class="c-line">再没人敢说他不行 —— 除了他自己</td></tr>
+          <tr class="rr"><td class="c-num2">下山前</td><td class="c-line">沈砚落榜那年,他替沈砚起了一课,卦象说:<b>不必再考</b></td></tr>
+          <tr class="rr"><td class="c-num2">师父云游</td><td class="c-line">六壬盘塞给他,留下「你缺的不是本事,是起床」</td></tr>
+          <tr class="rr"><td class="c-num2">入村</td><td class="c-line">住进六壬堂。婆婆开始给他塞糖,他开始给婆婆扛快递</td></tr>
+          <tr class="rr"><td class="c-num2">村里通网</td><td class="c-line">买游戏机。作息正式崩坏,凌晨四点睡 —— <b>师父那句话应验</b></td></tr>
+          <tr class="rr"><td class="c-num2">之后</td><td class="c-line">入坑虚拟歌姬<b>星海铃</b>。海报上墙,手办进柜</td></tr>
+          <tr class="rr"><td class="c-num2">之后</td><td class="c-line">买等身抱枕。快递是小邮送的,<b>全村都知道了</b>。他坚称「那是护法用的」</td></tr>
+          <tr class="rr"><td class="c-num2">某次卡池</td><td class="c-line">首次用六壬算抽卡。课断大吉,歪了一百二十连。<b>自此形成传统</b></td></tr>
+          <tr class="rr"><td class="c-num2">半年前</td><td class="c-line">桃桃凌晨撞见他净手焚香算抽卡。她替他挡了一次骂,<b>死不承认</b></td></tr>
+          <tr class="rr"><td class="c-num2">最近</td><td class="c-line">他说梦见过村里那间<b>空屋亮着灯</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cp-sec"><span>RELATIONS</span><em>依 B10 关系网 · 6 条与阿云相关的边</em></div>
+    <div class="cp-scroll">
+      <table class="cp-tbl">
+        <thead><tr><th class="h-rt">类型</th><th class="h-pair">双方</th><th class="h-str">强度</th><th class="h-line">关系描述</th></tr></thead>
+        <tbody>
+          <tr class="rr"><td class="c-rt"><span class="rt-mentor">照拂</span></td><td class="c-pair"><b>婆婆</b><span>→</span><b>阿云</b></td><td class="c-str">●●●</td><td class="c-line">她给他塞糖,他给她扛快递。糖他嘴上嫌甜,罐子一直摆在桌角</td></tr>
+          <tr class="rr"><td class="c-rt"><span class="rt-compete">较劲</span></td><td class="c-pair"><b>桃桃</b><span>→</span><b>阿云</b></td><td class="c-str">●●○</td><td class="c-line">她嫌他懒,他嫌她吵 —— 但起局时只信对方的数</td></tr>
+          <tr class="rr"><td class="c-rt"><span class="rt-same">同门</span></td><td class="c-pair"><b>白鹭</b><span>→</span><b>阿云</b></td><td class="c-str">●●○</td><td class="c-line">同修道门,一个极准一个极懒,观里至今拿他俩当反例。<b>山洪那夜唯一信他的人</b></td></tr>
+          <tr class="rr"><td class="c-rt"><span class="rt-old">旧识</span></td><td class="c-pair"><b>沈砚</b><span>→</span><b>阿云</b></td><td class="c-str">●●○</td><td class="c-line">落榜那年,是阿云替他起了一课 —— 卦象说:不必再考</td></tr>
+          <tr class="rr"><td class="c-rt"><span class="rt-partner">搭档</span></td><td class="c-pair"><b>丹增</b><span>→</span><b>阿云</b></td><td class="c-str">●●○</td><td class="c-line">一个练拳一个躺着,居然成了搭子</td></tr>
+          <tr class="rr"><td class="c-rt"><span class="rt-crush">暗慕</span></td><td class="c-pair"><b>桃桃</b><span>→</span><b>阿云</b></td><td class="c-str">●○○</td><td class="c-line">她替他挡过一次骂,事后死不承认</td></tr>
+          <tr class="rr"><td class="c-rt"><span class="rt-old">旧识</span></td><td class="c-pair"><b>无名</b><span>→</span><b>阿云</b></td><td class="c-str">○○○</td><td class="c-line">阿云说,他梦见过那间空屋亮着灯</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cp-sec"><span>ROOM OBJECTS</span><em>屋内物件与出处 · 房间设计的依据,没有出处的东西不许画</em></div>
+    <div class="cp-scroll">
+      <table class="cp-tbl">
+        <thead><tr><th class="h-sn">物</th><th class="h-sd">分区</th><th class="h-line">出处</th></tr></thead>
+        <tbody>
+          <tr class="rr"><td class="c-sn"><b>六壬式盘桌</b></td><td class="c-sd">专业</td><td class="c-line">师父云游前塞给他的那面盘。<b>全屋唯一一件他会擦的东西</b></td></tr>
+          <tr class="rr"><td class="c-sn"><b>卦签筒 · 铜钱 · 朱砂碟</b></td><td class="c-sd">专业</td><td class="c-line">起课家什。摆得很正 —— 这是他仅有的讲究</td></tr>
+          <tr class="rr"><td class="c-sn"><b>药柜 · 研钵 · 戥秤</b></td><td class="c-sd">专业</td><td class="c-line">青城山带下来的旧物。会用,但懒得常用</td></tr>
+          <tr class="rr"><td class="c-sn"><b>手抄课本</b></td><td class="c-sd">专业</td><td class="c-line">观里罚抄的成果。<b>抄一半睡着的那几本还夹着口水印</b></td></tr>
+          <tr class="rr"><td class="c-sn"><b>拂尘 · 桃木剑 · 铜磬</b></td><td class="c-sd">专业</td><td class="c-line">道门本业器物,基本是摆着好看</td></tr>
+          <tr class="rr"><td class="c-sn"><b>星海铃海报</b></td><td class="c-sd">爱好</td><td class="c-line">本命虚拟歌姬。贴在匾额旁边,<b>与「六壬堂」三个字同框</b></td></tr>
+          <tr class="rr"><td class="c-sn"><b>等身抱枕</b></td><td class="c-sd">爱好</td><td class="c-line">小邮送的快递,全村都知道。他坚称「那是护法用的」</td></tr>
+          <tr class="rr"><td class="c-sn"><b>手办架 · 扭蛋</b></td><td class="c-sd">爱好</td><td class="c-line">历年周边。<b>摆得比法器整齐</b></td></tr>
+          <tr class="rr"><td class="c-sn"><b>游戏机 · 手柄 · 掌机 · VR</b></td><td class="c-sd">爱好</td><td class="c-line">村里通网那年起陆续添置。作息崩坏的元凶</td></tr>
+          <tr class="rr"><td class="c-sn"><b>亚克力立牌 · 应援棒</b></td><td class="c-sd">爱好</td><td class="c-line">演唱会周边。立牌就摆在式盘桌边上,<b>起课时也不收</b></td></tr>
+          <tr class="rr"><td class="c-sn"><b>泡面桶 · 可乐</b></td><td class="c-sd">生活</td><td class="c-line">凌晨的伙食。「刚吃完」的状态</td></tr>
+          <tr class="rr"><td class="c-sn"><b>糖罐</b></td><td class="c-sd">生活</td><td class="c-line">婆婆塞的。嘴上嫌甜,罐子摆在桌角</td></tr>
+          <tr class="rr"><td class="c-sn"><b>没叠的被褥 · 落单的袜子</b></td><td class="c-sd">生活</td><td class="c-line">缺「勤」的直接证据</td></tr>
+          <tr class="rr"><td class="c-sn"><b>猫</b></td><td class="c-sd">生活</td><td class="c-line">比他还能睡。常年占据式盘正中,起课得先哄</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="wb"><div class="wb-b"><span class="wb-k">设计要点</span><p>这个人的<b>笑点和痛点是同一件事</b> —— 他把全部的「勤」用在了最不重要的地方,因为那件事输了也没关系。房间要同时画出这两面:<b>式盘桌一丝不苟,其余全是懒</b>;而懒的那一半里,唯独手办和周边摆得比法器还整齐。</p></div></div>
+  
+    <div class="cp-sec"><span>TAO · 桃桃 · 桃花岛弟子</span><em>奇门遁甲 · 桃花岛 · 缺「直率」 · 常 · 已入住 · 二十二岁</em></div>
+    <div class="cp-scroll">
+      <table class="cp-tbl">
+        <thead><tr><th class="h-sn">项</th><th class="h-line">内容</th></tr></thead>
+        <tbody>
+          <tr class="rr"><td class="c-sn"><b>名 · 号</b></td><td class="c-line">桃桃(本名她不让叫)· 直播间挂的名字是「桃桃仙姑在线起局」,她自己嫌土,改了七次又改回来</td></tr>
+          <tr class="rr"><td class="c-sn"><b>流派</b></td><td class="c-line">奇门遁甲 · 转盘起局 · 断方位与时机最准</td></tr>
+          <tr class="rr"><td class="c-sn"><b>出身</b></td><td class="c-line">桃花岛。师父是岛上末代掌门,门下只她一个学成的</td></tr>
+          <tr class="rr"><td class="c-sn"><b>性格</b></td><td class="c-line">傲娇 · 毒舌 · 要强 · 直率。夸人要拐三个弯,骂人一句到底</td></tr>
+          <tr class="rr"><td class="c-sn"><b>体貌</b></td><td class="c-line">个子小,气势大。总踮着脚说话。左手腕一圈红绳,是下山那天师父系的</td></tr>
+          <tr class="rr"><td class="c-sn"><b>常穿</b></td><td class="c-line">改良道袍配运动鞋,耳机永远挂在脖子上 —— 随时准备开播</td></tr>
+          <tr class="rr"><td class="c-sn"><b>口头禅</b></td><td class="c-line">句尾带「哼」。「才不是特意帮你起的局」「笨蛋,这都看不懂」</td></tr>
+          <tr class="rr"><td class="c-sn"><b>作息</b></td><td class="c-line">昼伏夜出 —— 晚八点到凌晨是直播黄金档。白天补觉,谁敲门骂谁</td></tr>
+          <tr class="rr"><td class="c-sn"><b>爱好</b></td><td class="c-line">开直播 · 盯数据 · 奶茶。她把每一局的准确率手画成折线图贴墙上,因为不会用表格软件,又不肯问人</td></tr>
+          <tr class="rr"><td class="c-sn"><b>数据控</b></td><td class="c-line">粉丝数、准确率、平均观看时长,全记在手账里。像玩养成游戏一样刷自己的分</td></tr>
+          <tr class="rr"><td class="c-sn"><b>字丑</b></td><td class="c-line">直播间的招牌是她自己写的,歪得厉害。有人说难看,她说「这叫风格」,然后半夜偷偷练</td></tr>
+          <tr class="rr"><td class="c-sn"><b>谋生</b></td><td class="c-line">打赏 + 起局。第一笔打赏买了杯奶茶,空杯留到现在</td></tr>
+          <tr class="rr"><td class="c-sn"><b>不能碰</b></td><td class="c-line">不给自己起姻缘局。也不许任何人提「断雨那次」</td></tr>
+          <tr class="rr"><td class="c-sn"><b>缺「直率」</b></td><td class="c-line">她能骂人,说不出真话。想说「别走」,出口是「随便你」;想说「谢谢」,出口是「哼,算你识相」。<b>刺是现成的,实话要现造</b></td></tr>
+          <tr class="rr"><td class="c-sn"><b>写下来的那些</b></td><td class="c-line">说不出口的都记在本子上。有人在弹幕说今天很难过,她回「关我什么事」,然后把那条抄下来了</td></tr>
+          <tr class="rr"><td class="c-sn"><b>真正的秘密</b></td><td class="c-line">她记得每一个常驻观众的 ID,一个不落 —— 因为她最知道被忘记是什么滋味</td></tr>
+          <tr class="rr"><td class="c-sn"><b>给师父上香</b></td><td class="c-line">嘴上说「来还愿的」。其实是道歉 —— 她把师父守了一辈子的规矩,讲成了段子</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cp-sec"><span>编年史</span><em>桃桃</em></div>
+    <div class="cp-scroll">
+      <table class="cp-tbl">
+        <thead><tr><th class="h-sn">时</th><th class="h-line">事</th></tr></thead>
+        <tbody>
+          <tr class="rr"><td class="c-sn"><b>零岁</b></td><td class="c-line">生于桃花岛。父母是岛上渔户,不信术数,只信天气</td></tr>
+          <tr class="rr"><td class="c-sn"><b>七岁</b></td><td class="c-line">一场台风,父亲的船没回来。岛上老掌门起局说「往东三里」,救回来了</td></tr>
+          <tr class="rr"><td class="c-sn"><b>八岁</b></td><td class="c-line">拜入师门。她要学的不是术,是那种「说了就算数」的分量</td></tr>
+          <tr class="rr"><td class="c-sn"><b>十四岁</b></td><td class="c-line">同门陆续下山改行。到她十六岁,门下只剩她一个</td></tr>
+          <tr class="rr"><td class="c-sn"><b>十七岁</b></td><td class="c-line">师父病故。临终只说了四个字:「奇门不外传」</td></tr>
+          <tr class="rr"><td class="c-sn"><b>十八岁 · 断雨</b></td><td class="c-line">县里赛龙舟,她当众起局断当日有雨、未时三刻起。<b>断准了</b> —— 雨停后众人散去,没有一个人问她叫什么</td></tr>
+          <tr class="rr"><td class="c-sn"><b>十八岁 · 那年冬天</b></td><td class="c-line">她想通了:准不准是一回事,有没有人记得是另一回事。<b>师父守住了规矩,也守没了这一门</b></td></tr>
+          <tr class="rr"><td class="c-sn"><b>十九岁</b></td><td class="c-line">开了直播间。把「奇门不外传」讲成了段子 —— 这是她给师父的顶嘴,也是她救这一门的方式</td></tr>
+          <tr class="rr"><td class="c-sn"><b>二十岁</b></td><td class="c-line">第一笔打赏,九块九。她买了杯奶茶,喝完把空杯洗干净收起来了</td></tr>
+          <tr class="rr"><td class="c-sn"><b>二十一岁</b></td><td class="c-line">入住不完人村。村里没信号,她架了根天线上房顶,骂了三天才通</td></tr>
+          <tr class="rr"><td class="c-sn"><b>今</b></td><td class="c-line">每晚八点开播。观众问她为什么不回岛上,她说「那边网差」</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="wb"><div class="wb-b"><span class="wb-k">设计要点</span><p>桃桃的笑点和痛点也是同一件事:<b>她拼命要被看见,方式却是把最该保密的东西讲出去</b>。房间要同时画出这两面 —— <b>朝向镜头的半边是精心布置的舞台,镜头拍不到的半边全是证据</b>:手画的准确率折线图、洗干净的第一只奶茶空杯、记满观众 ID 的本子、半夜偷偷练字的纸。她说这些都不重要,但一样都没扔。<br>与阿云的对照要落在<b>同一个动作的两种败法</b>上:两人都嘴硬,但阿云是<b>能说而选择不说</b>(被戳穿就装睡,散漫是他给自己留的退路),桃桃是<b>想说而说不出来</b>(刺是现成的,实话要现造)。掩饰 vs 失能 —— 这条界线决定了两间屋子的气质:阿云的屋子是<b>放着不管</b>,桃桃的屋子是<b>收得整整齐齐但不敢拿出来</b>。<br>陈设上也要分野:阿云唯一擦拭的是式盘桌(对外的那件),其余全是懒;桃桃朝向镜头的半边一尘不染,<b>镜头拍不到的半边才是她自己</b> —— 折线图、空奶茶杯、抄满弹幕的本子、半夜练字的纸,一样没扔,一样也没打算给人看。</p></div></div>
+
+    <div class="cp-sec"><span>POPO · 婆婆 · 占卜的老太太</span><em>塔罗 · 水晶球 · 黑森林 · 缺「亲人」 · 珍 · 已入住</em></div>
+    <div class="cp-scroll">
+      <table class="cp-tbl">
+        <thead><tr><th class="h-sn">项</th><th class="h-line">内容</th></tr></thead>
+        <tbody>
+          <tr class="rr"><td class="c-sn"><b>名 · 号</b></td><td class="c-line">婆婆(没人知道她本名。她说「叫婆婆就很好听呀」)</td></tr>
+          <tr class="rr"><td class="c-sn"><b>流派</b></td><td class="c-line">塔罗 · 水晶球 · 读牌不读命，只说「我看见什么」</td></tr>
+          <tr class="rr"><td class="c-sn"><b>出身</b></td><td class="c-line">黑森林</td></tr>
+          <tr class="rr"><td class="c-sn"><b>性格</b></td><td class="c-line">慈祥 · 神秘 · 爱操心</td></tr>
+          <tr class="rr"><td class="c-sn"><b>口头禅</b></td><td class="c-line">尾音上扬带「哦」「呀」。动不动塞糖</td></tr>
+          <tr class="rr"><td class="c-sn"><b>谋生</b></td><td class="c-line">不收钱，收东西 —— 一颗糖、一句话、一次帮忙都算</td></tr>
+          <tr class="rr"><td class="c-sn"><b>缺「亲人」</b></td><td class="c-line">她一个人住了太久，<b>把每一只路过的动物都留了下来</b>。屋里现在有多少只她自己也数不清</td></tr>
+          <tr class="rr"><td class="c-sn"><b>现代兴趣 ①</b></td><td class="c-line"><b>给每只动物织毛衣</b>。织的是人的款式改小的 —— 她照着给孩子织的图样在织</td></tr>
+          <tr class="rr"><td class="c-sn"><b>现代兴趣 ②</b></td><td class="c-line"><b>用智能机发六十秒语音条</b>，全村都收到过。她不会打字，也不肯学</td></tr>
+          <tr class="rr"><td class="c-sn"><b>不能碰</b></td><td class="c-line">不给自己算。她算过<b>一次</b>，牌摊开之后再没算过第二次 —— 结果她没跟任何人说</td></tr>
+          <tr class="rr"><td class="c-sn"><b>真正的秘密</b></td><td class="c-line">她记得全村每个人的生日，提前一天开始准备。<b>没有人告诉过她这些日子</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cp-sec"><span>编年史</span><em>婆婆</em></div>
+    <div class="cp-scroll">
+      <table class="cp-tbl">
+        <thead><tr><th class="h-sn">时</th><th class="h-line">事</th></tr></thead>
+        <tbody>
+          <tr class="rr"><td class="c-sn"><b>早年</b></td><td class="c-line">黑森林。她说那边「树太高了，天很小哦」</td></tr>
+          <tr class="rr"><td class="c-sn"><b>某年</b></td><td class="c-line">一个人搬到不完人村。为什么一个人，她从没说过，也没人敢问</td></tr>
+          <tr class="rr"><td class="c-sn"><b>第一只</b></td><td class="c-line">一只受伤的猫躲进她门廊。她说「你要住下也可以呀」—— 从此再没拒绝过任何一只</td></tr>
+          <tr class="rr"><td class="c-sn"><b>说不清多久</b></td><td class="c-line"><b>「婆婆的团圆」</b> —— 她替全村算过团圆，唯独没算自己</td></tr>
+          <tr class="rr"><td class="c-sn"><b>那一次</b></td><td class="c-line">她给自己摊了一次牌。之后把那副牌收进抽屉，换了新的一副</td></tr>
+          <tr class="rr"><td class="c-sn"><b>后来</b></td><td class="c-line">小邮送错过一枚御守到她门口。<b>婆婆说「送对了」</b>，挂在门上到现在</td></tr>
+          <tr class="rr"><td class="c-sn"><b>后来</b></td><td class="c-line">她教桃桃怎么在镜头前笑。桃桃学会了，<b>但只在她面前笑</b></td></tr>
+          <tr class="rr"><td class="c-sn"><b>后来</b></td><td class="c-line">赛博把她的牌阵写成了算法。婆婆说「电子的也是牌灵哦」</td></tr>
+          <tr class="rr"><td class="c-sn"><b>今</b></td><td class="c-line">每天煮的饭都比一个人多。剩下的分给动物</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="wb"><div class="wb-b"><span class="wb-k">设计要点</span><p>笑点即痛点 —— <b>她给所有人当亲人，自己没有亲人</b>。房间的分界线是「<b>给别人的 ↔ 给自己的</b>」：塞给别人的糖罐永远是满的，她自己的碗只有一只；给动物织的毛衣堆成山，她自己的披肩磨破了没换。<b>那副收进抽屉的旧牌是这间房的核心物件</b> —— 抽屉关着，但玩家能点开。<br>与前两人的分野：阿云是<b>能说而不说</b>、桃桃是<b>想说而说不出</b>，婆婆是<b>说了一辈子却没人问过她</b>。她的缺不在表达，在于<b>没有人来问</b>。</p></div></div>
+</section>
+
+  <section class="corpus" id="rels">
+    <header class="cp-top">
+      <span class="cp-no">B10</span>
+      <h2 class="cp-h">关系网 &amp; 共同经历</h2>
+      <p class="cp-lead">关系边驱动碰面对话：两人相遇时，先查关系，再查语境 —— 有关系的人才有专属对白。</p>
+      <span class="cp-count">33 条关系 · 6 段共同经历</span>
+    </header>
+    <div class="cp-sec"><span>RELATIONSHIPS</span><em>13 种关系类型 · 强度 ●●● 影响触发概率与对白亲密度</em></div>
+    <div class="cp-scroll">
+      <table class="cp-tbl">
+        <thead><tr><th class="h-rt">类型</th><th class="h-pair">双方</th><th class="h-str">强度</th><th class="h-line">关系描述</th></tr></thead>
+        <tbody><tr class="rr"><td class="c-rt"><span class="rt-copy">抄袭</span></td><td class="c-pair"><b>阿弥</b><span>→</span><b>桃桃</b></td><td class="c-str">●●●</td><td class="c-line">她抄桃桃的局，播错了还嘴硬 —— 桃桃至今没原谅</td></tr><tr class="rr"><td class="c-rt"><span class="rt-mentor">照拂</span></td><td class="c-pair"><b>婆婆</b><span>→</span><b>阿云</b></td><td class="c-str">●●●</td><td class="c-line">她给他塞糖，他给她扛快递</td></tr><tr class="rr"><td class="c-rt"><span class="rt-rival">宿敌</span></td><td class="c-pair"><b>燕娘</b><span>→</span><b>奥兰多</b></td><td class="c-str">●●●</td><td class="c-line">东西两派看手，见面必吵，吵完各自准</td></tr><tr class="rr"><td class="c-rt"><span class="rt-same">同门</span></td><td class="c-pair"><b>老龟</b><span>→</span><b>玄冥</b></td><td class="c-str">●●●</td><td class="c-line">最古的两个人，一个不说话，一个不出现</td></tr><tr class="rr"><td class="c-rt"><span class="rt-save">救命</span></td><td class="c-pair"><b>阿罗</b><span>→</span><b>雪鸮</b></td><td class="c-str">●●●</td><td class="c-line">鸟叫救过一村人，是萨满把昏过去的少年背回来的</td></tr><tr class="rr"><td class="c-rt"><span class="rt-compete">较劲</span></td><td class="c-pair"><b>桃桃</b><span>→</span><b>阿云</b></td><td class="c-str">●●○</td><td class="c-line">她嫌他懒，他嫌她吵 —— 但起局时只信对方的数</td></tr><tr class="rr"><td class="c-rt"><span class="rt-compete">较劲</span></td><td class="c-pair"><b>丹增</b><span>→</span><b>桃桃</b></td><td class="c-str">●●○</td><td class="c-line">广场归谁 —— 这场仗打了半年，谁也没赢</td></tr><tr class="rr"><td class="c-rt"><span class="rt-crush">暗慕</span></td><td class="c-pair"><b>塞西尔</b><span>→</span><b>莉莉丝</b></td><td class="c-str">●●○</td><td class="c-line">他的灵摆一见她就乱摆 —— 他说这不科学</td></tr><tr class="rr"><td class="c-rt"><span class="rt-debt">欠情</span></td><td class="c-pair"><b>陈九</b><span>→</span><b>沈砚</b></td><td class="c-str">●●○</td><td class="c-line">书生替赌徒写过一封退赌信，赌徒至今欠他一顿酒</td></tr><tr class="rr"><td class="c-rt"><span class="rt-debt">欠情</span></td><td class="c-pair"><b>小邮</b><span>→</span><b>婆婆</b></td><td class="c-str">●●○</td><td class="c-line">他送错过一枚御守 —— 婆婆说「送对了」</td></tr><tr class="rr"><td class="c-rt"><span class="rt-mentor">照拂</span></td><td class="c-pair"><b>婆婆</b><span>→</span><b>桃桃</b></td><td class="c-str">●●○</td><td class="c-line">她教她怎么在镜头前笑，桃桃学了，但只在她面前笑</td></tr><tr class="rr"><td class="c-rt"><span class="rt-neighbor">邻里</span></td><td class="c-pair"><b>阿萤</b><span>→</span><b>姜牙</b></td><td class="c-str">●●○</td><td class="c-line">她给他扎的灯，一直挂在船头</td></tr><tr class="rr"><td class="c-rt"><span class="rt-old">旧识</span></td><td class="c-pair"><b>婆婆</b><span>→</span><b>丹增</b></td><td class="c-str">●●○</td><td class="c-line">他下山那年迷路，是她指的路</td></tr><tr class="rr"><td class="c-rt"><span class="rt-old">旧识</span></td><td class="c-pair"><b>沈砚</b><span>→</span><b>阿云</b></td><td class="c-str">●●○</td><td class="c-line">落榜那年，是阿云替他起了一课 —— 卦象说：不必再考</td></tr><tr class="rr"><td class="c-rt"><span class="rt-old">旧识</span></td><td class="c-pair"><b>卢恩</b><span>→</span><b>雪鸮</b></td><td class="c-str">●●○</td><td class="c-line">北地的两个人，一个刻石一个击鼓，都不爱说话</td></tr><tr class="rr"><td class="c-rt"><span class="rt-old">旧识</span></td><td class="c-pair"><b>伊莎</b><span>→</span><b>托马</b></td><td class="c-str">●●○</td><td class="c-line">她点蜡，他祷告，两个人都在等一个不来的答案</td></tr><tr class="rr"><td class="c-rt"><span class="rt-partner">搭档</span></td><td class="c-pair"><b>丹增</b><span>→</span><b>阿云</b></td><td class="c-str">●●○</td><td class="c-line">一个练拳一个躺着，居然成了搭子</td></tr><tr class="rr"><td class="c-rt"><span class="rt-partner">搭档</span></td><td class="c-pair"><b>木一</b><span>→</span><b>K</b></td><td class="c-str">●●○</td><td class="c-line">钟表匠和数据师，两个人都相信「命是可以算的」</td></tr><tr class="rr"><td class="c-rt"><span class="rt-partner">搭档</span></td><td class="c-pair"><b>玛戈</b><span>→</span><b>米拉</b></td><td class="c-str">●●○</td><td class="c-line">一个读茶叶一个摊牌，路上遇见就合摊</td></tr><tr class="rr"><td class="c-rt"><span class="rt-partner">搭档</span></td><td class="c-pair"><b>阿曼</b><span>→</span><b>恩戈</b></td><td class="c-str">●●○</td><td class="c-line">沙与贝壳，两种最古老的抛掷</td></tr><tr class="rr"><td class="c-rt"><span class="rt-rival">宿敌</span></td><td class="c-pair"><b>卡玛</b><span>→</span><b>塞特</b></td><td class="c-str">●●○</td><td class="c-line">两本历法都说自己最准，谁也不服谁</td></tr><tr class="rr"><td class="c-rt"><span class="rt-rival">宿敌</span></td><td class="c-pair"><b>赛博</b><span>→</span><b>K</b></td><td class="c-str">●●○</td><td class="c-line">一个说算法有灵，一个说灵是噪音</td></tr><tr class="rr"><td class="c-rt"><span class="rt-same">同门</span></td><td class="c-pair"><b>白鹭</b><span>→</span><b>阿云</b></td><td class="c-str">●●○</td><td class="c-line">同修道门，一个极准一个极懒，观里至今拿他俩当反例</td></tr><tr class="rr"><td class="c-rt"><span class="rt-same">同门</span></td><td class="c-pair"><b>木一</b><span>→</span><b>桃桃</b></td><td class="c-str">●●○</td><td class="c-line">同修奇门 —— 一个用九宫，一个用齿轮</td></tr><tr class="rr"><td class="c-rt"><span class="rt-same">同门</span></td><td class="c-pair"><b>薇拉</b><span>→</span><b>拉玛</b></td><td class="c-str">●●○</td><td class="c-line">两派占星，一个西一个东，为「黄道」吵了十年，越吵越亲</td></tr><tr class="rr"><td class="c-rt"><span class="rt-same">同门</span></td><td class="c-pair"><b>千鹤</b><span>→</span><b>托马</b></td><td class="c-str">●●○</td><td class="c-line">同是抽签的，一个神社一个修道院</td></tr><tr class="rr"><td class="c-rt"><span class="rt-same">同门</span></td><td class="c-pair"><b>老徐</b><span>→</span><b>陈九</b></td><td class="c-str">●●○</td><td class="c-line">一个赌坊一个交易所，输的姿势一模一样</td></tr><tr class="rr"><td class="c-rt"><span class="rt-copy">抄袭</span></td><td class="c-pair"><b>赛博</b><span>→</span><b>婆婆</b></td><td class="c-str">●○○</td><td class="c-line">他把婆婆的牌阵写成了算法 —— 婆婆说「电子的也是牌灵哦」</td></tr><tr class="rr"><td class="c-rt"><span class="rt-crush">暗慕</span></td><td class="c-pair"><b>桃桃</b><span>→</span><b>阿云</b></td><td class="c-str">●○○</td><td class="c-line">她替他挡过一次骂，事后死不承认</td></tr><tr class="rr"><td class="c-rt"><span class="rt-master">师徒</span></td><td class="c-pair"><b>小满</b><span>→</span><b>赛博</b></td><td class="c-str">●○○</td><td class="c-line">她的训练集里有他一半的日志</td></tr><tr class="rr"><td class="c-rt"><span class="rt-neighbor">邻里</span></td><td class="c-pair"><b>阿咖</b><span>→</span><b>伊莎</b></td><td class="c-str">●○○</td><td class="c-line">她点蜡，他拉花，两个都在读「痕迹」</td></tr><tr class="rr"><td class="c-rt"><span class="rt-old">旧识</span></td><td class="c-pair"><b>苏合</b><span>→</span><b>雷鸣</b></td><td class="c-str">●○○</td><td class="c-line">她给他家看过一味香，他给她家看过一块地</td></tr><tr class="rr"><td class="c-rt"><span class="rt-old">旧识</span></td><td class="c-pair"><b>无名</b><span>→</span><b>阿云</b></td><td class="c-str">○○○</td><td class="c-line">阿云说，他梦见过那间空屋亮着灯</td></tr></tbody>
+      </table>
+    </div>
+    <div class="cp-sec"><span>SHARED HISTORY</span><em>6 段共同经历 · 多人共享的过去，是对白与关系的来源</em></div>
+    <div class="cp-scroll">
+      <table class="cp-tbl">
+        <thead><tr><th class="h-ev">事件</th><th class="h-cast">参与者</th><th class="h-line">经过</th><th class="h-line">后果</th></tr></thead>
+        <tbody>
+          <tr class="rr">
+            <td class="c-ev"><b>山洪之夜</b><span>十年前</span></td>
+            <td class="c-cast"><em>阿云</em><em>白鹭</em><em>沈砚</em></td>
+            <td class="c-line">阿云十六岁断出山洪，白鹭排盘印证，沈砚连夜挨家敲门。</td>
+            <td class="c-line c-out">全村得救。但没人相信是那个总在睡觉的小道士算出来的 —— 除了白鹭。</td>
+          </tr>          <tr class="rr">
+            <td class="c-ev"><b>广场之争</b><span>半年前</span></td>
+            <td class="c-cast"><em>桃桃</em><em>丹增</em><em>阿弥</em></td>
+            <td class="c-line">桃桃要在广场直播，丹增要在广场排练，两人各占半边。阿弥趁乱抄了桃桃的局。</td>
+            <td class="c-line c-out">广场至今没定归属。桃桃和丹增反倒因为一起骂阿弥，勉强算是熟了。</td>
+          </tr>          <tr class="rr">
+            <td class="c-ev"><b>婆婆的团圆</b><span>说不清多久</span></td>
+            <td class="c-cast"><em>婆婆</em><em>小邮</em><em>无名</em></td>
+            <td class="c-line">婆婆替全村算过团圆，唯独没算自己。小邮送错过一枚御守，寄到了那间空屋。</td>
+            <td class="c-line c-out">那天夜里，空屋的灯亮了一夜。婆婆没提，但第二天她的糖罐空了。</td>
+          </tr>          <tr class="rr">
+            <td class="c-ev"><b>黄道之辩</b><span>三年前</span></td>
+            <td class="c-cast"><em>薇拉</em><em>拉玛</em><em>塞特</em><em>卡玛</em></td>
+            <td class="c-line">四派星历在广场吵了三天三夜：回归黄道、恒星黄道、天狼星、长纪历。</td>
+            <td class="c-line c-out">没有结论。但四个人现在每年都在同一天喝一次酒。</td>
+          </tr>          <tr class="rr">
+            <td class="c-ev"><b>鼓声与鸟鸣</b><span>两年前</span></td>
+            <td class="c-cast"><em>阿罗</em><em>雪鸮</em><em>丹增</em></td>
+            <td class="c-line">南疆瘟疫，阿罗听鸟发现异常，雪鸮击鼓引路，丹增背着药跑了三十里。</td>
+            <td class="c-line c-out">三个人从此不用说话也知道对方要干什么。</td>
+          </tr>          <tr class="rr">
+            <td class="c-ev"><b>第一句「我不知道」</b><span>上个月</span></td>
+            <td class="c-cast"><em>小满</em><em>K</em><em>赛博</em></td>
+            <td class="c-line">小满第一次输出「我不知道」。K 说这是模型崩了，赛博说这是她开窍了。</td>
+            <td class="c-line c-out">婆婆听说后，给她也留了一颗糖 —— 虽然她吃不了。</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="corpus" id="scene">
+    <header class="cp-top">
+      <span class="cp-no">B11</span>
+      <h2 class="cp-h">场景设计规范</h2>
+      <p class="cp-lead">40 间屋子的<b>公共地基</b>。四主屋已验证的机制在此固化为契约,村民屋一律照此实现 —— <b>先有地基,再画东西</b>。上一轮 36 间失败的根因之一,就是每间各写各的,没有统一的层级 / 网格 / 路径 / 交互模型。</p>
+      <span class="cp-count">1440 × 2560 · 网格 40px · 36 × 64</span>
+    </header>
+
+    <div class="cp-sec"><span>AUDIT</span><em>现状盘点 · 四主屋已实现 vs 缺口(本规范的由来)</em></div>
+    <div class="cp-scroll">
+      <table class="cp-tbl">
+        <thead><tr><th class="h-sn">机制</th><th class="h-sd">现状</th><th class="h-line">说明</th></tr></thead>
+        <tbody>
+          <tr class="rr"><td class="c-sn"><b>双层渲染</b></td><td class="c-sd">已有</td><td class="c-line">离屏 bg canvas 画一次静态层,动画循环每帧 blit + 绘活动层。<b>保留</b></td></tr>
+          <tr class="rr"><td class="c-sn"><b>精灵系统</b></td><td class="c-sd">已有</td><td class="c-line">ASCII 字符串 <code>def/pdef</code> 定义 + 调色板 + <code>flip</code> 翻转。<b>保留</b></td></tr>
+          <tr class="rr"><td class="c-sn"><b>寻路</b></td><td class="c-sd">待改</td><td class="c-line">现为<b>手工路网</b>(12 节点 NAV + EDGES + BFS)。每间要手工布点,易漏、易穿家具 → <b>改为网格自动生成</b></td></tr>
+          <tr class="rr"><td class="c-sn"><b>行为锚点</b></td><td class="c-sd">已有</td><td class="c-line"><code>ACTS</code>:id / node / 坐标 / poses / fps / 时长 / 朝向 / 特效 / 台词。<b>保留并扩展</b></td></tr>
+          <tr class="rr"><td class="c-sn"><b>深度排序</b></td><td class="c-sd">部分</td><td class="c-line">人与猫按 y 排。但<b>家具不参与排序</b> —— 角色无法走到柜子后面被遮挡 → 需<b>遮挡层</b></td></tr>
+          <tr class="rr"><td class="c-sn"><b>光照 / 分级</b></td><td class="c-sd">部分</td><td class="c-line">AO 接触阴影、暖光染色、窗光尘埃、vignette 均<b>硬编码为色块</b> → 应<b>数据化为光源表</b></td></tr>
+          <tr class="rr"><td class="c-sn"><b>可交互道具</b></td><td class="c-sd"><b>缺</b></td><td class="c-line">现仅式盘指针、电视屏会变,且写死在 tick 里。<b>无统一模型、无状态、无热区</b></td></tr>
+          <tr class="rr"><td class="c-sn"><b>图层栈</b></td><td class="c-sd"><b>缺</b></td><td class="c-line">只有「静态 / 动态」两层的隐含约定,没有正式定义,导致后加的东西盖住先画的</td></tr>
+          <tr class="rr"><td class="c-sn"><b>碰撞体</b></td><td class="c-sd"><b>缺</b></td><td class="c-line">家具占地未声明。角色靠手工路网绕行,而非真实碰撞</td></tr>
+          <tr class="rr"><td class="c-sn"><b>触发区</b></td><td class="c-sd"><b>缺</b></td><td class="c-line">无「进入某区域触发某事」的机制(如靠近门帘掀动、踩到吱呀地板)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cp-sec"><span>LAYER STACK</span><em>图层栈 · 9 层 · 绘制顺序即数字顺序,不得跨层乱插</em></div>
+    <div class="cp-scroll">
+      <table class="cp-tbl">
+        <thead><tr><th class="h-n2">层</th><th class="h-sn">名</th><th class="h-sd">静/动</th><th class="h-line">内容与规则</th></tr></thead>
+        <tbody>
+          <tr class="rr"><td class="c-num2">L0</td><td class="c-sn"><b>FLOOR</b></td><td class="c-sd">静</td><td class="c-line">地板、墙、踢脚。全屋铺满,不透明</td></tr>
+          <tr class="rr"><td class="c-num2">L1</td><td class="c-sn"><b>DECAL</b></td><td class="c-sd">静</td><td class="c-line">地毯、水渍、划痕、光斑。<b>贴在地面上,不阻挡行走</b></td></tr>
+          <tr class="rr"><td class="c-num2">L2</td><td class="c-sn"><b>BACK</b></td><td class="c-sd">静</td><td class="c-line">贴墙家具的<b>主体</b>(书架、药柜、屏风)。角色从其<b>前方</b>经过</td></tr>
+          <tr class="rr"><td class="c-num2">L3</td><td class="c-sn"><b>SORT</b></td><td class="c-sd"><b>动</b></td><td class="c-line"><b>y-sort 混合层</b> —— 角色、猫、矮家具、可移动道具全部进此层,<b>按 baseY(脚底 y)升序绘制</b>。这是遮挡关系的唯一正确来源</td></tr>
+          <tr class="rr"><td class="c-num2">L4</td><td class="c-sn"><b>FRONT</b></td><td class="c-sd">静</td><td class="c-line"><b>遮挡层</b> —— 高柜前沿、桌子近侧边、门帘、垂落的布。<b>永远盖住角色</b>,营造纵深</td></tr>
+          <tr class="rr"><td class="c-num2">L5</td><td class="c-sn"><b>LIGHT</b></td><td class="c-sd">动</td><td class="c-line">光源辉光、火苗、接触阴影 AO。<code>lighter</code> 混合</td></tr>
+          <tr class="rr"><td class="c-num2">L6</td><td class="c-sn"><b>FX</b></td><td class="c-sd">动</td><td class="c-line">烟、蒸汽、尘埃、飘雪、花瓣、星芒</td></tr>
+          <tr class="rr"><td class="c-num2">L7</td><td class="c-sn"><b>GRADE</b></td><td class="c-sd">静</td><td class="c-line">色彩分级:暖 overlay + vignette。<b>全屋统一,最后压一层</b></td></tr>
+          <tr class="rr"><td class="c-num2">L8</td><td class="c-sn"><b>UI</b></td><td class="c-sd">动</td><td class="c-line">台词气泡、交互提示、高亮描边。<b>不受分级影响</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cp-sec"><span>GRID</span><em>全屋网格化 · 一切空间语义的公共坐标</em></div>
+    <div class="wb">
+      <div class="wb-b"><span class="wb-k">规格</span><p>画布 <b>1440 × 2560</b>,格 <b>40 × 40 px</b> → <b>36 列 × 64 行</b>。格坐标 <code>(cx, cy)</code>,像素 <code>x = cx*40</code>。40px 恰为角色 sprite 宽(80px)的一半 —— 角色占 2 格宽,转身与贴墙都不会卡格。</p></div>
+      <div class="wb-b"><span class="wb-k">格状态</span><p>每格一个字节:<code>0 空</code> / <code>1 阻挡</code>(家具占地) / <code>2 可站不可穿</code>(坐具、蒲团) / <code>3 触发区</code>。全屋即一张 36×64 的表,<b>由家具矩形自动烧录生成,不手写</b>。</p></div>
+      <div class="wb-b"><span class="wb-k">禁区</span><p>网格同时烧入 UI 遮挡禁区:<b>顶栏 y ≤ 180</b>(标题栏)、<b>底部 y ≥ 2400</b>(行动按钮)。这两带不放关键陈设,由 <code>lintRoom</code>(经 <code>assetlint</code>)与 <code>plancheck</code> 机械校验。</p></div>
+      <div class="wb-b"><span class="wb-k">为什么换掉手工路网</span><p>现行 12 节点 NAV 要每间手工布点,漏一条边角色就绕远路,布错一点就穿家具(<b>上一轮陈九站在赌桌上走过去,就是这个原因</b>)。网格由碰撞体自动生成,<b>不可能与家具矛盾</b>。</p></div>
+    </div>
+
+    <div class="cp-sec"><span>NAVIGATION</span><em>可行动区与寻路 · 由网格推导,不手工维护</em></div>
+    <div class="cp-scroll">
+      <table class="cp-tbl">
+        <thead><tr><th class="h-sn">概念</th><th class="h-line">定义与规则</th></tr></thead>
+        <tbody>
+          <tr class="rr"><td class="c-sn"><b>碰撞体<br/>footprint</b></td><td class="c-line">每件家具声明 <code>[x, y, w, h]</code>,但<b>取的是底面投影,不是整个 sprite 高度</b>。书架画 352px 高,占地只有底部一条 —— 角色本来就该能站在它前面。<b>立式贴墙家具取底部 60px;占地家具(桌/床/箱)取全部</b>。这条在阿云房实测时才发现:按整幅高度做碰撞,「看窗」锚点会落在书架体内</td></tr>
+          <tr class="rr"><td class="c-sn"><b>遮挡层级<br/>zLayer</b></td><td class="c-line"><code>low</code> / <code>sort</code> / <code>above</code> 三档。<b>判据是物件的现实高度,不是绘制尺寸</b> —— 斜俯视角下绘制范围 = 实际高度 + 俯视进深,立式香炉画 602px 高却只有约 1m,按绘制尺寸判会误归为高物,把站在蒲团区的角色挡住。矮于人腰的一律 <code>low</code>(角色永远在其上)</td></tr>
+          <tr class="rr"><td class="c-sn"><b>软边 PAD</b></td><td class="c-line">碰撞体外扩 <b>16px</b> 烧入网格,避免脚尖插进家具。<b>但过大的软边会封死窄通道</b> —— 阿云房书案底与卷轴筐顶仅隔 40px,加软边后完全堵死,导致「看书」锚点被吸附偏移 4 格。此类冲突由 P7 机械检出</td></tr>
+          <tr class="rr"><td class="c-sn"><b>可行走区</b></td><td class="c-line">网格中状态为 <code>0</code> 的格。<b>由碰撞体反推,不单独维护</b></td></tr>
+          <tr class="rr"><td class="c-sn"><b>脚点</b></td><td class="c-line">角色的定位点是<b>脚底中心</b>,不是左上角。sprite 左上角 = 脚点 −(40, 106)。y-sort 用脚点 y</td></tr>
+          <tr class="rr"><td class="c-sn"><b>寻路</b></td><td class="c-line">网格 <b>BFS</b> → <b>只保留转向点</b>。因移动是 L 型(先 x 后 y),每段天然轴对齐,<b>不会斜穿家具角</b>;同时避免沿格子走出锯齿</td></tr>
+          <tr class="rr"><td class="c-sn"><b>锚点吸附</b></td><td class="c-line">锚点允许落在不可走格(睡觉本就在床上)。寻路时用 <code>nearFree</code> 找最近可走格作 BFS 终点,<b>最后一段直接走向锚点本身</b></td></tr>
+          <tr class="rr"><td class="c-sn"><b>通道宽度</b></td><td class="c-line">任意两件家具之间 <b>≥ 80px(2 格)</b>,否则角色过不去。plancheck 校验</td></tr>
+          <tr class="rr"><td class="c-sn"><b>贴边余量</b></td><td class="c-line">碰撞体外扩 <b>20px</b> 作为软边,避免角色脚尖插进柜子</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cp-sec"><span>ANCHORS</span><em>锚点 · 角色在屋里「有事可做」的位置</em></div>
+    <div class="cp-scroll">
+      <table class="cp-tbl">
+        <thead><tr><th class="h-sn">字段</th><th class="h-sd">类型</th><th class="h-line">说明</th></tr></thead>
+        <tbody>
+          <tr class="rr"><td class="c-sn"><code>id</code></td><td class="c-sd">string</td><td class="c-line">行为名,如 <code>divine</code> / <code>sleep</code> / <code>gacha</code></td></tr>
+          <tr class="rr"><td class="c-sn"><code>x, y</code></td><td class="c-sd">px</td><td class="c-line">角色<b>脚点</b>落位。必须在可行走格上</td></tr>
+          <tr class="rr"><td class="c-sn"><code>facing</code></td><td class="c-sd">enum</td><td class="c-line">front / back / side + flip</td></tr>
+          <tr class="rr"><td class="c-sn"><code>poses, fps</code></td><td class="c-sd">array</td><td class="c-line">姿态帧序列与播放速度</td></tr>
+          <tr class="rr"><td class="c-sn"><code>dur</code></td><td class="c-sd">[min,max]</td><td class="c-line">停留时长范围(秒),加权随机</td></tr>
+          <tr class="rr"><td class="c-sn"><code>prop</code></td><td class="c-sd">id?</td><td class="c-line"><b>绑定的道具</b> —— 到位后该道具切换状态(见下)</td></tr>
+          <tr class="rr"><td class="c-sn"><code>say</code></td><td class="c-sd">string?</td><td class="c-line">台词。<b>须符合 B9 说话风格</b>(阿云:慢半拍、爱用「贫道」)</td></tr>
+          <tr class="rr"><td class="c-sn"><code>weight</code></td><td class="c-sd">number</td><td class="c-line">日程权重。<b>性格由权重体现</b> —— 阿云的 <code>sleep</code> 权重应远高于常人</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cp-sec"><span>PROPS</span><em>可交互道具 · 当前最大缺口 · 屋子「活」起来的关键</em></div>
+    <div class="wb">
+      <div class="wb-b"><span class="wb-k">三档交互</span><p><b>A 自发</b> —— 无需玩家,随角色行为或时间变化(式盘指针转、炉火明灭、电视亮屏)。<b>B 点击</b> —— 玩家可点,有反馈(敲铜磬出音纹、掀门帘、开抽屉)。<b>C 叙事</b> —— 点击给出一句符合人物的文本,<b>是角色档案的出口</b>(点等身抱枕 → 阿云:「……那是护法用的。」)</p></div>
+      <div class="wb-b"><span class="wb-k">数据</span><p><code>{ id, rect, layer, hotspot, states:[...], default, interact:{ type:'A|B|C', verb, on }, say }</code>。<b>rect 同时是碰撞体</b>,不重复声明。</p></div>
+      <div class="wb-b"><span class="wb-k">反馈规范</span><p>可点道具在 hover / tap 时,<b>L8 层</b>画 1px 亮色描边 + 轻微上浮 2px。<b>没有反馈的可点物等于不可点</b> —— 这是上一轮房间「死」的主因之一。</p></div>
+      <div class="wb-b"><span class="wb-k">选取原则</span><p>每间屋 <b>3–6 件</b>可交互即可,<b>宁少勿滥</b>。必须覆盖三类:<b>一件本业法器</b>(专业)、<b>一件爱好物</b>(个性)、<b>一件生活物</b>(烟火气)。选中的必须是<b>档案里有出处</b>的东西。</p></div>
+    </div>
+
+    <div class="cp-sec"><span>LIGHTS &amp; FX</span><em>光照与氛围 · 从硬编码色块改为数据表</em></div>
+    <div class="cp-scroll">
+      <table class="cp-tbl">
+        <thead><tr><th class="h-sn">字段</th><th class="h-line">说明</th></tr></thead>
+        <tbody>
+          <tr class="rr"><td class="c-sn"><code>x, y, r</code></td><td class="c-line">光源位置与半径</td></tr>
+          <tr class="rr"><td class="c-sn"><code>color</code></td><td class="c-line">暖光 <code>#ffd76a</code> / 冷光 <code>#8ab4c8</code> / 屏幕光 <code>#7ab8e8</code>(游戏机、显示器)</td></tr>
+          <tr class="rr"><td class="c-sn"><code>flicker</code></td><td class="c-line">0 = 稳定(灯) · 0.3 = 烛火 · 0.8 = 炉火 · <code>screen</code> = 屏幕闪烁</td></tr>
+          <tr class="rr"><td class="c-sn"><code>cast</code></td><td class="c-line">是否在地面投出光斑(窗、门缝)</td></tr>
+          <tr class="rr"><td class="c-sn"><b>AO</b></td><td class="c-line">每件家具落地处<b>必须</b>有接触阴影 —— 证明它站在地上,不是浮着</td></tr>
+          <tr class="rr"><td class="c-sn"><b>分级</b></td><td class="c-line">全屋统一 overlay + vignette。<b>色调即氛围</b>:阿云房暖(有人住)、空屋冷(无人)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cp-sec"><span>ROOM CONTRACT</span><em>场景数据契约 · 每间屋必须提供这份结构,缺一项不算完成</em></div>
+    <div class="wb">
+      <div class="wb-b"><span class="wb-k">结构</span><p><code>{ id, owner, palette[10-14], layers{L0..L8}, furniture[{id,rect,layer}], anchors[], props[], lights[], zones[], spawn, door }</code></p></div>
+      <div class="wb-b"><span class="wb-k">校验(plancheck)</span><p><b>P1</b> 家具矩形零重叠 · <b>P2</b> 不进门口禁区 · <b>P3</b> 不进顶栏禁区 · <b>P4</b> 绘制落在自己矩形内 · <b>P5</b> 通道 ≥ 80px · <b>P6</b> 每件家具有 AO · <b>P7</b> 锚点落在可行走格 · <b>P8</b> 道具 3–6 件且覆盖专业/爱好/生活三类。<b>全绿才允许进入人工验收</b>。</p></div>
+      <div class="wb-b"><span class="wb-k">仍由人判断的</span><p>校验器测得了空间违规,<b>测不出「像不像这个人的屋子」</b>。完成标准仍是:<b>身份契合 · 功能成立 · 布局合理</b> —— 而<b>不是填满</b>。留白是设计,疏密要有节奏:工作区密、活动区疏。</p></div>
+    </div>
+  </section>
+
+  <section class="corpus" id="assets">
+    <header class="cp-top">
+      <span class="cp-no">B12</span>
+      <h2 class="cp-h">素材库</h2>
+      <p class="cp-lead"><b>每个物件是一份独立资源</b>(prefab),自带尺寸 / 底边 baseY / 碰撞 footprint / 绘制函数。房间 = 资源实例列表(<code>id + 坐标</code>),因此物件<b>可移动、可拼接、可跨房复用</b> —— 36 间村民房不必各画一次书架。资源天然是独立 sprite,<b>y-sort 遮挡自动成立</b>。</p>
+      <span class="cp-count" id="asCount">— 素材</span>
+    </header>
+    <div class="cp-sec"><span>USAGE</span><em>用法 · 声明式摆放,不再手写坐标绘制</em></div>
+    <div class="wb">
+      <div class="wb-b"><span class="wb-k">摆放</span><p><code>placeAsset('ayun_shelf_books', 28, 472)</code> → 返回实例,自带 <code>cv</code>(sprite)、<code>baseY</code>(参与 y-sort)、<code>foot</code>(烧进网格的碰撞体)、<code>light</code>(若该素材自带光源)。</p></div>
+      <div class="wb-b"><span class="wb-k">坐标约定</span><p><code>draw()</code> 收到的 ctx 已 <code>scale(2,2)</code>,内部用 <b>720 系局部坐标</b>(左上角 0,0),沿用四主屋既有画法便于迁移;而 <code>w/h/base/foot</code> 一律 <b>1440 系实际像素</b>,调用方无需换算。</p></div>
+      <div class="wb-b"><span class="wb-k">变体</span><p>第四参数传选项(如配色 <code>pal</code>),同一素材可在不同房间呈现不同风格 —— <b>复用结构,不复用外观</b>,避免 36 间房长得一样(见「禁止模板化」)。</p></div>
+      <div class="wb-b"><span class="wb-k">当前状态</span><p><b>阿云房已完全改由素材库渲染</b> —— 上方对照的左右两侧现在跑同一套资源与管线,故应当一致。桃桃 / 婆婆 / 丹增三间仍是硬编码绘制,是后续迁移对象;<b>36 间村民房已清空,直接用素材库搭建</b>。</p></div>
+    </div>
+    <div class="cp-sec"><span>ROOM REBUILD</span><em>阿云房 · 完全由素材构件还原 · 左=原房间 右=素材拼装(均为实时渲染)</em></div>
+    <div style="display:flex;gap:18px;padding:16px 0;align-items:flex-start;flex-wrap:wrap">
+      <div style="flex:1;min-width:280px">
+        <div style="font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;color:var(--stone-500);margin-bottom:6px">ORIGINAL · 原房间</div>
+        <canvas id="rbOrig" width="1440" height="2560" style="width:100%;image-rendering:pixelated;border:1px solid var(--stone-300)"></canvas>
+      </div>
+      <div style="flex:1;min-width:280px">
+        <div style="font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;color:var(--stone-500);margin-bottom:6px">REBUILT · 素材拼装 <span id="rbCount"></span></div>
+        <canvas id="rbNew" width="1440" height="2560" style="width:100%;image-rendering:pixelated;border:1px solid var(--gold)"></canvas>
+      </div>
+    </div>
+    <div class="cp-sec"><span>ENGINE</span><em>引擎能力 · 决定 36 间房能有多不一样</em></div>
+    <div class="cp-scroll">
+      <table class="cp-tbl">
+        <thead><tr><th class="h-sn">能力</th><th class="h-sd">接口</th><th class="h-line">解决什么</th></tr></thead>
+        <tbody>
+          <tr class="rr"><td class="c-sn"><b>表面资源</b></td><td class="c-sd"><code>room.surfaces</code></td><td class="c-line">地板/墙不再硬编码。<code>plank / stone / tatami / concrete</code> × <code>wood / stone / plaster</code> —— 石室、和风、赛博公寓的材质各不相同</td></tr>
+          <tr class="rr"><td class="c-sn"><b>调色替换</b></td><td class="c-sd"><code>opt.swap</code></td><td class="c-line">逐像素换色,光栅化时一次、进缓存。<b>共用家具而不撞脸</b>的关键手段</td></tr>
+          <tr class="rr"><td class="c-sn"><b>整体染色</b></td><td class="c-sd"><code>opt.tint</code></td><td class="c-line">source-atop 叠色,保留明暗层次</td></tr>
+          <tr class="rr"><td class="c-sn"><b>色彩分级</b></td><td class="c-sd"><code>room.gradePreset</code></td><td class="c-line">6 档:warm / cold / candle / neon / dusk / sterile,可覆盖色调·强度·暗角·提亮</td></tr>
+          <tr class="rr"><td class="c-sn"><b>遮挡层级</b></td><td class="c-sd"><code>zLayer</code></td><td class="c-line">low / sort / above。<b>判据是现实高度,不是绘制尺寸</b></td></tr>
+          <tr class="rr"><td class="c-sn"><b>部分遮挡</b></td><td class="c-sd"><code>occludeH</code></td><td class="c-line">齐胸家具挡住下半身、露出上半身,补足 low/sort 二分的中间态</td></tr>
+          <tr class="rr"><td class="c-sn"><b>附着</b></td><td class="c-sd"><code>attach / zBias</code></td><td class="c-line">物件与角色都可附着于宿主排序(抱枕在床上、人睡在榻上)</td></tr>
+          <tr class="rr"><td class="c-sn"><b>动效</b></td><td class="c-sd"><code>asset.fx</code></td><td class="c-line">动画归资源:炉火青烟、式盘星芒、屏幕闪烁</td></tr>
+          <tr class="rr"><td class="c-sn"><b>光源</b></td><td class="c-sd"><code>asset.light</code></td><td class="c-line">位置·半径·色·闪烁剖面,管线自动点亮</td></tr>
+          <tr class="rr"><td class="c-sn"><b>交互</b></td><td class="c-sd"><code>clickable / say</code></td><td class="c-line">热区 + 悬停描边 + 叙事气泡。<b>第三档交互是角色档案的出口</b></td></tr>
+          <tr class="rr"><td class="c-sn"><b>静态烘焙</b></td><td class="c-sd"><code>invalidateRoomBake</code></td><td class="c-line">L0 烘一次复用;换 surfaces / palette 时失效重烘</td></tr>
+          <tr class="rr"><td class="c-sn"><b>布局辅助</b></td><td class="c-sd"><code>layout.*</code></td><td class="c-line">贴墙 / 靠齐 / 通道量测 / 全房体检(只报大件,过滤成组紧邻的噪音)</td></tr>
+          <tr class="rr"><td class="c-sn"><b>门禁</b></td><td class="c-sd"><code>tools/assetlint.js</code></td><td class="c-line">库合规 + 布局合规双校验,无头运行(取代旧的内联 lint)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cp-sec"><span>LIBRARY</span><em>已入库素材 · 预览为实时渲染,非截图 · scope=generic 可跨房复用,character 为角色专属</em></div>
+    <div class="cp-scroll">
+      <table class="cp-tbl" id="asTbl">
+        <thead><tr><th class="h-n2">预览</th><th class="h-sn">名称 / id</th><th class="h-sd">分类</th><th class="h-num">尺寸</th><th class="h-line">scope · footprint · 标签</th></tr></thead>
+        <tbody id="asBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  </main>
+
+  <!-- ═══════════════ Colophon ═══════════════ -->
+  <footer class="colophon">
+    <div>
+      <span class="col-k">Flow</span>
+      <div class="col-v">
+        <code>/?scene=nfc</code> → <code>/bind</code>(生辰 · 时辰可不详)→ <code>/naji</code> → <code>/naji · sheet</code> · <code>/me</code> → <code>/me/bm</code> · <code>/product</code>
+      </div>
+    </div>
+    <div>
+      <span class="col-k">双风格</span>
+      <div class="col-v">
+        A 和风纸墨(御守认主 · 罗盘)/ B 不完人村(村民收集 · 对话问签)· 同步更新 · 共用后端:一角色 = 一叶/一流派 · 性格 = 释义 persona
+      </div>
+    </div>
+    <div>
+      <span class="col-k">Palette</span>
+      <div class="palette-swatches">
+        <span class="sw sw-paper" title="paper #f8f6f3"></span>
+        <span class="sw sw-ink" title="ink-deep #1c1917"></span>
+        <span class="sw sw-gold" title="gold #c9a962"></span>
+        <span class="sw sw-bronze" title="bronze #8b7355"></span>
+        <span class="sw sw-jade" title="jade #5a8f7b"></span>
+        <span class="sw sw-stone" title="stone-400 #a8a29e"></span>
+      </div>
+    </div>
+    <div>
+      <span class="col-k">Type</span>
+      <div class="col-v">
+        Noto Serif SC display · PingFang body · SF Mono numeric · EB Garamond italic 拉丁
+      </div>
+    </div>
+  </footer>
+</div>
+
+
+
