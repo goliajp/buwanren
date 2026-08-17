@@ -38,10 +38,16 @@ async fn main() -> anyhow::Result<()> {
     sqlx::migrate!("../migrations").run(&pool).await?;
 
     // 首次跑 seed(幂等 ON CONFLICT DO NOTHING)— 用 simple_query 协议跑多语句
-    let seed_sql = include_str!("../../seed/seed.sql");
     let mut conn = pool.acquire().await?;
-    sqlx::raw_sql(seed_sql).execute(&mut *conn).await
-        .map_err(|e| anyhow::anyhow!("seed: {e}"))?;
+    for (what, sql) in [
+        ("seed.sql", include_str!("../../seed/seed.sql")),
+        // 40 位不完人与 35 门术数。由 scripts/export-cast.py 从 rooms/design.html 导出,
+        // 单一来源仍是设计册 —— 别在库里手改,下次导出会盖掉。
+        ("villagers.sql", include_str!("../../seed/villagers.sql")),
+    ] {
+        sqlx::raw_sql(sql).execute(&mut *conn).await
+            .map_err(|e| anyhow::anyhow!("seed {what}: {e}"))?;
+    }
     drop(conn);
     tracing::info!("✓ pg ready · migrations + seed");
 
