@@ -17,7 +17,9 @@ roomstats —— 房间数据对表
 
 用法：python3 tools/roomstats.py <design.html> [房间1 房间2 ...]
 """
-import re, sys
+import re, sys, os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import rooms as rooms_py
 from collections import deque
 
 CELL = 40
@@ -106,20 +108,16 @@ def stats(s, key, canvas, label):
                 variant=sum(1 for n in uniq if A.get(n,{}).get('variant')),
                 reach=reach, total=total)
 
-# ⚠ 新房必须加进这张表 —— WORKFLOW「假绿第六/七种」的教训:
-# 这里曾写死前四间,沈砚、白鹭两间从未被统计过,而工具照常报数
-ROOMS = [('AYUN_ROOM','ayunCanvas','阿云'), ('TAO_ROOM','taoCanvas','桃桃'),
-         ('POPO_ROOM','popoCanvas','婆婆'), ('TENZ_ROOM','tenzCanvas','丹增'),
-         ('SHENYAN_ROOM','shenyanCanvas','沈砚'), ('BAILU_ROOM','bailuCanvas','白鹭')]
-
 def main():
     path = sys.argv[1] if len(sys.argv) > 1 else 'rooms/design.html'
     s = parse(path)
     want = sys.argv[2:]
-    rows = [stats(s, k, c, l) for k, c, l in ROOMS
-            if (not want or l in want or c in want) and s.find('window.'+k) >= 0]
+    # 房间清单自己长出来 —— 从前这里写死前四间,沈砚白鹭从未被统计过而工具照常报数
+    rooms = rooms_py.discover_or_die(s, 'roomstats')
+    rows = [stats(s, k, c, l) for k, c, l, _ in rooms
+            if not want or l in want or c in want]
     if not rows:
-        print('没有可统计的房间（房间需已迁移到 window.<KEY>_ROOM + plan）'); return
+        print('筛选条件没匹配到房间:' + ' '.join(want)); sys.exit(2)
     F = [('plan 件数','plan'), ('素材种数','kinds'), ('可点击件','click'),
          ('素材台词','lines'), ('追问台词','deep'), ('行为台词','actsay'),
          ('行为数','acts'), ('姿态数','poses'),

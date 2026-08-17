@@ -262,7 +262,7 @@
 
     <div class="step"><div class="num">05</div><div class="body">
       <h4>村线接上 CI</h4>
-      <p>后端已有 CI，村线一条都没有。把十道门禁做成 workflow：改任何房间或引擎都跑 <code>planlint</code> / <code>assetlint</code> / <code>roomaudit A-D</code> / <code>pathlint</code> / <code>walklint</code> / <code>regress</code>。</p>
+      <p>后端已有 CI，村线一条都没有。把十道门禁做成 workflow：改任何房间或引擎都跑 <code>assetlint</code> / <code>roomaudit A-D</code> / <code>pathlint</code> / <code>walklint</code> / <code>regress</code>（<code>plancheck</code> 吃的是画素材之前的 <code>plan-xxx.js</code>，属于开房时的门禁，不进这条改动流水线）。</p>
       <div class="gate"><b>门禁</b><span>CI 在 GitHub 上真跑过一次并全绿——本地绿不算数</span></div>
     </div></div>
 

@@ -31,7 +31,7 @@
 **从仓库根跑**，路径传绝对路径：
 
 ```bash
-python3 rooms/tools/planlint.py                              # 平面图门禁
+python3 rooms/tools/pathlint.py rooms/design.html            # 走位不穿模
 bun rooms/tools/regress.js "$PWD/rooms/design.html" check    # 视觉回归
 bun rooms/tools/assetlint.js "$PWD/rooms/design.html"        # 素材 / 布局合规
 ```

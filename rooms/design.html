@@ -5285,7 +5285,7 @@
     <div class="wb">
       <div class="wb-b"><span class="wb-k">规格</span><p>画布 <b>1440 × 2560</b>,格 <b>40 × 40 px</b> → <b>36 列 × 64 行</b>。格坐标 <code>(cx, cy)</code>,像素 <code>x = cx*40</code>。40px 恰为角色 sprite 宽(80px)的一半 —— 角色占 2 格宽,转身与贴墙都不会卡格。</p></div>
       <div class="wb-b"><span class="wb-k">格状态</span><p>每格一个字节:<code>0 空</code> / <code>1 阻挡</code>(家具占地) / <code>2 可站不可穿</code>(坐具、蒲团) / <code>3 触发区</code>。全屋即一张 36×64 的表,<b>由家具矩形自动烧录生成,不手写</b>。</p></div>
-      <div class="wb-b"><span class="wb-k">禁区</span><p>网格同时烧入 UI 遮挡禁区:<b>顶栏 y ≤ 180</b>(标题栏)、<b>底部 y ≥ 2400</b>(行动按钮)。这两带不放关键陈设,由 <code>planlint</code> 机械校验。</p></div>
+      <div class="wb-b"><span class="wb-k">禁区</span><p>网格同时烧入 UI 遮挡禁区:<b>顶栏 y ≤ 180</b>(标题栏)、<b>底部 y ≥ 2400</b>(行动按钮)。这两带不放关键陈设,由 <code>lintRoom</code>(经 <code>assetlint</code>)与 <code>plancheck</code> 机械校验。</p></div>
       <div class="wb-b"><span class="wb-k">为什么换掉手工路网</span><p>现行 12 节点 NAV 要每间手工布点,漏一条边角色就绕远路,布错一点就穿家具(<b>上一轮陈九站在赌桌上走过去,就是这个原因</b>)。网格由碰撞体自动生成,<b>不可能与家具矛盾</b>。</p></div>
     </div>
 
@@ -5301,7 +5301,7 @@
           <tr class="rr"><td class="c-sn"><b>脚点</b></td><td class="c-line">角色的定位点是<b>脚底中心</b>,不是左上角。sprite 左上角 = 脚点 −(40, 106)。y-sort 用脚点 y</td></tr>
           <tr class="rr"><td class="c-sn"><b>寻路</b></td><td class="c-line">网格 <b>BFS</b> → <b>只保留转向点</b>。因移动是 L 型(先 x 后 y),每段天然轴对齐,<b>不会斜穿家具角</b>;同时避免沿格子走出锯齿</td></tr>
           <tr class="rr"><td class="c-sn"><b>锚点吸附</b></td><td class="c-line">锚点允许落在不可走格(睡觉本就在床上)。寻路时用 <code>nearFree</code> 找最近可走格作 BFS 终点,<b>最后一段直接走向锚点本身</b></td></tr>
-          <tr class="rr"><td class="c-sn"><b>通道宽度</b></td><td class="c-line">任意两件家具之间 <b>≥ 80px(2 格)</b>,否则角色过不去。planlint 校验</td></tr>
+          <tr class="rr"><td class="c-sn"><b>通道宽度</b></td><td class="c-line">任意两件家具之间 <b>≥ 80px(2 格)</b>,否则角色过不去。plancheck 校验</td></tr>
           <tr class="rr"><td class="c-sn"><b>贴边余量</b></td><td class="c-line">碰撞体外扩 <b>20px</b> 作为软边,避免角色脚尖插进柜子</td></tr>
         </tbody>
       </table>
@@ -5350,7 +5350,7 @@
     <div class="cp-sec"><span>ROOM CONTRACT</span><em>场景数据契约 · 每间屋必须提供这份结构,缺一项不算完成</em></div>
     <div class="wb">
       <div class="wb-b"><span class="wb-k">结构</span><p><code>{ id, owner, palette[10-14], layers{L0..L8}, furniture[{id,rect,layer}], anchors[], props[], lights[], zones[], spawn, door }</code></p></div>
-      <div class="wb-b"><span class="wb-k">校验(planlint)</span><p><b>P1</b> 家具矩形零重叠 · <b>P2</b> 不进门口禁区 · <b>P3</b> 不进顶栏禁区 · <b>P4</b> 绘制落在自己矩形内 · <b>P5</b> 通道 ≥ 80px · <b>P6</b> 每件家具有 AO · <b>P7</b> 锚点落在可行走格 · <b>P8</b> 道具 3–6 件且覆盖专业/爱好/生活三类。<b>全绿才允许进入人工验收</b>。</p></div>
+      <div class="wb-b"><span class="wb-k">校验(plancheck)</span><p><b>P1</b> 家具矩形零重叠 · <b>P2</b> 不进门口禁区 · <b>P3</b> 不进顶栏禁区 · <b>P4</b> 绘制落在自己矩形内 · <b>P5</b> 通道 ≥ 80px · <b>P6</b> 每件家具有 AO · <b>P7</b> 锚点落在可行走格 · <b>P8</b> 道具 3–6 件且覆盖专业/爱好/生活三类。<b>全绿才允许进入人工验收</b>。</p></div>
       <div class="wb-b"><span class="wb-k">仍由人判断的</span><p>校验器测得了空间违规,<b>测不出「像不像这个人的屋子」</b>。完成标准仍是:<b>身份契合 · 功能成立 · 布局合理</b> —— 而<b>不是填满</b>。留白是设计,疏密要有节奏:工作区密、活动区疏。</p></div>
     </div>
   </section>
@@ -20532,7 +20532,7 @@ KFKWWWWWWKFK
   def("bailu_whisk", {
     clickable: true, say: '拂尘',
     name: "拂尘", cat: "法器", tags: ["马尾", "道门"], scope: "character", fromRoom: 'bailu',
-    w: 68, h: 204, base: 204, foot: [48, 176, 24, 28], zLayer: 'sort',
+    w: 68, h: 204, base: 204, foot: [48, 176, 20, 28], zLayer: 'sort',   // 宽 24 时右缘 72 > w=68,越界
     draw(g) {
       g.save(); g.scale(0.5, 0.5)
       g.fillStyle = 'rgba(46,44,38,0.16)'; g.fillRect(8, 190, 52, 7)
@@ -25864,7 +25864,10 @@ if (st.said && t < st.saidUntil) {
     })
   }
 
-  // 房间布局合规:引用存在 / 不越界 / 实体不重叠
+  // UI 遮挡禁区(1440×2560 房间坐标系):标题栏与行动按钮各盖住一条,里面的陈设看不见
+  const UIZONE = { top: 180, bottom: 2400 }
+
+  // 房间布局合规:引用存在 / 不越界 / 实体不重叠 / 不进 UI 遮挡带
   // 返回 { errs 必须修, notes 看一眼就好 }
   window.lintRoom = function (room) {
     const errs = [], notes = [], W = room.w || 1440, H = room.h || 2560
@@ -25880,7 +25883,13 @@ if (st.said && t < st.saidUntil) {
       const f = a.foot
       if (a.cat === '地面' || a.walkable || a.wall || attached) continue
       if (!f || !(f[2] > 0) || !(f[3] > 0)) continue
-      solid.push({ id, x: x + f[0], y: y + f[1], w: f[2], h: f[3] })
+      const s = { id, x: x + f[0], y: y + f[1], w: f[2], h: f[3] }
+      solid.push(s)
+      // UI 遮挡禁区(设计圣经 B「禁区」):顶栏盖住 y<180,行动按钮盖住 y>2400。
+      // 这两带里的陈设玩家根本看不见 —— 画了等于没画。规则一直写在册子里,
+      // 但唯一查它的 planlint 只认早已删掉的 FULLROOMS 格式,于是多年无人执行。
+      if (s.y + s.h > UIZONE.bottom) notes.push(`${id} 探进底部按钮遮挡带(y ${s.y + s.h} > ${UIZONE.bottom})—— 玩家看不到`)
+      if (s.y < UIZONE.top) notes.push(`${id} 探进顶栏遮挡带(y ${s.y} < ${UIZONE.top})—— 玩家看不到`)
     }
     for (let i = 0; i < solid.length; i++) for (let j = i + 1; j < solid.length; j++) {
       const p = solid[i], q = solid[j]

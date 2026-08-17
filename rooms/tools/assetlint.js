@@ -47,12 +47,18 @@ const { chromium } = require('playwright')
   })
   console.log('素材总数:', r.total, '| 角色资源:', r.actors.join(', '))
   console.log('分类:', Object.entries(r.byCat).map(([k,v])=>k+' '+v).join(' · '))
-  if (!r.lint) console.log('校验器未加载')
+  let bad = 0
+  // 素材级不合规从前只打印、不计入退出码 —— 于是 bailu_whisk 的「foot 超出素材范围」
+  // 在门禁里显示成一个 ✗,退出码却是 0,CI 永远拦不住。打印了就要算数。
+  if (!r.lint) { console.log('✗ 校验器未加载 —— 这一栏什么都没查'); bad += 1 }
   else if (!r.lint.length) console.log('✓ 规范校验全部通过')
-  else { console.log('✗ ' + r.lint.length + ' 件不合规:'); r.lint.forEach(x => console.log('   ' + x.id + ': ' + x.errs.join(', '))) }
+  else {
+    console.log('✗ ' + r.lint.length + ' 件不合规:')
+    r.lint.forEach(x => console.log('   ' + x.id + ': ' + x.errs.join(', ')))
+    bad += r.lint.length
+  }
   if (r.scopes) console.log('作用域:', Object.entries(r.scopes).map(([k,v])=>k+' '+v).join(' · '))
   console.log('\n══ 逐房布局 (' + r.rooms.length + ' 间) ══')
-  let bad = 0
   for (const R of r.rooms) {
     console.log('── ' + R.key + '  实例 ' + R.plan)
     const LE = (R.lint && R.lint.errs) || [], LN = (R.lint && R.lint.notes) || []

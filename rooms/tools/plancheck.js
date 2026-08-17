@@ -19,6 +19,14 @@ const path = require('path')
 const FILE = process.argv[2]
 if (!FILE) { console.error('用法: bun tools/plancheck.js <plan-xxx.js 路径>'); process.exit(2) }
 const P = require(path.resolve(FILE))
+// 喂错文件时说清楚,别抛 TypeError —— 「工具崩了」和「布局有问题」看起来太像,
+// 会让人去查房间,其实只是参数给错了(把 design.html 递进来是最常见的一种)。
+if (!P || !Array.isArray(P.items)) {
+  console.error(`✗ ${path.basename(FILE)} 不是 S3 平面图模块 —— 需要 module.exports = { items: [...] }`)
+  console.error('  这一步吃的是画素材【之前】的纯坐标文件 plan-xxx.js,不是 design.html。')
+  console.error('  查 design.html 用 assetlint(真 foot)+ roomaudit。')
+  process.exit(2)
+}
 
 const CELL = 40, PAD = 8
 const W = P.w || 1440, H = P.h || 2560, WALLH = P.wallH || 440

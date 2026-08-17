@@ -29,9 +29,14 @@ if (!FILE || !ID) { console.error('用法: node assetprobe.js <design.html 绝�
     if (!A[id]) return out
     const a = A[id]
     out.meta = { w: a.w, h: a.h, zLayer: a.zLayer || '(默认)', wall: !!a.wall, foot: a.foot }
-    // 房间清单不许写死两间 —— 漏掉的那间会安静地报「不在任何 plan 里」，
+    // 房间清单不许写死 —— 漏掉的那间会安静地报「不在任何 plan 里」，
     // 看起来像素材没摆上去，其实是工具没在看那间房。（PLAYBOOK §4.7）
-    const rooms = ['AYUN_ROOM', 'TAO_ROOM', 'POPO_ROOM', 'TENZ_ROOM'].map(k => window[k]).filter(Boolean)
+    // 这行从前就写死成四间，沈砚白鹭两间的素材因此一直被报成「没摆上去」。
+    // 约定同 tools/rooms.js：window.<NAME>_ROOM 且带 plan 数组。
+    const rooms = Object.keys(window)
+      .filter(k => /^[A-Z][A-Z0-9]*_ROOM$/.test(k))
+      .map(k => window[k])
+      .filter(r => r && Array.isArray(r.plan))
     out.inPlan = rooms.flatMap(r => (r.plan || []).filter(e => e[0] === id))
     try {
       const cv = window.placeAsset(id, 0, 0, {}).cv
