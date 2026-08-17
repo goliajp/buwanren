@@ -35,3 +35,6 @@ backend/data/
 # 项目规则本体 .claude/CLAUDE.md 要跟踪
 .claude/*
 !.claude/CLAUDE.md
+
+# regress diff 出的「旧 / 新 / 差异」三图 —— 随时可从 baseline 的 gitRev 重建,不入库
+rooms/.roomwork/baseline/diff/
