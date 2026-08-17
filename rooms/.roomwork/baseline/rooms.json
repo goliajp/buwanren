@@ -1,7 +1,7 @@
 {
   "_meta": {
     "savedAt": "2026-08-17",
-    "gitRev": "3cc5843e75fcca9d64dde679b906ba3996a2fd15",
+    "gitRev": "e0131ab7e3bdf15e0c4f38414e9875d3de940ccf",
     "dirty": false,
     "note": "diff 模式靠 gitRev 取回当时的 design.html 重渲旧图;这两个字段没了基准就只是一串哈希"
   },
@@ -12,10 +12,10 @@
     "low": "41dec6061211328b"
   },
   "BAILU_ROOM": {
-    "empty": "3de7cd632b069b70",
-    "stand": "6abbf5b5f15c874a",
-    "back": "a71529aab2d9ded5",
-    "low": "101270b3b94a13dd"
+    "empty": "3c523c903367164f",
+    "stand": "5cfe206a141c74bf",
+    "back": "cceadac6388e5259",
+    "low": "a96169a86b6413ff"
   },
   "POPO_ROOM": {
     "empty": "ff54c0a2c1131a88",
