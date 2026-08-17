@@ -92,7 +92,6 @@ buwanren/
 ├── docs/commerce-architecture.md  ← 商业子系统架构基线 v2.0
 │
 ├── webadmin/  :6030            ← 运营后台 SPA(React 19)
-├── proto/     :6031            ← 客户端原型(React)
 ├── mini/                       ← 微信小程序工程
 ├── rooms/                      ← 像素村民屋工坊(2026-08-16 从 mini/ 拆出)
 └── archive/                    ← 历史设计稿 / 另一条产品线的调研,不参与构建
@@ -226,29 +225,6 @@ worker 从不看它 —— 到期照样建订单、建支付、延周期。实�
 
 顺带:`order_record` 上没有 `amount_paid_minor <= amount_total_minor` 的 CHECK 约束,
 加不加也一并拍。
-
-### ⚠ proto 的「物」页面自 commerce v2 起就是坏的
-
-`proto/src/pages/Product.tsx` 请求 `/v1/product`(单数)。**这个端点不存在** ——
-commerce v2 把它换成了 `/v1/products`,旧的 `routes/product.rs` 从那时起就是个
-空 Router。页面一直拿 404。
-
-不是改个路径就完事,响应形状也变了:
-
-| 页面期望(v0.1 `ProductPublic`) | `/v1/products` 实际返回 |
-|---|---|
-| `{ items: [...] }` | 裸数组 |
-| `price_display` | 无 —— 价格在 SKU 的 price_book 上,不在 product 上 |
-| `image_url` | `hero_image_url` |
-| `stock_status` | 无 —— 库存是 SKU 级 |
-| category 用 incense/sachet/bracelet | seed 里是 report 等 |
-
-**没有直接修**,因为要先决定「商品列表端点该不该带价格」—— 带价格意味着后端要做
-SKU 价格汇总(一个 SPU 多个 SKU 时取哪个?最低价?默认 SKU?),那是 API 设计决定。
-
-已核对过全部客户端调用:除这一条外,`proto` 其余 7 条与 `mini` 全部 9 条路径都对得上后端路由。
-另外两个客户端**都没有调用任何商业写接口**(`/v1/orders`、`/pay`、`/cancel`、`/refund`),
-所以 P1 改的客户端侧语义目前没有在用的消费方。
 
 ### 已知欠账
 

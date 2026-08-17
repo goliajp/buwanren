@@ -149,7 +149,6 @@ buwanren/
 │   └── seed/                   ← PG 兼容 seed
 │
 ├── webadmin/  :6030            ← React 19 后台
-├── proto/     :6031            ← React 19 客户端原型
 ├── mini/                       ← 微信小程序工程
 ├── rooms/                      ← 像素村民屋工坊
 ├── archive/                    ← 历史设计稿 / 另一条产品线调研,不参与构建

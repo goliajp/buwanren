@@ -142,8 +142,8 @@ pub struct NajiSpinReq {
 // 端点换成了 `/v1/products`,返回的是 product 行本身(价格在 SKU 的 price_book 上,
 // 不在 product 上),这个 DTO 就没人用了。
 //
-// ⚠ `proto/src/pages/Product.tsx` 至今仍照着这个旧形状写,且请求的是已经不存在的
-// `/v1/product`。详见 README「已知欠账」。
+// 最后一个消费方是 `proto/` 那个 React 原型,它 2026-08-17 已删(台账 D10):
+// 真客户端是小程序,原型与它职能重叠且自 commerce v2 起就在拿 404。
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActivityPublic {
