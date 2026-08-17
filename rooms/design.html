@@ -12192,7 +12192,11 @@ KKKyRRRRRRK.
       ['bailu_flint', 796, 1528],
       ['bailu_mirror_covered', 1200, 92],
       ['bailu_retreat_tag', 1052, 96],
-      ['bailu_door_bar', 636, 300],
+      // attach 是为命中排序:门闩视觉上钉在二十八宿图下沿之前。非附着时命中公式对
+      // fh=0 的件 fallback 到 base(图 384 > 闩 356),整件被图吃掉 —— 事故模式 19
+      // 在 fh=0 支的残留。全局对齐公式会翻转 14 对已验收房间的命中赢家,不动;
+      // attach 支两侧(绘制/命中)是同一条已对齐的规则,宿主+zBias 稳赢宿主本体。
+      ['bailu_door_bar', 636, 300, { attach: 'bailu_chart_28', zBias: 2 }],
       ['bailu_sutra', 508, 1900],
       ['bailu_vase_pure', 1356, 1808],
       ['bailu_broom', 220, 2040],
@@ -12262,7 +12266,7 @@ KKKyRRRRRRK.
     { id: 'almanac',node: 'NE',  x: 900, y: 560, poses: ['stand'], fps: 1, dur: [4, 7],  flip: true,  w: 1, say: '查一年', pSay: 0.4 },
     // ── 浇水记录(反差爱好)──
     { id: 'water',  node: 'W',   x: 400, y: 1120, poses: ['wipe1', 'wipe2'], fps: 1.6, dur: [6, 10], flip: true, w: 3, say: '卯时三刻，十二毫升', pSay: 0.5 },
-    { id: 'log',    node: 'W',   x: 400, y: 1440, poses: ['write'], fps: 1, dur: [7, 11], flip: true, w: 2, say: '记上', pSay: 0.4 },
+    { id: 'log',    node: 'W',   x: 400, y: 1360, poses: ['write'], fps: 1, dur: [7, 11], flip: true, w: 2, say: '记上', pSay: 0.4 },  // y1440 时脚点恰扎进拂尘 foot(pathlint 抓的);上移一档仍对着记录册那层
     { id: 'prune',  node: 'W',   x: 400, y: 1720, poses: ['wipe1', 'wipe2'], fps: 1.6, dur: [5, 8], flip: true, w: 2, say: '枯叶，拔了', pSay: 0.4 },
     { id: 'deadp',  node: 'W',   x: 400, y: 1760, poses: ['gaze'], fps: 1, dur: [5, 9], flip: true, w: 1, say: '四十二号', pSay: 0.6 },
     // ── 擦拭 · 独处 ──

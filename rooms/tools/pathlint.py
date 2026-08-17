@@ -110,8 +110,10 @@ def check(path, key, canvas, label):
 if __name__ == '__main__':
     p = sys.argv[1] if len(sys.argv) > 1 else 'rooms/design.html'
     total = 0
+    # ⚠ 新房必须加进这张表(WORKFLOW 假绿第六种:曾写死前四间,沈砚白鹭从未被查过)
     for key, cv, lab in [('AYUN_ROOM','ayunCanvas','阿云'), ('TAO_ROOM','taoCanvas','桃桃'),
-                         ('POPO_ROOM','popoCanvas','婆婆'), ('TENZ_ROOM','tenzCanvas','丹增')]:
+                         ('POPO_ROOM','popoCanvas','婆婆'), ('TENZ_ROOM','tenzCanvas','丹增'),
+                         ('SHENYAN_ROOM','shenyanCanvas','沈砚'), ('BAILU_ROOM','bailuCanvas','白鹭')]:
         total += check(p, key, cv, lab)
     print('\n合计 %d 处' % total)
     sys.exit(1 if total else 0)

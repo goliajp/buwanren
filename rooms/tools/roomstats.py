@@ -33,12 +33,15 @@ def assets(s):
         g = lambda p: re.search(p, b)
         w = g(r'\bw:\s*(\d+)'); h = g(r'\bh:\s*(\d+)')
         f = g(r'foot:\s*\[\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)')
-        say = g(r"say:\s*['\"]([^'\"]*)"); deep = g(r"sayDeep:\s*['\"]([^'\"]*)")
+        say = g(r"say:\s*['\"]([^'\"]*)")
+        # sayDeep 有两种形态:早期单串 sayDeep: '…',沈砚起是多层数组 sayDeep: ['…','…']。
+        # 只认单串曾让沈砚(37 件)白鹭(36 件)整列报 0 —— 又一次「工具报零先怀疑工具」
+        deep = g(r"sayDeep:\s*(?:['\"]([^'\"]*)|\[)")
         out[m.group(1)] = dict(
             w=int(w.group(1)) if w else 0, h=int(h.group(1)) if h else 0,
             foot=tuple(int(f.group(i)) for i in (1,2,3,4)) if f else (0,0,0,0),
             click='clickable' in b, say=say.group(1) if say else None,
-            deep=deep.group(1) if deep else None,
+            deep=(deep.group(1) or '[…]') if deep else None,  # 数组形态无捕获组,给占位真值
             light=bool(g(r'\blight:')), fx=bool(g(r'\bfx\(')), variant=bool(g(r'\bvariant\(')))
     return out
 
@@ -103,8 +106,11 @@ def stats(s, key, canvas, label):
                 variant=sum(1 for n in uniq if A.get(n,{}).get('variant')),
                 reach=reach, total=total)
 
+# ⚠ 新房必须加进这张表 —— WORKFLOW「假绿第六/七种」的教训:
+# 这里曾写死前四间,沈砚、白鹭两间从未被统计过,而工具照常报数
 ROOMS = [('AYUN_ROOM','ayunCanvas','阿云'), ('TAO_ROOM','taoCanvas','桃桃'),
-         ('POPO_ROOM','popoCanvas','婆婆'), ('TENZ_ROOM','tenzCanvas','丹增')]
+         ('POPO_ROOM','popoCanvas','婆婆'), ('TENZ_ROOM','tenzCanvas','丹增'),
+         ('SHENYAN_ROOM','shenyanCanvas','沈砚'), ('BAILU_ROOM','bailuCanvas','白鹭')]
 
 def main():
     path = sys.argv[1] if len(sys.argv) > 1 else 'rooms/design.html'

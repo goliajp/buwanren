@@ -1,0 +1,419 @@
+<title>不完人村 · 工序单</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --paper:#f0ede7; --paper-2:#e7e3db; --paper-3:#ddd8ce;
+    --ink:#1a1a1c; --ink-2:#3d3a36; --ink-3:#6b6660; --ink-4:#928c83;
+    --rule:#cfc9bd; --rule-soft:#e0dbd1;
+    --stamp:#a83428; --stamp-soft:#f0dcd6;
+    --jade:#4a6b52; --jade-soft:#dde6de;
+    --gold:#8a6a1f; --gold-soft:#f0e6cb;
+    --shadow:rgba(40,34,26,.10);
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --paper:#17171a; --paper-2:#1f1f23; --paper-3:#2a2a2f;
+      --ink:#eceae4; --ink-2:#c9c5bd; --ink-3:#918c84; --ink-4:#6e6960;
+      --rule:#35343a; --rule-soft:#26262b;
+      --stamp:#d9614f; --stamp-soft:#3a221f;
+      --jade:#7fa989; --jade-soft:#1e2a21;
+      --gold:#c9a24a; --gold-soft:#2c2517;
+      --shadow:rgba(0,0,0,.4);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#17171a; --paper-2:#1f1f23; --paper-3:#2a2a2f;
+    --ink:#eceae4; --ink-2:#c9c5bd; --ink-3:#918c84; --ink-4:#6e6960;
+    --rule:#35343a; --rule-soft:#26262b;
+    --stamp:#d9614f; --stamp-soft:#3a221f;
+    --jade:#7fa989; --jade-soft:#1e2a21;
+    --gold:#c9a24a; --gold-soft:#2c2517;
+    --shadow:rgba(0,0,0,.4);
+  }
+
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:"PingFang SC","Hiragino Sans GB","Noto Sans CJK SC","Microsoft YaHei",-apple-system,system-ui,sans-serif;
+    font-size:15px; line-height:1.85;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1040px;margin:0 auto;padding:0 28px 140px}
+  .serif{font-family:"Songti SC","STSong","Noto Serif CJK SC","Source Han Serif SC",serif}
+  .mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
+
+  /* ── 抬头 ── */
+  header{padding:76px 0 40px;border-bottom:2px solid var(--ink)}
+  .eyebrow{font-size:11px;letter-spacing:.32em;color:var(--ink-3);text-transform:uppercase;margin-bottom:22px}
+  h1{
+    font-family:"Songti SC","STSong","Noto Serif CJK SC",serif;
+    font-size:clamp(38px,6.4vw,62px); line-height:1.12; margin:0 0 6px;
+    font-weight:600; letter-spacing:.02em; text-wrap:balance;
+  }
+  .sub{font-size:17px;color:var(--ink-2);max-width:60ch;margin:18px 0 0;line-height:1.8}
+  .sub b{color:var(--ink);font-weight:600}
+
+  .tally{display:flex;flex-wrap:wrap;gap:0;margin:38px 0 0;border:1px solid var(--rule);background:var(--paper-2)}
+  .tally div{flex:1 1 130px;padding:16px 18px;border-right:1px solid var(--rule)}
+  .tally div:last-child{border-right:0}
+  .tally .n{font-family:ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums;font-size:27px;line-height:1;color:var(--ink)}
+  .tally .n.hot{color:var(--stamp)}
+  .tally .n.ok{color:var(--jade)}
+  .tally .l{font-size:11.5px;color:var(--ink-3);margin-top:8px;letter-spacing:.06em}
+
+  /* ── 章 ── */
+  section{margin-top:72px}
+  .chap{display:flex;align-items:baseline;gap:16px;border-bottom:1px solid var(--ink);padding-bottom:10px;margin-bottom:8px}
+  .chap .k{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--stamp);letter-spacing:.14em;flex:0 0 auto}
+  .chap h2{font-family:"Songti SC","STSong",serif;font-size:25px;margin:0;font-weight:600;letter-spacing:.01em}
+  .chap .aside{margin-left:auto;font-size:12px;color:var(--ink-3);flex:0 0 auto}
+  .lede{color:var(--ink-2);margin:18px 0 30px;max-width:66ch}
+  h3{font-family:"Songti SC","STSong",serif;font-size:18px;margin:38px 0 12px;font-weight:600}
+  p{max-width:66ch}
+
+  /* ── 决策台账 ── */
+  .ledger{border:1px solid var(--rule);background:var(--paper-2)}
+  .row{display:grid;grid-template-columns:52px 1fr 1.35fr;gap:0;border-bottom:1px solid var(--rule-soft)}
+  .row:last-child{border-bottom:0}
+  .row>*{padding:14px 16px}
+  .row .id{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:var(--ink-4);border-right:1px solid var(--rule-soft);padding-top:16px}
+  .row .q{border-right:1px solid var(--rule-soft);color:var(--ink-2);font-size:14px}
+  .row .q b{display:block;color:var(--ink);font-weight:600;font-size:14.5px;margin-bottom:3px}
+  .row .a{font-size:14px;color:var(--ink-2)}
+  .verdict{display:inline-block;font-size:11.5px;font-weight:600;padding:1px 8px;border:1px solid currentColor;margin-right:8px;vertical-align:1.5px}
+  .v-do{color:var(--jade)} .v-kill{color:var(--stamp)} .v-hold{color:var(--gold)}
+
+  /* ── 工序 ── */
+  .steps{margin-top:26px}
+  .step{display:grid;grid-template-columns:60px 1fr;gap:0;border-top:1px solid var(--rule-soft)}
+  .step:last-of-type{border-bottom:1px solid var(--rule-soft)}
+  .step .num{
+    font-family:ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums;
+    font-size:13px;color:var(--ink-4);padding:20px 0 20px 2px;border-right:1px solid var(--rule-soft);
+  }
+  .step .body{padding:20px 0 22px 20px}
+  .step h4{margin:0 0 8px;font-size:15.5px;font-weight:600;color:var(--ink);letter-spacing:.01em}
+  .step p{margin:0 0 10px;color:var(--ink-2);font-size:14.5px}
+  .step p:last-child{margin-bottom:0}
+  .gate{
+    display:inline-flex;align-items:baseline;gap:8px;margin-top:10px;padding:7px 12px;
+    background:var(--jade-soft);border-left:2px solid var(--jade);font-size:13px;color:var(--ink-2);
+    max-width:64ch;
+  }
+  .gate b{color:var(--jade);font-weight:600;flex:0 0 auto;font-size:11.5px;letter-spacing:.08em}
+  .warn{background:var(--stamp-soft);border-left-color:var(--stamp)}
+  .warn b{color:var(--stamp)}
+  code{font-family:ui-monospace,Menlo,monospace;font-size:12.8px;background:var(--paper-3);padding:1px 5px;color:var(--ink)}
+
+  ul{margin:8px 0 10px;padding-left:20px;max-width:64ch}
+  li{margin:5px 0;color:var(--ink-2);font-size:14.5px}
+  li b{color:var(--ink);font-weight:600}
+
+  .tbl-wrap{overflow-x:auto;margin:18px 0 6px;border:1px solid var(--rule)}
+  table{border-collapse:collapse;width:100%;min-width:520px;font-size:13.5px;background:var(--paper-2)}
+  th{
+    text-align:left;padding:11px 14px;background:var(--paper-3);color:var(--ink-2);
+    font-weight:600;font-size:11.5px;letter-spacing:.09em;border-bottom:1px solid var(--rule);white-space:nowrap;
+  }
+  td{padding:10px 14px;border-bottom:1px solid var(--rule-soft);color:var(--ink-2);vertical-align:top}
+  tr:last-child td{border-bottom:0}
+  td.m{font-family:ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums;font-size:12.5px;white-space:nowrap}
+  .tag{font-size:11px;padding:1px 7px;border:1px solid var(--rule);color:var(--ink-3);white-space:nowrap}
+  .tag.built{color:var(--jade);border-color:var(--jade)}
+  .tag.road{color:var(--gold);border-color:var(--gold)}
+  .tag.none{color:var(--ink-4)}
+
+  blockquote{
+    margin:22px 0;padding:16px 20px;border-left:2px solid var(--stamp);
+    background:var(--paper-2);color:var(--ink-2);font-size:14.5px;max-width:64ch;
+  }
+  blockquote p{margin:0}
+  blockquote .src{display:block;margin-top:8px;font-size:12px;color:var(--ink-4)}
+
+  .seal{
+    display:inline-block;font-family:"Songti SC",serif;color:var(--stamp);
+    border:1.5px solid var(--stamp);padding:1px 7px;font-size:12.5px;line-height:1.5;
+  }
+  footer{margin-top:80px;padding-top:26px;border-top:1px solid var(--rule);font-size:13px;color:var(--ink-3)}
+  @media (max-width:680px){
+    .row{grid-template-columns:1fr}
+    .row .id,.row .q{border-right:0;border-bottom:1px solid var(--rule-soft)}
+    .step{grid-template-columns:44px 1fr}
+    .step .body{padding-left:14px}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">buwanren · 不完人村 · 端到端工序单</div>
+  <h1>把村子建完</h1>
+  <p class="sub">世界观、40 位不完人、35 门术数、33 条关系——<b>设计已经写完了</b>。缺的是把它建出来：34 间房还是空的，而村子至今<b>完全没有进产品</b>。这份工序单从今天的实际状态出发，一步接一步走到上线，<b>沿途所有岔路都已经拍死</b>。</p>
+
+  <div class="tally">
+    <div><div class="n">40</div><div class="l">不完人</div></div>
+    <div><div class="n ok">6</div><div class="l">房已建</div></div>
+    <div><div class="n hot">34</div><div class="l">房待建</div></div>
+    <div><div class="n">35</div><div class="l">门术数</div></div>
+    <div><div class="n">33</div><div class="l">条关系</div></div>
+    <div><div class="n hot">0</div><div class="l">村子进产品</div></div>
+  </div>
+</header>
+
+<section>
+  <div class="chap"><span class="k">壹</span><h2>先认清这是什么</h2></div>
+
+  <blockquote>
+    <p>人生来带一块「缺」。术数不补缺，只让你看清那块缺的形状——所以他们叫「不完人」。<br>
+    一个不完人 = 一门术数 = 一种解读你的方式。术数会重叠：两个人可以同修一门，但缺的东西不同，说出来的话就不同。</p>
+    <span class="src">design.html · B8 世界观</span>
+  </blockquote>
+
+  <p>这段话是整个产品的技术规格，不只是文案。它规定了三件事，也规定了实现必须分成三层：</p>
+
+  <div class="tbl-wrap"><table>
+    <tr><th>世界观说的</th><th>实现上是什么</th><th>为什么不能合并</th></tr>
+    <tr><td>一门术数</td><td>mingli 引擎的一片叶（<code>liuren</code> / <code>ziwei</code> / <code>cartomancy</code>…）</td><td>算出来的盘是客观的，谁来算都一样</td></tr>
+    <tr><td>一块缺</td><td>解读偏向表——缺勤的人倾向说「该动了」，缺静的人倾向说「该停了」</td><td>8 门术数被多人同修；同叶不同缺，说的话必须不同</td></tr>
+    <tr><td>一种性格</td><td>文案模板——阿云慢半拍爱用「贫道」，白鹭短冷精确到分秒</td><td>同一个结论，换个人说就是另一句话</td></tr>
+  </table></div>
+
+  <p>而这正是<b>那吉已经在跑的逻辑</b>：真生辰 + 真时刻 → seed 稳定 → 从内容池里按主用神精准抽取，不随机。村民问签只是把它多加两层——<span class="seal">缺</span> 与 <span class="seal">声</span>。第贰章把这条推广写死。</p>
+
+  <h3>今天真实的完成度</h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>层</th><th>状态</th><th>证据</th></tr>
+    <tr><td>设计圣经 B0–B12</td><td><span class="tag built">完备</span></td><td>40 人总表 + 逐人档案 + 关系网 + 场景规范 + 素材库规范</td></tr>
+    <tr><td>渲染引擎</td><td><span class="tag built">相对完备</span></td><td>39 个导出函数，6 间房验证过；缺口只剩「一个 sprite 画多件」</td></tr>
+    <tr><td>生产协议</td><td><span class="tag built">成熟</span></td><td>S1–S10 十步、十道门禁，从 137 commit 回退里反推出来的</td></tr>
+    <tr><td>村民房</td><td><span class="tag road">6 / 40</span></td><td>阿云 桃桃 婆婆 丹增 沈砚 白鹭</td></tr>
+    <tr><td>后端商业与算力</td><td><span class="tag built">可用</span></td><td>80 测试绿；下单→支付→履约→退款→财务全链路实测通过</td></tr>
+    <tr><td>小程序</td><td><span class="tag road">3 tab 骨架</span></td><td>今 / 命 / 我；那吉尚未接入</td></tr>
+    <tr><td><b>村子进产品</b></td><td><span class="tag none">0</span></td><td>村只活在 design.html 这个原型里；御守、入住、问签、图鉴都没有实现</td></tr>
+  </table></div>
+</section>
+
+<section>
+  <div class="chap"><span class="k">贰</span><h2>决策台账</h2><span class="aside">14 条 · 全部已拍 · 沿途不再回头问</span></div>
+  <p class="lede">「完全线性中途不决策」的意思是：这些岔路现在就选完，写进台账，往后照做。每一条都取<b>质量上限</b>的那个选项，不取省事的那个。</p>
+
+  <div class="ledger">
+    <div class="row"><div class="id">D1</div><div class="q"><b>design.html 要不要拆</b>1.7MB 单文件装着圣经 + 引擎 + 素材 + 6 间房。再加 34 间会到 5MB 上下。</div><div class="a"><span class="verdict v-do">拆</span>拆成可构建包：<code>engine/</code>、<code>assets/</code>、<code>rooms/&lt;id&gt;.js</code>、<code>bible/</code>。<b>design.html 降级为构建产物</b>——十道门禁工具全部吃它，不改工具就能继续用。这是 34 间房唯一扛得住的形态，也是按房懒加载的前提。</div></div>
+
+    <div class="row"><div class="id">D2</div><div class="q"><b>村子怎么进产品</b>小程序原生 canvas，还是 web-view 装 H5？</div><div class="a"><span class="verdict v-do">原生 canvas</span>御守购买、支付、登录都在小程序里，走 web-view 会把链路切断。引擎<b>不许直接 import wx API</b>——渲染只依赖标准 Canvas2D，另留 H5 构建目标供开发预览与将来非微信渠道。<br><b>预设回退</b>：若逐像素命中在 wx canvas 上性能不达标（&lt;30fps），改为构建期烘焙命中掩码位图，仍走原生；不改用 web-view。</div></div>
+
+    <div class="row"><div class="id">D3</div><div class="q"><b>村民问签怎么算</b>照搬那吉，还是每人一套？</div><div class="a"><span class="verdict v-do">三层</span>算力层（术数→叶，客观）／偏向层（缺→重排，主观）／声音层（性格→模板）。<b>seed = hash(user_id, villager_id, 年月日)</b>：同一村民同一天答案稳定，换个村民就换个答案。三层分开是硬要求——8 门术数被多人同修，合并就没法「同门不同话」。</div></div>
+
+    <div class="row"><div class="id">D4</div><div class="q"><b>御守怎么变成入住</b></div><div class="a"><span class="verdict v-do">走 commerce v2</span>御守是一类 SKU；履约时写 <code>villager_residency(user_id, villager_id)</code>。NFC 扫码走同一张表，凭据换成 carrier credential。<code>archive/omamori-research/</code> 那套「载体与身份解耦」的 Adapter 设计正是为此写的，取回来用。</div></div>
+
+    <div class="row"><div class="id">D5</div><div class="q"><b>抽不抽 unmei-pg</b>持久化端口独立成 crate？</div><div class="a"><span class="verdict v-kill">不抽</span>30 个 trait 方法只会有一个实现、没有测试替身要用这条缝——正是 P1 刚删掉的 2810 行那种死抽象。用例层每个 <code>.await.db()?</code> 就是将来的切口，等真有第二个驱动方再说。<b>本决定终审，不再复议。</b></div></div>
+
+    <div class="row"><div class="id">D6</div><div class="q"><b>两次 /pay 重复扣款</b>实测：应付 19900，实付 39800。</div><div class="a"><span class="verdict v-do">实现幂等键</span>不用「拒绝并发支付」也不用「顶掉旧的」——那两条都是把问题挪个地方。<code>idempotency_log</code> 这张死表本来就是为此建的：客户端带幂等键，同键同参返回首次结果。<b>一次解决重复下单与重复支付两类</b>，并给 <code>order_record</code> 补 <code>amount_paid_minor &lt;= amount_total_minor</code> 的 CHECK。</div></div>
+
+    <div class="row"><div class="id">D7</div><div class="q"><b>风控要不要接线</b>引擎完整、9 测试绿、零调用方。</div><div class="a"><span class="verdict v-do">接</span>接在建单与发起支付两处（RFC §3.13）。<b>先只开 <code>log_only</code></b>——规则照跑、事件照落、一单不拦；后台风控台能看见真实命中率之后再由运营逐条改判定。这不是「以后再说」，是上线策略的一部分，两步都在工序里。</div></div>
+
+    <div class="row"><div class="id">D8</div><div class="q"><b>订阅 dunning 阶梯</b>文件头注释写了 T+0/+1d/+3d/+7d，代码一条没有。</div><div class="a"><span class="verdict v-do">实现</span>真接渠道前必须有，否则一次扣款失败就是永久失联。按注释实现：三次重试 → past_due → grace → expired，每步落事件。</div></div>
+
+    <div class="row"><div class="id">D9</div><div class="q"><b>对账只比流水号</b>金额对不上也标 matched。</div><div class="a"><span class="verdict v-do">比金额，容差 0</span>对账的意义就是抓金额差异。差一分即 <code>amount_mismatch</code>，进差异清单等人工处理——不做自动容差，钱的事不许模糊。</div></div>
+
+    <div class="row"><div class="id">D10</div><div class="q"><b>proto/ 怎么办</b>React 客户端原型，物页面自 commerce v2 起就是坏的。</div><div class="a"><span class="verdict v-kill">删</span>真客户端是小程序，proto 与它职能重叠且已腐坏。删掉它同时删掉 <code>ProductPublic</code> 遗留形状的最后一个消费方。<b>不修它的物页面</b>——那要为一个不上线的原型定「列表带不带价」的 API 语义。</div></div>
+
+    <div class="row"><div class="id">D11</div><div class="q"><b>admin 那个没人读的 kevy Store</b></div><div class="a"><span class="verdict v-kill">删</span>开一个 Store、写一个 AOF、挂一个 docker volume、记一个环境变量，全为了没人读的字段。连带清 <code>state.rs</code> / <code>main.rs</code> / <code>docker-compose.yml</code> / <code>.env.example</code> / README。</div></div>
+
+    <div class="row"><div class="id">D12</div><div class="q"><b>视觉回归 12 处漂移</b>bailu / popo / tenz 三间四姿态全漂。</div><div class="a"><span class="verdict v-do">先判后决</span>逐姿态截图比对：改进则带理由重存基准，回退则修房。<b>必须在拆包之前清零</b>——否则拆包的验收判据（前后哈希不变）建在一个说不清对错的基准上。</div></div>
+
+    <div class="row"><div class="id">D13</div><div class="q"><b>34 间房什么顺序</b></div><div class="a"><span class="verdict v-do">关系密度优先</span>先「在路上」4 位（叙事下一批），再按关系度排。<b>关系是村子活起来的唯一来源</b>——两个有关系的人碰面才有专属对白，孤立角色再精致村子也是死的。全表见第伍章。</div></div>
+
+    <div class="row"><div class="id">D14</div><div class="q"><b>一间一验收的铁律与「线性不决策」冲突吗</b></div><div class="a"><span class="verdict v-hold">不冲突</span>房间验收是<b>质量门</b>，不是路线决策——它只回答「这间过没过」，不改变工序单的形状。工序照走，遇门则停、过门则进。唯一需要你出面的只有这一类。</div></div>
+  </div>
+</section>
+
+<section>
+  <div class="chap"><span class="k">叁</span><h2>阶段 A · 地基</h2><span class="aside">34 间房扛得住的前提</span></div>
+  <p class="lede">先修地基不是流程洁癖。34 间房压在一个 5MB 单文件上是不可能交付的，而门禁工具至今还有写死房间清单的——那意味着新房「从未被检查过却天天报绿」。这一段全部做完，后面才谈得上量产。</p>
+
+  <div class="steps">
+    <div class="step"><div class="num">01</div><div class="body">
+      <h4>清掉 12 处视觉漂移，让基准可信</h4>
+      <p>bailu / popo / tenz 各四姿态。逐张出图比对当前渲染与基准：是改进就带理由重存，是回退就修。这一步不产出新东西，它产出的是<b>一个说得清的基准</b>——后面每一次重构都要靠它判生死。</p>
+      <div class="gate"><b>门禁</b><span><code>regress check</code> 全绿，0 处失配</span></div>
+    </div></div>
+
+    <div class="step"><div class="num">02</div><div class="body">
+      <h4>门禁工具全部改成自动发现房间</h4>
+      <p>已知 <code>roomstats</code>、<code>pathlint</code> 写死了四间——沈砚白鹭从未被统计过，而工具照常报数。<code>roomstats</code> 还因为只认单串 <code>sayDeep</code>，把两间各 36 条追问台词整列报成 0。逐支工具过一遍，一律改走 <code>tools/rooms.js</code> 的运行时枚举。</p>
+      <p>同时给<b>每个绿色结论配一个计数</b>：只有一行「全过」而没有任何件数的输出，一律当没跑。</p>
+      <div class="gate"><b>门禁</b><span>十支工具对 6 间房都给出非零计数；故意改坏一间，每支都能抓到</span></div>
+    </div></div>
+
+    <div class="step"><div class="num">03</div><div class="body">
+      <h4>扫「一个 sprite 画多件」</h4>
+      <p>引擎缺口 B5 的最后一条。已知 <code>ayun_door_frame</code> 画着门 + 两本书 + 一个红盒，四坨实体共用一个 foot、一句台词。用 <code>roomaudit D</code> 的 foot-vs-实体比对扫全库，分成两坨以上且中间空隙大的都拆开——各自落地、各自能点、各自说话。</p>
+      <div class="gate"><b>门禁</b><span>全库无「foot 比实际宽 &gt;130%」的素材</span></div>
+    </div></div>
+
+    <div class="step"><div class="num">04</div><div class="body">
+      <h4>拆包：design.html 变成构建产物</h4>
+      <p>这是阶段 A 的主工程，也是唯一高风险的一步。切成 <code>engine/</code>（39 个函数）、<code>assets/</code>（按房分模块的 prefab 库）、<code>rooms/&lt;id&gt;.js</code>（plan + acts + perform）、<code>bible/</code>（B0–B12 转成文档）。构建脚本把它们拼回一个 design.html。</p>
+      <p><b>为什么风险可控</b>：判据是纯机械的——拆完重新构建，<code>regress</code> 的哈希必须与拆前<b>逐个相同</b>。渲染是像素级确定的，改动了什么它一定看得见。</p>
+      <div class="gate warn"><b>硬门禁</b><span>拆前拆后 <code>regress</code> 哈希逐个一致；任一不同即回滚重来，不许「看着差不多」</span></div>
+    </div></div>
+
+    <div class="step"><div class="num">05</div><div class="body">
+      <h4>村线接上 CI</h4>
+      <p>后端已有 CI，村线一条都没有。把十道门禁做成 workflow：改任何房间或引擎都跑 <code>planlint</code> / <code>assetlint</code> / <code>roomaudit A-D</code> / <code>pathlint</code> / <code>walklint</code> / <code>regress</code>。</p>
+      <div class="gate"><b>门禁</b><span>CI 在 GitHub 上真跑过一次并全绿——本地绿不算数</span></div>
+    </div></div>
+
+    <div class="step"><div class="num">06</div><div class="body">
+      <h4>后端待决账一次结清</h4>
+      <p>台账 D6 / D8 / D9 / D10 / D11 六条一起做，一条一个 commit：幂等键与金额 CHECK、dunning 阶梯、对账比金额、删 proto、删 admin 的空 Store。风控接线（D7）留到阶段 B——它要跟建单一起测。</p>
+      <div class="gate"><b>门禁</b><span>每条都有对着真库跑的集成测试；<code>e2e.sh</code> 与 <code>verify-semantics.sh</code> 仍全绿</span></div>
+    </div></div>
+  </div>
+</section>
+
+<section>
+  <div class="chap"><span class="k">肆</span><h2>阶段 B · 竖切一条</h2><span class="aside">用已建好的阿云房打通全链路</span></div>
+  <p class="lede">在建第 7 间房之前，先让<b>第 1 间</b>真正上线：从买御守、到入住、到进屋、到问签，全链路在真产品里跑通。挑阿云是因为他关系密度最高（7 条），术数是 <code>liuren</code> 有现成叶，房子已经建好且是六间里质量最高的——这一段只测新管道，不掺新美术。</p>
+
+  <div class="steps">
+    <div class="step"><div class="num">07</div><div class="body">
+      <h4>村民问签用例：那吉逻辑的三层推广</h4>
+      <p>在 <code>unmei-app</code> 里落 <code>villager::reading</code>，形状照 <code>naji::spin</code>：</p>
+      <ul>
+        <li><b>算力层</b> — <code>villager.art</code> → mingli 叶 → 真盘，原样落档留审计（照 <code>naji_record.t_chart</code>）</li>
+        <li><b>偏向层</b> — <code>villager.缺</code> 一张表，把中性结论按缺重排。缺勤的阿云偏向「该动了」，缺静的丹增偏向「该停了」</li>
+        <li><b>声音层</b> — 说话风格模板。同一结论，阿云说得慢半拍带「贫道」，白鹭三五个字说完</li>
+        <li><b>seed</b> — <code>hash(user_id, villager_id, 年月日)</code>，落 <code>villager_reading</code> 表</li>
+      </ul>
+      <div class="gate"><b>门禁</b><span>同人同村民同日两次调用逐字相同；换村民即不同；<b>同门不同缺的两人给出不同解读</b>（拿婆婆与米拉两位塔罗测）</span></div>
+    </div></div>
+
+    <div class="step"><div class="num">08</div><div class="body">
+      <h4>御守 → 入住</h4>
+      <p><code>villager_residency</code> 表 + 履约挂钩：御守类 SKU 支付成功 → <code>OrderPaid</code> → 履约写入住。NFC 扫码走 <code>archive/omamori-research/</code> 那套载体解耦：凭据换 Adapter，身份记录不变。</p>
+      <p>把风控（D7）在这一步接上建单与发起支付，只开 <code>log_only</code>。</p>
+      <div class="gate"><b>门禁</b><span>买一枚 → 村里多一人；重复扫同一枚不重复入住；风控事件真落库且一单未拦</span></div>
+    </div></div>
+
+    <div class="step"><div class="num">09</div><div class="body">
+      <h4>引擎跑进小程序 canvas</h4>
+      <p>把 <code>engine/</code> 接到 <code>&lt;canvas type="2d"&gt;</code>，先只跑阿云一间。重点验两件事：逐像素命中的 <code>getImageData</code> 在 wx canvas 上可用且够快，sprite 缓存策略在小程序内存约束下站得住。</p>
+      <p><b>不达标怎么办已经写死</b>（D2）：改为构建期烘焙命中掩码位图，仍走原生 canvas。不回来问。</p>
+      <div class="gate"><b>门禁</b><span>真机 30fps 以上；逐件点一遍，点到的都是自己</span></div>
+    </div></div>
+
+    <div class="step"><div class="num">10</div><div class="body">
+      <h4>村主屏与四条动线</h4>
+      <p>照 design.html 已画好的屏：<b>主屏·村</b> → <code>tap 村民 · 问事</code> / <code>tap 房子 · 进屋</code> / <code>收集 · n/40</code> / <code>买御守 = 请村民</code>。空屋要能点，且<b>说话</b>——「这间空着，等人」。空屋不消失是世界观，不是待办。</p>
+      <div class="gate"><b>门禁</b><span>一位真实用户从扫码走到问签，全程不需要解释</span></div>
+    </div></div>
+
+    <div class="step"><div class="num">11</div><div class="body">
+      <h4>竖切验收</h4>
+      <p>端到端跑一遍并录屏：买御守 → 阿云入住 → 进他屋 → 问一签 → 签里说的是<b>你真实生辰</b>算出来的、而且带着他缺勤的偏向和他慢半拍的口气。</p>
+      <div class="gate warn"><b>用户验收门</b><span>这一步过不了，后面 34 间房一间都不许开</span></div>
+    </div></div>
+  </div>
+</section>
+
+<section>
+  <div class="chap"><span class="k">伍</span><h2>阶段 C · 34 间房</h2><span class="aside">工序单的主体 · 一间一验收</span></div>
+  <p class="lede">管道通了，剩下的是村子本身。每间房走 <code>WORKFLOW.md</code> 的 S1–S10，十道门禁一道不跳。<b>顺序已排定</b>，按关系密度——两个有关系的人碰面才有专属对白，先把关系稠密的那一片建起来，村子最早活。</p>
+
+  <h3>批次与顺序</h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>批</th><th>序</th><th>人</th><th>术数</th><th>缺</th><th>关系</th><th>为什么排在这</th></tr>
+    <tr><td rowspan="4">一<br><span class="tag road">在路上</span></td><td class="m">07</td><td>陈九</td><td>六爻</td><td>定</td><td class="m">2</td><td rowspan="4">叙事上的下一批，四人术数全有现成叶，可以立刻全链路接通</td></tr>
+    <tr><td class="m">08</td><td>苏合</td><td>八字</td><td>暖</td><td class="m">—</td></tr>
+    <tr><td class="m">09</td><td>雷鸣</td><td>风水堪舆</td><td>柔</td><td class="m">—</td></tr>
+    <tr><td class="m">10</td><td>燕娘</td><td>面相手相</td><td>善</td><td class="m">1</td></tr>
+    <tr><td rowspan="6">二<br><span class="tag none">关系稠密</span></td><td class="m">11</td><td>奥兰多</td><td>面相手相</td><td>真</td><td class="m">1</td><td rowspan="6">与前排结成对子：奥兰多↔燕娘宿敌、赛博↔婆婆同门、雪鸮↔阿罗救命。<b>成对建才有碰面对白</b>；archive 里还留着奥兰多重建的旧 patch 可作参考读物</td></tr>
+    <tr><td class="m">12</td><td>赛博</td><td>赛博塔罗</td><td>温度</td><td class="m">3</td></tr>
+    <tr><td class="m">13</td><td>雪鸮</td><td>萨满骨卜</td><td>醒</td><td class="m">2</td></tr>
+    <tr><td class="m">14</td><td>阿罗</td><td>鸟占</td><td>胆</td><td class="m">1</td></tr>
+    <tr><td class="m">15</td><td>木一</td><td>奇门 · 数据占卜</td><td>信</td><td class="m">2</td></tr>
+    <tr><td class="m">16</td><td>阿弥</td><td>奇门 · 塔罗</td><td>诚</td><td class="m">1</td></tr>
+    <tr><td rowspan="4">三<br><span class="tag none">补齐关系图</span></td><td class="m">17</td><td>伊莎</td><td>蜡烛占</td><td>光</td><td class="m">2</td><td rowspan="4">把 33 条关系里还悬着的另一端补上，关系图闭合</td></tr>
+    <tr><td class="m">18</td><td>托马</td><td>神签</td><td>确信</td><td class="m">2</td></tr>
+    <tr><td class="m">19</td><td>K</td><td>数据 · 机器学习</td><td>相信</td><td class="m">2</td></tr>
+    <tr><td class="m">20</td><td>老龟 · 玄冥</td><td>龟甲骨卜 · 太乙</td><td>言 · 人</td><td class="m">1+1</td></tr>
+    <tr><td>四</td><td class="m">21–40</td><td colspan="4">其余 20 位</td><td>关系已闭合，此后按稀有度与术数覆盖排；<b>秘级留到最后</b>——那时手法库最厚</td></tr>
+  </table></div>
+
+  <h3>每间房的固定工序</h3>
+  <p>不复述 <code>WORKFLOW.md</code>，只钉三条最容易被跳过的：</p>
+  <ul>
+    <li><b>S1 是门禁不是文书</b> — <code>castlint</code> 八问答不出来就不开工。S1 含糊，后面每一步都是编的。</li>
+    <li><b>S2 平面图先于任何绘制</b> — 137 个 commit 的返工就是从「边画边定位置」开始的。</li>
+    <li><b>S10 沉淀</b> — 做完往 <code>METHOD.md</code> 手法库回填。这是「后一间比前一间好」的唯一机制，也是这套方法存在的理由。</li>
+  </ul>
+
+  <blockquote>
+    <p>完成的标准不是填满，而是他是一间合适角色身份、爱好、功能的屋子，布局合理。<b>空气感是设计元素，不是缺陷。</b></p>
+    <span class="src">METHOD.md §0.5 · 用户原话</span>
+  </blockquote>
+
+  <h3>让村子有趣与友好</h3>
+  <p>这不是最后再加的一层皮，是每间房 S7 / S8 的一部分——但有四条是<b>跨房的</b>，各自单列成工序：</p>
+
+  <div class="steps">
+    <div class="step"><div class="num">41</div><div class="body">
+      <h4>碰面对白接上关系网</h4>
+      <p>B7 对白系统 + B10 的 33 条关系 + 6 段共同经历。两人走近按关系触发多轮对话——<b>有关系的人才有专属对白</b>，没关系的只出通用 bark。这是村子从「六个人各待各的」变成「一个村」的那一步。</p>
+    </div></div>
+    <div class="step"><div class="num">42</div><div class="body">
+      <h4>村民知道你问过谁</h4>
+      <p>问签留痕是现成的（<code>villager_reading</code> 表）。让村民读它：「你昨天问过桃桃了吧」「白鹭跟你说什么了，她从来只说三句」。<b>友好来自被记得</b>，不来自弹窗提示。</p>
+    </div></div>
+    <div class="step"><div class="num">43</div><div class="body">
+      <h4>空屋会说话，且不催</h4>
+      <p>34 间空屋从第一天就在村里。点进去有一句话——不是「立即购买」，是那个还没被找回的人留下的一点痕迹。<b>收集机制即叙事</b>：进度是叙事结果，不是 KPI 进度条。不做限时、不做红点、不做「还差 3 位解锁」。</p>
+    </div></div>
+    <div class="step"><div class="num">44</div><div class="body">
+      <h4>缺是平的</h4>
+      <p>四十个人各缺一块，你也缺一块——这是世界观里最温柔的设计，实现上要守住：村民解读你的缺时，<b>用的是他自己那块缺的眼光</b>。不是权威在评判你，是另一个不完整的人在看你。文案审一遍，凡有俯视口吻的重写。</p>
+    </div></div>
+  </div>
+</section>
+
+<section>
+  <div class="chap"><span class="k">陆</span><h2>阶段 D · 上线</h2></div>
+  <div class="steps">
+    <div class="step"><div class="num">45</div><div class="body">
+      <h4>风控从 log_only 转真判定</h4>
+      <p>阶段 B 埋下的伏笔在这里收：后台风控台已经积了真实命中率，运营<b>逐条</b>把规则从 log_only 改成 review / block。不一次全开。</p>
+    </div></div>
+    <div class="step"><div class="num">46</div><div class="body">
+      <h4>渠道真凭据</h4>
+      <p>微信支付 v3 RSA 签名 + 平台证书轮换、回调 AEAD 解密、小程序手机号解密、Kuaidi100 客户编号。此前全是 mock——<b>webhook 那条路径至今没有真跑通过</b>，这一步之前它都不算数。</p>
+    </div></div>
+    <div class="step"><div class="num">47</div><div class="body">
+      <h4>合规与出境</h4>
+      <p>生辰是敏感个人信息。隐私政策、授权链路、数据出境（6 cell 多区域已在 schema 里）、以及「仅供研究娱乐」的 disclaim 落到每一屏。</p>
+    </div></div>
+    <div class="step"><div class="num">48</div><div class="body">
+      <h4>灰度</h4>
+      <p><code>feature_flag</code> + <code>platform_config</code> 已经就位，变更不发版。先开 cn cell、先开常级御守、先开已建成的房。</p>
+    </div></div>
+  </div>
+</section>
+
+<section>
+  <div class="chap"><span class="k">柒</span><h2>怎么读这张单子</h2></div>
+  <ul>
+    <li><b>严格顺序</b> — 48 道工序连号排一条线。阶段 A 是 34 间房的前提，阶段 B 是它的样板；跳过任何一段，后面的绿都是假的。</li>
+    <li><b>只有一类事需要你出面</b> — 房间验收（工序 11 与阶段 C 每一间）。其余岔路都在第贰章拍死了，我不会回来问第二遍。</li>
+    <li><b>体量诚实说</b> — 阶段 A 六道、阶段 B 五道，是有限工程；<b>阶段 C 的 34 间房是主体</b>，按现有节奏一间是一轮完整的 S1–S10。这张单子是路线，不是排期。</li>
+    <li><b>工具报零先怀疑工具</b> — 这条已经在这轮里应验三次（roomstats 房单写死、sayDeep 只认单串、pathlint 房单写死）。绿色结论旁边没有计数，一律当没跑。</li>
+  </ul>
+</section>
+
+<footer>
+  依据：<code>rooms/design.html</code> B0–B12 · <code>rooms/.roomwork/</code> WORKFLOW · METHOD · PLAYBOOK · ENGINE-GAPS · <code>docs/commerce-architecture.md</code> · 仓库 README 已知欠账。<br>
+  现状数字为 2026-08-17 实测：40 人总表、35 门术数、33 条关系、6 间房已建、后端 80 测试绿。
+</footer>
+
+</div>
