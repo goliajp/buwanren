@@ -5,6 +5,9 @@
 //! [`unmei_app::subscription::renew_due`] —— 它跟客户端、后台看到的是同一份实现,
 //! 而且整笔在一个事务里。
 //!
+//! 扣款失败走 [`unmei_app::subscription::record_renewal_failure`] 的 dunning 阶梯:
+//! T+1d / T+3d / T+7d 三次重试 → past_due → grace → expired。
+//!
 //! 原本这个文件自己拼了一整套 SQL,与用例层重复,且带三个 bug:
 //! 不认 `cancel_at_period_end`(到期不续的用户照样被扣钱)、
 //! 五步写入没有事务、收不了钱时不清 `next_billing_attempt_at`(每 5 分钟重试到永远)。
@@ -63,6 +66,11 @@ async fn sweep_once(st: &AppState) -> anyhow::Result<()> {
             Err(e) => {
                 failed += 1;
                 tracing::warn!(subscription_id = %id, "renew failed: {e}");
+                // 不进 dunning 的话,这条订阅会在 5 分钟后被原样选出来再试一次,
+                // 永远 —— 直到有人去库里手改。阶梯把「再试」变成有限次、有间隔、有终点。
+                if let Err(e2) = app_subscription::record_renewal_failure(&st.db, id, &e.to_string()).await {
+                    tracing::error!(subscription_id = %id, "记 dunning 也失败了: {e2}");
+                }
             }
         }
     }

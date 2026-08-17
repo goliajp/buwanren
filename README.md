@@ -214,17 +214,17 @@ worker 从不看它 —— 到期照样建订单、建支付、延周期。实�
 所以第二次照样放行。两笔都被 sweeper 推到 success 后,`apply_succeeded` 逐笔累加
 `amount_paid_minor`,系统欣然接受了两倍付款,而且随后把 39800 当作「全额退款」放过。
 
-**这是既有行为**,不是 P1 引入的(旧路由是同一套判断)。修它要选一条支付策略,
-是产品决定不是重构,所以留着等拍板。三条路:
+**已修**(2026-08-17,台账 D6):走幂等键,不走「拒绝并发」也不走「顶掉旧的」——
+那两条各有代价(前者让放弃付款的用户干等 30 分钟,后者可能关掉用户正在付的那一笔),
+而且都只是把问题挪个地方。现在客户端在 `POST /v1/orders` 与 `POST /v1/orders/:id/pay`
+上带 `Idempotency-Key`,**同键同参返回首次结果**,重复下单与重复支付一次解决。
+实现见 `unmei_app::idempotency` 与 `unmei-api/src/idem.rs`。
 
-| 方案 | 行为 | 代价 |
-|---|---|---|
-| A · 拒绝并发支付 | 存在未过期的 pending payment 时,第二次 `/pay` 返回 409 | 用户放弃支付后要等 30 分钟过期才能重试 |
-| B · 顶掉旧的 | 新建前把旧 pending payment 置 cancelled | 用户可能正在旧的那笔付款页面上付 |
-| C · 只在入账时兜底 | `apply_succeeded` 里把 `amount_paid_minor` 封顶到订单总额 | 钱已经收了两次,只是账面不显示 —— 治标不治本 |
+`order_record` 也补了 `amount_paid_minor <= amount_total_minor` 的 CHECK,
+用 `NOT VALID` 加 —— 开发库里那两行超收的记录留着等人对账,不由迁移抹平。
 
-顺带:`order_record` 上没有 `amount_paid_minor <= amount_total_minor` 的 CHECK 约束,
-加不加也一并拍。
+> ⚠ **键是可选的**:不带 `Idempotency-Key` 的客户端连按两次仍然会产生两笔支付
+> (实测如此)。小程序侧必须带。要不要在服务端**强制**要求这个头,是产品决定。
 
 ### 已知欠账
 
@@ -234,19 +234,10 @@ worker 从不看它 —— 到期照样建订单、建支付、延周期。实�
   全为了没人读的字段
 - **`subscription` 表没有 `audit_note` 列**(其它 8 张商业表都有),所以订阅取消只能靠领域事件留痕,库里没有备注。要补需要一次 migration
 - 后台的只读列表查询仍是路由里的直接 sqlx(约 90 处),不是双写,但也不在用例层
-- **订阅 dunning 阶梯没实现** —— `subscription_billing` 的文件头注释写着
-  「T+0 / T+1d / T+3d / T+7d 重试,attempt_count > 3 → past_due → grace → expired」,
-  代码里一条都没有。mock 收款永远成功,所以这条路从没走过。真接入渠道前必须补
-- **对账只比流水号,不比金额** —— `recon` 用 `channel_txn_id` 匹配到 payment 就标
-  `matched`,金额对不上也照标。而对账的意义正在于抓金额差异
 - **风控引擎从未接线** —— `unmei_app::risk::evaluate`(规则 DSL + 求值 + 落 risk_event)
   实现完整、测试齐全,但**全仓零调用方**,`DomainError::RiskBlocked` 从未被抛出。
   webadmin 风控工作台管理的规则一条都没被执行过。接线点应在建单 / 发起支付时
   (RFC §3.13),但「风控开始拦真单」是产品行为变更,等拍板
-- **`idempotency_log` 是死表** —— schema 建了,没人写没人读。当初设计给
-  客户端幂等键用(防双击重复下单);要么实现要么删表,一并等拍板
-- `subscription` 表没有 `audit_note` 列(其它 8 张商业表都有),订阅相关操作
-  只能靠领域事件留痕
 - **★ 回调匹配键对不上真渠道** —— 2026-08-17 做对账(台账 D9)时发现。
   `payment.channel_txn_id` 全仓只有一个写入点:`apply_succeeded` 的
   `COALESCE(channel_txn_id, $2)`,而它的 WHERE 是 `channel_txn_id=$2 OR id=$2`。

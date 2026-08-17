@@ -103,9 +103,10 @@ pub enum RenewOutcome {
 ///
 /// 这里三条一起解决:全程一个事务,先认取消标记,收不了就把重试时间清掉。
 ///
-/// 目前仍是 mock 收款(直接建一条 success 的 payment)。真接入之后
-/// 这里改成 `adapter.create_payment(off_session)`,失败走 dunning ——
-/// dunning 的重试阶梯尚未实现,见 README「已知欠账」。
+/// 目前仍是 mock 收款(直接建一条 success 的 payment),所以这里【不会】失败。
+/// 真接入之后改成 `adapter.create_payment(off_session)`,收不上来就调
+/// [`record_renewal_failure`] —— 阶梯已经在了(T+1d / T+3d / T+7d → past_due
+/// → grace → expired),今天由 worker 在 `renew_due` 报错时调用。
 pub async fn renew_due(pool: &PgPool, subscription_id: &str) -> Result<RenewOutcome, DomainError> {
     let mut tx = pool.begin().await.db()?;
 
@@ -286,4 +287,159 @@ pub async fn renew_due(pool: &PgPool, subscription_id: &str) -> Result<RenewOutc
     tracing::info!(subscription_id, %order_id, amount_minor, "订阅已续费");
 
     Ok(RenewOutcome::Renewed { invoice_id, order_id, period_end })
+}
+
+// ═══════════════════════════ dunning 阶梯 ═══════════════════════════
+
+/// 扣款失败之后走到了哪一级。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DunningStep {
+    /// 还在重试窗口内,下次什么时候再试
+    Retry { attempt: i32, next_attempt_at: DateTime<Utc> },
+    /// 三次重试用完,置 past_due 并发事件
+    PastDue { attempt: i32, next_attempt_at: DateTime<Utc> },
+    /// 宽限期
+    Grace { attempt: i32, next_attempt_at: DateTime<Utc> },
+    /// 放弃:订阅 expired,账单 uncollectible
+    Expired { attempt: i32 },
+}
+
+/// 失败第 n 次之后:隔几天再试、要不要改状态。
+///
+/// T+0 那次是第 1 次尝试,它失败后按这张表往下走 —— 于是重试点落在
+/// T+1d / T+3d / T+7d,正好是三次重试。三次用完还收不到,才动订阅状态。
+/// 表尾之后放弃。
+///
+/// 写成表而不是一串 if:阶梯是产品参数,改它不该动控制流。
+const LADDER: &[(i32, i64, Option<&str>)] = &[
+    //  第几次失败, 隔几天再试, 改成什么状态
+    (1, 1, None),
+    (2, 3, None),
+    (3, 7, None),
+    (4, 3, Some("past_due")),
+    (5, 3, Some("grace")),
+];
+
+/// 记一次续费扣款失败,按阶梯往下走一级。
+///
+/// **没有这个阶梯的时候,一次扣款失败就是永久失联**:`renew_due` 出错时事务回滚,
+/// `next_billing_attempt_at` 原地不动,worker 每 5 分钟把这条订阅重新选出来一次,
+/// 直到有人去库里手改。这里把「再试」变成有限次、有间隔、有终点的事。
+pub async fn record_renewal_failure(
+    pool: &PgPool,
+    subscription_id: &str,
+    reason: &str,
+) -> Result<DunningStep, DomainError> {
+    let mut tx = pool.begin().await.db()?;
+
+    // 当期那张还没收上来的账单。没有的话说明失败发生在建账单之前
+    // (多半是库层面的临时故障),按第 1 次失败处理 —— 退一天再试,
+    // 总之不能留在「5 分钟一次」上。
+    let invoice: Option<(String, i32)> = sqlx::query_as(
+        "SELECT id, attempt_count FROM subscription_invoice \
+         WHERE subscription_id = $1 AND status = 'open' \
+         ORDER BY created_at DESC LIMIT 1 FOR UPDATE",
+    )
+    .bind(subscription_id)
+    .fetch_optional(&mut *tx)
+    .await
+    .db()?;
+
+    let attempt = invoice.as_ref().map(|(_, n)| n + 1).unwrap_or(1);
+    let rung = LADDER.iter().find(|(n, _, _)| *n == attempt);
+
+    let step = match rung {
+        Some((_, days, new_status)) => {
+            let next = Utc::now() + Duration::days(*days);
+            if let Some((inv_id, _)) = &invoice {
+                sqlx::query(
+                    "UPDATE subscription_invoice SET attempt_count = $1, \
+                       last_attempt_at = NOW(), next_attempt_at = $2 WHERE id = $3",
+                )
+                .bind(attempt)
+                .bind(next)
+                .bind(inv_id)
+                .execute(&mut *tx)
+                .await
+                .db()?;
+            }
+            match new_status {
+                Some(s) => {
+                    sqlx::query(
+                        "UPDATE subscription SET status = $1, next_billing_attempt_at = $2, \
+                           updated_at = NOW() WHERE id = $3",
+                    )
+                    .bind(s)
+                    .bind(next)
+                    .bind(subscription_id)
+                    .execute(&mut *tx)
+                    .await
+                    .db()?;
+                    if *s == "past_due" {
+                        outbox::write(
+                            &mut *tx,
+                            &DomainEvent::SubscriptionPastDue {
+                                subscription_id: subscription_id.to_string(),
+                                occurred_at: Utc::now(),
+                            },
+                        )
+                        .await?;
+                        DunningStep::PastDue { attempt, next_attempt_at: next }
+                    } else {
+                        // grace 没有对应的领域事件。不硬塞一个 —— 事件是给下游用的,
+                        // 现在没有下游需要区分 grace 与 past_due。真需要时再加。
+                        DunningStep::Grace { attempt, next_attempt_at: next }
+                    }
+                }
+                None => {
+                    sqlx::query(
+                        "UPDATE subscription SET next_billing_attempt_at = $1, updated_at = NOW() \
+                         WHERE id = $2",
+                    )
+                    .bind(next)
+                    .bind(subscription_id)
+                    .execute(&mut *tx)
+                    .await
+                    .db()?;
+                    DunningStep::Retry { attempt, next_attempt_at: next }
+                }
+            }
+        }
+        // 走完阶梯:不再扣款,订阅到此为止,账单标为收不上来
+        None => {
+            if let Some((inv_id, _)) = &invoice {
+                sqlx::query(
+                    "UPDATE subscription_invoice SET status = 'uncollectible', \
+                       attempt_count = $1, last_attempt_at = NOW(), next_attempt_at = NULL \
+                     WHERE id = $2",
+                )
+                .bind(attempt)
+                .bind(inv_id)
+                .execute(&mut *tx)
+                .await
+                .db()?;
+            }
+            sqlx::query(
+                "UPDATE subscription SET status = 'expired', next_billing_attempt_at = NULL, \
+                   updated_at = NOW() WHERE id = $1",
+            )
+            .bind(subscription_id)
+            .execute(&mut *tx)
+            .await
+            .db()?;
+            outbox::write(
+                &mut *tx,
+                &DomainEvent::SubscriptionExpired {
+                    subscription_id: subscription_id.to_string(),
+                    occurred_at: Utc::now(),
+                },
+            )
+            .await?;
+            DunningStep::Expired { attempt }
+        }
+    };
+
+    tx.commit().await.db()?;
+    tracing::info!(subscription_id, attempt, reason, ?step, "订阅续费失败,dunning 前进一级");
+    Ok(step)
 }
