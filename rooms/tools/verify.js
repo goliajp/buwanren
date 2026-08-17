@@ -21,7 +21,7 @@ if (!FILE) { console.error('用法: bun tools/verify.js <design.html 绝对路�
   const p = await b.newPage({ viewport: { width: 1200, height: 1000 } })
   const errs = []
   p.on('pageerror', e => errs.push(String(e.message).slice(0, 160)))
-  await p.goto('file://' + FILE)
+  await p.goto('file://' + require('path').resolve(FILE))
   await p.waitForTimeout(6000)
 
   const r = await p.evaluate(async () => {

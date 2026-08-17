@@ -19,7 +19,7 @@ if (!FILE) { console.error('用法: bun tools/poselint.js <design.html 绝对路
 ;(async () => {
   const b = await chromium.launch({ channel: 'chrome' })
   const p = await b.newPage()
-  await p.goto('file://' + FILE); await p.waitForTimeout(5000)
+  await p.goto('file://' + require('path').resolve(FILE)); await p.waitForTimeout(5000)
 
   const r = await p.evaluate(() => {
     const AC = window.ACTORS || {}

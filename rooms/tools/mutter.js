@@ -10,7 +10,7 @@ const OUT = process.argv[4] || '/tmp/rules/MUTTER.png'
 ;(async () => {
   const b = await chromium.launch({ channel: 'chrome' })
   const p = await b.newPage({ viewport: { width: 1200, height: 1000 } })
-  await p.goto('file://' + process.argv[2]); await p.waitForTimeout(3000)
+  await p.goto('file://' + require('path').resolve(process.argv[2])); await p.waitForTimeout(3000)
 
   const base = await p.evaluate((want) => {
     const keys = Object.keys(window)

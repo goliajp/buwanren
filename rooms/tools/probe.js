@@ -5,7 +5,7 @@ const { chromium } = require('playwright')
   const errs = []
   p.on('pageerror', e => errs.push('PAGEERROR: ' + e.message))
   p.on('console', m => { if (m.type() === 'error') errs.push('CONSOLE: ' + m.text()) })
-  await p.goto('file://' + process.argv[2])
+  await p.goto('file://' + require('path').resolve(process.argv[2]))
   await p.waitForTimeout(3000)
   const r = await p.evaluate(() => ({
     ASSETS: typeof window.ASSETS, n: window.ASSETS ? Object.keys(window.ASSETS).length : -1,

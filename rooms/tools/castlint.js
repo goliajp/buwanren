@@ -46,7 +46,7 @@ const MANUAL = [
 ;(async () => {
   const b = await chromium.launch({ channel: 'chrome' })
   const p = await b.newPage()
-  await p.goto('file://' + FILE); await p.waitForTimeout(2500)
+  await p.goto('file://' + require('path').resolve(FILE)); await p.waitForTimeout(2500)
 
   const cast = await p.evaluate((FIELDS) => {
     const rows = [...document.querySelectorAll('table.cp-cast tbody tr')]

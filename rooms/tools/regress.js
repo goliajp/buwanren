@@ -70,7 +70,7 @@ const SHOOT = () => {
 
 const shoot = async (browser, file) => {
   const p = await browser.newPage()
-  await p.goto('file://' + file); await p.waitForTimeout(3500)
+  await p.goto('file://' + require('path').resolve(file)); await p.waitForTimeout(3500)
   const shots = await p.evaluate(SHOOT)
   await p.close()
   return shots

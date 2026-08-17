@@ -21,7 +21,7 @@ if (!FILE || !ID) { console.error('用法: node assetprobe.js <design.html 绝�
   const p = await b.newPage()
   const errs = []
   p.on('pageerror', e => errs.push(String(e).slice(0, 240)))
-  await p.goto('file://' + FILE)
+  await p.goto('file://' + require('path').resolve(FILE))
   await p.waitForTimeout(6000)
   const r = await p.evaluate(([id, cid]) => {
     const A = window.ASSETS || {}

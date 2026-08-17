@@ -9,7 +9,7 @@ const SHOTS = (process.argv[4] || 'noon:34').split(',').map(s => { const [n, t] 
   const errs = []
   p.on('pageerror', e => errs.push(String(e).split('\n')[0]))
   p.on('console', m => { if (m.type() === 'error') errs.push(m.text().slice(0, 160)) })
-  await p.goto('file://' + FILE)
+  await p.goto('file://' + require('path').resolve(FILE))
   // 把 canvas 撑到原始像素尺寸截图 —— 否则 CSS 缩放会把细节抹掉
   await p.evaluate(sel => {
     const c = document.querySelector(sel)

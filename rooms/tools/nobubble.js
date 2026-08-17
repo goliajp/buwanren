@@ -3,7 +3,7 @@ const ROOMARG = process.argv[3] || ''
 ;(async () => {
   const b = await chromium.launch({ channel: 'chrome' })
   const p = await b.newPage({ viewport: { width: 1200, height: 1000 } })
-  await p.goto('file://' + process.argv[2]); await p.waitForTimeout(3000)
+  await p.goto('file://' + require('path').resolve(process.argv[2])); await p.waitForTimeout(3000)
 
   // 房间可选:第三个参数给房间名(ayun/tao/popo/tenz…),不给则用发现到的第一间。
   // 从前这些诊断工具全部写死 AYUN_ROOM,拿它们查别的房会得到误导性结果。

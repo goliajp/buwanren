@@ -3,7 +3,7 @@ const [FILE, SEL, DY, H, OUT] = [process.argv[2], process.argv[3], +process.argv
 ;(async () => {
   const b = await chromium.launch({ channel: 'chrome' })
   const p = await b.newPage({ viewport: { width: 1200, height: 1000 } })
-  await p.goto('file://' + FILE)
+  await p.goto('file://' + require('path').resolve(FILE))
   await p.waitForTimeout(3500)
   const el = p.locator(SEL).first()
   await el.evaluate((n, dy) => { const b = n.getBoundingClientRect(); window.scrollTo(0, window.scrollY + b.top + dy - 20) }, DY)

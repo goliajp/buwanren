@@ -20,7 +20,7 @@ if (!FILE || !ID) { console.error('用法: bun tools/posegrid.js <design.html �
   const b = await chromium.launch(), p = await b.newPage()
   const errs = []
   p.on('pageerror', e => errs.push(String(e)))
-  await p.goto('file://' + FILE); await p.waitForTimeout(2800)
+  await p.goto('file://' + require('path').resolve(FILE)); await p.waitForTimeout(2800)
 
   const out = await p.evaluate(({ id, perRow }) => {
     const a = window.ACTORS && window.ACTORS[id]

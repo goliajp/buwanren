@@ -3,7 +3,7 @@ const [FILE, X, Y, W, H, WAIT, CID, OUT] = [process.argv[2], +process.argv[3], +
 ;(async () => {
   const b = await chromium.launch({ channel: 'chrome' })
   const p = await b.newPage({ viewport: { width: 1200, height: 1000 } })
-  await p.goto('file://' + FILE)
+  await p.goto('file://' + require('path').resolve(FILE))
   await p.waitForTimeout(WAIT)
   // 从 canvas 原始像素里裁一块,再整数放大 3 倍(不插值,保持像素)
   const dataUrl = await p.evaluate(([x, y, w, h, cid]) => {

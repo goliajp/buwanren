@@ -27,7 +27,7 @@ const anchor = (REG.已开房 || {})[WHO]
 ;(async () => {
   const b = await chromium.launch({ channel: 'chrome' })
   const p = await b.newPage()
-  await p.goto('file://' + FILE); await p.waitForTimeout(2500)
+  await p.goto('file://' + require('path').resolve(FILE)); await p.waitForTimeout(2500)
   const r = await p.evaluate((who) => {
     const key = who.toUpperCase() + '_ROOM'
     const room = window[key]

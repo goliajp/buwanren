@@ -19,7 +19,7 @@ if (!FILE) { console.error('用法: bun tools/walklint.js <design.html 绝对路
 ;(async () => {
   const b = await chromium.launch({ channel: 'chrome' })
   const p = await b.newPage()
-  await p.goto('file://' + FILE); await p.waitForTimeout(2500)
+  await p.goto('file://' + require('path').resolve(FILE)); await p.waitForTimeout(2500)
   const r = await p.evaluate(() => {
     const C = window.CODEX || {}
     const has = (S, id) => !!(S && S[id])

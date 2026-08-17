@@ -34,7 +34,7 @@ function roomScript(base) {
   const p = await b.newPage()
   const errs = []
   p.on('pageerror', e => errs.push(String(e.message).slice(0, 120)))
-  await p.goto('file://' + FILE); await p.waitForTimeout(3500)
+  await p.goto('file://' + require('path').resolve(FILE)); await p.waitForTimeout(3500)
 
   const data = await p.evaluate(() => {
     const rooms = Object.keys(window)
