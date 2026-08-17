@@ -46,6 +46,9 @@ async fn main() -> anyhow::Result<()> {
         ("villagers.sql", include_str!("../../seed/villagers.sql")),
         ("lack_bias.sql", include_str!("../../seed/lack_bias.sql")),
         ("villager_voice.sql", include_str!("../../seed/villager_voice.sql")),
+        // 术数 → mingli 叶。叶名要跟 mingli-registry 对得上,
+        // 校验:python3 scripts/check-art-leaf.py
+        ("art_leaf.sql", include_str!("../../seed/art_leaf.sql")),
     ] {
         sqlx::raw_sql(sql).execute(&mut *conn).await
             .map_err(|e| anyhow::anyhow!("seed {what}: {e}"))?;
