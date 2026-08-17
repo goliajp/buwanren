@@ -24,3 +24,4 @@ pub mod badge;
 pub mod config;
 pub mod health;
 pub mod commerce;
+pub mod village;
