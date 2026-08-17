@@ -95,6 +95,15 @@
   .step h4{margin:0 0 8px;font-size:15.5px;font-weight:600;color:var(--ink);letter-spacing:.01em}
   .step p{margin:0 0 10px;color:var(--ink-2);font-size:14.5px}
   .step p:last-child{margin-bottom:0}
+  /* 已完成:数字换成对勾,标题划掉,正文压暗 —— 一眼能看出做到哪儿 */
+  .step.done .num{color:var(--jade)}
+  .step.done h4{color:var(--ink-3);text-decoration:line-through;text-decoration-color:var(--rule-soft)}
+  .step.done > .body > p{color:var(--ink-3)}
+  .done-note{
+    display:block;margin-top:10px;padding:9px 12px;border-left:2px solid var(--jade);
+    background:var(--jade-soft);font-size:13px;color:var(--ink-2);line-height:1.65;
+  }
+  .done-note b{color:var(--jade);font-weight:600;font-size:11.5px;letter-spacing:.08em}
   .gate{
     display:inline-flex;align-items:baseline;gap:8px;margin-top:10px;padding:7px 12px;
     background:var(--jade-soft);border-left:2px solid var(--jade);font-size:13px;color:var(--ink-2);
@@ -158,6 +167,7 @@
     <div><div class="n">35</div><div class="l">门术数</div></div>
     <div><div class="n">33</div><div class="l">条关系</div></div>
     <div><div class="n hot">0</div><div class="l">村子进产品</div></div>
+    <div><div class="n ok">2<span style="font-size:15px;color:var(--ink-4)">/48</span></div><div class="l">工序已完成</div></div>
   </div>
 </header>
 
@@ -234,17 +244,28 @@
   <p class="lede">先修地基不是流程洁癖。34 间房压在一个 5MB 单文件上是不可能交付的，而门禁工具至今还有写死房间清单的——那意味着新房「从未被检查过却天天报绿」。这一段全部做完，后面才谈得上量产。</p>
 
   <div class="steps">
-    <div class="step"><div class="num">01</div><div class="body">
+    <div class="step done"><div class="num">✓</div><div class="body">
       <h4>清掉 12 处视觉漂移，让基准可信</h4>
       <p>bailu / popo / tenz 各四姿态。逐张出图比对当前渲染与基准：是改进就带理由重存，是回退就修。这一步不产出新东西，它产出的是<b>一个说得清的基准</b>——后面每一次重构都要靠它判生死。</p>
-      <div class="gate"><b>门禁</b><span><code>regress check</code> 全绿，0 处失配</span></div>
+      <div class="done-note"><b>做完了</b>　这一步写的时候有个错误假设：基准里只有 16 位哈希，从来没存过像素，而它存于 2026-07-23、早于本仓库首个 commit，来源仓库 <code>labs/lab32-mingli</code> 已删——<b>那 12 张旧图不存在于任何地方</b>，「逐张比对」做不到。<br>
+      改法不是补存图（房间涨到 34 间要几百 MB），而是让基准记下<b>存它时的 commit</b>：design.html 本身就在 git 里，新增的 <code>regress diff</code> 把那个版本取出来重渲，当场出「旧 / 新 / 差异」三图。为此 <code>save</code> 现在拒绝未提交的 design.html——基准不对应 commit，就是今天这个死局。<br>
+      当下这份基准重取于 <code>65975d3</code>，依据是：assetlint / roomaudit / walklint 全绿、重复渲染结果一致（漂移是真实内容差异不是环境抖动）、三间房迁库前都过过 S9 人工验收。用一次真改动（扫帚挪 120px）验过 diff 确实能取回旧图并定位到 x 232–461 y 2060–2218。</div>
+      <div class="gate"><b>门禁</b><span><code>regress check</code> 全绿，0 处失配 —— 已达成</span></div>
     </div></div>
 
-    <div class="step"><div class="num">02</div><div class="body">
+    <div class="step done"><div class="num">✓</div><div class="body">
       <h4>门禁工具全部改成自动发现房间</h4>
       <p>已知 <code>roomstats</code>、<code>pathlint</code> 写死了四间——沈砚白鹭从未被统计过，而工具照常报数。<code>roomstats</code> 还因为只认单串 <code>sayDeep</code>，把两间各 36 条追问台词整列报成 0。逐支工具过一遍，一律改走 <code>tools/rooms.js</code> 的运行时枚举。</p>
       <p>同时给<b>每个绿色结论配一个计数</b>：只有一行「全过」而没有任何件数的输出，一律当没跑。</p>
-      <div class="gate"><b>门禁</b><span>十支工具对 6 间房都给出非零计数；故意改坏一间，每支都能抓到</span></div>
+      <div class="done-note"><b>做完了</b>　写死清单只是其中一种。真正翻出来的是同一个病的六个变体：<br>
+      · <code>planlint.py</code> 打印「0/36 间违规」退出 0，而它认的 <code>FULLROOMS</code> 格式在 design.html 里一个字都没有——仓库早知道（<code>plancheck.js</code> 注释原话「干净的假绿」），对策却是每间房手抄一份替代脚本。连同 <code>planlint_popo.py</code> 一起删，门禁只留 <code>plancheck.js</code> 一份。<br>
+      · 删掉它连带把<b>门口/顶栏 UI 遮挡带</b>的规则带走了，没有别的工具在查。补进 <code>lintRoom</code> 后立刻抓到沈砚匾额探进按钮带 10px、丹增法轮陷在标题栏里 96px。<br>
+      · <code>assetlint</code> 打印「✗ 1 件不合规」却退出 0——<code>bailu_whisk</code> 的 foot 右缘超出素材 4px，CI 永远拦不住。<br>
+      · <code>pathlint</code> 靠「锚点带不带 <code>node:</code>」挑主角锚点，六间房正好对得上纯属巧合：它漏掉沈砚两个真落在家具上的猫点，又拿人的脚点偏移去量阿云五个宠物点。改成认 <code>room.acts</code> 归属，两种接法都认。<br>
+      · <code>assetprobe</code> 在「不许写死房间清单」的注释正下方写死了四间，沈砚白鹭的素材一律报「没摆上去」。<code>hardcodelint</code> 同病。<br>
+      · <code>btn</code> / <code>nobubble</code> / <code>walkperf</code> 收房间参数、却始终点阿云的按钮读阿云的画布——报出来的是两间房拌在一起的状态，比「只支持阿云」更能骗人。<br>
+      新增 <code>tools/rooms.py</code>（<code>rooms.js</code> 的 Python 对应物，发现不到房间即硬失败）与 <code>mutationtest.sh</code>：往副本植入六种已知缺陷，断言该抓的那支真抓到——<b>报绿不等于报得出红</b>。11/11。</div>
+      <div class="gate"><b>门禁</b><span>每条绿色结论都带件数；植入缺陷后每支都能抓到 —— 11/11 已达成</span></div>
     </div></div>
 
     <div class="step"><div class="num">03</div><div class="body">

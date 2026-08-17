@@ -120,9 +120,11 @@ function roomScript(base) {
 
       // ── D 碰撞体积:foot 声明 vs sprite 实际底面 ──
       const footBad = [], footNote = []
+      let footChecked = 0
       for (const id of kinds) {
         const a = A[id]; if (!a || !a.foot) continue
         const f = a.foot; if (!(f[2] > 0) || !(f[3] > 0)) continue
+        footChecked++
         try {
           const cv = document.createElement('canvas'); cv.width = a.w; cv.height = a.h
           const g = cv.getContext('2d'); g.scale(2, 2); a.draw(g, {})
@@ -190,7 +192,7 @@ function roomScript(base) {
                         actorSpeed: (pf.actor && pf.actor.speed) || null } : null,
         plan: room.plan.length, kinds: kinds.length,
         clickable: clickable.length, deep: deep.length, hit, hitRan,
-        footBad, footNote,
+        footBad, footNote, footChecked,
       }
     }
     return out
@@ -278,7 +280,8 @@ function roomScript(base) {
   if (show('D')) {
     console.log('\n══ D 碰撞体积 ══')
     for (const [k, R] of Object.entries(data)) {
-      if (!R.footBad.length) console.log(`  ${k.padEnd(11)} ✓ foot 与实际底面相符`)
+      if (!R.footChecked) { problems++; console.log(`  ${k.padEnd(11)} ✗ 一件 foot 都没查到(共 ${R.kinds} 种素材)—— 解析对不上了`) }
+      else if (!R.footBad.length) console.log(`  ${k.padEnd(11)} ✓ ${R.footChecked} 件 foot 与实际底面相符`)
       else {
         problems += R.footBad.length
         console.log(`  ${k.padEnd(11)} ✗ ${R.footBad.length} 件 foot 与实际对不上:`)
