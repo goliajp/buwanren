@@ -39,6 +39,7 @@ pub mod refund;
 pub mod risk;
 pub mod shipment;
 pub mod subscription;
+pub mod villager;
 
 pub use actor::{Actor, ActorKind};
 

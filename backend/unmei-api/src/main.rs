@@ -44,6 +44,8 @@ async fn main() -> anyhow::Result<()> {
         // 40 位不完人与 35 门术数。由 scripts/export-cast.py 从 rooms/design.html 导出,
         // 单一来源仍是设计册 —— 别在库里手改,下次导出会盖掉。
         ("villagers.sql", include_str!("../../seed/villagers.sql")),
+        ("lack_bias.sql", include_str!("../../seed/lack_bias.sql")),
+        ("villager_voice.sql", include_str!("../../seed/villager_voice.sql")),
     ] {
         sqlx::raw_sql(sql).execute(&mut *conn).await
             .map_err(|e| anyhow::anyhow!("seed {what}: {e}"))?;

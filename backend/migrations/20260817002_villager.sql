@@ -76,3 +76,27 @@ CREATE TABLE IF NOT EXISTS villager_reading (
 );
 
 CREATE INDEX IF NOT EXISTS idx_villager_reading_user ON villager_reading(user_id, asked_at DESC);
+
+-- ── 偏向层:缺 → 往哪个方向偏 ────────────────────────────────────
+-- 「一个不完人 = 一门术数 = 一种解读你的方式」。同一门术数、同一个盘,
+-- 缺不同的两个人给出的解读就该不同 —— 差别正是从这张表来的。
+-- 缺勤的阿云偏向「该动了」,缺静的丹增偏向「该停了」。
+CREATE TABLE IF NOT EXISTS lack_bias (
+    lack        TEXT PRIMARY KEY,          -- 与 villager.lack 一一对应
+    direction   TEXT NOT NULL,             -- move / still / keep / let_go / ask / near / wait
+    note        TEXT                       -- 为什么是这个方向,给后来改它的人看
+);
+
+-- ── 声音层:这位不完人怎么说话 ──────────────────────────────────
+-- `villager.voice` 是设计册里对说话风格的**描述**(「慢半拍,爱用『贫道』」),
+-- 这张表是照着它写出来的**模板**。
+--
+-- ★ 只给需要的人写,不批量填 40 行。说话模板是这个角色的一部分,
+--   该跟他那间房一起做、一起验收 —— 一次性凑齐 40 份等于把最要紧的东西
+--   做成填空题。没模板的村民问签会明确报错,不会拿别人的口气搪塞。
+CREATE TABLE IF NOT EXISTS villager_voice (
+    villager_id TEXT PRIMARY KEY REFERENCES villager(id) ON DELETE CASCADE,
+    opener      TEXT NOT NULL,
+    closer      TEXT NOT NULL,
+    joiner      TEXT NOT NULL DEFAULT '。'
+);
