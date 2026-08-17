@@ -24272,7 +24272,7 @@ def("ayun_qing_bowl", {
     clickable: true, say: '出门？看情况',
     scope: 'generic',
     name: '门 + 门槛', cat: '结构', tags: ["木", "出入口"],
-    w: 666, h: 150, base: 150, foot: [212,120,272,30], zLayer: 'low', fromRoom: 'ayun',
+    w: 484, h: 150, base: 150, foot: [212,120,272,30], zLayer: 'low', fromRoom: 'ayun',   // 拆出书与盒后内容只到 x484
     draw(g) {
       const pxCircle=(a,b,c,d)=>PRIM.pxC(g,a,b,c,d)
       const pxRing=(a,b,c,d,e)=>PRIM.pxR(g,a,b,c,d,e)
@@ -24287,16 +24287,38 @@ def("ayun_qing_bowl", {
   g.fillStyle = '#a87f48'; g.fillRect(296, 988, 128, 50)
   g.fillStyle = '#c9a26a'
   g.fillRect(305, 997, 110, 3); g.fillRect(305, 1024, 110, 3)
-  g.fillStyle = '#3a2c20'
-  g.fillRect(448, 998, 14, 27); g.fillRect(466, 998, 14, 27)
-  g.fillStyle = '#5a7a96'
-  g.fillRect(450, 1001, 10, 13); g.fillRect(468, 1001, 10, 13)
-  g.fillStyle = '#c04838'
-  g.fillRect(492, 1004, 12, 20); g.fillRect(507, 1004, 12, 20)
-  // 水缸+瓢【已移除】—— 这里曾把水缸画第二遍,盖住独立的 ayun_water_vat,
-  // 于是那件永远点不到、它的台词从来没人听过(§3.5 同一物体两份绘制)。
-  // 缸与瓢现在由 ayun_water_vat 自己画。
+  // 两本书 + 两只红盒【已移出】—— 它们本来画在这里,跟门共用一个 foot、一句台词:
+  // 点书弹的是「出门?看情况」,而门的 foot 只圈得住门槛(x212–484),
+  // 书与盒(x524–666)一格没占,角色径直从它们身上走过去。
+  // 现在各自成件:ayun_books_unread / ayun_gift_boxes,各自落地、各自能点、各自说话。
+  // 同 §3.5「同一物体两份绘制」那次:水缸曾在这里被画第二遍,盖住独立的 ayun_water_vat,
+  // 于是那件永远点不到、它的台词从来没人听过。
       g.restore()
+    }
+  })
+
+  // 门口那两本书 —— 从 ayun_door_frame 里拆出来的。阿云缺「勤」,书搁在最显眼的地方,
+  // 每天出门都路过,也就每天都没读。
+  def("ayun_books_unread", {
+    clickable: true, say: '师父让读的书',
+    sayDeep: ['《壬学琐记》上下两册', '……去年就该读完', '搁门口是为了天天看见。看见归看见'],
+    name: "没读的书 ×2", cat: "书卷", tags: ["师父给的", "搁着"],
+    scope: "character", fromRoom: 'ayun',
+    w: 64, h: 54, base: 54, foot: [0, 40, 64, 14], zLayer: 'low',
+    draw(g) {
+      g.fillStyle = '#3a2c20'; g.fillRect(0, 0, 14, 27); g.fillRect(18, 0, 14, 27)
+      g.fillStyle = '#5a7a96'; g.fillRect(2, 3, 10, 13); g.fillRect(20, 3, 10, 13)
+    }
+  })
+
+  def("ayun_gift_boxes", {
+    clickable: true, say: '两只红漆盒',
+    sayDeep: ['谢仪。算准了的人送来的', '……我没拆', '拆了就得记着这份人情。我记不住'],
+    name: "红漆盒 ×2", cat: "杂物", tags: ["谢仪", "没拆"],
+    scope: "character", fromRoom: 'ayun',
+    w: 54, h: 40, base: 40, foot: [0, 28, 54, 12], zLayer: 'low',
+    draw(g) {
+      g.fillStyle = '#c04838'; g.fillRect(0, 0, 12, 20); g.fillRect(15, 0, 12, 20)
     }
   })
   def("ayun_crates_stack", {
@@ -27296,7 +27318,7 @@ if (st.said && t < st.saidUntil) {
       ['ayun_screen_panel',1060,1472], ['ayun_screen_panel',1168,1448], ['ayun_screen_panel',1276,1472],
       ['ayun_qing_bowl',1024,1474], ['ayun_lamp_floor',940,1620], ['ayun_furnace_alch',388,1716],
       ['ayun_broom',1368,1720], ['ayun_bellows_set',320,1816], ['ayun_crates_stack',1192,1832],
-      ['ayun_firewood',632,1880], ['ayun_door_frame',372,1934], ['ayun_water_vat',372,1940],
+      ['ayun_firewood',632,1880], ['ayun_door_frame',372,1934], ['ayun_books_unread',896,1996], ['ayun_gift_boxes',984,2008], ['ayun_water_vat',372,1940],
       // 小道具(自原房间「新道具」层提取)
       ['ayun_birdcage',1030,78], ['ayun_windchime',1116,84], ['ayun_cloak_hook',1314,300],
       ['ayun_divine_sticks',802,1149,{attach:'ayun_table_shipan',zBias:2}],
