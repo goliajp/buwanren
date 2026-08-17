@@ -20,6 +20,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # compare 要渲染 base 那个版本,得有历史
+          fetch-depth: 0
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -56,12 +59,36 @@ jobs:
       - name: blobscan · 全库 foot vs 实体
         run: bun tools/blobscan.js design.html --gate-only
 
-      # 视觉回归排在最后,因为它是唯一【可能因为跑在别的机器上而失败】的一支:
-      # 基准是像素哈希,而 CI 的 Chrome 版本、字体、栅格化都跟本地不同。
-      # 真出现跨机器漂移的话,要的不是把这一步删掉,而是分平台存基准 ——
-      # 先让它跑一次,看看到底差不差。
-      - name: regress · 视觉回归
-        run: bun tools/regress.js design.html check
+      # ── 视觉回归:CI 上【不能】用 `check` ────────────────────────
+      # 首跑实测:同一份 design.html 在 macOS Chrome 与 Linux Chrome 上
+      # 24 个场景全部渲出不同哈希。基准是绑机器的,拿到 CI 一定全红,
+      # 而那个红跟房间对不对毫无关系。
+      #
+      # 所以 CI 换掉判据。基准哈希问的是「像不像那台笔记本」,
+      # CI 该问的是「这次改动改变渲染了吗」—— 后者在同一台机器上
+      # 比两个版本就行,与平台无关。
+      #
+      # selfcheck 是硬门禁:渲两遍必须逐帧一致。它查的是渲染的不确定性
+      # ——t=0 的画面里混进真实时间、未播种的随机、遍历顺序不稳的容器,
+      # 单次渲染完全看不出来,这里一定现形。
+      - name: regress selfcheck · 渲染是确定的吗
+        run: bun tools/regress.js design.html selfcheck
+
+      # compare 只报不判:改动本来就该改变画面,红灯没有意义。
+      # 它的产出是给人看的三图,连同像素数与区域一起上传。
+      - name: regress compare · 这次改动改了哪些画面
+        if: github.event_name == 'pull_request'
+        run: |
+          bun tools/regress.js design.html \
+            compare --against=${{ github.event.pull_request.base.sha }} --report-only
+
+      - name: 上传画面差异图
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: regress-diff
+          path: rooms/.roomwork/baseline/diff/
+          if-no-files-found: ignore
 
       # 数据对表不判失败,但要留在日志里:件数 / 交互覆盖 / 台词量掉下来时
       # 翻历史 run 就能看出是哪一次掉的。
@@ -81,6 +108,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: oven-sh/setup-bun@v2
         with:

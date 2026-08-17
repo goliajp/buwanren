@@ -21,7 +21,12 @@ gate() { # gate <名字> <文件>
     roomaudit)    bun rooms/tools/roomaudit.js    "$2" >/dev/null 2>&1 ;;
     hardcodelint) bun rooms/tools/hardcodelint.js "$2" >/dev/null 2>&1 ;;
     pathlint)     python3 rooms/tools/pathlint.py "$2" >/dev/null 2>&1 ;;
-    regress)      bun rooms/tools/regress.js      "$2" check >/dev/null 2>&1 ;;
+    # 用 compare 而不是 check:check 比的是【存下来的基准】,那份基准绑机器
+    # (同一份 design.html 在 macOS 与 Linux 的 Chrome 上 24 个场景全部渲出不同哈希),
+    # 拿到 CI 上对照组会直接红,整个变异测试的结论就不可信了。
+    # compare 在同一台机器上比两个版本,与平台无关;对照组比自己,必然相同。
+    regress)      bun rooms/tools/regress.js "$2" compare --against="$SRC" >/dev/null 2>&1 ;;
+    selfcheck)    bun rooms/tools/regress.js "$2" selfcheck >/dev/null 2>&1 ;;
     blobscan)     bun rooms/tools/blobscan.js     "$2" --gate-only >/dev/null 2>&1 ;;
     buildsync)    bun rooms/tools/build.js --check --out="$2" >/dev/null 2>&1 ;;
   esac
@@ -92,7 +97,7 @@ mutate "任一像素变了" regress \
 
 echo
 echo "── 对照:未变异的源码,同一批门禁必须全绿 ──"
-for g in assetlint roomaudit hardcodelint pathlint regress blobscan buildsync; do
+for g in assetlint roomaudit hardcodelint pathlint regress blobscan buildsync selfcheck; do
   if gate "$g" "$SRC"; then printf '  ✓ %-14s 绿\n' "$g"; pass=$((pass+1))
   else printf '  ✗ %-14s 在【干净】源码上就报红 —— 变异测试的结论不可信\n' "$g"; fail=$((fail+1)); fi
 done

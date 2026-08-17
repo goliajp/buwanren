@@ -18,7 +18,16 @@
 //   (2026-08-17 血的教训:上一版基准存于 2026-07-23,只有哈希;12 处漂移无从判断
 //    是改进还是回退,只能作废重来。)
 //
-// 用法:bun tools/regress.js <design.html> [check|save|diff]   (相对绝对都行,任意目录都行)
+// ★ 基准哈希是【绑机器的】。同一份 design.html 在 macOS Chrome 与 Linux Chrome 上
+//   24 个场景全部渲出不同的哈希(2026-08-17 CI 首跑实测)。所以 check/save/diff
+//   这三个模式只在【存基准的那台机器】上说得通,拿去 CI 一定全红。
+//   CI 要问的不是「像不像那台笔记本」,而是「这次改动改变渲染了吗」——
+//   后者在同一台机器上比两个版本就行,与平台无关。那是 compare / selfcheck。
+//
+// 用法:bun tools/regress.js <design.html> [check|save|diff]   本机:与存下的基准比
+//      bun tools/regress.js <design.html> selfcheck           渲两遍,断言逐帧一致(查不确定性)
+//      bun tools/regress.js <design.html> compare --against=<文件|git ref>
+//                                                             同机比两个版本(CI 用,不绑平台)
 //      文件在前、模式在后 —— 写反会把 check 当路径 → ERR_INVALID_URL,看着像工具坏了
 //      save 在 design.html 未提交时会拒绝;确实要存加 --allow-dirty(diff 能力随之降级)
 const { chromium } = require('playwright')
@@ -94,8 +103,110 @@ const hashOf = shots => {
 
 const rooms = obj => Object.keys(obj).filter(k => k[0] !== '_')
 
+// 出「旧 / 新 / 差异」三图。diff 与 compare 共用 —— 两者只是【拿谁当旧的】不同。
+const emitDiffs = async (b, pairs) => {
+  const p = await b.newPage()
+  const results = await p.evaluate(async (items) => {
+    const load = src => new Promise(res => { const i = new Image(); i.onload = () => res(i); i.src = src })
+    const out = []
+    for (const [room, scene, aSrc, bSrc] of items) {
+      const [ia, ib] = [await load(aSrc), await load(bSrc)]
+      const W = Math.max(ia.width, ib.width), H = Math.max(ia.height, ib.height)
+      const mk = img => { const c = document.createElement('canvas'); c.width = W; c.height = H
+                          c.getContext('2d').drawImage(img, 0, 0); return c }
+      const [ca, cb] = [mk(ia), mk(ib)]
+      const da = ca.getContext('2d').getImageData(0, 0, W, H).data
+      const db = cb.getContext('2d').getImageData(0, 0, W, H).data
+      const cd = document.createElement('canvas'); cd.width = W; cd.height = H
+      const gd = cd.getContext('2d'); const dd = gd.createImageData(W, H)
+      let n = 0, x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1
+      for (let i = 0, px = 0; i < da.length; i += 4, px++) {
+        const same = da[i] === db[i] && da[i+1] === db[i+1] && da[i+2] === db[i+2] && da[i+3] === db[i+3]
+        if (same) {   // 未变的压成淡灰底,保留形状好定位(留 50 级灰,太窄了整屋糊成一片白)
+          const v = 200 + ((db[i] * 0.3 + db[i+1] * 0.6 + db[i+2] * 0.1) / 255) * 48
+          dd.data[i] = dd.data[i+1] = dd.data[i+2] = v; dd.data[i+3] = 255
+        } else {      // 变了的涂洋红
+          dd.data[i] = 255; dd.data[i+1] = 0; dd.data[i+2] = 170; dd.data[i+3] = 255
+          const cx = px % W, cy = (px / W) | 0
+          if (cx < x0) x0 = cx; if (cx > x1) x1 = cx
+          if (cy < y0) y0 = cy; if (cy > y1) y1 = cy; n++
+        }
+      }
+      gd.putImageData(dd, 0, 0)
+      out.push({ room, scene, n, pct: +(n / (W * H) * 100).toFixed(3),
+                 box: n ? { x0, y0, x1, y1, w: x1 - x0 + 1, h: y1 - y0 + 1 } : null,
+                 diff: cd.toDataURL('image/png') })
+    }
+    return out
+  }, pairs)
+  await p.close()
+
+  fs.mkdirSync(DIFFDIR, { recursive: true })
+  const write = (name, dataURL) => fs.writeFileSync(path.join(DIFFDIR, name),
+    Buffer.from(dataURL.split(',')[1], 'base64'))
+  for (const [i, r] of results.entries()) {
+    write(`${r.room}-${r.scene}-1旧.png`, pairs[i][2])
+    write(`${r.room}-${r.scene}-2新.png`, pairs[i][3])
+    write(`${r.room}-${r.scene}-3差异.png`, r.diff)
+    const box = r.box ? `  区域 x ${r.box.x0}–${r.box.x1} y ${r.box.y0}–${r.box.y1}(${r.box.w}×${r.box.h})` : ''
+    console.log(`  ${(r.room + ' ' + r.scene).padEnd(20)} 变了 ${String(r.n).padStart(8)} px  ${String(r.pct).padStart(6)}%${box}`)
+  }
+  console.log(`\n三图一组(旧 / 新 / 差异)已写到 ${DIFFDIR}/`)
+}
+
+
 ;(async () => {
   const b = await chromium.launch({ channel: 'chrome' })
+
+  // ── selfcheck:同一份文件渲两遍,断言逐帧一致。
+  //    这是唯一【不绑平台】的硬门禁:它查的是渲染有没有不确定性 ——
+  //    t=0 的画面里混进了真实时间、未播种的随机、遍历顺序不稳的容器,
+  //    都会在这里现形,而在单次渲染里完全看不出来。
+  if (MODE === 'selfcheck') {
+    const [a1, a2] = [hashOf(await shoot(b, FILE)), hashOf(await shoot(b, FILE))]
+    let bad = 0
+    for (const room of rooms(a1)) for (const k in a1[room]) {
+      const same = a1[room][k] === a2[room][k]
+      if (!same) { bad++; console.log(`  ✗ ${(room + ' ' + k).padEnd(20)} 两遍不一样 ${a1[room][k]} / ${a2[room][k]}`) }
+    }
+    const n = rooms(a1).reduce((t, r) => t + Object.keys(a1[r]).length, 0)
+    console.log(bad ? `✗ ${bad}/${n} 个场景渲两遍结果不同 —— 渲染有不确定性`
+                    : `✓ ${n} 个场景渲两遍逐帧一致(${rooms(a1).length} 间房)`)
+    await b.close(); process.exit(bad ? 1 : 0)
+  }
+
+  // ── compare:同机渲两个版本并比对。不读基准,所以跨平台成立。
+  if (MODE === 'compare') {
+    const arg = process.argv.find(a => a.startsWith('--against='))
+    if (!arg) { console.log('✗ compare 要 --against=<文件|git ref>'); await b.close(); process.exit(2) }
+    const against = arg.slice(10)
+    const reportOnly = process.argv.includes('--report-only')
+    let other = against
+    if (!fs.existsSync(other)) {          // 不是文件就当 git ref
+      const rel = path.relative(git('rev-parse --show-toplevel', process.cwd()), path.resolve(FILE))
+      other = path.join(require('os').tmpdir(), `regress-against-${against.replace(/[^\w.-]/g, '_')}.html`)
+      try { fs.writeFileSync(other, execSync(`git show ${against}:${rel}`, { encoding: 'utf8', maxBuffer: 1 << 28 })) }
+      catch (e) { console.log(`✗ 取不到 ${against}:${rel} —— ${e.message.split('\n')[0]}`); await b.close(); process.exit(1) }
+    }
+    console.log(`同机比对:${against}  vs  当前`)
+    const [oldShots, newShots] = [await shoot(b, other), await shoot(b, FILE)]
+    const [oldFp, newFp] = [hashOf(oldShots), hashOf(newShots)]
+    const pairs = []
+    for (const room of rooms(newFp)) for (const k in newFp[room])
+      if (!oldFp[room]) { console.log(`  + ${room} 是新房间`) }
+      else if (oldFp[room][k] !== newFp[room][k]) pairs.push([room, k, oldShots[room][k], newShots[room][k]])
+    for (const room of rooms(oldFp)) if (!newFp[room]) console.log(`  ! ${room} 没有了`)
+
+    if (!pairs.length) {
+      const n = rooms(newFp).reduce((t, r) => t + Object.keys(newFp[r]).length, 0)
+      console.log(`✓ ${n} 个场景渲染完全相同 —— 这次改动不影响画面`)
+      await b.close(); process.exit(0)
+    }
+    await emitDiffs(b, pairs)
+    console.log(`\n${pairs.length} 个场景的画面变了。改动是有意的就没问题,` +
+                `三图已写到 ${DIFFDIR}/ 供人判断。`)
+    await b.close(); process.exit(reportOnly ? 0 : 1)
+  }
 
   // ── diff:把基准那次的 design.html 从 git 取出来重渲,逐张出「旧 / 新 / 差异」三图
   if (MODE === 'diff') {
@@ -125,53 +236,7 @@ const rooms = obj => Object.keys(obj).filter(k => k[0] !== '_')
 
     if (!pairs.length) { console.log('✓ 与基准一致,没有可 diff 的场景'); await b.close(); process.exit(0) }
 
-    const p = await b.newPage()
-    const results = await p.evaluate(async (items) => {
-      const load = src => new Promise(res => { const i = new Image(); i.onload = () => res(i); i.src = src })
-      const out = []
-      for (const [room, scene, aSrc, bSrc] of items) {
-        const [ia, ib] = [await load(aSrc), await load(bSrc)]
-        const W = Math.max(ia.width, ib.width), H = Math.max(ia.height, ib.height)
-        const mk = img => { const c = document.createElement('canvas'); c.width = W; c.height = H
-                            c.getContext('2d').drawImage(img, 0, 0); return c }
-        const [ca, cb] = [mk(ia), mk(ib)]
-        const da = ca.getContext('2d').getImageData(0, 0, W, H).data
-        const db = cb.getContext('2d').getImageData(0, 0, W, H).data
-        const cd = document.createElement('canvas'); cd.width = W; cd.height = H
-        const gd = cd.getContext('2d'); const dd = gd.createImageData(W, H)
-        let n = 0, x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1
-        for (let i = 0, px = 0; i < da.length; i += 4, px++) {
-          const same = da[i] === db[i] && da[i+1] === db[i+1] && da[i+2] === db[i+2] && da[i+3] === db[i+3]
-          if (same) {   // 未变的压成淡灰底,保留形状好定位(留 50 级灰,太窄了整屋糊成一片白)
-            const v = 200 + ((db[i] * 0.3 + db[i+1] * 0.6 + db[i+2] * 0.1) / 255) * 48
-            dd.data[i] = dd.data[i+1] = dd.data[i+2] = v; dd.data[i+3] = 255
-          } else {      // 变了的涂洋红
-            dd.data[i] = 255; dd.data[i+1] = 0; dd.data[i+2] = 170; dd.data[i+3] = 255
-            const cx = px % W, cy = (px / W) | 0
-            if (cx < x0) x0 = cx; if (cx > x1) x1 = cx
-            if (cy < y0) y0 = cy; if (cy > y1) y1 = cy; n++
-          }
-        }
-        gd.putImageData(dd, 0, 0)
-        out.push({ room, scene, n, pct: +(n / (W * H) * 100).toFixed(3),
-                   box: n ? { x0, y0, x1, y1, w: x1 - x0 + 1, h: y1 - y0 + 1 } : null,
-                   diff: cd.toDataURL('image/png') })
-      }
-      return out
-    }, pairs)
-    await p.close()
-
-    fs.mkdirSync(DIFFDIR, { recursive: true })
-    const write = (name, dataURL) => fs.writeFileSync(path.join(DIFFDIR, name),
-      Buffer.from(dataURL.split(',')[1], 'base64'))
-    for (const [i, r] of results.entries()) {
-      write(`${r.room}-${r.scene}-1旧.png`, pairs[i][2])
-      write(`${r.room}-${r.scene}-2新.png`, pairs[i][3])
-      write(`${r.room}-${r.scene}-3差异.png`, r.diff)
-      const box = r.box ? `  区域 x ${r.box.x0}–${r.box.x1} y ${r.box.y0}–${r.box.y1}(${r.box.w}×${r.box.h})` : ''
-      console.log(`  ${(r.room + ' ' + r.scene).padEnd(20)} 变了 ${String(r.n).padStart(8)} px  ${String(r.pct).padStart(6)}%${box}`)
-    }
-    console.log(`\n三图一组(旧 / 新 / 差异)已写到 ${DIFFDIR}/`)
+    await emitDiffs(b, pairs)
     await b.close(); process.exit(0)
   }
 
