@@ -136,8 +136,8 @@ const rooms = obj => Object.keys(obj).filter(k => k[0] !== '_')
         let n = 0, x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1
         for (let i = 0, px = 0; i < da.length; i += 4, px++) {
           const same = da[i] === db[i] && da[i+1] === db[i+1] && da[i+2] === db[i+2] && da[i+3] === db[i+3]
-          if (same) {   // 未变的压成极淡灰底,保留形状好定位
-            const v = 235 + ((db[i] * 0.3 + db[i+1] * 0.6 + db[i+2] * 0.1) / 255) * 15
+          if (same) {   // 未变的压成淡灰底,保留形状好定位(留 50 级灰,太窄了整屋糊成一片白)
+            const v = 200 + ((db[i] * 0.3 + db[i+1] * 0.6 + db[i+2] * 0.1) / 255) * 48
             dd.data[i] = dd.data[i+1] = dd.data[i+2] = v; dd.data[i+3] = 255
           } else {      // 变了的涂洋红
             dd.data[i] = 255; dd.data[i+1] = 0; dd.data[i+2] = 170; dd.data[i+3] = 255

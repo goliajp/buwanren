@@ -1,4 +1,10 @@
 {
+  "_meta": {
+    "savedAt": "2026-08-17",
+    "gitRev": "65975d39d7fbbdefa3b064e457502c9f785a3d40",
+    "dirty": false,
+    "note": "diff 模式靠 gitRev 取回当时的 design.html 重渲旧图;这两个字段没了基准就只是一串哈希"
+  },
   "AYUN_ROOM": {
     "empty": "ed5e463a5d4aeb4d",
     "stand": "814f84802868907a",
@@ -6,16 +12,16 @@
     "low": "f6699f77af315412"
   },
   "BAILU_ROOM": {
-    "empty": "f9864a449271db13",
-    "stand": "6450f9af6c9664f6",
-    "back": "38f799801b0cf9c2",
-    "low": "f44ec157b7c4f4c2"
+    "empty": "3de7cd632b069b70",
+    "stand": "6abbf5b5f15c874a",
+    "back": "a71529aab2d9ded5",
+    "low": "101270b3b94a13dd"
   },
   "POPO_ROOM": {
-    "empty": "a4eea1e10d31ad1b",
-    "stand": "dda44fff8b8fa537",
-    "back": "0cb577d74215051f",
-    "low": "5725e2b13384f2cf"
+    "empty": "ff54c0a2c1131a88",
+    "stand": "724910e0de519720",
+    "back": "f3b16b36956e2b20",
+    "low": "d173cef97e03e486"
   },
   "SHENYAN_ROOM": {
     "empty": "b67ec00b3ce9358a",
@@ -30,9 +36,9 @@
     "low": "b2d1643d2e3fad2a"
   },
   "TENZ_ROOM": {
-    "empty": "7655c1b3c7f35e8e",
-    "stand": "a747096ec02d4a79",
-    "back": "0aba257f04b7f887",
-    "low": "38e74d5b17961f82"
+    "empty": "9c89a24e00f4659f",
+    "stand": "6d27e90265d5056f",
+    "back": "5dfd5800ed0ea1c5",
+    "low": "4984d4458e7b348f"
   }
 }
