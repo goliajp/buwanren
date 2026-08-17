@@ -184,6 +184,17 @@ const emitDiffs = async (b, pairs) => {
     let other = against
     if (!fs.existsSync(other)) {          // 不是文件就当 git ref
       const rel = path.relative(git('rev-parse --show-toplevel', process.cwd()), path.resolve(FILE))
+      // 「这个 ref 不存在」和「这个 ref 上没有这个文件」是两回事,不能混成一句错。
+      // 前者是参数敲错了,该红;后者是文件在这条分支上还是新增的(或刚改过名),
+      // 没有旧版本可比是事实,不是缺陷 —— 报清楚然后放行。
+      if (git(`rev-parse --verify --quiet ${against}^{commit}`) === null) {
+        console.log(`✗ ref 不存在:${against}`); await b.close(); process.exit(1)
+      }
+      if (git(`cat-file -e ${against}:${rel} 2>/dev/null && echo ok`) === null) {
+        console.log(`· ${against} 上没有 ${rel} —— 这个文件在那时还不存在(新增或改名),无从比对`)
+        console.log(`  等它落到目标分支之后,后续的 PR 才比得了`)
+        await b.close(); process.exit(0)
+      }
       other = path.join(require('os').tmpdir(), `regress-against-${against.replace(/[^\w.-]/g, '_')}.html`)
       try { fs.writeFileSync(other, execSync(`git show ${against}:${rel}`, { encoding: 'utf8', maxBuffer: 1 << 28 })) }
       catch (e) { console.log(`✗ 取不到 ${against}:${rel} —— ${e.message.split('\n')[0]}`); await b.close(); process.exit(1) }
