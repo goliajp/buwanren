@@ -95,7 +95,7 @@
   .step h4{margin:0 0 8px;font-size:15.5px;font-weight:600;color:var(--ink);letter-spacing:.01em}
   .step p{margin:0 0 10px;color:var(--ink-2);font-size:14.5px}
   .step p:last-child{margin-bottom:0}
-  /* 已完成:数字换成对勾,标题划掉,正文压暗 —— 一眼能看出做到哪儿 */
+  /* 已完成：数字换成对勾，标题划掉，正文压暗 —— 一眼能看出做到哪儿 */
   .step.done .num{color:var(--jade)}
   .step.done h4{color:var(--ink-3);text-decoration:line-through;text-decoration-color:var(--rule-soft)}
   .step.done > .body > p{color:var(--ink-3)}
@@ -167,7 +167,7 @@
     <div><div class="n">35</div><div class="l">门术数</div></div>
     <div><div class="n">33</div><div class="l">条关系</div></div>
     <div><div class="n hot">0</div><div class="l">村子进产品</div></div>
-    <div><div class="n ok">2<span style="font-size:15px;color:var(--ink-4)">/48</span></div><div class="l">工序已完成</div></div>
+    <div><div class="n ok">3<span style="font-size:15px;color:var(--ink-4)">/48</span></div><div class="l">工序已完成</div></div>
   </div>
 </header>
 
@@ -268,10 +268,15 @@
       <div class="gate"><b>门禁</b><span>每条绿色结论都带件数；植入缺陷后每支都能抓到 —— 11/11 已达成</span></div>
     </div></div>
 
-    <div class="step"><div class="num">03</div><div class="body">
+    <div class="step done"><div class="num">✓</div><div class="body">
       <h4>扫「一个 sprite 画多件」</h4>
       <p>引擎缺口 B5 的最后一条。已知 <code>ayun_door_frame</code> 画着门 + 两本书 + 一个红盒，四坨实体共用一个 foot、一句台词。用 <code>roomaudit D</code> 的 foot-vs-实体比对扫全库，分成两坨以上且中间空隙大的都拆开——各自落地、各自能点、各自说话。</p>
-      <div class="gate"><b>门禁</b><span>全库无「foot 比实际宽 &gt;130%」的素材</span></div>
+      <div class="done-note"><b>做完了</b>　新工具 <code>blobscan</code> 扫全库 399 件（<code>roomaudit D</code> 只看摆进房里的，库里 150+ 件没摆的迟早要摆）。247 件带真占地的素材全部达标。<br>
+      门禁定的是 foot 宽窄，但更要命的一条是它没定：<b>一坨落在地上却没被 foot 圈住</b>，角色直接从它身上走过去。加进去后翻出 <code>bailu_whisk</code>——着地段在 x28–35，foot 却在 x48–68，覆盖率 <b>0%</b>。这条我今早还「修」过一次：当时只把越界的 4px 收回来，症状消了，foot 还在错的一边。<br>
+      工序单点名的 <code>ayun_door_frame</code> 已拆成三件：门+门槛、<code>ayun_books_unread</code>、<code>ayun_gift_boxes</code>，各自落地、各自能点、各自说话。验证方式是「纯拆分应当像素完全不变」——<code>regress diff</code> 报 326 px 变化，位置 x902–1032 y2042–2052，与引擎按新 foot 自动画的两道接地阴影（<code>design.html:27182</code>）算出来的 x899–1036 y2043–2053 严丝合缝。其余像素逐字节相同，这才证明两件落在了它们原本就在的位置。阿云房可点件 49→51、追问台词 7→9，可达格数不变。<br>
+      得到两次自我纠正才算数：按实体阈值（alpha&gt;200）量宽度，会把白鹭房蒙白布的家具缩成布底下露出的一角、误报 6 件超宽；按整坨包围盒判覆盖，会误报丹增棍架（横梁在高处外探，真正着地的只有两根立柱）与阿云门框的书（在搁板上，离地面线 34px）。<br>
+      <b>剩下要你拍板的</b>：④ 多坨清单还有 67 件。逐条读下来绝大多数是成组本身合法（一对雪狮、一串经幡、三折屏风、多肉架三层、一地纸屑）。真正像乱塞的是墙面组合件——<code>ayun_wall_daoist_set</code> 7 坨横跨 1341px、<code>ayun_wall_mirror_sword</code> 3 坨——但它们 foot 高度为 0、不涉穿模，只剩「一组东西共用一句台词」。拆不拆是交互密度的设计判断；为抬可点数去拆二十件，正是「以数量为指标」。</div>
+      <div class="gate"><b>门禁</b><span>全库无「foot 比实际宽 &gt;130%」的素材，且无「落地却没被 foot 圈住」的坨 —— 已达成</span></div>
     </div></div>
 
     <div class="step"><div class="num">04</div><div class="body">
