@@ -2,6 +2,20 @@
 
 像素村民屋的**生产线**：一间房 = 一个村民的身份说明书。产物是单文件 `design.html`（自包含，只外链 `assets/tilemap_packed.png`）。
 
+> ## ⚠ `design.html` 是构建产物，不要直接改
+>
+> 2026-08-17 起它由 `src/` 下 34 个源文件拼出来。直接改它，下一次 build 会整个盖掉。
+>
+> ```bash
+> # 改完 src/ 之后
+> bun rooms/tools/build.js
+> # 查产物与源码树是否同步（CI 也跑这条）
+> bun rooms/tools/build.js --check
+> ```
+>
+> 拆包判据是**逐字节相同**：拆完拼回来与拆前 sha256 一致（`81990f63`），
+> 比「渲染没变」强 —— 后者只说明看不出差别。
+
 2026-08-16 从 `mini/` 拆出来。此前它和微信小程序工程挤在同一个目录里，两者没有任何代码关系。
 
 ## 从哪里起步
@@ -19,7 +33,8 @@
 
 | 路径 | 是什么 |
 |---|---|
-| `design.html` | 引擎 + 全部房间 + 素材库，单文件 |
+| `design.html` | **构建产物**：引擎 + 全部房间 + 素材库，单文件。改 `src/`，别改它 |
+| `src/` | 源码树。`bible/` 设计册正文与样式 · `engine/` 引擎 · `assets/` 素材库（按房分文件）· `rooms/` 六间房的 canvas 脚本 · `manifest.json` 拼装顺序 |
 | `assets/` | 外部素材（目前只有 tilemap） |
 | `tools/` | 42 个门禁 / 诊断 / 出图脚本 |
 | `.roomwork/` | 生产文档、角色档案、房间设计稿、视觉回归基准 |
@@ -34,9 +49,14 @@
 python3 rooms/tools/pathlint.py rooms/design.html            # 走位不穿模
 bun rooms/tools/regress.js "$PWD/rooms/design.html" check    # 视觉回归
 bun rooms/tools/assetlint.js "$PWD/rooms/design.html"        # 素材 / 布局合规
+bun rooms/tools/blobscan.js  "$PWD/rooms/design.html"        # 全库 foot vs 实体
+bun rooms/tools/build.js --check                             # 产物与源码树同步
+bash rooms/tools/mutationtest.sh                             # 查门禁本身报不报得出红
 ```
 
-> ⚠ 出图类工具必须传**绝对路径** —— 传相对路径会得到 `net::ERR_INVALID_URL`（Playwright 把它当 URL 解析）。这不是文件坏了。
+> 2026-08-17 起 31 支 playwright 工具都会自己 `path.resolve`，相对路径也能跑。
+> 在那之前传相对路径会得到 `net::ERR_INVALID_URL`（Playwright 把它当 URL 解析），
+> 看起来像文件坏了 —— 这是本仓库反复踩的坑之一。
 >
 > ⚠ `regress.js` 的基准路径相对 CWD，在子目录跑会报「无基准」而基准其实好好的。**工具报零先怀疑工具**。
 
