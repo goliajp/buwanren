@@ -261,7 +261,7 @@
     let cv = ACT_CACHE[key]
     if (cv) return cv
     const SC = a.scale, w = rows[0].length * SC, h = rows.length * SC
-    cv = document.createElement('canvas'); cv.width = w; cv.height = h
+    cv = HOST.createCanvas(w, h)
     const c = cv.getContext('2d')
     if (flip) { c.translate(w, 0); c.scale(-1, 1) }
     for (let r = 0; r < rows.length; r++)

@@ -29,6 +29,7 @@ gate() { # gate <名字> <文件>
     selfcheck)    bun rooms/tools/regress.js "$2" selfcheck >/dev/null 2>&1 ;;
     blobscan)     bun rooms/tools/blobscan.js     "$2" --gate-only >/dev/null 2>&1 ;;
     buildsync)    bun rooms/tools/build.js --check --out="$2" >/dev/null 2>&1 ;;
+    portlint)     bun rooms/tools/portlint.js      "$2" >/dev/null 2>&1 ;;
   esac
 }
 
@@ -92,12 +93,16 @@ mutate "foot 比实体宽一倍" blobscan "$(setfoot bailu_whisk '0, 170, 68, 20
 mutate "有人直接改了构建产物" buildsync \
   "s = s + '\\n<!-- 手改产物 -->\\n'"
 
+# 渲染路径绕过平台缝直接摸 document,小程序里就跑不起来(台账 D2)
+mutate "渲染路径绕过平台缝" portlint \
+  "s = s.replace('cv = HOST.createCanvas(a.w, a.h)', \"cv = document.createElement('canvas'); cv.width = a.w; cv.height = a.h\", 1); assert 'document.createElement' in s"
+
 mutate "任一像素变了" regress \
   "s=s.replace(\"['bailu_broom', 220, 2040]\",\"['bailu_broom', 340, 2040]\",1); assert '340, 2040' in s"
 
 echo
 echo "── 对照:未变异的源码,同一批门禁必须全绿 ──"
-for g in assetlint roomaudit hardcodelint pathlint regress blobscan buildsync selfcheck; do
+for g in assetlint roomaudit hardcodelint pathlint regress blobscan buildsync selfcheck portlint; do
   if gate "$g" "$SRC"; then printf '  ✓ %-14s 绿\n' "$g"; pass=$((pass+1))
   else printf '  ✗ %-14s 在【干净】源码上就报红 —— 变异测试的结论不可信\n' "$g"; fail=$((fail+1)); fi
 done

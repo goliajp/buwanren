@@ -9,4 +9,25 @@
 (function () {
   const A = {}
 
+  /* ── 平台缝 ────────────────────────────────────────────────────────
+     引擎只依赖【标准 Canvas2D】,既不认识 document,也不认识 wx(台账 D2)。
+     宿主之间唯一的差别是「怎么造一张离屏画布」,所以只把这一件事挖成插槽:
+
+       浏览器   document.createElement('canvas')
+       小程序   wx.createOffscreenCanvas({ type: '2d', width, height })
+
+     小程序侧在引擎加载后改这一个方法即可,不必也不该去 patch document:
+       ENGINE_HOST.createCanvas = (w, h) => wx.createOffscreenCanvas({ type:'2d', width:w, height:h })
+
+     用 globalThis 而不是 window —— 小程序里没有 window。 */
+  const HOST = {
+    createCanvas(w, h) {
+      const cv = document.createElement('canvas')
+      cv.width = w
+      cv.height = h
+      return cv
+    },
+  }
+  globalThis.ENGINE_HOST = HOST
+
 

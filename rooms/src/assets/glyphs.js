@@ -56,8 +56,7 @@
     const key = ch + '|' + size + '|' + color + '|' + (opt.weight || 1) + '|' + (opt.jitter || 0)
     if (GLYPH_CACHE[key]) return GLYPH_CACHE[key]
     const G = GLYPHS[ch]
-    const cv = document.createElement('canvas')
-    cv.width = size; cv.height = size
+    const cv = HOST.createCanvas(size, size)
     const g = cv.getContext('2d')
     if (!G) {                                  // 无字形数据 → 退回系统字(明确标记为待补)
       g.fillStyle = color

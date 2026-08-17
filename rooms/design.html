@@ -13090,6 +13090,27 @@ KFKWWWWWWKFK
 (function () {
   const A = {}
 
+  /* ── 平台缝 ────────────────────────────────────────────────────────
+     引擎只依赖【标准 Canvas2D】,既不认识 document,也不认识 wx(台账 D2)。
+     宿主之间唯一的差别是「怎么造一张离屏画布」,所以只把这一件事挖成插槽:
+
+       浏览器   document.createElement('canvas')
+       小程序   wx.createOffscreenCanvas({ type: '2d', width, height })
+
+     小程序侧在引擎加载后改这一个方法即可,不必也不该去 patch document:
+       ENGINE_HOST.createCanvas = (w, h) => wx.createOffscreenCanvas({ type:'2d', width:w, height:h })
+
+     用 globalThis 而不是 window —— 小程序里没有 window。 */
+  const HOST = {
+    createCanvas(w, h) {
+      const cv = document.createElement('canvas')
+      cv.width = w
+      cv.height = h
+      return cv
+    },
+  }
+  globalThis.ENGINE_HOST = HOST
+
 
   //>>> TAO ASSETS BEGIN (generated)
 
@@ -25535,7 +25556,7 @@ def("ayun_qing_bowl", {
     let cv = ACT_CACHE[key]
     if (cv) return cv
     const SC = a.scale, w = rows[0].length * SC, h = rows.length * SC
-    cv = document.createElement('canvas'); cv.width = w; cv.height = h
+    cv = HOST.createCanvas(w, h)
     const c = cv.getContext('2d')
     if (flip) { c.translate(w, 0); c.scale(-1, 1) }
     for (let r = 0; r < rows.length; r++)
@@ -26044,8 +26065,7 @@ if (st.said && t < st.saidUntil) {
     const key = ch + '|' + size + '|' + color + '|' + (opt.weight || 1) + '|' + (opt.jitter || 0)
     if (GLYPH_CACHE[key]) return GLYPH_CACHE[key]
     const G = GLYPHS[ch]
-    const cv = document.createElement('canvas')
-    cv.width = size; cv.height = size
+    const cv = HOST.createCanvas(size, size)
     const g = cv.getContext('2d')
     if (!G) {                                  // 无字形数据 → 退回系统字(明确标记为待补)
       g.fillStyle = color
@@ -26451,8 +26471,8 @@ if (st.said && t < st.saidUntil) {
   // 这是引擎能力,不是哪间房特化:任何「旧/没人打理」的一侧都能用(丹增的经堂、
   // 婆婆的旧物……),房间只需在素材或摆位上标 patina。
   function makePatina(src) {
-    const cv = document.createElement('canvas')
-    const W = cv.width = src.width, H = cv.height = src.height
+    const W = src.width, H = src.height
+    const cv = HOST.createCanvas(W, H)
     const c = cv.getContext('2d'); c.drawImage(src, 0, 0)
     const im = c.getImageData(0, 0, W, H), d = im.data
     // 旧 ≠ 颜色统一变灰。底色留着,表面落一层【斑驳、不均匀】的浮尘 ——
@@ -26493,8 +26513,8 @@ if (st.said && t < st.saidUntil) {
   // 木头旧化 ≠ 蒙尘。木器旧了是【区域变色 + 裂印】:不均匀的氧化加深(发红褐)
   // 加几道顺纹的裂缝,底色留着。给佛龛、书架这类木器用(patina:'wood')。
   function makeWeathered(src) {
-    const cv = document.createElement('canvas')
-    const W = cv.width = src.width, H = cv.height = src.height
+    const W = src.width, H = src.height
+    const cv = HOST.createCanvas(W, H)
     const c = cv.getContext('2d'); c.drawImage(src, 0, 0)
     const im = c.getImageData(0, 0, W, H), d = im.data
     const hash = (a, b) => {
@@ -26544,8 +26564,7 @@ if (st.said && t < st.saidUntil) {
     const key = id + '|' + (opt.variant || '') + '|' + (opt.tint || '') + '|' + (opt.pal ? opt.pal.join() : '') + '|' + (opt.swap ? JSON.stringify(opt.swap) : '')
     let cv = SPRITE_CACHE[key]
     if (!cv) {
-      cv = document.createElement('canvas')
-      cv.width = a.w; cv.height = a.h
+      cv = HOST.createCanvas(a.w, a.h)
       const c = cv.getContext('2d'); c.scale(2, 2)
       a.draw(c, opt)
       applyVariant(cv, opt)
@@ -27083,7 +27102,7 @@ if (st.said && t < st.saidUntil) {
     const sfF = SURF[(room.surfaces && room.surfaces.floor) || 'floor_plank']
     let b0 = BAKE0.get(room)
     if (!b0) {
-      b0 = document.createElement('canvas'); b0.width = W; b0.height = H
+      b0 = HOST.createCanvas(W, H)
       const bg0 = b0.getContext('2d')
       if (sfW) sfW.draw(bg0, W, hw, P); else { bg0.fillStyle = P.wall || '#7e5e40'; bg0.fillRect(0, 0, W, hw) }
       if (sfF) sfF.draw(bg0, W, H, hw, P); else { bg0.fillStyle = P.floor || '#c9a26a'; bg0.fillRect(0, hw, W, H) }

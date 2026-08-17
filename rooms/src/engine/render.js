@@ -508,7 +508,7 @@
     const sfF = SURF[(room.surfaces && room.surfaces.floor) || 'floor_plank']
     let b0 = BAKE0.get(room)
     if (!b0) {
-      b0 = document.createElement('canvas'); b0.width = W; b0.height = H
+      b0 = HOST.createCanvas(W, H)
       const bg0 = b0.getContext('2d')
       if (sfW) sfW.draw(bg0, W, hw, P); else { bg0.fillStyle = P.wall || '#7e5e40'; bg0.fillRect(0, 0, W, hw) }
       if (sfF) sfF.draw(bg0, W, H, hw, P); else { bg0.fillStyle = P.floor || '#c9a26a'; bg0.fillRect(0, hw, W, H) }

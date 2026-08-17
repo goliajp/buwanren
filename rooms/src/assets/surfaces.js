@@ -264,8 +264,8 @@
   // 这是引擎能力,不是哪间房特化:任何「旧/没人打理」的一侧都能用(丹增的经堂、
   // 婆婆的旧物……),房间只需在素材或摆位上标 patina。
   function makePatina(src) {
-    const cv = document.createElement('canvas')
-    const W = cv.width = src.width, H = cv.height = src.height
+    const W = src.width, H = src.height
+    const cv = HOST.createCanvas(W, H)
     const c = cv.getContext('2d'); c.drawImage(src, 0, 0)
     const im = c.getImageData(0, 0, W, H), d = im.data
     // 旧 ≠ 颜色统一变灰。底色留着,表面落一层【斑驳、不均匀】的浮尘 ——
@@ -306,8 +306,8 @@
   // 木头旧化 ≠ 蒙尘。木器旧了是【区域变色 + 裂印】:不均匀的氧化加深(发红褐)
   // 加几道顺纹的裂缝,底色留着。给佛龛、书架这类木器用(patina:'wood')。
   function makeWeathered(src) {
-    const cv = document.createElement('canvas')
-    const W = cv.width = src.width, H = cv.height = src.height
+    const W = src.width, H = src.height
+    const cv = HOST.createCanvas(W, H)
     const c = cv.getContext('2d'); c.drawImage(src, 0, 0)
     const im = c.getImageData(0, 0, W, H), d = im.data
     const hash = (a, b) => {
@@ -357,8 +357,7 @@
     const key = id + '|' + (opt.variant || '') + '|' + (opt.tint || '') + '|' + (opt.pal ? opt.pal.join() : '') + '|' + (opt.swap ? JSON.stringify(opt.swap) : '')
     let cv = SPRITE_CACHE[key]
     if (!cv) {
-      cv = document.createElement('canvas')
-      cv.width = a.w; cv.height = a.h
+      cv = HOST.createCanvas(a.w, a.h)
       const c = cv.getContext('2d'); c.scale(2, 2)
       a.draw(c, opt)
       applyVariant(cv, opt)

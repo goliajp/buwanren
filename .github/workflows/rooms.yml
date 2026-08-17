@@ -59,6 +59,11 @@ jobs:
       - name: blobscan · 全库 foot vs 实体
         run: bun tools/blobscan.js design.html --gate-only
 
+      # 渲染路径不许绕过平台缝直接摸 document —— 小程序里没有它(台账 D2)。
+      # 这条在引擎接进小程序之前就该常绿,否则接的那天要一处一处返工。
+      - name: portlint · 渲染路径离得开浏览器吗
+        run: bun tools/portlint.js design.html
+
       # ── 视觉回归:CI 上【不能】用 `check` ────────────────────────
       # 首跑实测:同一份 design.html 在 macOS Chrome 与 Linux Chrome 上
       # 24 个场景全部渲出不同哈希。基准是绑机器的,拿到 CI 一定全红,
