@@ -1,0 +1,97 @@
+name: rooms
+
+on:
+  push:
+    branches: [main, develop]
+    paths: ['rooms/**', '.github/workflows/rooms.yml']
+  pull_request:
+    paths: ['rooms/**', '.github/workflows/rooms.yml']
+  workflow_dispatch:
+
+jobs:
+  # ── 门禁 ────────────────────────────────────────────────────────
+  # 顺序是有意的:不开浏览器的几支排在前面,坏了几秒钟就知道,
+  # 不用等三分钟的 playwright 才看见一个拼写错误。
+  gates:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rooms
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: install deps
+        run: bun install --frozen-lockfile
+
+      # 工具用 chromium.launch({ channel: 'chrome' }) —— 要的是真 Chrome,
+      # 不是 playwright 自带的 chromium。装错了会报「找不到 channel chrome」。
+      - name: install chrome
+        run: bunx playwright install --with-deps chrome
+
+      # design.html 是构建产物。这一步最先跑:源码树与产物不同步的话,
+      # 后面所有门禁查的都是一个过时的文件,全绿也没有意义。
+      - name: 产物与源码树同步
+        run: bun tools/build.js --check --src=src
+
+      - name: hardcodelint · 房间脚本里不许写死坐标
+        run: bun tools/hardcodelint.js design.html
+
+      - name: pathlint · 走位不穿模
+        run: python3 tools/pathlint.py design.html
+
+      - name: assetlint · 素材元数据 + 逐房布局 + 可达性
+        run: bun tools/assetlint.js design.html
+
+      - name: roomaudit · 姿态 / 表演态 / 交互 / 碰撞体积
+        run: bun tools/roomaudit.js design.html
+
+      - name: walklint · 角色不滑行
+        run: bun tools/walklint.js design.html
+
+      - name: blobscan · 全库 foot vs 实体
+        run: bun tools/blobscan.js design.html --gate-only
+
+      # 视觉回归排在最后,因为它是唯一【可能因为跑在别的机器上而失败】的一支:
+      # 基准是像素哈希,而 CI 的 Chrome 版本、字体、栅格化都跟本地不同。
+      # 真出现跨机器漂移的话,要的不是把这一步删掉,而是分平台存基准 ——
+      # 先让它跑一次,看看到底差不差。
+      - name: regress · 视觉回归
+        run: bun tools/regress.js design.html check
+
+      # 数据对表不判失败,但要留在日志里:件数 / 交互覆盖 / 台词量掉下来时
+      # 翻历史 run 就能看出是哪一次掉的。
+      - name: roomstats · 房间数据对表(仅记录)
+        run: python3 tools/roomstats.py design.html
+        continue-on-error: true
+
+  # ── 查门禁本身 ──────────────────────────────────────────────────
+  # 单独一个 job:它要开十几次浏览器,慢;而且它失败的含义跟上面完全不同 ——
+  # 上面红是「房间坏了」,这里红是「门禁坏了,它已经拦不住东西了」。
+  # 混在一个 job 里,红灯的意思就说不清。
+  meta:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rooms
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: install deps
+        run: bun install --frozen-lockfile
+
+      - name: install chrome
+        run: bunx playwright install --with-deps chrome
+
+      - name: mutationtest · 门禁报得出红吗
+        working-directory: .
+        run: bash rooms/tools/mutationtest.sh

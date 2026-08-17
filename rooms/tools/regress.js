@@ -18,7 +18,7 @@
 //   (2026-08-17 血的教训:上一版基准存于 2026-07-23,只有哈希;12 处漂移无从判断
 //    是改进还是回退,只能作废重来。)
 //
-// 用法:bun tools/regress.js <design.html 绝对路径> [check|save|diff]   ★ 必须从仓库根跑
+// 用法:bun tools/regress.js <design.html> [check|save|diff]   (相对绝对都行,任意目录都行)
 //      文件在前、模式在后 —— 写反会把 check 当路径 → ERR_INVALID_URL,看着像工具坏了
 //      save 在 design.html 未提交时会拒绝;确实要存加 --allow-dirty(diff 能力随之降级)
 const { chromium } = require('playwright')
@@ -26,7 +26,13 @@ const fs = require('fs'), crypto = require('crypto'), path = require('path')
 const { execSync } = require('child_process')
 
 const FILE = process.argv[2], MODE = process.argv[3] || 'check'
-const BASE = process.argv.find(a => a.endsWith('.json')) || 'rooms/.roomwork/baseline/rooms.json'
+// 基准路径跟着 design.html 走,不跟着 CWD 走。从前默认写的是相对 CWD 的
+// 'rooms/.roomwork/baseline/rooms.json',在子目录里跑就报「无基准」而基准好好的
+// —— PLAYBOOK 把这条记作「工具报零先怀疑工具」的实例。CI 里 CWD 是 rooms/,
+// 正好会踩上。
+const BASE = process.argv.find(a => a.endsWith('.json'))
+  || (FILE ? path.join(path.dirname(path.resolve(FILE)), '.roomwork/baseline/rooms.json')
+           : 'rooms/.roomwork/baseline/rooms.json')
 const ALLOW_DIRTY = process.argv.includes('--allow-dirty')
 const DIFFDIR = path.join(path.dirname(BASE), 'diff')
 if (!FILE) { console.error('用法: bun tools/regress.js <design.html 绝对路径> [check|save|diff]'); process.exit(2) }
@@ -102,7 +108,7 @@ const rooms = obj => Object.keys(obj).filter(k => k[0] !== '_')
     }
     if (meta.dirty) console.log('⚠ 存基准时 design.html 未提交,重建的是当时【最后一次提交】的样子,可能对不上')
 
-    const rel = path.relative(git('rev-parse --show-toplevel', process.cwd()), FILE)
+    const rel = path.relative(git('rev-parse --show-toplevel', process.cwd()), path.resolve(FILE))
     const tmp = path.join(require('os').tmpdir(), `regress-base-${meta.gitRev.slice(0, 8)}.html`)
     try { fs.writeFileSync(tmp, execSync(`git show ${meta.gitRev}:${rel}`, { encoding: 'utf8', maxBuffer: 1 << 28 })) }
     catch (e) { console.log(`✗ 取不到 ${meta.gitRev}:${rel} —— ${e.message.split('\n')[0]}`); await b.close(); process.exit(1) }
