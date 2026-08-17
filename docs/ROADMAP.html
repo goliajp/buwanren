@@ -167,7 +167,7 @@
     <div><div class="n">35</div><div class="l">门术数</div></div>
     <div><div class="n">33</div><div class="l">条关系</div></div>
     <div><div class="n hot">0</div><div class="l">村子进产品</div></div>
-    <div><div class="n ok">6<span style="font-size:15px;color:var(--ink-4)">/48</span></div><div class="l">工序已完成</div></div>
+    <div><div class="n ok">8<span style="font-size:15px;color:var(--ink-4)">/48</span></div><div class="l">工序已完成</div></div>
   </div>
 </header>
 
@@ -250,6 +250,14 @@
       <div class="done-note"><b>做完了</b>　这一步写的时候有个错误假设：基准里只有 16 位哈希，从来没存过像素，而它存于 2026-07-23、早于本仓库首个 commit，来源仓库 <code>labs/lab32-mingli</code> 已删——<b>那 12 张旧图不存在于任何地方</b>，「逐张比对」做不到。<br>
       改法不是补存图（房间涨到 34 间要几百 MB），而是让基准记下<b>存它时的 commit</b>：design.html 本身就在 git 里，新增的 <code>regress diff</code> 把那个版本取出来重渲，当场出「旧 / 新 / 差异」三图。为此 <code>save</code> 现在拒绝未提交的 design.html——基准不对应 commit，就是今天这个死局。<br>
       当下这份基准重取于 <code>65975d3</code>，依据是：assetlint / roomaudit / walklint 全绿、重复渲染结果一致（漂移是真实内容差异不是环境抖动）、三间房迁库前都过过 S9 人工验收。用一次真改动（扫帚挪 120px）验过 diff 确实能取回旧图并定位到 x 232–461 y 2060–2218。</div>
+      <div class="done-note"><b>做完了</b>　三层落在 <code>unmei_app::villager::reading</code>：盘由调用方传入并原样落档、缺决定方向、说话风格出声。门禁三条全过，14 条测试对着真库。<br>
+      前置是工序单没写的一件事：<b>后端一张村民表都没有</b>，40 位的流派/缺/说话风格只在设计册那 1.6MB 里。数据完整且干净，所以写的是<b>导出器</b>而不是誊抄——设计册仍是唯一改它的地方。40 个「缺」各不相同，这正是设计成立的前提。<br>
+      seed 用带分隔符的哈希而不是拼接：后者「换个村民」只挪几个 bit，相邻 seed 从同一个池里挑出来往往是同一条。宜忌按 word 排序取回，否则同一个 seed 在 VACUUM 之后可能挑出不同的词。<br>
+      <b>只有 7 位写了说话模板</b>（6 间已建好的房 + 米拉）。其余 33 位问签明确报错并指明模板该去哪写，不借别人的口气——一次填满 40 份正是「坚决不批量」所禁止的，模板该跟各自的房间一起验收。<br>
+      <b>一处只有读输出才看得出来的缺陷</b>：丹增和桃桃的收尾直接粘在宜忌后面（「忌动土就这样」）。14 条测试全绿，肉眼一读就露馅。已在数据层修好并加了断言。</div>
+      <div class="done-note"><b>做完了</b>　门禁三条全过。结构照 <code>archive/omamori-research</code> 的基石：不变量放在身份记录上，可变量留给载体——NFC UID、QR 序列号都只是指向同一条御守身份的凭证，换载体就是换个 Adapter。<br>
+      重复不多人靠 <code>UNIQUE （user_id, villager_id）</code> + <code>ON CONFLICT DO NOTHING ... RETURNING</code>，不靠调用方记得先查。同一枚扫十次、同一人的两枚御守、先买后扫、<code>OrderPaid</code> 被渠道重推，四种路径测下来村里都只有一个他。<br>
+      <b>风控接线的开关是外部可见的</b>：库里 4 条激活规则是 review/challenge，没有一条 log_only。照原样接上，上线当天就开始拦真单；干脆不调 evaluate，规则永远等不到数据、风控台永远空着——这个仓库已经有一个「实现完整、零调用方」的例子了。所以接线是真的，<code>UNMEI_RISK_ENFORCE</code> 默认关，有测试断言它默认关且真读得到环境变量。</div>
       <div class="gate"><b>门禁</b><span><code>regress check</code> 全绿，0 处失配 —— 已达成</span></div>
     </div></div>
 
@@ -322,7 +330,7 @@
   <p class="lede">在建第 7 间房之前，先让<b>第 1 间</b>真正上线：从买御守、到入住、到进屋、到问签，全链路在真产品里跑通。挑阿云是因为他关系密度最高（7 条），术数是 <code>liuren</code> 有现成叶，房子已经建好且是六间里质量最高的——这一段只测新管道，不掺新美术。</p>
 
   <div class="steps">
-    <div class="step"><div class="num">07</div><div class="body">
+    <div class="step done"><div class="num">✓</div><div class="body">
       <h4>村民问签用例：那吉逻辑的三层推广</h4>
       <p>在 <code>unmei-app</code> 里落 <code>villager::reading</code>，形状照 <code>naji::spin</code>：</p>
       <ul>
@@ -334,7 +342,7 @@
       <div class="gate"><b>门禁</b><span>同人同村民同日两次调用逐字相同；换村民即不同；<b>同门不同缺的两人给出不同解读</b>（拿婆婆与米拉两位塔罗测）</span></div>
     </div></div>
 
-    <div class="step"><div class="num">08</div><div class="body">
+    <div class="step done"><div class="num">✓</div><div class="body">
       <h4>御守 → 入住</h4>
       <p><code>villager_residency</code> 表 + 履约挂钩：御守类 SKU 支付成功 → <code>OrderPaid</code> → 履约写入住。NFC 扫码走 <code>archive/omamori-research/</code> 那套载体解耦：凭据换 Adapter，身份记录不变。</p>
       <p>把风控（D7）在这一步接上建单与发起支付，只开 <code>log_only</code>。</p>
@@ -345,12 +353,19 @@
       <h4>引擎跑进小程序 canvas</h4>
       <p>把 <code>engine/</code> 接到 <code>&lt;canvas type="2d"&gt;</code>，先只跑阿云一间。重点验两件事：逐像素命中的 <code>getImageData</code> 在 wx canvas 上可用且够快，sprite 缓存策略在小程序内存约束下站得住。</p>
       <p><b>不达标怎么办已经写死</b>（D2）：改为构建期烘焙命中掩码位图，仍走原生 canvas。不回来问。</p>
+      <div class="done-note" style="border-left-color:var（--gold）;background:var（--gold-soft）"><b>前置已做 · 门禁待真机</b>　按 D2「引擎不许直接 import wx API」加了平台缝：宿主之间唯一的差别是离屏画布怎么造出来，所以只把这一件事挖成插槽（<code>ENGINE_HOST.createCanvas</code>，挂 globalThis 不挂 window）。渲染路径 6 处改走它，<b>regress 全绿——像素一个没变</b>。<br>
+      数源码里 <code>document.</code> 出现几次是不作数的（注释里、typeof 守卫后面、设计页表格里都不影响渲染），所以 <code>portlint</code> 换了个查法：装一个不碰 document 的宿主、把 <code>document.createElement</code> 换成会抛错的桩，逐件重新光栅化 + 整屋重渲。401 件素材、6 间房、424 张画布全部经过平台缝，零次直接访问。变异测试加了一条，19/19。<br>
+      <b>剩下的要设备</b>：真机 30fps、逐件点一遍。引擎其余部分仍靠 <code>window.</code> 全局（135 处），小程序构建目标要把它们变成模块导出。</div>
       <div class="gate"><b>门禁</b><span>真机 30fps 以上；逐件点一遍，点到的都是自己</span></div>
     </div></div>
 
     <div class="step"><div class="num">10</div><div class="body">
       <h4>村主屏与四条动线</h4>
       <p>照 design.html 已画好的屏：<b>主屏·村</b> → <code>tap 村民 · 问事</code> / <code>tap 房子 · 进屋</code> / <code>收集 · n/40</code> / <code>买御守 = 请村民</code>。空屋要能点，且<b>说话</b>——「这间空着，等人」。空屋不消失是世界观，不是待办。</p>
+      <div class="done-note" style="border-left-color:var（--gold）;background:var（--gold-soft）"><b>后端半边已做 · 前端待小程序</b>　<code>GET /v1/village</code>、<code>GET /v1/villagers</code>、<code>POST /v1/villagers/:id/reading</code>、<code>POST /v1/omamori/scan</code>，对着运行中的 API 打通全链路：图鉴 40 位 → 空村 0/40 且 40 间空屋都在 → 没请回家问签 404 → 扫御守 moved_in=true → 再扫 false → 村里 1/40 → 问签出签 → 同一天再问一字不差。<br>
+      两个设计判断：<code>/v1/village</code> 返回全部 40 位而不只是住着的——<b>空屋不消失是世界观不是待办</b>，前端要能把它画出来、点得到；没请回家问签是 <b>404 不是 403</b>——不是权限检查，御守是入住凭证，没住进来的人跟你之间还没有可说话的关系。<br>
+      算力层已接：<code>art.mingli_leaf</code> 填了 18/35（叶名取自 mingli-registry，另有 <code>check-art-leaf.py</code> 机械核对——第一版我填了两片不存在的叶）。<br>
+      <b>剩下的要小程序</b>：主屏·村、tap 村民、tap 房子、收集 n/40 四条动线。</div>
       <div class="gate"><b>门禁</b><span>一位真实用户从扫码走到问签，全程不需要解释</span></div>
     </div></div>
 
