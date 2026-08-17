@@ -30,7 +30,24 @@
      「开播」,她的台词、灯光色温、镜头内外的分界都要能读到这件事。 */
   window.roomState = function (room, patch) {
     if (!room.state) room.state = {}
+    // 第一次碰到这间房时,把【声明时的状态】原样记一份。
+    //
+    // 视觉回归要的是「这间房被声明成什么样」,不是「页面活了多久」。
+    // 房间脚本自己的 rAF 循环一直在改 state(白鹭的 divining 会翻转),
+    // 于是同一份 design.html 在页面活了 3.5 秒与 8 秒时渲出的像素不同 ——
+    // 基准此前只是靠「固定等 3500ms + 机器够快」碰巧稳定,CI 上机器一慢就报红。
+    // 有了这一份,regress 能把房间复位到声明态再快照,快照就成了源码的函数。
+    if (room._state0 === undefined) {
+      try { room._state0 = JSON.parse(JSON.stringify(room.state)) } catch (e) { room._state0 = {} }
+    }
     if (patch) Object.assign(room.state, patch)
+    return room.state
+  }
+
+  /// 把房间复位到声明态。视觉回归快照前调它 —— 别的地方不要用:
+  /// 运行中的房间被复位,玩家会看到状态凭空跳回去。
+  window.resetRoomState = function (room) {
+    try { room.state = JSON.parse(JSON.stringify(room._state0 || {})) } catch (e) { room.state = {} }
     return room.state
   }
 

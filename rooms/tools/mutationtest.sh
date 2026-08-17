@@ -33,6 +33,21 @@ gate() { # gate <名字> <文件>
   esac
 }
 
+# 同上,但不吞输出。对照组红了要看得见原因。
+gate_verbose() {
+  case "$1" in
+    assetlint)    bun rooms/tools/assetlint.js    "$2" ;;
+    roomaudit)    bun rooms/tools/roomaudit.js    "$2" ;;
+    hardcodelint) bun rooms/tools/hardcodelint.js "$2" ;;
+    pathlint)     python3 rooms/tools/pathlint.py "$2" ;;
+    regress)      bun rooms/tools/regress.js "$2" compare --against="$SRC" ;;
+    selfcheck)    bun rooms/tools/regress.js "$2" selfcheck ;;
+    blobscan)     bun rooms/tools/blobscan.js     "$2" --gate-only ;;
+    buildsync)    bun rooms/tools/build.js --check --out="$2" ;;
+    portlint)     bun rooms/tools/portlint.js      "$2" ;;
+  esac
+}
+
 # 把某件素材的 foot 换掉 —— 按素材名定位,不锚死当前数值。
 # 从前这里写死 `foot: [48, 176, 20, 28]`,那件素材的 foot 一改,两条变异同时失配。
 # 正则里用 . 匹配素材名两侧的引号:写成 \" 会被外层双引号吃掉,变成 def\(名字,
@@ -104,7 +119,14 @@ echo
 echo "── 对照:未变异的源码,同一批门禁必须全绿 ──"
 for g in assetlint roomaudit hardcodelint pathlint regress blobscan buildsync selfcheck portlint; do
   if gate "$g" "$SRC"; then printf '  ✓ %-14s 绿\n' "$g"; pass=$((pass+1))
-  else printf '  ✗ %-14s 在【干净】源码上就报红 —— 变异测试的结论不可信\n' "$g"; fail=$((fail+1)); fi
+  else
+    printf '  ✗ %-14s 在【干净】源码上就报红 —— 变异测试的结论不可信\n' "$g"; fail=$((fail+1))
+    # 对照组红了要看得见原因。此前这里也把输出丢给 /dev/null,
+    # 于是 CI 上报了一次红、日志里只有一行「不可信」,查不下去 ——
+    # 一个说「出事了」却不说出什么事的门禁,等于把人挡在门外。
+    printf '     ↓ 重跑一遍取输出\n'
+    gate_verbose "$g" "$SRC" 2>&1 | sed 's/^/     /' | tail -20
+  fi
 done
 
 echo

@@ -67,6 +67,10 @@ const SHOOT = () => {
     const at = (x, y, ps) => A ? [window.placeActor(actor, x, y, ps, false)] : []
     const cv = document.createElement('canvas'); cv.width = W; cv.height = H
     const g = cv.getContext('2d')
+    // 复位到声明态再快照。房间脚本自己的循环一直在改 state,不复位的话
+    // 快照量的是「页面活了多久」而不是「源码是什么样」——
+    // 2026-08-17 CI 上就是这么在干净源码上报了一次红。
+    if (window.resetRoomState) window.resetRoomState(room)
     const cases = {
       empty: [],
       stand: at((W * 0.5) | 0, (H * 0.60) | 0, pose('stand', 'stand')),
