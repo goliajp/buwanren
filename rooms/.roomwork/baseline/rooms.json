@@ -1,15 +1,15 @@
 {
   "_meta": {
     "savedAt": "2026-08-17",
-    "gitRev": "65975d39d7fbbdefa3b064e457502c9f785a3d40",
+    "gitRev": "3cc5843e75fcca9d64dde679b906ba3996a2fd15",
     "dirty": false,
     "note": "diff 模式靠 gitRev 取回当时的 design.html 重渲旧图;这两个字段没了基准就只是一串哈希"
   },
   "AYUN_ROOM": {
-    "empty": "ed5e463a5d4aeb4d",
-    "stand": "814f84802868907a",
-    "back": "e96d6ec1bf5aae41",
-    "low": "f6699f77af315412"
+    "empty": "2af0ea747419bb26",
+    "stand": "3e2b3cdff7f76201",
+    "back": "341a6858566aacfd",
+    "low": "41dec6061211328b"
   },
   "BAILU_ROOM": {
     "empty": "3de7cd632b069b70",
