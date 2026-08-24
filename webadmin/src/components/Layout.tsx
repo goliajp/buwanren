@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useAtom } from 'jotai';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router';
 import {
   LayoutDashboard, Package, Tags, BadgePercent, Repeat,
   Receipt, CreditCard, Undo2, Truck, Scale, ShieldAlert, Wallet,
