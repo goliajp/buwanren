@@ -1,0 +1,12 @@
+{
+  "name": "buwanren-rooms",
+  "private": true,
+  "description": "村民屋工坊的门禁与诊断工具。design.html 由 src/ 构建而来，见 README。",
+  "scripts": {
+    "build": "bun tools/build.js --src=src",
+    "check": "bun tools/build.js --check --src=src"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}

@@ -1,0 +1,100 @@
+<view class="page">
+
+  <!-- 这一页是设计里的 H3「转完之后」——「问」不再是一个地方
+       （REDESIGN.md 的映射表）。副标那句挪到罗盘下面那行提示里去了，
+       两处说同一件事本来就多余，而页眉光这三行就占 144px。 -->
+  <view class="hd">
+    <view class="eyebrow">{{today}}</view>
+    <view class="title">今天</view>
+  </view>
+
+  <view class="hr"></view>
+
+  <!-- 这一页只剩这一块了：罗盘与起卦搬去了我家（H1），
+       这里是设计里的 H3「转完之后」—— 看这一卦。
+       原先是 `wx:elif`，那时上面还有 idle / spinning 两支。 -->
+  <block wx:if="{{(mode === 'result' || mode === 'history-detail') && result}}">
+
+    <view class="hist-chip" wx:if="{{mode === 'history-detail'}}" bindtap="closeHist">
+      ← 近签 · {{result.time_label}}
+    </view>
+
+    <view class="result-time mono" wx:if="{{mode === 'result'}}">
+      {{result.time_label}}
+    </view>
+
+    <view class="q-echo" wx:if="{{result.question}}">
+      <text class="q-mark">「</text>{{result.question}}<text class="q-mark">」</text>
+    </view>
+
+    <view class="gate-title">
+      <text class="gate-name">{{result.gate}}</text>
+      <text class="gate-dir">{{result.direction}}</text>
+    </view>
+
+    <view class="gate-explain" wx:if="{{result.gate_explain}}">
+      {{result.gate_explain}}
+    </view>
+
+    <view class="hr"></view>
+
+    <view class="dual">
+      <view class="dual-col">
+        <view class="dual-k suit-k">宜</view>
+        <view class="dual-chips">
+          <text wx:for="{{result.suit}}" wx:key="*this" class="dual-chip suit-chip">{{item}}</text>
+          <text wx:if="{{result.suit.length === 0}}" class="dual-empty">—</text>
+        </view>
+      </view>
+      <view class="dual-sep"></view>
+      <view class="dual-col">
+        <view class="dual-k avoid-k">避</view>
+        <view class="dual-chips">
+          <text wx:for="{{result.avoid}}" wx:key="*this" class="dual-chip avoid-chip">{{item}}</text>
+          <text wx:if="{{result.avoid.length === 0}}" class="dual-empty">—</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="hr"></view>
+
+    <view class="quote-block" wx:if="{{result.quote && result.quote.text}}">
+      <view class="quote-mark">「</view>
+      <view class="quote-body serif">{{result.quote.text}}</view>
+      <view class="quote-mark quote-r">」</view>
+      <view class="quote-src">— {{result.quote.source}}</view>
+    </view>
+
+    <view class="recommend"
+          wx:if="{{result.recommend}}"
+          hover-class="recommend-hover"
+          hover-stay-time="100"
+          bindtap="onRecommend">
+      <view class="rec-k">另荐 <text class="rec-arrow">›</text></view>
+      <view class="rec-name">{{result.recommend.name}}</view>
+      <view class="rec-sub" wx:if="{{result.recommend.sub_title}}">{{result.recommend.sub_title}}</view>
+    </view>
+
+    <view class="cta">
+      <!-- 「再问一次」= 回我家的罗盘。`reset` 随起卦一起搬走了，
+           留一个绑到不存在的处理器上的按钮，点下去只会抛 -->
+      <button wx:if="{{mode === 'result'}}" class="btn ghost" bindtap="goHome">再问一次</button>
+      <button wx:else class="btn ghost" bindtap="closeHist">返回</button>
+    </view>
+
+    <view class="foot-hint">不下吉凶 · 只作参考 · 仅供研究与娱乐</view>
+  </block>
+
+  <!-- 历史那一块搬到我家的弹性槽里了（REDESIGN.md · 近几次）。
+       两处各留一份就是同一件事写两遍，而且它们会分头漂。
+       这一页从此只干一件事：起一卦，看这一卦（设计 H3「转完之后」）。 -->
+
+  <!-- 直接开这一页、又没带签进来时，说清楚，并给一条出去的路。
+       空状态永远带出口（设计 10.7）。 -->
+  <block wx:if="{{!result && mode !== 'spinning'}}">
+    <view class="empty-t">还没有这一卦</view>
+    <view class="empty-sub">卦在我家转 —— 转完就回到这一页</view>
+    <button class="btn" bindtap="goHome">去我家转一下</button>
+  </block>
+
+</view>

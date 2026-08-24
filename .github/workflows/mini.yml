@@ -1,0 +1,282 @@
+name: mini
+
+# 触发路径里为什么是整个 `backend/unmei-api/src/**` 而不只是 `routes/**`：
+# `check-routes.py` 扫的根就是 `backend/unmei-api/src`，而 `mirror-api` 那个 job
+# 打的是真后端 —— 两者都不只看 routes/ 那个目录。
+# 眼下路由注册确实全在 routes/ 底下，但那是个【没人守的不变式】：
+# 明天有人在 main.rs 里注册一条，它就悄悄溜出触发面，而契约检查跟着一起不跑。
+# 与其加一支门禁守这个不变式，不如让触发面跟检查真正读的范围对齐。
+# 代价：只动后端的改动也会跑这条 workflow（含 8 分钟的 mirror-api）——
+# 而那一档正是前后端契约最强的一道检查，在后端改的时候跑它是对的。
+on:
+  push:
+    branches: [main, develop]
+    # 后端的路由也在里面 —— 前后端字段对不对得上,是这条 workflow 查的,
+    # 而它可能因为【后端改了一个字段名】而红。只盯 mini/ 的话那次改动没人拦。
+    paths:
+      - 'mini/**'
+      - 'web/**'
+      - 'rooms/host/**'
+      - 'backend/unmei-api/src/**'
+      - 'scripts/check-api-shape.py'
+      - 'scripts/check-reachable-pages.py'
+      - 'scripts/check-page-imports.py'
+      - 'scripts/check-wxml-handlers.py'
+      - 'scripts/check-gates-in-ci.py'
+      - 'scripts/gates.sh'
+      - 'scripts/gates-not-in-ci.json'
+      - 'webadmin/src/App.tsx'
+      - 'webadmin/src/components/Layout.tsx'
+      # 响应结构体在 unmei-domain,改了它字段就变了 —— 这道核对要跟着跑
+      - 'backend/unmei-domain/src/lib.rs'
+      - 'scripts/check-plots.py'
+      - 'scripts/check-relations.py'
+      - 'scripts/mutationtest-checks.sh'
+      - 'scripts/check-punct-ui.py'
+      - 'scripts/check-routes.py'
+      - 'scripts/punct-baseline.json'
+      - '**/*.md'
+      - '.claude/CLAUDE.md'
+      - 'rooms/src/engine/plots.js'
+      - 'rooms/src/bible/glue-04.html'
+      - 'backend/seed/villagers.sql'
+      - '.github/workflows/mini.yml'
+  pull_request:
+    paths:
+      - 'mini/**'
+      - 'web/**'
+      - 'rooms/host/**'
+      - 'backend/unmei-api/src/**'
+      - 'scripts/check-api-shape.py'
+      - 'scripts/check-reachable-pages.py'
+      - 'scripts/check-page-imports.py'
+      - 'scripts/check-wxml-handlers.py'
+      - 'scripts/check-gates-in-ci.py'
+      - 'scripts/gates.sh'
+      - 'scripts/gates-not-in-ci.json'
+      - 'webadmin/src/App.tsx'
+      - 'webadmin/src/components/Layout.tsx'
+      # 响应结构体在 unmei-domain,改了它字段就变了 —— 这道核对要跟着跑
+      - 'backend/unmei-domain/src/lib.rs'
+      - 'scripts/check-plots.py'
+      - 'scripts/check-relations.py'
+      - 'scripts/mutationtest-checks.sh'
+      - 'scripts/check-punct-ui.py'
+      - 'scripts/check-routes.py'
+      - 'scripts/punct-baseline.json'
+      - '**/*.md'
+      - '.claude/CLAUDE.md'
+      - 'rooms/src/engine/plots.js'
+      - 'rooms/src/bible/glue-04.html'
+      - 'backend/seed/villagers.sql'
+      - '.github/workflows/mini.yml'
+  workflow_dispatch:
+
+# 同一分支上被后续推送顶掉的 run 没有必要跑完 —— 只有最新那个 commit 的结论有意义。
+# 不换任何覆盖，纯粹少烧。（2026-08-23 账户 Actions 因支出上限停摆时加的。）
+concurrency:
+  group: mini-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── 打真后端的那一档镜像 ────────────────────────────────────────
+  # 下面 gates 那个 job 用的是假服务端。它只碰得到 65 个处理器里的 18 个 ——
+  # 整条真链(匿名登录 → 扫御守入住 → 问签 → 下单)都挂在「有真后端」上,
+  # 而后端要 Postgres。本机跑得到 63 个,CI 只跑 18 个。
+  #
+  # 这中间的差额不是理论问题:2026-08-23 一天之内它藏过两个真 bug ——
+  # 每个 POST 都因为 content-type 被拼成两份而 415、村主屏没接 onAuthReady
+  # 于是冷启动永远 401。两个都只有真后端看得见。
+  #
+  # 排盘服务(另一个仓库)这台机器上仍旧没有,所以「建本命」那一段照旧明说跳过。
+  # 不给它做假的 —— 假服务会按我以为的形状回话,而 2026-08-18 抓到的正是
+  # 「我以为的形状」错了。
+  mirror-api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: unmei
+          POSTGRES_USER: unmei
+          POSTGRES_PASSWORD: unmei_dev_pwd
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U unmei -d unmei"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
+    env:
+      DATABASE_URL: postgres://unmei:unmei_dev_pwd@localhost:5432/unmei
+      SQLX_OFFLINE: "true"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
+
+      # migrations 用到 citext / pgcrypto / pg_trgm,跟 infra/postgres/init.sql 一致
+      - name: pg extensions
+        run: psql "$DATABASE_URL" -f infra/postgres/init.sql
+
+      # migrations 与 seed 由 binary 启动时自己跑(幂等),这里只管把它编出来
+      - name: build unmei-api
+        working-directory: backend
+        run: cargo build -p unmei-api
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: install deps
+        working-directory: mini
+        run: npm install --no-audit --no-fund
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: install rooms deps
+        working-directory: rooms
+        run: bun install --frozen-lockfile
+      - name: install chrome（runner 上有就不装）
+        working-directory: rooms
+        run: google-chrome --version || bunx playwright install --with-deps chrome
+
+      - name: build:engine · 产出小程序要的引擎
+        working-directory: mini
+        run: npm run build:engine
+
+      # 起后端,并且**等它真的应答**再往下走。
+      # 等固定秒数在这个项目里撒过谎:量到的是「还没起来」而不是「起不来」。
+      - name: 起后端
+        env:
+          UNMEI_API_BIND: 127.0.0.1:6028
+          UNMEI_CACHE_DIR: /tmp/unmei-cache
+          MINGLI_API_BASE: http://127.0.0.1:6027
+        run: |
+          set -e
+          (cd backend && ./target/debug/unmei-api > /tmp/api.log 2>&1 &)
+          for _ in $(seq 1 90); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:6028/v1/village || true)
+            # 401 = 起来了且在鉴权(这条要 token)。判据是「有没有人应答」,
+            # 不是某条路径给不给 200 —— 拿 /health 当探针在这个仓里误判过两次。
+            [ -n "$code" ] && [ "$code" != "000" ] && exit 0
+            sleep 2
+          done
+          echo "::error::后端 180 秒没起来"; tail -40 /tmp/api.log; exit 1
+
+      - name: web verify · 打真后端跑一遍
+        env:
+          PSQL_URL: postgres://unmei:unmei_dev_pwd@localhost:5432/unmei
+        run: bash web/run-verify.sh --api=http://127.0.0.1:6028
+
+      - name: 后端这一趟说了什么（失败时才看）
+        if: failure()
+        run: tail -80 /tmp/api.log
+
+  gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # package-lock.json 在这个工程里是 gitignore 的,所以不能用 npm ci
+      - name: install deps
+        working-directory: mini
+        run: npm install --no-audit --no-fund
+
+      # 前端读的字段与后端给的字段对不对得上。对不上的症状是真机上一栏空白,
+      # 不抛错也不报警 —— 而两边都是纯文本,机械对一遍是几十毫秒的事。
+      # 页面写在 app.json 里、却没有任何地方导航到它 —— 装出来的包里点不进去。
+      # 2026-08-19 之前村子就是这样,而全应用唯一的扫码入口就在那一页上。
+      # 这一支同时管后台控制台那一半(路由 vs 侧边栏)。
+      - name: 每一页都走得到吗
+        run: python3 scripts/check-reachable-pages.py
+
+      - name: 页面之间没互相 import 吧
+        run: python3 scripts/check-page-imports.py
+
+      - name: bind 的处理器都真有吗
+        run: python3 scripts/check-wxml-handlers.py
+
+      # 本机跑的门禁，CI 里也得跑。2026-08-19 普查出三支只在本机 ——
+      # CI 不跑的门禁，谁不跑 gates.sh 就能绕过去，而绕过去的人不会知道。
+      - name: 门禁自己在 CI 里跑吗
+        run: python3 scripts/check-gates-in-ci.py
+
+      - name: check-api-shape · 前后端字段对得上吗
+        run: python3 scripts/check-api-shape.py
+
+      - name: tsc · 类型
+        working-directory: mini
+        run: npx tsc --noEmit
+
+      # 核对报得出红吗。这几支加进来时我逐条手动验过「植入缺陷会不会红」,
+      # 但那种验证只存在于当时那次会话里 —— 改松了没人发现,
+      # 而一支永远报绿的核对比没有更糟:它让人以为这件事有人管。
+      - name: mutationtest · 那几支核对报得出红吗
+        run: bash scripts/mutationtest-checks.sh
+
+      # 中文标点全角是项目第一条规则,而它被用户标为「你永远都在犯的错」——
+      # 全靠人记得的规则守不住。存量记账、增量不许涨:
+      # 旧文档那两千多处不在这次还,但新写的中文必须干净。
+      # 文档那一支是【记账】(两千多处历史欠账,只要不涨);
+      # 界面文案这一支要求【零】—— 用户真会看见的东西,不许有欠账。
+      - name: check-punct-ui · 界面文案的标点全是全角吗
+        run: python3 scripts/check-punct-ui.py
+
+      # 前端调的每一条接口，后端有没有 —— 不用把它跑起来。
+      # 这一支两对一起核对（小程序 / 后台），所以两条 workflow 都跑它。
+      - name: check-routes · 调的接口后端都有吗
+        run: python3 scripts/check-routes.py
+
+      # 引擎产物是生成的、不入库。这一步既验它生成得出来,也验产出的东西
+      # 与设计页渲得一样(见 rooms/tools/build-engine.js 的 verify)。
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: install rooms deps
+        working-directory: rooms
+        run: bun install --frozen-lockfile
+
+      # runner 镜像里本来就有 Google Chrome，有就别走 apt（那是两次挂起的位置）
+      - name: install chrome（runner 上有就不装）
+        working-directory: rooms
+        run: google-chrome --version || bunx playwright install --with-deps chrome
+
+      - name: build:engine · 产出小程序要的引擎
+        working-directory: mini
+        run: npm run build:engine
+
+      # 移动网页版 —— 小程序的镜像。它跑的是同一批页面文件与同一批引擎产物,
+      # 差别只在 rooms/host/ 那两支平台适配(各三十行)。
+      # 这一步是唯一能【机检动线】的地方:小程序那几条门禁写的是真机,
+      # 而真机进不了 CI。
+      - name: web verify · 动线跑一遍
+        run: bash web/run-verify.sh
+
+      # 产出之后再跑一次 tsc:页面 require 的是 engine/ 底下那几支,
+      # 少了任何一支这里就红,而不是等到开发者工具里打开才发现。
+      - name: 产出齐了吗
+        working-directory: mini
+        run: |
+          set -e
+          for f in engine/engine.js engine/host.js engine/plots.js engine/village.js \
+                   engine/assets/tilemap_packed.png \
+                   engine/rooms/index.js \
+                   engine/rooms/ayun.js engine/rooms/bailu.js engine/rooms/popo.js \
+                   engine/rooms/shenyan.js engine/rooms/tao.js engine/rooms/tenz.js; do
+            test -s "miniprogram/$f" || { echo "✗ 缺 miniprogram/$f"; exit 1; }
+          done
+          echo "✓ 页面 require 的都在"

@@ -1,0 +1,225 @@
+#!/usr/bin/env bash
+# 合并前跑这一条 —— 全部门禁，一次跑完，最后报总账。
+#
+# 为什么要有这支：
+#
+# 门禁的清单以前只是 `.claude/CLAUDE.md` 里的一行散文（「build --check /
+# regress check / portlint / ...」）。散文会过时——后来加的 check-punct、
+# check-punct-ui、check-api-shape、check-plots、check-relations、
+# mutationtest、web/run-verify.sh 一个都不在那行里。清单写成代码就不会。
+#
+# 还有一个更具体的理由：手敲一条条跑的时候，很容易写成
+# `python3 scripts/check-punct.py | tail -1` —— 管道之后拿到的是 `tail`
+# 的退出码，**门禁红了也看着像绿的**。2026-08-18 我就这么把一次真失败
+# 当成通过提交了。这支脚本自己判退出码，不经过管道。
+#
+# 特点：**不在第一个失败处停**。全跑完再报总账 —— 只知道「第一个坏的」
+# 会让人一轮一轮地挤牙膏。
+#
+# 用法:
+#   bash scripts/gates.sh              全部（要 Postgres）
+#   bash scripts/gates.sh --quick      跳过慢的那几支（引擎校验 / 变异 / cargo test）
+set -u
+cd "$(dirname "$0")/.."
+
+QUICK=0
+[ "${1:-}" = "--quick" ] && QUICK=1
+
+pass=0; fail=0; skipped=0
+FAILED=()
+
+# gate <名字> <在哪个目录> <命令...>
+gate() {
+  local name="$1" dir="$2"; shift 2
+  local out
+  if ! out=$(cd "$dir" && "$@" 2>&1); then
+    printf '  ✗ %-34s\n' "$name"
+    echo "$out" | tail -6 | sed 's/^/       /'
+    fail=$((fail+1)); FAILED+=("$name")
+  else
+    printf '  ✓ %-34s\n' "$name"
+    pass=$((pass+1))
+  fi
+}
+
+skip() { printf '  · %-34s %s\n' "$1" "$2"; skipped=$((skipped+1)); }
+
+echo "══ 门禁 ══"
+echo
+echo "── 房间 / 引擎 ──"
+gate "build --check"        rooms bun tools/build.js --check --src=src
+gate "hardcodelint"         rooms bun tools/hardcodelint.js design.html
+gate "pathlint · 走位不穿模"  rooms python3 tools/pathlint.py design.html
+gate "assetlint"            rooms bun tools/assetlint.js design.html
+gate "roomaudit"            rooms bun tools/roomaudit.js design.html
+gate "walklint"             rooms bun tools/walklint.js design.html
+gate "blobscan"             rooms bun tools/blobscan.js design.html --gate-only
+gate "portlint · 离得开浏览器吗" rooms bun tools/portlint.js design.html
+gate "winlint"              rooms python3 tools/winlint.py src
+gate "regress selfcheck"    rooms bun tools/regress.js design.html selfcheck
+if [ "$QUICK" = 1 ]; then
+  skip "build-engine verify" "--quick"
+else
+  gate "build-engine verify · 逐像素"  rooms bun tools/build-engine.js verify
+fi
+
+echo
+echo "── 跨目录核对 ──"
+gate "check-plots · 宅基表"      . python3 scripts/check-plots.py
+gate "check-relations · 关系网"  . python3 scripts/check-relations.py
+gate "check-api-shape · 前后端"  . python3 scripts/check-api-shape.py
+gate "check-punct · 文档标点"    . python3 scripts/check-punct.py
+gate "check-punct-ui · 界面文案" . python3 scripts/check-punct-ui.py
+gate "设计文档里有没有悄悄失效的" . python3 scripts/check-design-css.py
+gate "线框每一屏都填满了吗" . python3 scripts/check-wireframe-fill.py
+gate "check-routes · 调的接口都在吗" . python3 scripts/check-routes.py
+gate "check-bodies · 请求体字段对得上" . python3 scripts/check-bodies.py
+gate "迁移没被改过" . python3 scripts/check-migrations.py
+# 村民表是【从设计册导出来的产物】。改了 design.html 却没重导，
+# 库里的字就是旧的，而那件事没有任何地方看得出来。
+# 房间那边早有同样的护栏（`rooms/tools/build.js --check`），这边一直没有。
+gate "村民表与设计册同步" . python3 scripts/export-cast.py --check
+if [ "$QUICK" = 1 ]; then
+  # `--quick` 跳过变异测试，而变异测试是【钉在具体文件的具体字符串上】的。
+  # 你改的要是它盯着的文件，这一跳就正好跳过了唯一会发现「断言漂了」的那支。
+  #
+  # 2026-08-18 真踩到：我在 `village/index.ts` 的注释里写了「取不到村子：」，
+  # 那条变异于是种到注释上（注释不归标点门禁管），断言报「没抓到」——
+  # 本机 `--quick` 全绿，推上去 CI 才红。
+  #
+  # 所以这里不只说「跳过了」，还要说【你这次动的文件里有它盯着的】。
+  PINNED=$(sed -n '/^FILES=(/,/^)/p' scripts/mutationtest-checks.sh | grep -oE '[a-z][A-Za-z0-9_/.-]+\.(ts|rs|js|sql|html|wxml)' | sort -u)
+  TOUCHED=$( { git diff --name-only; git diff --name-only --cached; git diff --name-only origin/develop...HEAD 2>/dev/null; } | sort -u)
+  HIT=$(comm -12 <(echo "$PINNED") <(echo "$TOUCHED") | tr '\n' ' ')
+  if [ -n "${HIT// /}" ]; then
+    skip "mutationtest · 报得出红吗" "--quick，但你动了它盯着的文件：${HIT}—— 推之前跑一遍全量"
+  else
+    skip "mutationtest · 报得出红吗" "--quick"
+  fi
+  skip "mutationtest · SQL 那支" "--quick"
+else
+  gate "mutationtest · 报得出红吗" . bash scripts/mutationtest-checks.sh
+  # SQL 那支只在 CI 里跑过（backend.yml）。本地不跑的后果不是「少验一遍」——
+  # 2026-08-18 我把 `$OWNER,` 改成 `$OWNER，`，bash 把多字节字符吃进变量名，
+  # 这两支的「捡起没主的锁」分支双双炸掉；CI 全绿，因为全新 runner 上没有锁，
+  # 那条分支根本不走。只有本地会走到的路，只有本地跑得出来。
+  gate "mutationtest · SQL 那支"  . bash scripts/mutationtest-sql.sh
+fi
+
+echo
+echo "── 小程序 / 移动网页版 ──"
+gate "tsc · 类型"  mini npx tsc --noEmit
+gate "每一页都走得到吗" . python3 scripts/check-reachable-pages.py
+gate "页面之间没互相 import 吧" . python3 scripts/check-page-imports.py
+gate "bind 的处理器都真有吗" . python3 scripts/check-wxml-handlers.py
+gate "门禁自己在 CI 里跑吗" . python3 scripts/check-gates-in-ci.py
+# 镜像自己会先组装。动线要真跑一遍浏览器,几十秒
+gate "web verify · 动线"  . bash web/run-verify.sh
+
+echo
+echo "── 部署配置 ──"
+if docker info >/dev/null 2>&1; then
+  gate "docker-compose 合不合法" . docker compose config --quiet
+  gate "nginx.conf 合不合法" . bash -c 'docker run --rm -v "$PWD/webadmin/nginx.conf:/etc/nginx/conf.d/default.conf:ro" nginx:alpine nginx -t'
+  gate "反代目标 compose 里有吗" . bash -c 'for s in $(grep -oE "http://[a-z-]+:[0-9]+" webadmin/nginx.conf | sed "s|http://||;s|:.*||" | sort -u); do docker compose config --services | grep -qx "$s" || { echo "nginx 反代到 ${s}，compose 里没有"; exit 1; }; done'
+else
+  skip "部署配置那三支" "docker 没起，跳过 —— 这几项【没验】"
+fi
+
+echo
+echo "── 后台（webadmin）──"
+if [ -d webadmin/node_modules ]; then
+  gate "webadmin build · 类型+打包" webadmin npm run build
+else
+  skip "webadmin build · 类型+打包" "没装依赖(cd webadmin && npm ci)"
+fi
+if curl -sf http://127.0.0.1:6029/admin/health >/dev/null 2>&1; then
+  gate "admin 冒烟 · 每条路由" . python3 scripts/admin-smoke.py
+  # 它两边都探（后台 17 条 + 用户侧 6 条），所以两个 API 都得起着。
+  if curl -sf http://127.0.0.1:6028/v1/health >/dev/null 2>&1; then
+    gate "幽灵 id 的写操作不许说成功" . python3 scripts/check-ghost-id.py
+  else
+    skip "幽灵 id 的写操作不许说成功" "业务 API（:6028）没起，跳过 —— 这一项【没验】"
+  fi
+  gate "admin 控制台 · 逐页走"  . bash scripts/webadmin-verify.sh
+  # 通知条得在真浏览器里看才算数：它是 8 秒 TTL 的东西，接口层看不见。
+  # 通知条那一支现在由 `webadmin-verify.sh` 带着跑（vite 在那儿起着），
+  # 不再单独跑一遍 —— 单独跑要另起一个 vite，而它此前【只在本机】跑，
+  # CI 一次都没碰过。
+else
+  skip "admin 冒烟 · 每条路由" "后台 API（:6029）没起，跳过 —— 这一项【没验】"
+  skip "幽灵 id 的写操作不许说成功" "同上"
+  skip "admin 控制台 · 逐页走"  "同上"
+  skip "通知条 · 真浏览器"      "同上"
+fi
+
+echo
+echo "── 后端 ──"
+gate "术数指的叶真存在吗" . python3 scripts/check-art-leaf.py
+# 后台写操作有没有查角色。判的不是「角色对不对」——那要产品定分工表——
+# 而是「有没有变」：新加一条没查的要红，台账里某条加上了也要红。
+gate "后台写操作查角色了吗" . python3 scripts/check-admin-roles.py
+gate "外部报错原文不进响应体" . python3 scripts/check-error-leak.py
+if curl -sf http://127.0.0.1:6028/v1/health >/dev/null 2>&1; then
+  gate "要登录的接口挡得住吗" . python3 scripts/check-auth-guards.py
+  gate "甲的东西乙碰得到吗" . python3 scripts/check-cross-user.py
+  gate "钱的接口要不要幂等键" . bash scripts/check-idem-required.sh
+  # 边界语义：该拒的拒没拒、该 404 的 404 没有、该落库的字段落没落。
+  # 要两个服务都在，所以放在这里。
+  if curl -sf http://127.0.0.1:6029/admin/health >/dev/null 2>&1; then
+    gate "语义 · 边界那一半" . bash scripts/verify-semantics.sh
+  else
+    skip "语义 · 边界那一半" "后台 API（:6029）没起，跳过 —— 这一项【没验】"
+  fi
+else
+  # 这三条以前【一行都不打】就消失了，总账看着还是完整的。
+  # 没跑就要说没跑 —— 这支脚本的全部意义就在这句。
+  skip "要登录的接口挡得住吗" "后端（:6028）没起，跳过 —— 这一项【没验】"
+  skip "甲的东西乙碰得到吗"   "同上"
+  skip "钱的接口要不要幂等键" "同上"
+  skip "语义 · 边界那一半"    "同上"
+fi
+# 枚举声明的取值 vs 库里的 CHECK。要库，不要 API。
+if ! pg_isready -h localhost -p 6032 >/dev/null 2>&1; then
+  skip "枚举跟库里的 CHECK 对得上吗" "Postgres（:6032）没起，跳过 —— 这一项【没验】"
+else
+  gate "枚举跟库里的 CHECK 对得上吗" . env \
+    PSQL_URL='postgres://unmei:unmei_dev_pwd@localhost:6032/unmei' \
+    python3 scripts/check-enum-check.py
+fi
+if [ "$QUICK" = 1 ]; then
+  skip "cargo test --workspace" "--quick"
+elif ! pg_isready -h localhost -p 6032 >/dev/null 2>&1; then
+  # 库在 docker 里、端口 6032(不是默认的 5432)。查错端口会误判成「没跑」
+  skip "cargo test --workspace" "Postgres（:6032）没起，跳过 —— 这一项【没验】"
+else
+  # 测试用【自己的库】,不跟跑着的 API 共用。
+  #
+  # 共用时:测试往 price_book 插的行留在库里,下一轮 `verify-semantics`
+  # 发布的那条 JPY 价被它按 effective_from 盖过去 —— 于是「同一笔里币种不一致」
+  # 这个前提根本没造出来,下单当然是 200,那条断言就偶发地红一次。
+  # 偶发的门禁比常红的更糟:它让每一次真红都可以被当成噪音。
+  # (2026-08-22 立案,见 docs/FINDING-2026-08-22-shared-test-db.md;2026-08-23 修。)
+  #
+  # 建库放在这里,是为了 `bash scripts/gates.sh` 在新机器上直接跑得起来。
+  # 幂等:已经有了就什么都不做。测试自己会 `sqlx::migrate!`,所以空库就够。
+  # 两边跑过对照:169 通过 / 0 失败,一条不少 —— 换库没有把测试悄悄跳掉。
+  TESTDB='postgres://unmei:unmei_dev_pwd@localhost:6032/unmei_test'
+  if ! psql "$TESTDB" -c 'SELECT 1' >/dev/null 2>&1; then
+    psql 'postgres://unmei:unmei_dev_pwd@localhost:6032/postgres' \
+      -c 'CREATE DATABASE unmei_test OWNER unmei' >/dev/null 2>&1 || true
+    psql "$TESTDB" -f infra/postgres/init.sql >/dev/null 2>&1 || true
+  fi
+  gate "cargo test --workspace" backend env \
+    TEST_DATABASE_URL="$TESTDB" \
+    cargo test --workspace --quiet
+fi
+
+echo
+echo "过 $pass · 挂 $fail · 跳过 $skipped"
+if [ "$fail" -gt 0 ]; then
+  printf '挂了这几支：%s\n' "${FAILED[*]}"
+  exit 1
+fi
+[ "$skipped" -gt 0 ] && echo "（跳过的没验，别当它过了）"
+exit 0

@@ -1,0 +1,64 @@
+@import url('https://rsms.me/inter/inter.css');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Inter', 'PingFang SC', 'Noto Sans SC', -apple-system, sans-serif;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'ss01';
+    font-size: 13px;
+    line-height: 1.45;
+  }
+  body { @apply bg-canvas text-ink antialiased; }
+  table { @apply text-[12px]; }
+  code { font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace; }
+}
+
+@layer utilities {
+  .num { font-variant-numeric: tabular-nums; }
+  .mono { font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace; }
+  .uplabel { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; }
+}
+
+/* 表格密集风格 · 跟 design.html §3 同源 */
+.wa-table { @apply w-full text-[12px] num; border-collapse: separate; border-spacing: 0; }
+.wa-table thead tr { @apply bg-surface-2; }
+.wa-table th  { @apply uplabel text-ink-4 px-3 py-2 text-left font-medium border-b border-border; }
+.wa-table td  { @apply px-3 py-2 border-b border-border/60 align-middle; }
+.wa-table tr:hover td { @apply bg-surface-2/60; }
+.wa-table td.r, .wa-table th.r { @apply text-right; }
+.wa-table td.c, .wa-table th.c { @apply text-center; }
+
+/* 状态 chip */
+.chip { @apply inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] num font-medium; }
+.chip-ok      { @apply bg-jade-soft text-jade; }
+.chip-warn    { @apply bg-gold-soft text-gold-2; }
+.chip-bad     { @apply bg-vermilion-soft text-vermilion; }
+.chip-mute    { @apply bg-surface-3 text-ink-4; }
+.chip-info    { @apply bg-slate/15 text-slate; }
+
+/* 按钮 */
+.btn { @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[12px] font-medium transition; }
+.btn-prim { @apply bg-ink text-canvas hover:bg-ink-2; }
+.btn-soft { @apply bg-surface-2 text-ink-2 hover:bg-surface-3 border border-border; }
+.btn-link { @apply text-ink-4 hover:text-ink-2; }
+.btn-warn { @apply bg-vermilion-soft text-vermilion hover:bg-vermilion-soft/80; }
+
+/* 输入 / 选择 */
+.input, .select {
+  @apply h-8 px-2.5 text-[12px] bg-surface border border-border rounded num;
+}
+.input:focus, .select:focus { @apply outline-none ring-1 ring-ink/40 border-ink/40; }
+
+/* KPI 卡 */
+.kpi { @apply bg-surface border border-border rounded px-4 py-3 flex flex-col gap-1; }
+.kpi-label { @apply uplabel text-ink-4; }
+.kpi-value { @apply text-[24px] font-semibold text-ink leading-tight num tracking-tight; }
+.kpi-delta { @apply text-[11px] num; }
+
+/* 卡 / 区块 */
+.panel { @apply bg-surface border border-border rounded; }
+.panel-head { @apply px-4 py-2.5 border-b border-border flex items-center justify-between bg-surface-2/50; }
+.panel-title { @apply text-[13px] font-semibold text-ink-2; }
+.panel-sub { @apply uplabel text-ink-4; }

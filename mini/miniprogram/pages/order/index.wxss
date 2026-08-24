@@ -1,0 +1,33 @@
+.hd { padding: 24rpx 0 32rpx; }
+.hd .eyebrow { margin-bottom: 20rpx; }
+.hd .title { font-size: 110rpx; line-height: 1; margin: 8rpx 0 16rpx; }
+.loading, .err { padding: 80rpx 0; text-align: center; color: var(--stone-label); }
+.err-msg { margin-bottom: 28rpx; }
+.line { display: flex; justify-content: space-between; align-items: baseline;
+        border-top: 1rpx solid var(--stone-line); padding: 24rpx 0; }
+.line-name { font-family: "Songti SC", serif; font-size: 32rpx; color: var(--ink); flex: 1; }
+.line-qty { font-size: 26rpx; color: var(--stone-label); margin: 0 20rpx; }
+.line-sub { font-size: 30rpx; color: var(--ink); }
+.sum { border-top: 1rpx solid var(--stone-line); padding-top: 24rpx; margin-top: 8rpx; }
+.sum-row { display: flex; justify-content: space-between; padding: 8rpx 0; }
+.sum-k { font-size: 26rpx; color: var(--stone-label); }
+.sum-v { font-family: "Songti SC", serif; font-size: 34rpx; color: var(--ink); }
+.note { margin: 28rpx 0; font-size: 26rpx; color: var(--stone-label); }
+.cta { display: flex; gap: 20rpx; margin-top: 40rpx; }
+.cta .btn { flex: 1; }
+.foot-hint { margin-top: 32rpx; text-align: center; font-size: 22rpx; color: var(--stone-label); }
+
+/* 寄出的那些 —— 买了实物（御守）才有；纯报告的单子这一块整个不出现 */
+.ship { border-top: 1rpx solid var(--stone-line); margin-top: 32rpx; padding-top: 24rpx; }
+.ship-k { font-size: 24rpx; color: var(--stone-label); margin-bottom: 16rpx; }
+.pkg { border: 1rpx solid var(--stone-line); border-radius: 6rpx; padding: 22rpx; margin-bottom: 18rpx; }
+.pkg-hover { background: var(--paper-inset); }
+.pkg-top { display: flex; justify-content: space-between; align-items: baseline; }
+.pkg-status { font-family: "Songti SC", serif; font-size: 32rpx; color: var(--ink); }
+.pkg-arrow { font-size: 24rpx; color: var(--stone-label); }
+.pkg-no { font-size: 22rpx; color: var(--stone-label); margin-top: 10rpx; }
+.trace { display: flex; margin-top: 18rpx; font-size: 24rpx; color: var(--stone-label); }
+.trace-t { width: 160rpx; flex: none; }
+.trace-s { flex: 1; color: var(--ink); }
+.trace-l { margin-left: 16rpx; }
+.trace-empty { margin-top: 18rpx; font-size: 24rpx; color: var(--stone-label); }

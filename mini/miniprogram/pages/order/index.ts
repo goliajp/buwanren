@@ -1,0 +1,187 @@
+/* 一张单子 —— 从下单到付掉，中间那一段。
+ *
+ * 这一页承担 docs/FLOW.md 里 U3 的后半段：付款、取消、看它走到哪儿了。
+ *
+ * 支付那一步**只有真机有**：`wx.requestPayment` 在移动网页版上会抛，
+ * 那是照镜像第 2 条铁律来的 —— 空实现会让这一步在网页上「成功」而真机上
+ * 根本没发生。所以这一页在网页版上验得到「发起支付拿到了 outcome」，
+ * 验不到「钱真的付了」。
+ */
+
+import { commerceApi, newIdemKey } from '../../services/commerce'
+import { storage } from '../../services/storage'
+import type { ApiError } from '../../services/api'
+import type { OrderDetail, Shipment, TraceEvent } from '../../types/commerce'
+import { money, 状态说法 } from '../../utils/money'
+
+/** 包裹状态的说法。取值跟后端 `ShipmentStatus` 一一对应，不自创 */
+const 物流说法: Record<string, string> = {
+  pending: '待发', picked_up: '已揽收', in_transit: '在途',
+  out_for_delivery: '派件中', delivered: '已签收', exception: '有异常',
+  returned: '已退回', cancelled: '已取消',
+  // 轨迹里可能出现的那几种（后端认不出的记 unknown，不编成「在途」）
+  departed: '离开集散中心', arrived_at_sort_facility: '到达集散中心',
+  failed_delivery: '投递失败', unknown: '承运商没说清',
+}
+
+Page({
+  data: {
+    id: '',
+    loading: true,
+    err: '',
+    status: '',
+    statusText: '',
+    totalText: '',
+    paidText: '',
+    lines: [] as Array<{ name: string; qty: number; sub: string }>,
+    /** 重试要复用同一个键 —— 换了键就是另一次操作，会真的再下一单 */
+    payKey: '',
+    cancelKey: '',
+    paying: false,
+    note: '',
+    /** 寄出去的那些。空数组 = 这单没有实物要寄，不是「还没查」 */
+    shipments: [] as Array<Shipment & { statusText: string }>,
+    /** 取物流失败时说一句 —— 空数组是「没有包裹」，不是「取不到」 */
+    shipErr: '',
+    /** 展开的那件包裹的轨迹 */
+    traceOf: '',
+    trace: [] as Array<{ 时间: string; 说: string; 在: string }>,
+    refunding: false,
+    refundKey: '',
+  },
+
+  onLoad(q: Record<string, string | undefined>) {
+    const id = q.id || ''
+    this.setData({
+      id,
+      payKey: newIdemKey('pay'),
+      cancelKey: newIdemKey('cancel'),
+      refundKey: newIdemKey('refund'),
+    })
+    if (!id) {
+      this.setData({ loading: false, err: '没说是哪一张' })
+      return
+    }
+    this.load()
+  },
+
+  onShow() {
+    if (this.data.id && storage.getToken()) this.load()
+  },
+
+  onAuthReady() {
+    if (this.data.id) this.load()
+  },
+
+  load() {
+    if (!this.data.id) return
+    this.setData({ loading: true, err: '' })
+    commerceApi.order(this.data.id).then(
+      (d: OrderDetail) => {
+        const o = d.order
+        this.setData({
+          loading: false,
+          err: '',
+          status: o.status,
+          statusText: 状态说法[o.status] || o.status,
+          totalText: money(o.amount_total_minor, o.currency),
+          paidText: money(o.amount_paid_minor, o.currency),
+          lines: d.lines.map((l) => ({
+            name: l.sku_name || l.sku_id,
+            qty: l.qty,
+            sub: money(l.line_subtotal_minor, o.currency),
+          })),
+        })
+      },
+      (e: ApiError) => this.setData({ loading: false, err: e.message || '取不到这一张' }),
+    )
+    this.loadShipments()
+  },
+
+  /* 物流单独取。订单详情里其实也带 `shipments`，但轨迹要另一条接口，
+     而且这一段失败不该把整张单子拖红 —— 单子还在，只是不知道寄到哪儿了。
+
+     **失败与「没有包裹」要分开**。第一版这里失败也写 `shipments: []`，
+     于是「这单没有实物要寄」跟「取不到」长得一模一样，屏幕上都是什么都不显示。
+     那正是我一整天在别处修的那种坏法，写自己代码时又犯了一次。 */
+  loadShipments() {
+    commerceApi.shipments(this.data.id).then(
+      (list) => this.setData({
+        shipErr: '',
+        shipments: list.map((s) => ({ ...s, statusText: 物流说法[s.status] || s.status })),
+      }),
+      (e: ApiError) => this.setData({ shipments: [], shipErr: e.message || '取不到物流' }),
+    )
+  },
+
+  onTrace(e: WechatMiniprogram.BaseEvent) {
+    const sid = String((e.currentTarget.dataset as Record<string, unknown>).sid || '')
+    if (!sid) return
+    if (this.data.traceOf === sid) { this.setData({ traceOf: '', trace: [] }); return }
+    commerceApi.trace(this.data.id, sid).then(
+      (t) => this.setData({
+        traceOf: sid,
+        trace: (t.trace || []).map((ev: TraceEvent) => ({
+          时间: (ev.event_at || '').replace('T', ' ').slice(5, 16),
+          说: ev.description || 物流说法[ev.event_kind] || ev.event_kind,
+          在: ev.location || '',
+        })),
+      }),
+      (err: ApiError) => this.setData({ note: err.message || '取不到轨迹' }),
+    )
+  },
+
+  onRefund() {
+    if (this.data.refunding) return
+    this.setData({ refunding: true, note: '' })
+    commerceApi.refund(this.data.id, 'user_request', this.data.refundKey).then(
+      () => { this.setData({ refunding: false, note: '退款已申请，等审核' }); this.load() },
+      (e: ApiError) => this.setData({ refunding: false, note: e.message || '退不了' }),
+    )
+  },
+
+  onPay() {
+    if (this.data.paying) return
+    this.setData({ paying: true, note: '' })
+    /* openid：真机上由微信登录拿到，存在 user 里。匿名用户没有 openid，
+       后端目前也不校验它（微信支付真接通是 Beta1 那条）。
+       没有就发空串，**不编一个** —— 编出来的 openid 在真接通那天会静默失败。 */
+    const u = storage.getUser<{ wx_mp_openid?: string }>()
+    const openid = (u && u.wx_mp_openid) || ''
+    commerceApi.pay(this.data.id, openid, this.data.payKey).then(
+      (r) => {
+        this.setData({ paying: false, note: '已发起支付 · ' + r.outcome.kind })
+        /* 真机走这一步；网页版上它会抛，而那是对的 —— 浏览器里没有微信收银台。
+           抛出来会被垫片的全屏报错接住，动线脚本据此知道「到这儿为止」。 */
+        const q = (r.outcome.params || {}) as Record<string, unknown>
+        const 必填 = ['nonceStr', 'package', 'paySign', 'timeStamp']
+        const 缺 = 必填.filter((k) => typeof q[k] !== 'string')
+        if (缺.length) {
+          this.setData({ note: '支付参数缺：' + 缺.join(' · ') })
+          return
+        }
+        wx.requestPayment({
+          nonceStr: q.nonceStr as string,
+          package: q.package as string,
+          paySign: q.paySign as string,
+          timeStamp: q.timeStamp as string,
+          signType: (q.signType as 'RSA' | 'MD5' | 'HMAC-SHA256') || 'RSA',
+          success: () => this.load(),
+          fail: () => this.setData({ note: '支付没完成' }),
+        })
+      },
+      (e: ApiError) => this.setData({ paying: false, note: e.message || '发起支付失败' }),
+    )
+  },
+
+  onCancel() {
+    commerceApi.cancelOrder(this.data.id, this.data.cancelKey).then(
+      () => this.load(),
+      (e: ApiError) => this.setData({ note: e.message || '取消不了' }),
+    )
+  },
+
+  onBack() {
+    wx.navigateBack({ fail() { wx.navigateTo({ url: '/pages/orders/index' }) } })
+  },
+})

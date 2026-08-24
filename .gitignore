@@ -1,0 +1,70 @@
+# Rust
+target/
+**/*.rs.bk
+
+# JS / web
+node_modules/
+dist/
+*.tsbuildinfo
+**/.next/
+
+# Python
+__pycache__/
+*.pyc
+
+# OS / editors
+.DS_Store
+*.swp
+*.log
+
+# 环境变量(含明文密钥;.env.example 模板可入)
+.env
+.env.local
+
+# 微信小程序凭据 —— appsecret / 上传密钥严禁入库
+# (appid 本身是公开标识,允许 commit;secret / upload key 只放 .env.local)
+private.wx*.key
+*.wxkey
+project.private.config.json
+
+# 运行时数据目录(缓存 / 落盘)
+data/
+backend/data/
+
+# Claude Code 本地会话/权限(pid 句柄、settings 个人偏好不进 git)
+# 项目规则本体 .claude/CLAUDE.md 与系统设计文档 .claude/design/ 要跟踪
+.claude/*
+!.claude/CLAUDE.md
+!.claude/design/
+
+# regress diff 出的「旧 / 新 / 差异」三图 —— 随时可从 baseline 的 gitRev 重建,不入库
+rooms/.roomwork/baseline/diff/
+
+# 进程句柄:pid 是易变的,记下来只为本机好找,不入库
+.claude/pid-registry/
+
+# 开发用的御守二维码（scripts/dev-omamori.py 出的）
+.dev-omamori-*.png
+
+# ── 文档不进 git（2026-08-24 用户定）──────────────────────────
+# 规矩：**只有最终用于产物生成的东西进 git**，文档一律留在本机。
+#
+# 注意一处不能照字面办的：`rooms/src/` 是村民与房间的【源码】——
+# `rooms/design.html` 只是它 36 个源文件的拼装产物（实测逐字节相同）。
+# 也就是说设计册在 rooms 这一块就是源码，拿掉它房间与引擎就生成不出来。
+# 这里拿掉的是【产品与商业设计】和【过程文档】。
+.claude/design/
+docs/
+archive/
+rooms/.roomwork/
+rooms/.dev/
+rooms/.pxwork/
+/design.html
+/README.md
+/QUICKSTART.md
+/architecture.md
+backend/README.md
+backend/seed/README.md
+mini/README.md
+mini/preview.html
+rooms/README.md

@@ -1,0 +1,18 @@
+.page { padding: 32rpx 40rpx 40rpx; }
+.hd { margin-bottom: 24rpx; }
+.name { font-size: 48rpx; font-weight: 700; }
+.title { font-size: 26rpx; color: #767676; margin-top: 8rpx; }
+.lack-row { display: flex; align-items: baseline; gap: 16rpx; margin: 24rpx 0; }
+.lack-k { font-size: 26rpx; color: #767676; }
+.lack-v { font-size: 40rpx; font-weight: 700; }
+.hr { height: 1rpx; background: #e0e0e0; margin: 24rpx 0; }
+.meta-row { display: flex; justify-content: space-between; padding: 18rpx 0; border-bottom: 1rpx solid #f0f0f0; }
+.meta-k { font-size: 26rpx; color: #767676; }
+.meta-v { font-size: 28rpx; }
+.reading { margin-top: 32rpx; padding: 24rpx; background: #f6f6f6; }
+.reading-k { font-size: 24rpx; color: #767676; }
+.reading-v { font-size: 30rpx; line-height: 1.7; margin-top: 12rpx; }
+.acts { margin-top: 40rpx; display: flex; gap: 20rpx; flex-wrap: wrap; }
+.hint { font-size: 24rpx; color: #999; align-self: center; }
+.cta { margin-top: 48rpx; }
+.loading, .err-msg { font-size: 28rpx; color: #767676; }

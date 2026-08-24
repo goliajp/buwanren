@@ -1,0 +1,41 @@
+<view class="page">
+  <view class="hd">
+    <view class="title">订着的</view>
+    <view class="hr"></view>
+  </view>
+
+  <view class="loading" wx:if="{{loading}}">取着……</view>
+
+  <view class="err" wx:elif="{{err}}">
+    <view class="err-msg">{{err}}</view>
+    <button class="btn ghost" bindtap="load">再试一次</button>
+  </view>
+
+  <block wx:else>
+    <view class="list" wx:if="{{subs.length > 0}}">
+      <view wx:for="{{subs}}" wx:key="id" class="item">
+        <view class="item-name">{{item.plan_id || item.id}}</view>
+        <view class="item-meta">{{item.status}}<text wx:if="{{item.current_period_end}}"> · 到 {{item.current_period_end}}</text></view>
+      </view>
+    </view>
+
+    <block wx:else>
+      <view class="empty">
+        <view class="empty-t">还没有订着的</view>
+        <view class="empty-sub">空着不是问题 —— 下面是哪儿能有</view>
+      </view>
+
+      <view class="offers" wx:if="{{offers.length > 0}}">
+        <view class="offers-k">村里现在有这些可以订</view>
+        <view wx:for="{{offers}}" wx:key="id" class="item"
+              data-id="{{item.id}}" bindtap="onTap"
+              hover-class="item-hover" hover-stay-time="100">
+          <view class="item-name">{{item.name}}</view>
+          <view class="item-sub" wx:if="{{item.sub_title}}">{{item.sub_title}}</view>
+          <view class="item-meta">看看 <text class="arrow">›</text></view>
+        </view>
+      </view>
+      <view class="offers-err" wx:elif="{{offersErr}}">{{offersErr}}</view>
+    </block>
+  </block>
+</view>

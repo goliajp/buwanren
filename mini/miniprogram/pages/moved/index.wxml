@@ -1,0 +1,18 @@
+<!-- 没有顶栏、没有 tab。此刻给任何导航都是打断 -->
+<view class="page">
+  <view class="stage">
+    <view class="glyph">{{name}}</view>
+  </view>
+
+  <view class="body">
+    <view class="line1" wx:if="{{isNew}}">{{name}}搬进来了</view>
+    <view class="line1" wx:else>{{name}}早就在了</view>
+    <view class="line2" wx:if="{{isNew}}">他从御守里走出来，住进了村里那一格</view>
+    <view class="line2" wx:else>这枚御守你已经扫过 —— 他一直在</view>
+  </view>
+
+  <view class="acts">
+    <button class="btn" bindtap="goVillager">去看看他</button>
+    <button class="btn ghost" bindtap="goVillage">回村里</button>
+  </view>
+</view>

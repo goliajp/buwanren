@@ -1,0 +1,184 @@
+name: rooms
+
+on:
+  push:
+    branches: [main, develop]
+    # 宅基表核对同时读 backend 的 seed —— 那边加一位不完人而表里没加,
+    # 症状是那个人永远收集不到而 n/40 的分母照样是 40。只盯 rooms/ 的话没人拦。
+    paths: ['rooms/**', 'backend/seed/villagers.sql', 'scripts/check-plots.py', 'scripts/check-relations.py', 'scripts/export-cast.py', '.github/workflows/rooms.yml']
+  pull_request:
+    # 宅基表核对同时读 backend 的 seed —— 那边加一位不完人而表里没加,
+    # 症状是那个人永远收集不到而 n/40 的分母照样是 40。只盯 rooms/ 的话没人拦。
+    paths: ['rooms/**', 'backend/seed/villagers.sql', 'scripts/check-plots.py', 'scripts/check-relations.py', 'scripts/export-cast.py', '.github/workflows/rooms.yml']
+  workflow_dispatch:
+
+# 同一分支上被后续推送顶掉的 run 没有必要跑完 —— 只有最新那个 commit 的结论有意义。
+# 不换任何覆盖，纯粹少烧。（2026-08-23 账户 Actions 因支出上限停摆时加的。）
+concurrency:
+  group: rooms-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── 门禁 ────────────────────────────────────────────────────────
+  # 顺序是有意的:不开浏览器的几支排在前面,坏了几秒钟就知道,
+  # 不用等三分钟的 playwright 才看见一个拼写错误。
+  gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: rooms
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # compare 要渲染 base 那个版本,得有历史
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: install deps
+        run: bun install --frozen-lockfile
+
+      # 工具用 chromium.launch({ channel: 'chrome' }) —— 要的是真 Chrome,
+      # 不是 playwright 自带的 chromium。装错了会报「找不到 channel chrome」。
+      # runner 镜像里本来就有 Google Chrome。`playwright install` 会走 apt，
+      # 而 apt 是这两次挂起的位置（2026-08-18 卡了 37 分钟一次、又一次）。
+      # 有就直接用：Playwright 的 channel: 'chrome' 找的就是系统上这一个
+      # —— 本机从来没装过，一直是这么跑的。
+      - name: install chrome（runner 上有就不装）
+        run: google-chrome --version || bunx playwright install --with-deps chrome
+
+      # design.html 是构建产物。这一步最先跑:源码树与产物不同步的话,
+      # 后面所有门禁查的都是一个过时的文件,全绿也没有意义。
+      - name: 产物与源码树同步
+        run: bun tools/build.js --check --src=src
+
+      # 村民表同理:它是从 design.html 导出来的 seed。改了设计册没重导，
+      # 库里的字就是旧的，而这件事没有任何地方看得出来。
+      - name: 村民表与设计册同步
+        working-directory: .          # 这个 job 默认在 rooms/ 下跑
+        run: python3 scripts/export-cast.py --check
+
+      - name: hardcodelint · 房间脚本里不许写死坐标
+        run: bun tools/hardcodelint.js design.html
+
+      - name: pathlint · 走位不穿模
+        run: python3 tools/pathlint.py design.html
+
+      - name: assetlint · 素材元数据 + 逐房布局 + 可达性
+        run: bun tools/assetlint.js design.html
+
+      - name: roomaudit · 姿态 / 表演态 / 交互 / 碰撞体积
+        run: bun tools/roomaudit.js design.html
+
+      - name: walklint · 角色不滑行
+        run: bun tools/walklint.js design.html
+
+      - name: blobscan · 全库 foot vs 实体
+        run: bun tools/blobscan.js design.html --gate-only
+
+      # 渲染路径不许绕过平台缝直接摸 document —— 小程序里没有它(台账 D2)。
+      # 这条在引擎接进小程序之前就该常绿,否则接的那天要一处一处返工。
+      - name: portlint · 渲染路径离得开浏览器吗
+        run: bun tools/portlint.js design.html
+
+      # 小程序里没有 window。portlint 在运行期查不出源码写的是哪个
+      # (浏览器里 window === globalThis),所以这条静态查源码。
+      - name: winlint · 可移植核心里不许有 window
+        run: python3 tools/winlint.py src
+
+      # 宅基表:每一格对着村子里真有的那栋房子(各画法函数的坐标含义不一样,
+      # 抄错过一次:谷仓的门牌挂到了屋顶上),且 40 位一个不多一个不少。
+      - name: check-plots · 宅基表对得上吗
+        working-directory: .
+        run: python3 scripts/check-plots.py
+
+      # 碰面对白必须长在设计册 B10 真有的关系上。凭空熟络起来的两个人,
+      # 画面上看不出任何异样 —— 只有对着关系表才查得出。
+      # 顺带报一本账:33 条关系里还有几条没有专属对白。
+      - name: check-relations · 对白长在真实关系上吗
+        working-directory: .
+        run: python3 scripts/check-relations.py
+
+      # 引擎单独发出去(小程序 / H5)那一份。判据不是「构建得出来」——
+      # 产物缺半套角色图照样能构建成功 —— 而是把它塞进 **Web Worker**
+      # (没有 document、没有 window,跟小程序一样)渲一遍,与设计页逐像素相同。
+      - name: build-engine · 产物离开浏览器还渲得一样吗
+        run: bun tools/build-engine.js verify
+
+      # ── 视觉回归:CI 上【不能】用 `check` ────────────────────────
+      # 首跑实测:同一份 design.html 在 macOS Chrome 与 Linux Chrome 上
+      # 24 个场景全部渲出不同哈希。基准是绑机器的,拿到 CI 一定全红,
+      # 而那个红跟房间对不对毫无关系。
+      #
+      # 所以 CI 换掉判据。基准哈希问的是「像不像那台笔记本」,
+      # CI 该问的是「这次改动改变渲染了吗」—— 后者在同一台机器上
+      # 比两个版本就行,与平台无关。
+      #
+      # selfcheck 是硬门禁:渲两遍必须逐帧一致。它查的是渲染的不确定性
+      # ——t=0 的画面里混进真实时间、未播种的随机、遍历顺序不稳的容器,
+      # 单次渲染完全看不出来,这里一定现形。
+      - name: regress selfcheck · 渲染是确定的吗
+        run: bun tools/regress.js design.html selfcheck
+
+      # compare 只报不判:改动本来就该改变画面,红灯没有意义。
+      # 它的产出是给人看的三图,连同像素数与区域一起上传。
+      - name: regress compare · 这次改动改了哪些画面
+        if: github.event_name == 'pull_request'
+        run: |
+          bun tools/regress.js design.html \
+            compare --against=${{ github.event.pull_request.base.sha }} --report-only
+
+      - name: 上传画面差异图
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: regress-diff
+          path: rooms/.roomwork/baseline/diff/
+          if-no-files-found: ignore
+
+      # 数据对表不判失败,但要留在日志里:件数 / 交互覆盖 / 台词量掉下来时
+      # 翻历史 run 就能看出是哪一次掉的。
+      - name: roomstats · 房间数据对表(仅记录)
+        run: python3 tools/roomstats.py design.html
+        continue-on-error: true
+
+  # ── 查门禁本身 ──────────────────────────────────────────────────
+  # 单独一个 job:它要开十几次浏览器,慢;而且它失败的含义跟上面完全不同 ——
+  # 上面红是「房间坏了」,这里红是「门禁坏了,它已经拦不住东西了」。
+  # 混在一个 job 里,红灯的意思就说不清。
+  meta:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: rooms
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: install deps
+        run: bun install --frozen-lockfile
+
+      # `--with-deps` 里那段 apt 装依赖会挂住 —— 2026-08-18 卡了半小时还没动，
+      # 而 job 没有上限时默认能占满 360 分钟。上面那个 timeout-minutes 就是为它加的：
+      # 挂住时二十几分钟报出来，而不是让人以为「还在跑」。
+      # runner 镜像里本来就有 Google Chrome。`playwright install` 会走 apt，
+      # 而 apt 是这两次挂起的位置（2026-08-18 卡了 37 分钟一次、又一次）。
+      # 有就直接用：Playwright 的 channel: 'chrome' 找的就是系统上这一个
+      # —— 本机从来没装过，一直是这么跑的。
+      - name: install chrome（runner 上有就不装）
+        run: google-chrome --version || bunx playwright install --with-deps chrome
+
+      - name: mutationtest · 门禁报得出红吗
+        working-directory: .
+        run: bash rooms/tools/mutationtest.sh

@@ -1,0 +1,43 @@
+.hd { padding: 24rpx 0 32rpx; }
+.hd .eyebrow { margin-bottom: 20rpx; }
+.hd .title { font-size: 128rpx; line-height: 1; margin: 8rpx 0 16rpx; }
+
+.cats { margin-bottom: 32rpx; }
+.cat {
+  display: inline-block;
+  font-size: 26rpx;
+  color: var(--stone-label);
+  border: 1rpx solid var(--stone-line);
+  border-radius: 6rpx;
+  padding: 8rpx 22rpx;
+  margin: 0 14rpx 14rpx 0;
+}
+.cat-on { color: var(--ink); border-color: var(--ink); }
+
+.loading, .err, .empty { padding: 80rpx 0; text-align: center; color: var(--stone-label); }
+.err-msg { margin-bottom: 28rpx; }
+
+.item {
+  border-top: 1rpx solid var(--stone-line);
+  padding: 28rpx 0;
+}
+.item-hover { background: var(--paper-inset); }
+.item-name { font-family: "Songti SC", serif; font-size: 36rpx; color: var(--ink); }
+.item-sub { font-size: 26rpx; color: var(--stone-label); margin-top: 10rpx; line-height: 1.6; }
+.item-meta { font-size: 22rpx; color: var(--stone-label); margin-top: 12rpx; }
+.arrow { float: right; }
+
+.more {
+  border-top: 1rpx solid var(--stone-line);
+  padding: 32rpx 0;
+  text-align: center;
+  font-size: 26rpx;
+  color: var(--stone-label);
+}
+
+/* 订着的：空状态是主设计，出口比列表更重要。 */
+.empty-t { font-size: 30rpx; font-weight: 600; }
+.empty-sub { font-size: 26rpx; color: #767676; margin-top: 12rpx; }
+.offers { margin-top: 44rpx; }
+.offers-k { font-size: 26rpx; color: #767676; margin-bottom: 16rpx; }
+.offers-err { font-size: 26rpx; color: #767676; margin-top: 32rpx; }

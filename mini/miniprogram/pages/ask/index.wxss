@@ -1,0 +1,297 @@
+/* ═══════════════ pages/ask · 罗盘 + 起卦 ═══════════════ */
+
+.hd { padding: 24rpx 0 32rpx; }
+.hd .eyebrow { margin-bottom: 20rpx; }
+.hd .title { font-size: 128rpx; line-height: 1; margin: 8rpx 0 16rpx; }
+
+/* ─── ask time + question 输入(idle 状态罗盘上方)─── */
+
+
+/* ─── COMPASS · 500rpx face + 中心按钮 + 顶部指针 ─── */
+
+
+
+/* 4 层同心圆 · 从外到内:金外圈 · 石虚线中 · 石中圈 · 石内圈 */
+
+/* 8 卦符号 · 外圈 · Songti · 8 方位 · 距 face 中心 ~210rpx */
+
+/* 8 卦方位 · 从南顺时针 45° 一 · r=210rpx */
+/* 南(0°/上)· sin·cos 用小数;translate 到位 */
+.bagua-0 { transform: translate(0, -210rpx); }
+.bagua-1 { transform: translate(148rpx, -148rpx); }  /* 西南 */
+.bagua-2 { transform: translate(210rpx, 0); }        /* 西 */
+.bagua-3 { transform: translate(148rpx, 148rpx); }   /* 西北 */
+.bagua-4 { transform: translate(0, 210rpx); }        /* 北 */
+.bagua-5 { transform: translate(-148rpx, 148rpx); }  /* 东北 */
+.bagua-6 { transform: translate(-210rpx, 0); }       /* 东 */
+.bagua-7 { transform: translate(-148rpx, -148rpx); } /* 东南 */
+
+/* 8 方位小字 · 内圈 · mono · r=178rpx */
+.dir-0 { transform: translate(0, -178rpx); }
+.dir-1 { transform: translate(126rpx, -126rpx); }
+.dir-2 { transform: translate(178rpx, 0); }
+.dir-3 { transform: translate(126rpx, 126rpx); }
+.dir-4 { transform: translate(0, 178rpx); }
+.dir-5 { transform: translate(-126rpx, 126rpx); }
+.dir-6 { transform: translate(-178rpx, 0); }
+.dir-7 { transform: translate(-126rpx, -126rpx); }
+
+/* 8 金点 · 中圈 · r=142rpx */
+.dot {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 10rpx;
+  height: 10rpx;
+  margin: -5rpx 0 0 -5rpx;
+  border-radius: 50%;
+  background: rgba(201, 169, 98, 0.7);
+  z-index: 2;
+}
+.dot-0 { transform: translate(0, -142rpx); }
+.dot-1 { transform: translate(100rpx, -100rpx); }
+.dot-2 { transform: translate(142rpx, 0); }
+.dot-3 { transform: translate(100rpx, 100rpx); }
+.dot-4 { transform: translate(0, 142rpx); }
+.dot-5 { transform: translate(-100rpx, 100rpx); }
+.dot-6 { transform: translate(-142rpx, 0); }
+.dot-7 { transform: translate(-100rpx, -100rpx); }
+
+/* 中心按钮 · 不随 face 旋转 · 96rpx 大 · 深灰径向渐变 · 金色边 */
+.cb-cn {
+  font-family: "Songti SC", "STSong", serif;
+  font-size: 46rpx;
+  font-weight: 500;
+  color: var(--paper);
+  letter-spacing: 0.3em;
+  padding-left: 0.3em;
+  line-height: 1;
+}
+
+
+/* ─── result ─── (承前) */
+.result-time {
+  text-align: center;
+  font-size: 22rpx;
+  color: var(--stone-label);
+  letter-spacing: 0.28em;
+  margin: 16rpx 0 20rpx;
+}
+
+.q-echo {
+  text-align: center;
+  font-family: "Songti SC", serif;
+  font-size: 30rpx;
+  color: var(--ink-mid);
+  line-height: 1.6;
+  letter-spacing: 0.06em;
+  padding: 12rpx 32rpx 20rpx;
+}
+.q-echo .q-mark {
+  color: var(--stamp);
+  opacity: 0.7;
+  font-size: 26rpx;
+  margin: 0 4rpx;
+}
+
+.gate-title { text-align: center; padding: 12rpx 0 24rpx; }
+.gate-name {
+  font-family: "Songti SC", serif;
+  font-size: 140rpx;
+  font-weight: 500;
+  color: var(--ink);
+  line-height: 1;
+  letter-spacing: 0.06em;
+}
+.gate-dir {
+  font-family: "Songti SC", serif;
+  font-size: 60rpx;
+  font-weight: 500;
+  color: var(--stamp);
+  margin-left: 16rpx;
+  letter-spacing: 0.08em;
+}
+.gate-explain {
+  padding: 12rpx 24rpx 24rpx;
+  text-align: center;
+  font-size: 28rpx;
+  color: var(--ink-mid);
+  line-height: 1.7;
+  letter-spacing: 0.04em;
+}
+
+.dual { display: flex; padding: 24rpx 0; gap: 0; }
+.dual-col { flex: 1; padding: 0 20rpx; }
+.dual-sep {
+  width: 1rpx;
+  background: var(--stone-line-x);
+  align-self: stretch;
+}
+.dual-k {
+  font-family: "Songti SC", serif;
+  font-size: 36rpx;
+  font-weight: 500;
+  text-align: center;
+  letter-spacing: 0.4em;
+  margin-bottom: 24rpx;
+  color: var(--ink);
+}
+.suit-k { color: var(--wx-mu); }
+.avoid-k { color: var(--stamp); }
+.dual-chips {
+  display: flex; flex-direction: column;
+  align-items: center; gap: 12rpx;
+}
+.dual-chip {
+  font-size: 28rpx;
+  color: var(--ink);
+  padding: 8rpx 20rpx;
+  letter-spacing: 0.16em;
+}
+.suit-chip { color: var(--wx-mu); }
+.avoid-chip { color: var(--stamp); }
+.dual-empty { color: var(--stone-label); font-size: 24rpx; }
+
+.quote-block { padding: 32rpx 24rpx; }
+.quote-mark {
+  font-family: "Songti SC", serif;
+  font-size: 40rpx;
+  color: var(--stamp);
+  opacity: 0.7;
+  line-height: 1;
+}
+.quote-r { text-align: right; }
+.quote-body {
+  padding: 12rpx 0;
+  font-family: "Songti SC", serif;
+  font-size: 34rpx;
+  color: var(--ink);
+  line-height: 1.75;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+.quote-src {
+  text-align: right;
+  font-size: 22rpx;
+  color: var(--ink-faint);
+  letter-spacing: 0.16em;
+  margin-top: 8rpx;
+}
+
+.recommend {
+  margin: 24rpx 0 8rpx;
+  padding: 24rpx 24rpx;
+  background: var(--paper-inset);
+  border-radius: 6rpx;
+  text-align: center;
+  transition: background 0.15s;
+}
+.recommend-hover { background: var(--stone-line-x); }
+.rec-k {
+  font-size: 20rpx;
+  color: var(--stone-label);
+  letter-spacing: 0.32em;
+  margin-bottom: 12rpx;
+}
+.rec-arrow {
+  color: var(--ink-faint);
+  font-size: 26rpx;
+  margin-left: 6rpx;
+}
+.rec-name {
+  font-family: "Songti SC", serif;
+  font-size: 32rpx;
+  color: var(--ink);
+  letter-spacing: 0.06em;
+}
+.rec-sub {
+  font-size: 22rpx;
+  color: var(--ink-faint);
+  letter-spacing: 0.14em;
+  margin-top: 6rpx;
+}
+
+.cta { text-align: center; padding: 24rpx 0; }
+.foot-hint {
+  text-align: center;
+  font-size: 20rpx;
+  color: var(--stone-label);
+  letter-spacing: 0.24em;
+  padding: 24rpx 0;
+}
+
+/* ─── 历史 ─── */
+.hist-chip {
+  display: inline-block;
+  padding: 10rpx 24rpx;
+  background: var(--paper-inset);
+  border: 1rpx solid var(--stone-line);
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  color: var(--ink-mid);
+  letter-spacing: 0.14em;
+  margin: 16rpx 0 24rpx;
+}
+.hist-chip::first-letter { color: var(--stamp); }
+
+.hist-k {
+  color: var(--stone-label);
+  font-size: 22rpx;
+  letter-spacing: 0.32em;
+  margin: 24rpx 0 16rpx;
+}
+.hist-list {
+  border-top: 1rpx solid var(--stone-line-x);
+}
+.hist-row {
+  padding: 22rpx 4rpx;
+  border-bottom: 1rpx solid var(--stone-line-x);
+  transition: background 0.15s;
+}
+.hist-row-hover { background: var(--paper-inset); }
+.hist-top {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr auto;
+  gap: 24rpx;
+  align-items: baseline;
+}
+.hist-date {
+  font-family: "SF Mono", "Menlo", monospace;
+  font-size: 22rpx;
+  color: var(--ink-mid);
+  letter-spacing: 0.04em;
+}
+.hist-gate {
+  font-family: "Songti SC", serif;
+  font-size: 28rpx;
+  color: var(--ink);
+  font-weight: 500;
+}
+.hist-dir {
+  font-size: 24rpx;
+  color: var(--ink-faint);
+  letter-spacing: 0.2em;
+}
+.hist-arrow {
+  color: var(--stone-label);
+  font-size: 32rpx;
+  line-height: 1;
+  padding-right: 8rpx;
+}
+.hist-q {
+  padding-top: 10rpx;
+  font-family: "Songti SC", serif;
+  font-size: 24rpx;
+  color: var(--ink-faint);
+  letter-spacing: 0.06em;
+  line-height: 1.55;
+}
+.hist-more {
+  padding: 28rpx 0;
+  text-align: center;
+  color: var(--ink-mid);
+  font-size: 24rpx;
+  letter-spacing: 0.24em;
+  border-bottom: 1rpx solid var(--stone-line-x);
+  transition: background 0.15s;
+}
+.hist-more-hover { background: var(--paper-inset); }

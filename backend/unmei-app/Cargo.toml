@@ -1,0 +1,20 @@
+[package]
+name = "unmei-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "用例编排层 · 业务写操作的唯一实现,由 unmei-api / unmei-admin-api 共用"
+
+[dependencies]
+unmei-domain.workspace = true
+sqlx.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true          # 幂等键的请求指纹
+tracing.workspace = true
+async-trait = "0.1"
+
+[dev-dependencies]
+tokio.workspace = true

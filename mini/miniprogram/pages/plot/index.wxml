@@ -1,0 +1,20 @@
+<view class="page">
+  <view class="hd">
+    <view class="name">这间空着</view>
+    <view class="title">等人</view>
+  </view>
+
+  <view class="body">
+    <view class="line">谁会搬进来？还不知道 —— 得先有人愿意来。</view>
+    <!-- 不说是谁的：还没请回来的人，连名字都还不该知道 -->
+    <view class="line dim">这一格的主人还没露面。请回来那天，你才会知道他是谁。</view>
+  </view>
+
+  <view class="acts">
+    <button class="btn" bindtap="goInvite">看看谁能来</button>
+  </view>
+
+  <view class="cta">
+    <button class="btn ghost" bindtap="onBack">回村里</button>
+  </view>
+</view>

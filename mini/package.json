@@ -1,0 +1,16 @@
+{
+  "name": "unmei-mini",
+  "version": "0.1.0",
+  "description": "unmei 微信小程序 · 命運",
+  "private": true,
+  "scripts": {
+    "check": "tsc --noEmit",
+    "build:engine": "cd .. && bun rooms/tools/build-engine.js build --emit=mini/miniprogram/engine",
+    "web": "cd .. && bun web/build.mjs",
+    "web:verify": "cd .. && bash web/run-verify.sh"
+  },
+  "devDependencies": {
+    "miniprogram-api-typings": "^3.12.0",
+    "typescript": "^5.4.0"
+  }
+}

@@ -1,0 +1,54 @@
+<view class="page">
+  <view class="loading" wx:if="{{loading}}">取着……</view>
+
+  <view class="err" wx:elif="{{err}}">
+    <view class="err-msg">{{err}}</view>
+    <button class="btn ghost" bindtap="onBack">回去</button>
+  </view>
+
+  <block wx:else>
+    <view class="card">
+      <view class="card-name">{{p.product.name}}</view>
+      <view class="card-sub" wx:if="{{p.product.sub_title}}">{{p.product.sub_title}}</view>
+      <view class="card-price">{{unitText}}</view>
+    </view>
+
+    <view class="hr"></view>
+
+    <!-- 寄到哪。微信地址簿只有真机有 —— 网页版会说这台设备上没有，不假装填好 -->
+    <view class="row" bindtap="chooseAddr">
+      <text class="row-k">寄到</text>
+      <text class="row-v" wx:if="{{contact}}">{{contact.name}} · {{contact.phone}} · {{contact.address}}</text>
+      <text class="row-v dim" wx:else>还没填 ›</text>
+    </view>
+    <view class="note" wx:if="{{addrNote}}">{{addrNote}}</view>
+
+    <view class="row">
+      <text class="row-k">数量</text>
+      <view class="stepper">
+        <text class="step {{qty <= 1 ? 'step-off' : ''}}" bindtap="minus">−</text>
+        <text class="step-n">{{qty}}</text>
+        <text class="step" bindtap="plus">＋</text>
+      </view>
+    </view>
+
+    <view class="row col">
+      <text class="row-k">留句话给他</text>
+      <input class="msg" value="{{message}}" placeholder="不写也行" bindinput="onMessage"/>
+    </view>
+
+    <view class="hr"></view>
+
+    <view class="sum-k">算下来</view>
+    <view class="row"><text class="row-k">{{p.product.name}} × {{qty}}</text><text class="row-v">{{totalText}}</text></view>
+    <view class="row"><text class="row-k">运费</text><text class="row-v">另算 · 以订单为准</text></view>
+
+    <view class="note" wx:if="{{note}}">{{note}}</view>
+
+    <view class="pay">
+      <view class="pay-total">一共 {{totalText}}</view>
+      <button class="btn" bindtap="go" disabled="{{buying}}">{{buying ? '建单中…' : '去付'}}</button>
+    </view>
+    <view class="foot">付完之后就等它到 —— 到了会有人告诉你</view>
+  </block>
+</view>

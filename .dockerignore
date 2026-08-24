@@ -1,0 +1,14 @@
+target/
+**/target/
+**/node_modules/
+.git/
+.env
+*.db
+*.db-journal
+*.log
+.DS_Store
+.idea/
+.vscode/
+backend-v0.1-sqlite-archive/
+design.v0.*.html
+design-admin.v0.*.html

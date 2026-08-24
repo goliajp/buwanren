@@ -1,0 +1,8 @@
+
+    #chardesign .cd-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:6px 2px}
+    @media(max-width:1720px){#chardesign .cd-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:1160px){#chardesign .cd-grid{grid-template-columns:1fr}}
+    #chardesign .cd-card{border:1px solid #ddd9d0;border-radius:10px;background:#fbfaf7;padding:10px 12px;display:flex;align-items:center;gap:12px;overflow-x:auto}
+    #chardesign .cd-card .cd-nm{flex:0 0 auto;width:44px;font-size:13px;font-weight:700;color:#3a3630;writing-mode:horizontal-tb}
+    #chardesign .cd-card canvas{image-rendering:pixelated;display:block}
+  

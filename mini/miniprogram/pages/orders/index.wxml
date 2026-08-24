@@ -1,0 +1,28 @@
+<view class="page">
+  <view class="hd">
+    <view class="eyebrow">BUWANREN · ORDERS</view>
+    <view class="title">单</view>
+    <view class="hr"></view>
+  </view>
+
+  <view class="loading" wx:if="{{loading}}">取着……</view>
+
+  <view class="err" wx:elif="{{err}}">
+    <view class="err-msg">{{err}}</view>
+    <button class="btn ghost" bindtap="load">再试一次</button>
+  </view>
+
+  <block wx:else>
+    <view class="empty" wx:if="{{total === 0}}">还没有单子</view>
+
+    <view wx:for="{{items}}" wx:key="id" class="item"
+          data-id="{{item.id}}" bindtap="onTap"
+          hover-class="item-hover" hover-stay-time="100">
+      <view class="item-top">
+        <text class="item-status">{{item.statusText}}</text>
+        <text class="item-total">{{item.totalText}}</text>
+      </view>
+      <view class="item-id mono">{{item.id}}</view>
+    </view>
+  </block>
+</view>

@@ -1,0 +1,150 @@
+name: backend
+
+on:
+  push:
+    branches: [main, develop]
+    paths: ['backend/**', 'scripts/check-sql.py', 'scripts/check-enum-check.py', 'scripts/check-error-leak.py', 'scripts/check-migrations.py', 'scripts/migrations-manifest.json', 'scripts/mutationtest-sql.sh', '.github/workflows/backend.yml']
+  pull_request:
+    paths: ['backend/**', 'scripts/check-sql.py', 'scripts/check-enum-check.py', 'scripts/check-error-leak.py', 'scripts/check-migrations.py', 'scripts/migrations-manifest.json', 'scripts/mutationtest-sql.sh', '.github/workflows/backend.yml']
+
+env:
+  CARGO_TERM_COLOR: always
+  # 全仓统一走运行期 sqlx::query() —— 编译不需要连库，也不需要 .sqlx 缓存。
+  # 若有人重新引入 sqlx::query! 宏，这一步会直接失败，这就是护栏本身。
+  SQLX_OFFLINE: "true"
+
+# 同一分支上被后续推送顶掉的 run 没有必要跑完 —— 只有最新那个 commit 的结论有意义。
+# 不换任何覆盖，纯粹少烧。（2026-08-23 账户 Actions 因支出上限停摆时加的。）
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
+
+    # 用例层的集成测试要一个真库。用 mock 测这一层等于测 mock ——
+    # 它的价值几乎全在 SQL 与事务边界上(状态机拦没拦住、outbox 有没有跟
+    # 业务写入同批提交、影响行数为 0 时报不报 404)。
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: unmei
+          POSTGRES_USER: unmei
+          POSTGRES_PASSWORD: unmei_dev_pwd
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U unmei -d unmei"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
+    env:
+      TEST_DATABASE_URL: postgres://unmei:unmei_dev_pwd@localhost:5432/unmei
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
+
+      # migrations 里用到 citext / pgcrypto / pg_trgm,跟 infra/postgres/init.sql 一致
+      - name: pg extensions
+        run: psql "$TEST_DATABASE_URL" -f ../infra/postgres/init.sql
+
+      - name: cargo check
+        run: cargo check --workspace --all-targets
+
+      # 测试数落进文件,下一步据此断言它们真的跑了。
+      # 没有这道断言的话,集成测试哪天悄悄退化成「无 DB 静默跳过」也看不出来 ——
+      # 本地就踩过一次:15 passed,其实一个没跑。
+      #
+      # shell 必须显式写 bash:GitHub Actions 默认的内置 bash 调用**不带 pipefail**,
+      # `cargo test | tee` 会取 tee 的退出码 0,测试挂了这步照样绿。
+      # 显式 `shell: bash` 用的是 `bash -eo pipefail`,cargo 的非零码才能穿透管道。
+      - name: cargo test
+        shell: bash
+        run: cargo test --workspace 2>&1 | tee /tmp/test.log
+
+      - name: assert the db-backed tests actually ran
+        run: |
+          PASSED=$(grep -oE '^test result: ok\. [0-9]+ passed' /tmp/test.log \
+                   | grep -oE '[0-9]+' | paste -sd+ - | bc)
+          echo "通过的测试总数: ${PASSED:-0}"
+          # 纯逻辑单测(risk DSL + 状态机 + money + region + carrier)约 25 条;
+          # 加上三组用例层集成测试后是 70 条。低于 60 说明集成测试没跑起来。
+          if [ "${PASSED:-0}" -lt 60 ]; then
+            echo "::error::只有 ${PASSED:-0} 条测试通过，用例层集成测试没跑（多半是 TEST_DATABASE_URL 没生效）。"
+            exit 1
+          fi
+          echo "✓ 用例层集成测试确实跑了"
+
+      # 本仓禁用 query! 宏（见文件头那条注释），代价是编译期完全不校验 SQL：
+      # 表名、列名写错都要到运行期才变成 500。这一步把那层校验补回来 ——
+      # 不自己解析 SQL，而是交给真的 Postgres PREPARE 一遍。
+      # 放在 cargo test 之后：那时迁移已经把库建好了。
+      - name: check-sql · 每条 SQL 过一遍 Postgres
+        working-directory: .
+        env:
+          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
+        run: python3 scripts/check-sql.py
+
+      # 上面那支自己也得能报红。它在写出来的当天假绿过两次
+      # （报错行的前缀没匹配上、记号与报错走了不同的流），两次都是靠植入缺陷发现的。
+      - name: mutationtest · check-sql 报得出红吗
+        working-directory: .
+        env:
+          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
+        run: bash scripts/mutationtest-sql.sh
+
+      # 响应体就是 AppError 的 Display。`From<sqlx::Error>` 里写 Internal(format!)
+      # 等于把表名、约束名公开 —— 2026-08-19 客户端真收到过
+      # `insert or update on table "naji_record" violates …`。
+      # 这一支是纯源码扫描，不要库，本来就该在 CI 里。
+      - name: 外部报错原文不进响应体
+        working-directory: .
+        run: python3 scripts/check-error-leak.py
+
+      # enums.rs 开头写着「与 PG TEXT + CHECK 约束保持一致」，而没有任何东西在核。
+      # 2026-08-19 全量对了一遍 42 个枚举：41 个一致，FulfillmentKind 少一项
+      # `residency` —— 而开发库里 448 个商品正是这种。
+      - name: 枚举跟库里的 CHECK 对得上吗
+        working-directory: .
+        env:
+          PSQL_URL: ${{ env.TEST_DATABASE_URL }}
+        run: python3 scripts/check-enum-check.py
+
+      # 这一支必须在 CI 里跑，而且正是 CI【看不出问题】的那类：
+      # 改动一个已应用的迁移，全新库从头跑一遍校验和自然一致 ——
+      # 只有已经跑过旧版的环境才起不来。所以靠记账，不靠跑一遍。
+      - name: 迁移没被改过
+        working-directory: .          # 这个 job 默认在 backend/ 下跑
+        run: python3 scripts/check-migrations.py
+
+      # ── 依赖方向护栏 · clean arch ────────────────────────────────
+      # unmei-domain 是最内层:不许依赖任何数据库 / HTTP / Web 框架。
+      # 依赖方向是 api → app → domain ← 持久化实现。
+      #
+      # 判据用依赖树而不是 grep 源码 —— 注释里提到 sqlx 不算违规,
+      # 而通过某个中间 crate 间接引入却是真违规,只有依赖树看得见。
+      # P0 时 domain/src 里有 215 处基础设施引用,P1 后 24,P2 归零。
+      - name: domain purity gate
+        run: |
+          echo "== unmei-domain 依赖树 =="
+          cargo tree -p unmei-domain
+          if cargo tree -p unmei-domain | grep -qE '(sqlx|axum|reqwest|hyper|tower)'; then
+            echo "::error::unmei-domain 依赖了基础设施库。domain 是最内层，依赖方向反了。"
+            echo "把持久化 / 传输相关的东西放到 unmei-app 或适配器 crate 里。"
+            exit 1
+          fi
+          echo "✓ domain 纯净"

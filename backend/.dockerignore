@@ -1,0 +1,16 @@
+# 排除 target / cache / 本地工具产物 — docker build 时不需要
+target
+**/target
+.cargo
+.idea
+.vscode
+*.log
+*.swp
+*~
+.DS_Store
+
+# Cargo metadata
+Cargo.lock.bak
+
+# Tests artifacts
+testdata

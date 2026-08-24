@@ -1,0 +1,21 @@
+{
+  "_读法": "后台写操作里【没查角色】的那些。哪个角色管哪条是产品 / 运营的决定（谁有权批退款、谁能改价），不是实现方能拍的 —— 所以这张表不判对错，只判有没有变：台账里的某条加上了角色检查 → 红（该划掉）；新出现一条没查角色的写操作 → 红（要么加，要么写明为什么）。检查在 scripts/check-admin-roles.py。",
+  "_为什么这不是「暂时没接」": "角色是已生效的概念：种子管理员带 super / operator / content / support / finance 五个，feature_flags 与 quotes 四处路由真在用 requires_role。缺的不是机制，是【分工表】—— 那要人来定。",
+  "没查角色的写操作": {
+    "POST /admin/auth/login": "登录本身。这一步还没有管理员身份，无从查角色。",
+    "POST /admin/commerce/orders/:id/annotate": "等分工表：哪个角色能做这一步，要产品 / 运营定。现在任何一个登录成功的管理员都做得了。",
+    "POST /admin/commerce/orders/:id/cancel": "等分工表：哪个角色能做这一步，要产品 / 运营定。现在任何一个登录成功的管理员都做得了。",
+    "POST /admin/commerce/outbox/:id/retry": "等分工表：哪个角色能做这一步，要产品 / 运营定。现在任何一个登录成功的管理员都做得了。",
+    "POST /admin/commerce/payments/:id/mark-failed": "等分工表：哪个角色能做这一步，要产品 / 运营定。现在任何一个登录成功的管理员都做得了。",
+    "POST /admin/commerce/pricing/:sku_id/publish": "等分工表：哪个角色能做这一步，要产品 / 运营定。现在任何一个登录成功的管理员都做得了。",
+    "POST /admin/commerce/pricing/expire/:id": "等分工表：哪个角色能做这一步，要产品 / 运营定。现在任何一个登录成功的管理员都做得了。",
+    "POST /admin/commerce/products/:id/listing": "等分工表：哪个角色能做这一步，要产品 / 运营定。现在任何一个登录成功的管理员都做得了。",
+    "POST /admin/commerce/promotions/:id/state": "等分工表：哪个角色能做这一步，要产品 / 运营定。现在任何一个登录成功的管理员都做得了。",
+    "POST /admin/commerce/refunds/:id/approve": "等分工表：哪个角色能做这一步，要产品 / 运营定。现在任何一个登录成功的管理员都做得了。",
+    "POST /admin/commerce/refunds/:id/deny": "等分工表：哪个角色能做这一步，要产品 / 运营定。现在任何一个登录成功的管理员都做得了。",
+    "POST /admin/commerce/risk/rules/:id/state": "等分工表：哪个角色能做这一步，要产品 / 运营定。现在任何一个登录成功的管理员都做得了。",
+    "POST /admin/commerce/shipments/:id/assign-tracking": "等分工表：哪个角色能做这一步，要产品 / 运营定。现在任何一个登录成功的管理员都做得了。",
+    "POST /admin/commerce/shipments/:id/mark-exception": "等分工表：哪个角色能做这一步，要产品 / 运营定。现在任何一个登录成功的管理员都做得了。",
+    "POST /admin/commerce/subscriptions/:id/cancel": "等分工表：哪个角色能做这一步，要产品 / 运营定。现在任何一个登录成功的管理员都做得了。"
+  }
+}

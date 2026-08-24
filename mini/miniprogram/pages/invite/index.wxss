@@ -1,0 +1,55 @@
+.hd { padding: 24rpx 0 32rpx; }
+.hd .eyebrow { margin-bottom: 20rpx; }
+.hd .title { font-size: 128rpx; line-height: 1; margin: 8rpx 0 16rpx; }
+
+.cats { margin-bottom: 32rpx; }
+.cat {
+  display: inline-block;
+  font-size: 26rpx;
+  color: var(--stone-label);
+  border: 1rpx solid var(--stone-line);
+  border-radius: 6rpx;
+  padding: 8rpx 22rpx;
+  margin: 0 14rpx 14rpx 0;
+}
+.cat-on { color: var(--ink); border-color: var(--ink); }
+
+.loading, .err, .empty { padding: 80rpx 0; text-align: center; color: var(--stone-label); }
+.err-msg { margin-bottom: 28rpx; }
+
+.item {
+  border-top: 1rpx solid var(--stone-line);
+  padding: 28rpx 0;
+}
+.item-hover { background: var(--paper-inset); }
+.item-name { font-family: "Songti SC", serif; font-size: 36rpx; color: var(--ink); }
+.item-sub { font-size: 26rpx; color: var(--stone-label); margin-top: 10rpx; line-height: 1.6; }
+.item-meta { font-size: 22rpx; color: var(--stone-label); margin-top: 12rpx; }
+.arrow { float: right; }
+
+.more {
+  border-top: 1rpx solid var(--stone-line);
+  padding: 32rpx 0;
+  text-align: center;
+  font-size: 26rpx;
+  color: var(--stone-label);
+}
+
+/* 谁能来：比铺少一层分类栏，多一句「为什么是这几位」。 */
+.why { font-size: 26rpx; color: #767676; margin-top: 12rpx; line-height: 1.5; }
+.foot { font-size: 24rpx; color: #767676; margin-top: 28rpx; line-height: 1.6; }
+.empty-t { font-size: 30rpx; font-weight: 600; }
+.empty-sub { font-size: 26rpx; color: #767676; margin-top: 12rpx; }
+
+/* 翻页条：一屏放不下就翻页，不往下滚（设计 10.3）。 */
+.pager { display: flex; align-items: center; justify-content: space-between; margin-top: 28rpx; }
+.pg { font-size: 26rpx; color: #1a1a1c; padding: 12rpx 8rpx; }
+.pg-off { opacity: .3; }
+.pg-n { font-size: 24rpx; color: #767676; }
+
+/* 收掉最后那 32px：头部 eyebrow 与页脚各让一点。
+   一屏差 32px 不是「差不多」—— 差 1px 也要滚，滚了就没有提示。 */
+.hd .eyebrow { display: none; }
+.foot { margin-top: 16rpx; font-size: 22rpx; }
+.pager { margin-top: 16rpx; }
+.item { padding-top: 18rpx; padding-bottom: 18rpx; }

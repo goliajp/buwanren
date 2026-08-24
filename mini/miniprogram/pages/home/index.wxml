@@ -1,0 +1,176 @@
+<view class="page">
+  <view class="hd">
+    <view class="eyebrow">{{today.iso}} · {{today.weekday}}</view>
+    <view class="title">我家</view>
+  </view>
+
+  <view class="hr"></view>
+
+  <view wx:if="{{err}}" class="err">{{err}}</view>
+
+  <!-- 有本命：你缺的那一行是这一屏的身份字段，字最大 -->
+  <block wx:if="{{summary}}">
+    <!-- 设计 H1 顶上的三行。原先渲的是 66px 的展示体（上一版设计里
+         「你缺的」是这一屏的身份字段、字最大），那一块 173px ——
+         有本命时它跟弹性槽抢地方，抢到任何真实机型都放不下槽。
+         措辞也用回设计自己的：「你缺的是」「伤你的是」。 -->
+    <view class="delta">
+      <view class="delta-line">你缺的是「<text class="wx-{{summary.primary_pinyin}}">{{summary.primary_yongshen}}</text>」</view>
+      <view class="delta-line dim" wx:if="{{summary.avoid_wuxing.length > 0}}">伤你的是<text
+            wx:for="{{summary.avoid_wuxing}}" wx:key="*this"
+            class="wx-{{avoidPinyin[index]}}"
+            style="margin-left: {{index > 0 ? '16rpx' : '16rpx'}}">{{item}}</text></view>
+      <view class="delta-role" bindtap="goNatal">主用神 · {{summary.primary_role}}　展开看盘 ›</view>
+    </view>
+
+    <!-- 那一句话进弹性槽：设计 H1 顶上就三行（缺什么 / 过什么 / 展开看盘），
+         没有它。而它正合槽的判据 —— 删掉这一屏仍然成立。 -->
+    <view class="quote flexslot">「{{summary.friendly_hint}}」</view>
+  </block>
+
+  <!-- 这条线分的是「你缺的」跟「今天」。上面那块被 wx:if 藏起来时它得跟着藏 ——
+       否则两条线贴在一起，中间什么都没有，看着像条粗线。没本命的人看到的正是这个。 -->
+  <view class="hr" wx:if="{{summary || err}}"></view>
+
+  <!-- 「今天」永远在。
+       没本命时它就是空态本身：罗盘灰着、压一句、给一个按钮（设计 10.7）。
+       原先这里与上面那块「先立底盘」**在说同一件事**，两块加起来 468px，
+       而最矮的机器一共只有 617px（2026-08-23 逐块量出来的）。
+       空态是一块，不是两块。 -->
+  <view class="today-block">
+    <view class="today-k">今天</view>
+
+  <!-- 罗盘。从 `pages/ask` 搬过来（REDESIGN.md：起卦归我家）。
+       尺寸不是写死的 560rpx，是**按剩下多少地方算出来的** ——
+       H1 的构图里它就是吃掉纵向富余的那一块（设计 10.1）。
+       写死的话矮屏放不下、长屏留一片白。 -->
+  <!-- idle -->
+  <!-- 罗盘不看有没有本命 —— **起卦本来就不需要本命**（搬过来之前一直如此），
+       我一度给它加了 `&& summary`，那是把限制加严了。
+       没本命时它照转，只是多一句「转出来的才是你的」加一个去填的出口
+       （设计 10.7：空状态永远带出口）。 -->
+  <block wx:if="{{mode === 'idle'}}">
+    <!-- 时辰与「想问什么」都进弹性槽。
+         **设计 H1 上没有这两样** —— 那一屏是：缺什么 / 过什么 / 展开看盘 /
+         今天 / 罗盘 / 一句提示 / 弹性槽（近几次）。它俩是搬罗盘时从旧问签页
+         一并带过来的。没有替谁拍板删掉,只是让它们在放不下的机器上让位:
+         槽的判据就是「删掉这一屏仍然成立」,而不写问题照样摇得出卦。 -->
+    <view class="ask-aux flexslot">
+      <view class="ask-time mono">{{clockLabel}}</view>
+
+      <view class="ask-q-slim">
+        <input class="ask-q-input"
+               placeholder="想问什么（可空 · 只给你自己看）"
+               maxlength="60"
+               value="{{question}}"
+               bindinput="onQuestion"/>
+      </view>
+    </view>
+
+    <view class="compass-wrap">
+      <view class="compass-pointer"></view>
+
+      <view class="compass-face"
+            style="transform: rotate({{rot}}deg);">
+        <!-- 同心圆 4 层 · 外金 · 中石虚线 · 内石 · 芯石 -->
+        <view class="ring ring-1"></view>
+        <view class="ring ring-2"></view>
+        <view class="ring ring-3"></view>
+        <view class="ring ring-4"></view>
+
+        <!-- 8 金点 · 中圈 -->
+        <view wx:for="{{[0,1,2,3,4,5,6,7]}}" wx:key="*this"
+              class="dot dot-{{item}}"></view>
+
+        <!-- 8 卦 · 外圈 · Songti 32px · 南离-西南坤-西兑-西北乾-北坎-东北艮-东震-东南巽 -->
+        <view class="bagua bagua-0"><text class="bg-t">☲</text></view>
+        <view class="bagua bagua-1"><text class="bg-t">☷</text></view>
+        <view class="bagua bagua-2"><text class="bg-t">☱</text></view>
+        <view class="bagua bagua-3"><text class="bg-t">☰</text></view>
+        <view class="bagua bagua-4"><text class="bg-t">☵</text></view>
+        <view class="bagua bagua-5"><text class="bg-t">☶</text></view>
+        <view class="bagua bagua-6"><text class="bg-t">☳</text></view>
+        <view class="bagua bagua-7"><text class="bg-t">☴</text></view>
+
+        <!-- 8 方位 · 内圈 · mono -->
+        <view class="dir dir-0"><text>南</text></view>
+        <view class="dir dir-1"><text>西南</text></view>
+        <view class="dir dir-2"><text>西</text></view>
+        <view class="dir dir-3"><text>西北</text></view>
+        <view class="dir dir-4"><text>北</text></view>
+        <view class="dir dir-5"><text>东北</text></view>
+        <view class="dir dir-6"><text>东</text></view>
+        <view class="dir dir-7"><text>东南</text></view>
+      </view>
+
+      <!-- 中心按钮 · 不随 face 旋转 -->
+      <button class="compass-btn"
+              hover-class="compass-btn-hover"
+              hover-stay-time="80"
+              bindtap="doSpin">
+        <text class="cb-cn">纳吉</text>
+      </button>
+    </view>
+
+    <view class="compass-hint">一事一签 · 想清楚再摇 —— 点中心，或摇手机</view>
+  </block>
+
+  <!-- spinning · 罗盘旋转中 -->
+  <block wx:elif="{{mode === 'spinning'}}">
+    <view class="ask-time mono">{{clockLabel}}</view>
+
+    <view class="compass-wrap">
+      <view class="compass-pointer"></view>
+
+      <view class="compass-face"
+            style="transform: rotate({{rot}}deg);">
+        <view class="ring ring-1"></view>
+        <view class="ring ring-2"></view>
+        <view class="ring ring-3"></view>
+        <view class="ring ring-4"></view>
+        <view wx:for="{{[0,1,2,3,4,5,6,7]}}" wx:key="*this" class="dot dot-{{item}}"></view>
+        <view class="bagua bagua-0"><text class="bg-t">☲</text></view>
+        <view class="bagua bagua-1"><text class="bg-t">☷</text></view>
+        <view class="bagua bagua-2"><text class="bg-t">☱</text></view>
+        <view class="bagua bagua-3"><text class="bg-t">☰</text></view>
+        <view class="bagua bagua-4"><text class="bg-t">☵</text></view>
+        <view class="bagua bagua-5"><text class="bg-t">☶</text></view>
+        <view class="bagua bagua-6"><text class="bg-t">☳</text></view>
+        <view class="bagua bagua-7"><text class="bg-t">☴</text></view>
+        <view class="dir dir-0"><text>南</text></view>
+        <view class="dir dir-1"><text>西南</text></view>
+        <view class="dir dir-2"><text>西</text></view>
+        <view class="dir dir-3"><text>西北</text></view>
+        <view class="dir dir-4"><text>北</text></view>
+        <view class="dir dir-5"><text>东北</text></view>
+        <view class="dir dir-6"><text>东</text></view>
+        <view class="dir dir-7"><text>东南</text></view>
+      </view>
+
+      <view class="compass-btn compass-btn-lit">
+        <text class="cb-cn">起卦</text>
+      </view>
+    </view>
+
+    <view class="compass-hint">起卦中…</view>
+  </block>
+
+
+  <!-- 没本命时压在罗盘下面的那一句 + 出口。罗盘照样能转。 -->
+  <block wx:if="{{!summary && !err}}">
+    <view class="foot-hint">还没填生辰 —— 转出来的还不是「你的」</view>
+    <button class="btn btn-off" bindtap="goNatal">先填生辰</button>
+  </block>
+  </view>
+
+  <!-- 弹性槽：近几次。矮屏收起，长屏出现（设计 10.1）。
+       删掉它这一屏仍然成立 —— 那是能放进槽里的判据。 -->
+  <view class="recent flexslot" wx:if="{{recent.length > 0}}">
+    <view class="recent-k">近几次</view>
+    <view wx:for="{{recent}}" wx:key="id" class="recent-row" data-id="{{item.id}}" bindtap="onRecent">
+      <text class="recent-d">{{item.day}}</text>
+      <text class="recent-v">{{item.gate}}{{item.dir ? ' · ' + item.dir : ''}}</text>
+    </view>
+  </view>
+  <view class="recent-err flexslot" wx:elif="{{recentErr}}">{{recentErr}}</view>
+</view>
