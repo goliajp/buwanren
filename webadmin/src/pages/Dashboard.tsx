@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { commerce } from '../lib/api';
 import PageHeader from '../components/PageHeader';
 import { yuan, thou } from '../components/util';

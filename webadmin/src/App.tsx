@@ -1,5 +1,5 @@
 import { useAtom } from 'jotai';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router';
 import { authAtom } from './store/auth';
 import Login from './pages/Login';
 import Layout from './components/Layout';
