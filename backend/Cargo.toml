@@ -44,7 +44,12 @@ reqwest = { version = "0.12", default-features = false, features = [
 ] }
 
 # 安全 / 签名(JWT / argon2 / WX-pay v3 RSA + AES-GCM)
-jsonwebtoken = "9"
+# 10.x 起必须显式选一个加密后端,否则**编译得过、一签 token 就 panic**
+# （"Could not automatically determine the process-level CryptoProvider"）。
+# 选 rust_crypto:纯 Rust,不需要 C 工具链,CI 与本机都省事;
+# aws_lc_rs 快一些但要 cmake。default 只带 use_pem,两个后端都不带 ——
+# 也就是照默认升上来就是这个 panic。
+jsonwebtoken = { version = "10", features = ["rust_crypto"] }
 argon2 = "0.5"
 rand = "0.8"
 sha2 = "0.10"
