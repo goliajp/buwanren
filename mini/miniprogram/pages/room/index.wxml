@@ -1,0 +1,24 @@
+<view class="wrap">
+  <!-- 舞台是一条【会伸缩的带子】,画布按屏宽铺满、纵向裁切 ——
+       设计 V5 写的就是这个:「长屏往上下各露出更多房间」。
+       等比塞进去的话矮屏放不下(1440x2560 按 375 宽铺开是 667 高),
+       而这一页下面还有一条名字栏。 -->
+  <view class="stage">
+    <!-- type="2d" 是必须的:旧版 canvas 拿不到 node,也就没有 requestAnimationFrame -->
+    <canvas
+      type="2d"
+      id="room"
+      class="room"
+      style="width:{{cssW}}px;height:{{cssH}}px"
+      bindtap="onTap"
+    ></canvas>
+  </view>
+
+  <view class="bar">
+    <view class="who">{{name}}</view>
+    <!-- 表演态那颗按钮。文案由引擎写回来,不由这里点了几下决定 -->
+    <view wx:if="{{castLabel}}" class="cast" bindtap="onCast">{{castLabel}}</view>
+  </view>
+
+  <view wx:if="{{err}}" class="err">{{err}}</view>
+</view>

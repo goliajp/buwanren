@@ -1,0 +1,51 @@
+{
+  "pages": [
+    "pages/village/index",
+    "pages/home/index",
+    "pages/me/index",
+    "pages/natal/index",
+    "pages/ask/index",
+    "pages/villager/index",
+    "pages/plot/index",
+    "pages/moved/index",
+    "pages/room/index",
+    "pages/invite/index",
+    "pages/product/index",
+    "pages/confirm/index",
+    "pages/orders/index",
+    "pages/order/index",
+    "pages/badges/index",
+    "pages/subs/index",
+    "pages/name/index"
+  ],
+  "window": {
+    "backgroundTextStyle": "light",
+    "navigationBarBackgroundColor": "#f0ede7",
+    "navigationBarTitleText": "不完人",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f0ede7"
+  },
+  "tabBar": {
+    "color": "#a29e97",
+    "selectedColor": "#1a1a1c",
+    "backgroundColor": "#f0ede7",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/village/index",
+        "text": "村子"
+      },
+      {
+        "pagePath": "pages/home/index",
+        "text": "我家"
+      },
+      {
+        "pagePath": "pages/me/index",
+        "text": "我的"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}

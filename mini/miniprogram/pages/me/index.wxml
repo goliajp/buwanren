@@ -1,0 +1,136 @@
+<view class="page">
+  <view class="hd">
+    <view class="eyebrow">BUWANREN · ME</view>
+    <view class="title">我</view>
+  </view>
+
+  <view class="hr"></view>
+
+  <!-- 已绑定微信 · profile card -->
+  <block wx:if="{{isWx && user}}">
+    <view class="profile-card">
+      <image wx:if="{{user.avatar_url}}" class="avatar" src="{{user.avatar_url}}" mode="aspectFill"/>
+      <view wx:else class="avatar avatar-fallback">不</view>
+      <view class="profile-name serif">{{user.nickname}}</view>
+      <view class="profile-badge">微信 · 已绑定</view>
+
+    </view>
+  </block>
+
+  <!-- 未绑定微信 · onboard 授权卡 -->
+  <block wx:else>
+    <view class="onboard-card">
+      <view class="onboard-title serif">还是不完人</view>
+      <view class="onboard-sub">
+        绑定微信，跨设备同步本命档案
+      </view>
+
+      <view class="wx-form">
+        <view class="wx-field">
+          <button class="avatar-btn"
+                  open-type="chooseAvatar"
+                  bindchooseavatar="onChooseAvatar">
+            <image wx:if="{{draft.avatar_url}}"
+                   class="avatar-preview"
+                   src="{{draft.avatar_url}}"
+                   mode="aspectFill"/>
+            <view wx:else class="avatar-preview avatar-fallback">选头像</view>
+          </button>
+        </view>
+
+        <view class="wx-field">
+          <input class="nickname-input"
+                 type="nickname"
+                 placeholder="微信昵称"
+                 value="{{draft.nickname}}"
+                 bindinput="onNickname"
+                 bindblur="onNickname"/>
+        </view>
+
+        <view class="wx-cta">
+          <button class="btn stamp"
+                  bindtap="doBind"
+                  disabled="{{binding}}">
+            {{binding ? '绑定中…' : '绑定微信'}}
+          </button>
+        </view>
+
+        <view class="wx-hint">
+          我们不读取你的手机号或其它信息 · 仅换 openid + 保存你自己填的头像和昵称
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <view class="hr"></view>
+
+  <!-- profile 明细：默认收起。
+       这五行是账号的底细（客服要 id），不是每天要看的东西 ——
+       设计里「我的」只放名字、单、徽、订、设置（product-v1.html 10.4 M1）。
+       删掉会丢掉排查问题的凭据，所以是收起，不是删。 -->
+  <view class="prof-toggle" wx:if="{{user}}" bindtap="toggleProf">
+    <text class="prof-k">这台设备上的账号</text>
+    <text class="prof-v">{{profOpen ? '收起' : '展开'}}</text>
+  </view>
+  <view class="card" wx:if="{{user && profOpen}}">
+    <view class="prof-row">
+      <text class="prof-k">I D</text>
+      <text class="prof-v mono">{{user.id}}</text>
+    </view>
+    <view class="prof-row">
+      <text class="prof-k">平 台</text>
+      <text class="prof-v">{{user.platform}}</text>
+    </view>
+    <view class="prof-row">
+      <text class="prof-k">区 域</text>
+      <text class="prof-v">{{user.region}} · {{user.locale}}</text>
+    </view>
+    <view class="prof-row">
+      <text class="prof-k">类 型</text>
+      <text class="prof-v {{user.is_anonymous ? '' : 'ok'}}">
+        {{user.is_anonymous ? '匿名' : '实名'}}
+      </text>
+    </view>
+    <view class="prof-row" wx:if="{{activeNatalId}}">
+      <text class="prof-k">本 命</text>
+      <text class="prof-v mono">{{activeNatalId}}</text>
+    </view>
+  </view>
+
+  <!-- 改名对谁都开着：匿名用户也有名字（服务端给的是「过客」），
+       而绑定微信那一刻定下的昵称此后再也改不了 —— 那是只有入口没有出口 -->
+  <!-- 改名搬到自己那一屏（REDESIGN.md R5 · M6）：名字不是账户字段，
+       是村里的人怎么称呼你 —— 那一屏要给「叫起来什么样」的预览，
+       一行 input 旁边放不下。顺带这也是「我的」往回收一屏的一步。 -->
+  <view class="entry" bindtap="goName" hover-class="entry-hover" hover-stay-time="100">
+    <text class="entry-k">名字</text>
+    <text class="entry-v">{{nickname}}</text>
+    <text class="entry-arrow">›</text>
+  </view>
+
+  <view class="entries">
+    <view class="entry" bindtap="goOrders" hover-class="entry-hover" hover-stay-time="100">
+      <text class="entry-k">单</text>
+      <text class="entry-v">买过的、正在付的</text>
+      <text class="entry-arrow">›</text>
+    </view>
+    <view class="entry" bindtap="goBadges" hover-class="entry-hover" hover-stay-time="100">
+      <text class="entry-k">徽</text>
+      <text class="entry-v">{{badgeText}}</text>
+      <text class="entry-arrow">›</text>
+    </view>
+    <view class="entry" bindtap="goSubs" hover-class="entry-hover" hover-stay-time="100">
+      <text class="entry-k">订</text>
+      <text class="entry-v">{{subText}}</text>
+      <text class="entry-arrow">›</text>
+    </view>
+  </view>
+
+  <view class="cta">
+    <button class="btn ghost" bindtap="doLogout">退出并重新登录</button>
+  </view>
+
+  <view class="foot-hint">
+    不完人 v{{version}} · 仅供研究与娱乐
+  </view>
+</view>

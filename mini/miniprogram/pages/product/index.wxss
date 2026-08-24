@@ -1,0 +1,62 @@
+/* 沿用全局那几个变量与 .page / .hd / .btn，不另起一套 */
+.hd { padding: 24rpx 0 32rpx; }
+.hd .eyebrow { margin-bottom: 20rpx; }
+.hd .title { font-size: 96rpx; line-height: 1.1; margin: 8rpx 0 16rpx; }
+
+.loading, .err { padding: 80rpx 0; text-align: center; color: var(--stone-label); }
+.err-msg { margin-bottom: 28rpx; }
+
+.sub {
+  font-family: "Songti SC", serif;
+  font-size: 30rpx;
+  color: var(--stone-label);
+  line-height: 1.7;
+  margin-bottom: 28rpx;
+}
+
+.price-row { margin: 8rpx 0 28rpx; }
+.price {
+  font-family: "Songti SC", serif;
+  font-size: 60rpx;
+  color: var(--ink);
+}
+.price-none { font-size: 28rpx; color: var(--stone-label); }
+
+.tags { margin-bottom: 28rpx; }
+.tag {
+  display: inline-block;
+  font-size: 24rpx;
+  color: var(--stone-label);
+  border: 1rpx solid var(--stone-line);
+  border-radius: 6rpx;
+  padding: 4rpx 14rpx;
+  margin: 0 12rpx 12rpx 0;
+}
+
+.desc {
+  font-size: 28rpx;
+  color: var(--ink);
+  line-height: 1.9;
+  margin-bottom: 32rpx;
+}
+
+.ship {
+  font-size: 26rpx;
+  color: var(--stone-label);
+  line-height: 1.8;
+  border-top: 1rpx solid var(--stone-line);
+  padding-top: 24rpx;
+  margin-bottom: 40rpx;
+}
+
+.cta { display: flex; gap: 20rpx; }
+.cta .btn { flex: 1; }
+
+.foot-hint {
+  margin-top: 32rpx;
+  text-align: center;
+  font-size: 22rpx;
+  color: var(--stone-label);
+}
+
+.note { margin: 20rpx 0; font-size: 26rpx; color: var(--stone-label); }

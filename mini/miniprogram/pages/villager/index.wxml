@@ -1,0 +1,59 @@
+<view class="page">
+  <view class="loading" wx:if="{{loading}}">取着……</view>
+
+  <view class="err" wx:elif="{{err}}">
+    <view class="err-msg">{{err}}</view>
+    <button class="btn ghost" bindtap="onBack">回村里</button>
+  </view>
+
+  <block wx:else>
+    <view class="hd">
+      <view class="name">{{who.name}}</view>
+      <view class="title" wx:if="{{who.title}}">{{who.title}}</view>
+    </view>
+
+    <!-- 「缺」是这个产品的身份字段，所以它单独占一行、字最大 -->
+    <view class="lack-row">
+      <text class="lack-k">他缺的是</text>
+      <text class="lack-v">{{who.lack}}</text>
+    </view>
+
+    <view class="hr"></view>
+
+    <view class="meta">
+      <view class="meta-row" wx:if="{{who.art}}">
+        <text class="meta-k">会这一门</text><text class="meta-v">{{who.art}}</text>
+      </view>
+      <view class="meta-row" wx:if="{{who.rarity}}">
+        <text class="meta-k">稀有度</text><text class="meta-v">{{who.rarity}}</text>
+      </view>
+      <view class="meta-row">
+        <text class="meta-k">住下了吗</text>
+        <text class="meta-v">{{who.at_home ? '住着' : '还没请来'}}</text>
+      </view>
+    </view>
+
+    <!-- 问签的结果。同一天问同一位逐字相同 —— 那是设定，不是缓存 -->
+    <view class="reading" wx:if="{{say}}">
+      <view class="reading-k">他说</view>
+      <view class="reading-v">{{say}}</view>
+    </view>
+
+    <view class="acts">
+      <block wx:if="{{who.at_home}}">
+        <button class="btn" bindtap="onAsk">{{asking ? '问着……' : '问事'}}</button>
+        <button class="btn ghost" wx:if="{{canEnter}}" bindtap="onEnter">去他家坐坐</button>
+        <view class="hint" wx:else>屋子还没搬进来</view>
+      </block>
+      <block wx:else>
+        <!-- 没请回家不给问签 —— 那是设定不是权限，所以不给这颗按钮，
+             而不是点了再报错 -->
+        <button class="btn" bindtap="goInvite">{{inviting ? '找着……' : '请他来'}}</button>
+      </block>
+    </view>
+
+    <view class="cta">
+      <button class="btn ghost" bindtap="onBack">回村里</button>
+    </view>
+  </block>
+</view>

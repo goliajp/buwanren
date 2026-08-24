@@ -1,0 +1,125 @@
+# unmei · 商业级标杆 docker-compose v2
+# 一行起整套:
+#   postgres18 / unmei-api(:6028) / unmei-admin-api(:6029) / webadmin(:6030 nginx)
+# 缓存层 kevy-embedded 跑在 api 进程内 · 无独立容器
+# mingli-api(:6027,算力源)留在宿主跑,通过 host.docker.internal 调用
+#
+# Backend image 共享 deps cache:单一 `infra/Dockerfile` build 输出两个 binary,
+# unmei-api / unmei-admin-api 复用同 image,通过 command 切 entrypoint。
+
+services:
+
+  postgres:
+    image: postgres:18-alpine
+    container_name: unmei-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-unmei}
+      POSTGRES_USER: ${POSTGRES_USER:-unmei}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-unmei_dev_pwd}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+      TZ: Asia/Shanghai
+    volumes:
+      - pg_data:/var/lib/postgresql
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+    ports:
+      - "${POSTGRES_PORT:-6032}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-unmei} -d ${POSTGRES_DB:-unmei}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [unmei_net]
+
+  unmei-api:
+    build:
+      context: ./backend
+      dockerfile: ../infra/Dockerfile
+    image: unmei/backend:dev
+    container_name: unmei-api
+    restart: unless-stopped
+    depends_on:
+      postgres: { condition: service_healthy }
+    command: ["/app/unmei-api"]
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-unmei}:${POSTGRES_PASSWORD:-unmei_dev_pwd}@postgres:5432/${POSTGRES_DB:-unmei}
+      UNMEI_CACHE_DIR: /var/lib/unmei/cache
+      MINGLI_API_BASE: ${MINGLI_API_BASE:-http://host.docker.internal:6027}
+      UNMEI_JWT_SECRET: ${UNMEI_JWT_SECRET:-dev_jwt_secret_change_me_in_prod_32chars}
+      UNMEI_API_BIND: 0.0.0.0:6028
+      WX_MP_APPID: ${WX_MP_APPID:-}
+      WX_MP_SECRET: ${WX_MP_SECRET:-}
+      # 没有默认值，且不该有：空 = 不放行 mock 登录。见 .env.example 那段
+      UNMEI_WX_MOCK: ${UNMEI_WX_MOCK:-}
+      # 同上：空 = 支付那个桩不许自动结算
+      UNMEI_PAY_STUB_AUTOSETTLE: ${UNMEI_PAY_STUB_AUTOSETTLE:-}
+      WX_PAY_MCHID: ${WX_PAY_MCHID:-}
+      KUAIDI100_CUSTOMER: ${KUAIDI100_CUSTOMER:-}
+      KUAIDI100_KEY: ${KUAIDI100_KEY:-}
+      RUST_LOG: ${RUST_LOG:-info,unmei_api=debug,unmei_wx=debug,sqlx=warn}
+    ports:
+      - "${UNMEI_API_PORT:-6028}:6028"
+    volumes:
+      - api_cache:/var/lib/unmei/cache
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:6028/v1/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+    networks: [unmei_net]
+
+  unmei-admin-api:
+    image: unmei/backend:dev
+    container_name: unmei-admin-api
+    restart: unless-stopped
+    depends_on:
+      postgres: { condition: service_healthy }
+      unmei-api: { condition: service_started }
+    command: ["/app/unmei-admin-api"]
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-unmei}:${POSTGRES_PASSWORD:-unmei_dev_pwd}@postgres:5432/${POSTGRES_DB:-unmei}
+      MINGLI_API_BASE: ${MINGLI_API_BASE:-http://host.docker.internal:6027}
+      UNMEI_ADMIN_JWT_SECRET: ${UNMEI_ADMIN_JWT_SECRET:-dev_admin_jwt_secret_change_me_in_prod_32chars}
+      UNMEI_ADMIN_API_BIND: 0.0.0.0:6029
+      RUST_LOG: ${RUST_LOG:-info,unmei_admin_api=debug,sqlx=warn}
+    ports:
+      - "${UNMEI_ADMIN_API_PORT:-6029}:6029"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:6029/admin/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+    networks: [unmei_net]
+
+  webadmin:
+    build:
+      context: ./webadmin
+      dockerfile: Dockerfile
+    image: unmei/webadmin:dev
+    container_name: unmei-webadmin
+    restart: unless-stopped
+    depends_on:
+      unmei-admin-api: { condition: service_started }
+    ports:
+      - "${WEBADMIN_PORT:-6030}:80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost/health.txt"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    networks: [unmei_net]
+
+volumes:
+  pg_data:
+  api_cache:
+
+networks:
+  unmei_net:
+    driver: bridge

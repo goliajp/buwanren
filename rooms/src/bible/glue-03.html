@@ -1,0 +1,53 @@
+
+  <section class="corpus" id="chardesign">
+    <header class="cp-top">
+      <span class="cp-no">B0</span>
+      <h2 class="cp-h">角色设计规范</h2>
+      <p class="cp-lead">以图鉴设计为<b>权威基准</b>（正面）。每角色 <b>大 / 中 / 小 × 正 / 左 / 右 / 背</b>·大在前，<b>行走动画</b>两帧步伐循环：正 = 向下走 · 背 = 向上走 · 左右 = 横走（斜向亦用左右，仅垂直上下用正 / 背）。用途：<b>大 = 首页 UI · 中 = 屋内 / 图鉴 / 页面 UI · 小 = 村子</b>。比例：小 2 · 中 3 · 大 4 px/格。此表为<b>单一数据源</b>，游戏 sprite 与之对齐。</p>
+      <span class="cp-count" id="cdCount">— 角色</span>
+    </header>
+    <div class="cd-grid" id="cdGrid"></div>
+
+    <div class="cp-sec"><span>LYING POSES</span><em>卧姿 · 与正/左/右/背同级的一档,睡觉行为专用</em></div>
+    <div class="wb">
+      <div class="wb-b"><span class="wb-k">三向</span><p><b>仰卧</b>(<code>sleepv</code> / <code>sleepv2</code>)与<b>侧卧</b>(<code>sleepside</code> / <code>sleepside2</code>)。侧卧只做一侧,<b>另一侧由 flip 得到</b>,与行走的左右一致。第二帧仅差被沿起伏一格 —— 呼吸要轻,幅度大了会变成抽动。</p></div>
+      <div class="wb-b"><span class="wb-k">规格</span><p>12 列 × 30 行 · <code>scale 8</code> → 96×240px。<b>头占 8 行,与站姿头高一致</b>;身长约为床长的 62%,躺上去才像占着这张床而不是坐在一小块上。</p></div>
+      <div class="wb-b"><span class="wb-k">解剖顺序</span><p>发顶 → 鬓角 → 额 → 闭眼 → 鼻梁 → 嘴 → 下巴 → 颈 → 肩 → 被沿 → 被面。<b>侧卧另加:后脑朝一侧、只露半张脸、被下身形窄一列</b>(侧身占地本就窄)。</p></div>
+      <div class="wb-b"><span class="wb-k">用法</span><p>睡在家具上时必须 <code>attach</code> 到宿主并给足 <code>zBias</code>,否则会被它正躺着的那件家具盖住。行为侧用 <code>sleepAt</code> 声明躺位,<b>寻路终点留在床外</b> —— 人不该在床上走。</p></div>
+      <div class="wb-b"><span class="wb-k">注意</span><p><code>ACTORS</code> 通过 getter <b>引用</b> <code>POSES</code>,姿态只需在 <code>pdef</code> 处写一次 —— 早期的快照写法已废弃。但<b>姿态名写错仍会静默回退成 <code>stand</code></b>,不报错:改名或新增后要把键取回来确认命中真图,别只看页面有没有报错。</p></div>
+    </div>
+    <div style="display:flex;gap:26px;padding:14px 0 4px;align-items:flex-end;flex-wrap:wrap" id="lieSheet"></div>
+
+    <div class="spec-block">
+      <h4>猫 · 绘制规范</h4>
+      <p><b>像素密度必须与人一致</b>。阿云 <code>scale: 8</code>,猫也必须是 8 —— 颗粒不同大,两者就不像一个世界里的东西。这条优先于一切构图考虑。</p>
+      <p><b>不按真实比例</b>。真猫约人的 1/3 高,在 scale 8 下只剩 5 格,那个分辨率画不出可辨识的猫 —— 头身腿会糊成一条。取像素游戏的通行做法:放大到约人的 <b>2/3</b>(坐姿 12 格 ≈ 96px),让剪影有地方成立。</p>
+      <p><b>剪影四要素</b>,缺一就不像猫,加再多细节也救不回来:</p>
+      <ul>
+        <li><b>耳</b> — 两只分开的实心三角,中间留出头顶。写成孤立描边点(<code>..K...K.</code>)是最常见的失败</li>
+        <li><b>颈</b> — 头与身之间必须收窄一格,否则是个方块不是动物</li>
+        <li><b>尾</b> — 长度接近体长,沿一侧上翘,末端出轮廓。没有尾巴的猫是老鼠</li>
+        <li><b>腿</b> — 站/走姿两腿之间必须留出空隙,让人看得出有四条腿</li>
+      </ul>
+      <p><b>配色</b>(共用阿云调色板):<code>O</code> 橙毛 · <code>C</code> 深橙耳内 · <code>E</code> 绿眼 · <code>P</code> 粉鼻 · <code>W</code> 胸口与前爪白 · <code>K</code> 描边。白色只用在胸口、嘴周、爪尖 —— 这三处是橘猫的天然分布,乱撒会变成花猫。</p>
+      <p><b>落地点</b>用 <code>footMode: 'bottom'</code>,按 sprite 自身底边中心。猫的姿态尺寸差异大(坐 12 格高、卧 7 格高),固定 <code>foot</code> 必然让其中一个悬空。</p>
+    </div>
+
+    <div class="cp-sec"><span>NAMING</span><em>命名规范 · 三条,开新房前先对照</em></div>
+    <div class="wb">
+      <div class="wb-b"><span class="wb-k">① 画布</span><p><code>&lt;角色id&gt;Canvas</code>。角色 id 见 B9:<code>ayun</code> / <code>tao</code> / <code>popo</code> / <code>tenz</code>。<br/>房间的画布跟着住在里面的人走,不叫 <code>roomCanvas</code> 也不按序号排 —— 36 间村民屋一旦按序号命名,改动时没人认得出动的是谁家。</p></div>
+      <div class="wb-b"><span class="wb-k">② 姿态</span><p><code>{动作}{方向}{帧号}</code>,方向只用 <code>side</code> / <code>front</code> / <code>back</code>。<br/>侧走三帧按<b>时序</b>编号,循环走 <code>1 → 2 → 3 → 2</code>:<code>walkside1</code>(触地)· <code>walkside2</code>(过渡)· <code>walkside3</code>(另一侧触地)。正走 <code>walkfront1/2</code>,背走 <code>walkback1/2</code>,站姿 <code>standside</code> / <code>standback</code>。<br/><b>不留别名</b>。<code>walkmid</code> / <code>walk1</code> / <code>walkdown1</code> 这类旧名一律换掉 —— 两套名字并存,第三间房就会长出第三套。<br/><b>例外</b>:<code>stand</code> 不带方向,它是引擎的兜底姿态(<code>actorSprite</code> 找不到姿态时回退到它),按正面理解。</p></div>
+      <div class="wb-b"><span class="wb-k">③ 素材</span><p><code>&lt;房间前缀&gt;_&lt;物件&gt;</code>,如 <code>tao_bed</code> / <code>tao_swing</code>。跨房通用的件用 <code>scope: 'generic'</code> 标注,前缀保留它出生的那间房(<code>fromRoom</code>)。</p></div>
+      <div class="wb-b"><span class="wb-k">尚未收敛</span><p>规范是全局的,但下面几处还没改到位,<b>开工前别照抄它们</b>:<br/>· 婆婆 / 丹增两间仍是 <code>walk1</code> / <code>walk2</code> / <code>walkmid</code>,随该房的素材化一起改;<br/>· 动物姿态走物种前缀(<code>cwalk1</code> 猫 · <code>dsw1</code>/<code>ddn1</code>/<code>dup1</code> 金毛 · <code>rhop1</code> 兔),其中金毛的 <code>sw</code>/<code>dn</code>/<code>up</code> 其实就是 side/front/back;<br/>· 卧姿 <code>sleepv</code> 的 <code>v</code> 是体位不是朝向,不在 side/front/back 之列。</p></div>
+      <div class="wb-b"><span class="wb-k">改名怎么验</span><p>姿态查不到时 <code>actorSprite</code> <b>静默回退到 <code>stand</code></b>,不抛错 —— 所以改名之后<b>光看页面不报错说明不了任何事</b>。逐个取一遍 <code>window.AYUN_POSES</code> / <code>TAO_POSES</code> 的键确认都在,再跑 <code>tools/regress.js check</code> 比指纹。</p></div>
+    </div>
+
+    <div class="cp-sec"><span>POSE AUTHORING</span><em>新增姿态的两条硬规则 · 全角色适用,不限卧姿</em></div>
+    <div class="wb">
+      <div class="wb-b"><span class="wb-k">① 头部整段复用</span><p>新姿态<b>不得另画头</b>,须从既有姿态逐行照搬:朝上/朝前用 <code>stand</code> 的头,朝侧用 <code>standside</code> 的头,只新画脖子以下。<br/><b>为什么</b>:卧姿初版我自画了一个头 —— 脸更窄、眼鼻换了字符、没有发髻和鬓角,床上躺的看着像另一个人。角色一致性会在每个自画的新姿态上流失一点,而这种流失不会报错,只会越来越不像。</p></div>
+      <div class="wb-b"><span class="wb-k">② 身体对齐头轴,宁可加宽</span><p>复用头部后,身体<b>必须对齐该头的中轴</b>。站姿头占 2–11 列(轴 6.5)、侧站头占 1–9 列(轴 5),各自不同,不能想当然按 sprite 居中。<br/><b>宽度不够时加宽身体,不要挪头</b> —— 挪位是让被子迁就头,加宽是让被子把头包住,后者才是被子该有的样子。<br/><b>容差</b>:半列(4px @scale8)的偏移就足以读成歪脖子。</p></div>
+      <div class="wb-b"><span class="wb-k">③ 侧向一律朝右</span><p>所有<b>侧向</b> sprite(走/站/跑/跳)一律<b>画成面朝右</b>。房间给的 <code>flip</code> 统一表示「朝向行进的反方向」,即 <code>flip = 目标在左</code>。<br/><b>为什么</b>:基准朝向曾经发散 —— 阿云朝右、猫与兔朝左,金毛也朝左却按朝右的规则写 <code>flip</code>,于是走路方向整个反过来。猫和兔当时是「基准反了 + flip 也反了」两处错误互相抵消,看着对,实则随时会被下一个人改坏。<br/><b>校验方式</b>:不许目视判断 —— 用 <code>tools/facecheck.js</code> 或量眼睛像素的横向质心(&gt;0.5 即朝右)。此处的注释本身就曾写着「默认朝左」而实际朝右,照着注释改只会改反。<br/><b>兜底</b>:确实无法重画的素材可在角色资源上声明 <code>baseFacing:'left'</code>,引擎补一次镜像;但这是例外,不是许可。</p></div>
+      <div class="wb-b"><span class="wb-k">④ 只需写一处</span><p>角色资源现在<b>引用</b><code>window.AYUN_POSES</code>(即房间的 <code>POSES</code>),不再各存一份快照 —— 新姿态在 <code>pdef</code> 处写一次即可,<code>ACTORS</code> 自动可见。<br/><b>此前</b>是拷贝式,漏写一边会静默回退成 <code>stand</code>:不抛错、不告警,只是人物忽然站着"躺"在床上。该陷阱已从根上移除。</p></div>
+    </div>
+  </section>
+  

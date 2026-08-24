@@ -1,0 +1,11 @@
+.hd { padding: 24rpx 0 32rpx; }
+.hd .eyebrow { margin-bottom: 20rpx; }
+.hd .title { font-size: 128rpx; line-height: 1; margin: 8rpx 0 16rpx; }
+.loading, .err, .empty { padding: 80rpx 0; text-align: center; color: var(--stone-label); }
+.err-msg { margin-bottom: 28rpx; }
+.item { border-top: 1rpx solid var(--stone-line); padding: 28rpx 0; }
+.item-hover { background: var(--paper-inset); }
+.item-top { display: flex; justify-content: space-between; align-items: baseline; }
+.item-status { font-family: "Songti SC", serif; font-size: 34rpx; color: var(--ink); }
+.item-total { font-family: "Songti SC", serif; font-size: 34rpx; color: var(--ink); }
+.item-id { font-size: 20rpx; color: var(--stone-label); margin-top: 12rpx; }

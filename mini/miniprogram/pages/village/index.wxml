@@ -1,0 +1,22 @@
+<view class="wrap">
+  <view class="hd">
+    <text class="sub">{{sub}}</text>
+    <text class="count">收集 {{lived}}/{{total}}</text>
+    <view class="scan" bindtap="onScan">扫御守</view>
+  </view>
+
+  <!-- type="2d" 是必须的:旧版 canvas 拿不到 node,也就没有 requestAnimationFrame -->
+  <canvas
+    type="2d"
+    id="village"
+    class="village"
+    style="width:{{cssW}}px;height:{{cssH}}px"
+    bindtap="onTap"
+  ></canvas>
+
+  <!-- 卡片那套删了（docs/REDESIGN.md R2）：点中之后开一屏。
+       问签、进屋、请他来都搬到 `pages/villager`，空屋搬到 `pages/plot` ——
+       留着一个永远不会被填充的卡片，就是「实现完整、零调用方」。 -->
+
+  <view wx:if="{{err}}" class="err">{{err}}</view>
+</view>

@@ -1,0 +1,33 @@
+<view class="page">
+  <view class="hd">
+    <view class="eyebrow">BUWANREN · BADGES</view>
+    <view class="title">徽</view>
+    <view class="hr"></view>
+  </view>
+
+  <view class="loading" wx:if="{{loading}}">取着……</view>
+
+  <view class="err" wx:elif="{{err}}">
+    <view class="err-msg">{{err}}</view>
+    <button class="btn ghost" bindtap="load">再试一次</button>
+  </view>
+
+  <block wx:else>
+    <view class="count">{{got}} / {{all}}</view>
+
+    <!-- 2 × 3 网格。库里就是六枚（当场数的），一屏放得下，不必滚
+         （设计 10.3）。灰的那几枚写着怎么得 —— 条件不藏着。 -->
+    <view class="grid">
+      <view wx:for="{{items}}" wx:key="id" class="badge {{item.earned ? 'got' : ''}}">
+        <view class="badge-name">{{item.name}}</view>
+        <view class="badge-desc">{{item.description}}</view>
+        <view class="badge-when" wx:if="{{item.earned}}">{{item.earned_at}} 得</view>
+        <view class="badge-when" wx:else>还没得到</view>
+      </view>
+    </view>
+  </block>
+
+  <view class="cta">
+    <button class="btn ghost" bindtap="onBack">回去</button>
+  </view>
+</view>

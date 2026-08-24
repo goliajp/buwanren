@@ -1,0 +1,14 @@
+.wrap { display: flex; flex-direction: column; align-items: center;
+        background: #efece6; min-height: 100vh; }
+/* 舞台吃掉纵向富余,画布整幅居中放在里面(尺寸由 index.ts 算,理由写在那儿)。 */
+.stage { flex: 1 1 auto; min-height: 0; width: 100%;
+         display: flex; align-items: center; justify-content: center; }
+.room { display: block; }
+/* 高度写死:它直接决定画布能有多高(见 index.ts 里那段)。
+   随内容浮动的话,多一颗「收课」按钮就少一截房间。 */
+.bar { display: flex; align-items: center; gap: 24rpx; height: 96rpx;
+       padding: 0 32rpx; width: 100%; box-sizing: border-box; flex: 0 0 auto; }
+.who { font-size: 30rpx; color: #3a352e; }
+.cast { margin-left: auto; padding: 12rpx 32rpx; border-radius: 8rpx;
+        background: #3a352e; color: #f0ede7; font-size: 28rpx; }
+.err { padding: 32rpx; color: #9a3b3b; font-size: 26rpx; line-height: 1.7; }

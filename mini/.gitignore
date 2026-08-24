@@ -1,0 +1,23 @@
+# wx 开发者工具本地私有配置
+project.private.config.json
+
+# npm
+node_modules/
+package-lock.json
+
+# TS 编译产物(in-place 编译时是 .js 同名文件,不忽略;这里防 outDir 兜底)
+dist/
+
+# wx 开发者工具产物
+miniprogram/miniprogram_npm/
+
+# 引擎产物 —— 由 rooms/ 生成,不入库(单一来源是 rooms/src)
+#   npm run build:engine
+# 生成物入库的话,改了 rooms/src 而忘了重新生成就会有两份不一样的引擎,
+# 而差异只在真机上看得见。
+miniprogram/engine/
+
+# 编辑器
+.DS_Store
+*.swp
+*.log

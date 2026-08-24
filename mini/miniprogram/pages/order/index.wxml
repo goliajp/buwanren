@@ -1,0 +1,76 @@
+<view class="page">
+  <view class="hd">
+    <view class="eyebrow">BUWANREN · ORDER</view>
+    <view class="title">{{statusText || '　'}}</view>
+    <view class="hr"></view>
+  </view>
+
+  <view class="loading" wx:if="{{loading}}">取着……</view>
+
+  <view class="err" wx:elif="{{err}}">
+    <view class="err-msg">{{err}}</view>
+    <button class="btn ghost" bindtap="load">再试一次</button>
+  </view>
+
+  <block wx:else>
+    <view class="lines">
+      <view wx:for="{{lines}}" wx:key="name" class="line">
+        <text class="line-name">{{item.name}}</text>
+        <text class="line-qty">×{{item.qty}}</text>
+        <text class="line-sub">{{item.sub}}</text>
+      </view>
+    </view>
+
+    <view class="sum">
+      <view class="sum-row"><text class="sum-k">合计</text><text class="sum-v">{{totalText}}</text></view>
+      <view class="sum-row"><text class="sum-k">已付</text><text class="sum-v">{{paidText}}</text></view>
+    </view>
+
+    <view class="ship" wx:if="{{shipErr}}">
+      <view class="ship-k">寄出</view>
+      <view class="pkg-no">{{shipErr}}</view>
+      <text class="pkg-arrow" bindtap="loadShipments">再试一次</text>
+    </view>
+
+    <view class="ship" wx:elif="{{shipments.length}}">
+      <view class="ship-k">寄出</view>
+      <view wx:for="{{shipments}}" wx:key="id" class="pkg"
+            data-sid="{{item.id}}" bindtap="onTrace"
+            hover-class="pkg-hover" hover-stay-time="100">
+        <view class="pkg-top">
+          <text class="pkg-status">{{item.statusText}}</text>
+          <text class="pkg-arrow">{{traceOf === item.id ? '收起' : '看轨迹'}}</text>
+        </view>
+        <view class="pkg-no" wx:if="{{item.tracking_no}}">
+          {{item.carrier_code}} · {{item.tracking_no}}
+        </view>
+        <view class="pkg-no" wx:else>还没有单号</view>
+
+        <block wx:if="{{traceOf === item.id}}">
+          <view wx:for="{{trace}}" wx:for-item="ev" wx:key="时间" class="trace">
+            <text class="trace-t">{{ev.时间}}</text>
+            <text class="trace-s">{{ev.说}}</text>
+            <text class="trace-l" wx:if="{{ev.在}}">{{ev.在}}</text>
+          </view>
+          <view class="trace-empty" wx:if="{{trace.length === 0}}">还没有轨迹</view>
+        </block>
+      </view>
+    </view>
+
+    <view class="note" wx:if="{{note}}">{{note}}</view>
+
+    <view class="cta">
+      <button wx:if="{{status === 'unpaid'}}" class="btn" bindtap="onPay" disabled="{{paying}}">
+        {{paying ? '发起中……' : '去支付'}}
+      </button>
+      <button wx:if="{{status === 'unpaid'}}" class="btn ghost" bindtap="onCancel">不要了</button>
+      <button wx:if="{{status === 'paid' || status === 'fulfilling' || status === 'done'}}"
+              class="btn ghost" bindtap="onRefund" disabled="{{refunding}}">
+        {{refunding ? '申请中……' : '申请退款'}}
+      </button>
+      <button class="btn ghost" bindtap="onBack">回去</button>
+    </view>
+
+    <view class="foot-hint">支付要在微信里完成 · 移动网页版上到这一步为止</view>
+  </block>
+</view>

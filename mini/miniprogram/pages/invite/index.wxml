@@ -1,0 +1,46 @@
+<view class="page">
+  <view class="hd">
+    <view class="title">谁能来</view>
+    <!-- 有本命就说清为什么是这几位；没有就不编理由 -->
+    <view class="why" wx:if="{{lack}}">你缺「{{lack}}」，下面这几位跟你补得上</view>
+    <view class="why" wx:elif="{{lackErr}}">{{lackErr}}</view>
+    <view class="why" wx:else>先填生辰，这里就能按你缺的排</view>
+    <view class="hr"></view>
+  </view>
+
+  <view class="loading" wx:if="{{loading}}">取着……</view>
+
+  <view class="err" wx:elif="{{err}}">
+    <view class="err-msg">{{err}}</view>
+    <button class="btn ghost" bindtap="load">再试一次</button>
+  </view>
+
+  <block wx:else>
+    <!-- 空不是问题，说不清哪儿能有才是 -->
+    <view class="empty" wx:if="{{items.length === 0}}">
+      <view class="empty-t">眼下一位也请不来</view>
+      <view class="empty-sub">四十位都还在路上 —— 有人上架会告诉你</view>
+    </view>
+
+    <view class="list">
+      <view wx:for="{{page}}" wx:key="id" class="item"
+            data-id="{{item.id}}" bindtap="onTap"
+            hover-class="item-hover" hover-stay-time="100">
+        <view class="item-name">{{item.name}}</view>
+        <view class="item-sub" wx:if="{{item.sub_title}}">{{item.sub_title}}</view>
+        <view class="item-meta">请他来 <text class="arrow">›</text></view>
+      </view>
+    </view>
+
+    <!-- 翻页代替竖向滚动：一页五位，一屏放得下 -->
+    <view class="pager" wx:if="{{pageCount > 1}}">
+      <view class="pg {{pageNo === 0 ? 'pg-off' : ''}}" bindtap="onPrev">‹ 上一页</view>
+      <text class="pg-n">{{pageNo + 1}} / {{pageCount}}</text>
+      <view class="pg {{pageNo + 1 >= pageCount ? 'pg-off' : ''}}" bindtap="onNext">下一页 ›</view>
+    </view>
+
+    <view class="foot" wx:if="{{items.length > 0}}">
+      买下之后寄一枚实物到你手上 · 扫开它，他就住进来
+    </view>
+  </block>
+</view>

@@ -1,0 +1,47 @@
+<view class="page">
+  <view class="hd">
+    <view class="eyebrow">一件</view>
+    <view class="title">{{name || '　'}}</view>
+    <view class="hr"></view>
+  </view>
+
+  <view class="loading" wx:if="{{loading}}">取着……</view>
+
+  <view class="err" wx:elif="{{err}}">
+    <view class="err-msg">{{err}}</view>
+    <button class="btn ghost" bindtap="load">再试一次</button>
+  </view>
+
+  <block wx:else>
+    <view class="sub" wx:if="{{subTitle}}">{{subTitle}}</view>
+
+    <view class="price-row">
+      <text class="price" wx:if="{{price}}">{{price}}</text>
+      <text class="price-none" wx:else>这个区暂时没有定价</text>
+    </view>
+
+    <view class="tags" wx:if="{{tags.length}}">
+      <text wx:for="{{tags}}" wx:key="*this" class="tag">{{item}}</text>
+    </view>
+
+    <view class="desc" wx:if="{{desc}}">{{desc}}</view>
+
+    <view class="ship" wx:if="{{fulfillment === 'residency'}}">
+      买下之后寄一枚实物御守给你，扫开它，这位不完人就住进你的村子
+    </view>
+    <view class="ship" wx:elif="{{fulfillment === 'shipping'}}">实物，会寄给你</view>
+    <view class="ship" wx:elif="{{fulfillment === 'async_compute'}}">下单后算，算完在这里看</view>
+
+    <view class="note" wx:if="{{note}}">{{note}}</view>
+
+    <view class="cta">
+      <!-- 「买」不再是下单，是去确认那一屏（R5 · P2）—— 文案跟着改，
+           不然按钮说的跟它做的不是一回事 -->
+      <button class="btn" bindtap="onBuy" disabled="{{!skuId}}">
+        {{skuId ? '请他来' : '暂时买不了'}}
+      </button>
+      <button class="btn ghost" bindtap="onBack">回去</button>
+    </view>
+    <view class="foot-hint">下单后在「单」里付款 · 支付要在微信里完成</view>
+  </block>
+</view>

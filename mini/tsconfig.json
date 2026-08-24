@@ -1,0 +1,34 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "removeComments": false,
+    "sourceMap": true,
+    "declaration": false,
+    "resolveJsonModule": true,
+    // miniprogram-api-typings 装在 node_modules/ 根下而不是 @types/ 下,
+    // typeRoots 漏了它 tsc 就报 TS2688 —— npm run check 因此一直跑不通
+    "typeRoots": ["./node_modules", "./node_modules/@types", "./typings"],
+    "types": ["miniprogram-api-typings"],
+    "lib": ["ES2020"]
+  },
+  "include": [
+    "miniprogram/**/*.ts",
+    "typings/**/*.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "miniprogram/miniprogram_npm"
+  ]
+}

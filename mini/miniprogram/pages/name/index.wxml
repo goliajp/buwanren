@@ -1,0 +1,27 @@
+<view class="page">
+  <view class="hd">
+    <view class="title">名字</view>
+    <view class="sub">村里的人会这么叫你</view>
+  </view>
+
+  <input class="name-input" type="nickname" value="{{draft}}"
+         placeholder="换一个名字" bindinput="onInput"/>
+  <view class="hint">两到十二个字 · 随时能改</view>
+
+  <view class="note" wx:if="{{note}}">{{note}}</view>
+
+  <!-- 名字不是账户字段，是别人怎么称呼你 —— 所以要看得见叫起来什么样 -->
+  <view class="hr"></view>
+  <view class="preview-k">叫起来是这样</view>
+  <view class="preview">
+    <view class="who">婆婆</view>
+    <view class="line">「{{draft || nickname}}，别急，慢慢来」</view>
+    <view class="who">苏合</view>
+    <view class="line">「{{draft || nickname}}，这一味给你留着」</view>
+  </view>
+
+  <view class="acts">
+    <button class="btn" bindtap="save" disabled="{{saving}}">{{saving ? '存着……' : '存下'}}</button>
+    <button class="btn ghost" bindtap="onBack">回去</button>
+  </view>
+</view>

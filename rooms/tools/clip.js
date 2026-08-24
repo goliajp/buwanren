@@ -1,0 +1,15 @@
+const { chromium } = require('playwright')
+const [FILE, SEL, DY, H, OUT] = [process.argv[2], process.argv[3], +process.argv[4], +process.argv[5], process.argv[6]||'clip']
+;(async () => {
+  const b = await chromium.launch({ channel: 'chrome' })
+  const p = await b.newPage({ viewport: { width: 1200, height: 1000 } })
+  await p.goto('file://' + require('path').resolve(FILE))
+  await p.waitForTimeout(3500)
+  const el = p.locator(SEL).first()
+  await el.evaluate((n, dy) => { const b = n.getBoundingClientRect(); window.scrollTo(0, window.scrollY + b.top + dy - 20) }, DY)
+  await p.waitForTimeout(400)
+  const box = await el.boundingBox()
+  await p.screenshot({ path: '/tmp/rules/' + OUT + '.png', clip: { x: box.x, y: Math.max(0, box.y + DY), width: Math.min(box.width, 1200 - box.x), height: H } })
+  console.log('✓ /tmp/rules/' + OUT + '.png  (元素 y=' + Math.round(box.y) + ', 截 +' + DY + ' 起 ' + H + 'px)')
+  await b.close()
+})()

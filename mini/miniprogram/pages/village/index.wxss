@@ -1,0 +1,20 @@
+.wrap { display: flex; flex-direction: column; align-items: center;
+        background: #efece6; min-height: 100vh; }
+.hd { display: flex; width: 100%; box-sizing: border-box;
+      padding: 20rpx 32rpx; align-items: baseline; gap: 20rpx; }
+.sub { font-size: 26rpx; color: #6b6459; }
+.count { margin-left: auto; font-size: 26rpx; color: #3a352e; }
+/* 画布的像素尺寸由村子声明(VILLAGE_SIZE),这里只管它在屏幕上占多大 */
+.village { display: block; }
+.card { width: 100%; box-sizing: border-box; padding: 24rpx 32rpx;
+        display: flex; align-items: center; gap: 24rpx; }
+.who { font-size: 30rpx; color: #3a352e; }
+.acts { margin-left: auto; display: flex; gap: 16rpx; }
+.act { padding: 12rpx 32rpx; border-radius: 8rpx;
+       background: #3a352e; color: #f0ede7; font-size: 28rpx; }
+.err { padding: 32rpx; color: #9a3b3b; font-size: 26rpx; line-height: 1.7; }
+.scan { margin-left: 16rpx; padding: 8rpx 20rpx; border-radius: 6rpx;
+        border: 1rpx solid #c4bdb1; color: #6b6459; font-size: 24rpx; }
+.hint { color: #9a938a; font-size: 26rpx; }
+.say { margin: 0 32rpx 32rpx; padding: 24rpx 28rpx; border-radius: 10rpx;
+       background: #faf7f1; color: #3a352e; font-size: 30rpx; line-height: 1.8; }

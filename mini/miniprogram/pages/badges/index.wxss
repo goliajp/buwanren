@@ -1,0 +1,22 @@
+.hd { padding: 24rpx 0 32rpx; }
+.hd .eyebrow { margin-bottom: 20rpx; }
+.hd .title { font-size: 128rpx; line-height: 1; margin: 8rpx 0 16rpx; }
+.loading, .err { padding: 80rpx 0; text-align: center; color: var(--stone-label); }
+.err-msg { margin-bottom: 28rpx; }
+.count { font-family: "Songti SC", serif; font-size: 44rpx; color: var(--ink); margin-bottom: 28rpx; }
+.badge { border-top: 1rpx solid var(--stone-line); padding: 26rpx 0; opacity: 0.45; }
+.badge.got { opacity: 1; }
+.badge-top { display: flex; justify-content: space-between; align-items: baseline; }
+.badge-name { font-family: "Songti SC", serif; font-size: 34rpx; color: var(--ink); }
+.badge-pt { font-size: 22rpx; color: var(--stone-label); }
+.badge-desc { font-size: 26rpx; color: var(--stone-label); margin-top: 10rpx; line-height: 1.6; }
+.badge-when { font-size: 22rpx; color: var(--stone-label); margin-top: 10rpx; }
+.cta { margin-top: 40rpx; }
+
+/* 六枚排 2 × 3，一屏放得下（设计 10.3）。原先是竖排列表，
+   六枚就把一屏撑出 264px —— 而滚动在小程序里没有任何提示。 */
+.grid { display: flex; flex-wrap: wrap; gap: 16rpx; margin-top: 24rpx; }
+.grid .badge { width: calc((100% - 32rpx) / 3); box-sizing: border-box; padding: 16rpx 12rpx; margin: 0; }
+.grid .badge-name { font-size: 24rpx; font-weight: 600; line-height: 1.35; }
+.grid .badge-desc { font-size: 20rpx; color: #767676; margin-top: 8rpx; line-height: 1.4; }
+.grid .badge-when { font-size: 18rpx; color: #999; margin-top: 8rpx; }
