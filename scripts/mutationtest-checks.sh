@@ -45,6 +45,7 @@ FILES=(
   mini/miniprogram/pages/ask/index.wxml
   backend/seed/seed.sql
   backend/unmei-admin-api/src/routes/commerce.rs
+  backend/unmei-admin-api/src/routes/auth.rs
   backend/migrations/20260817003_residency.sql
   # 2026-08-23:后加的那四支门禁,原先只在写它们那一天手动验过一次 ——
   # 而那种验证只存在于当时那次会话里,正是这支脚本存在的理由。
@@ -426,10 +427,22 @@ echo "── check-admin-roles（后台写操作查角色了吗）──"
 # 变异要【真的给它加上角色检查】。头一版是把函数改名 —— 那样检查器根本
 # 找不到函数体，判出来还是「没查角色」,等于什么都没变。
 # 变异挑错动作时,报出来的是「门禁没抓到」,而实际是这条变异没碰到它管的东西。
-mutate "台账里的某条忽然查起角色来了" check-admin-roles \
-  "edit('backend/unmei-admin-api/src/routes/commerce.rs', '    app_refund::approve(&st.db, &id, &Actor::admin(&admin.0.sub)).await?;', '    admin.requires_role(\"finance\")?;\\n    app_refund::approve(&st.db, &id, &Actor::admin(&admin.0.sub)).await?;')"
+# 2026-08-26 分工表接线之后这两条重写了。
+# 旧的两条是「给 approve_refund 加上角色检查」与「新加一条指向 retry_outbox 的路由」——
+# 那两个处理器现在【本来就查角色】，所以两条变异都变成了「什么都没改」。
+# 脚本报的是「门禁没抓到」，而实际是变异没碰到它管的东西：
+# 变异挑错动作时，长得跟门禁退化一模一样。
+#
+# 现在两条各守一个方向。
+mutate "有人把一条角色检查删掉了" check-admin-roles \
+  "edit('backend/unmei-admin-api/src/routes/commerce.rs', '    admin.requires_role(\"operator\")?;    // 重推事件是运维动作\\n', '')"
 mutate "新加一条没查角色的写操作" check-admin-roles \
-  "edit('backend/unmei-admin-api/src/routes/commerce.rs', '        .route(\"/admin/commerce/outbox/:id/retry\",                  post(retry_outbox))', '        .route(\"/admin/commerce/outbox/:id/retry\",                  post(retry_outbox))\\n        .route(\"/admin/commerce/danger/:id/wipe\", post(retry_outbox))')"
+  "edit('backend/unmei-admin-api/src/routes/commerce.rs', '        .route(\"/admin/commerce/outbox/:id/retry\",                  post(retry_outbox))', '        .route(\"/admin/commerce/outbox/:id/retry\",                  post(retry_outbox))\\n        .route(\"/admin/commerce/danger/:id/wipe\", post(danger_wipe))')"
+# 反方向：台账里记着的那条【自己】查起角色来了，台账就该划掉。
+# 登录是台账里唯一一条 —— 给它插一行 requires_role（Rust 编不过，但变异不编译，
+# 门禁只读文本），门禁必须报「这一条该划掉」。
+mutate "台账里那条忽然查起角色来了" check-admin-roles \
+  "edit('backend/unmei-admin-api/src/routes/auth.rs', ') -> Result<Json<serde_json::Value>, ApiError> {\\n    let row = sqlx::query(', ') -> Result<Json<serde_json::Value>, ApiError> {\\n    admin.requires_role(\"super\")?;\\n    let row = sqlx::query(')"
 
 echo
 echo "── tsc（类型）──"
