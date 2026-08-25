@@ -34,7 +34,36 @@ function roomScript(base) {
   const p = await b.newPage()
   const errs = []
   p.on('pageerror', e => errs.push(String(e.message).slice(0, 120)))
-  await p.goto('file://' + require('path').resolve(FILE)); await p.waitForTimeout(3500)
+  await p.goto('file://' + require('path').resolve(FILE))
+  /* 等【房间真出现】,不是等一个固定的毫秒数。
+
+     原先是 `waitForTimeout(3500)`。房间是从 window 上扫 `*_ROOM` 来的 ——
+     页面没在这 3500ms 里跑完,那张表就是空的,底下四个模块整个跳过,
+     problems 停在 0,最后打印「✓ 四模块全过」。
+     **看不见任何东西,报的却是全过。**
+     这台机器同时跑着别的活儿时它就这样绿了三轮,而那三轮里
+     真实的问题一件也没被量到。
+
+     所以改两处:等到房间与它们的命中函数都就位再量;等不到就报红,
+     不再把「够不着」说成「过了」。 */
+  const 就位 = await p.waitForFunction(() => {
+    const ks = Object.keys(window).filter((k) => /^[A-Z][A-Z0-9]*_ROOM$/.test(k)
+      && window[k] && Array.isArray(window[k].plan))
+    if (!ks.length) return false
+    // 命中检查要用画布上的 __hitAt。画布还没挂上它,量出来的是「整件被压住」
+    return ks.every((k) => {
+      const cv = document.getElementById(k.replace(/_ROOM$/, '').toLowerCase() + 'Canvas')
+      return !cv || !!cv.__hitAt
+    })
+  }, null, { timeout: 60000 }).then(() => true, () => false)
+  if (!就位) {
+    const 看到 = await p.evaluate(() => Object.keys(window)
+      .filter((k) => /^[A-Z][A-Z0-9]*_ROOM$/.test(k)).length)
+    console.log(`✗ 等了 60 秒也没等到房间就位（window 上看到 ${看到} 个 *_ROOM）`)
+    console.log('  这道检查够不着它要管的东西 —— 够不着就不该打分')
+    if (errs.length) errs.slice(0, 4).forEach((e) => console.log('  页面报错 ' + e))
+    await b.close(); process.exit(1)
+  }
 
   const data = await p.evaluate(() => {
     const rooms = Object.keys(window)
@@ -95,6 +124,13 @@ function roomScript(base) {
       // 判据是「这件东西【有没有任何一处】点得到」,不是「质心点不点得到」:
       // 小件被大件压住一角很正常,只要露出来的部分能点中它自己就算可达;
       // 采遍它的实心像素都点不到,才是真的被吃掉了。
+      //
+      // 【也要算上时间】。这六间带每帧动画的房里,人是走动的 ——
+      // hitAt 取的是【此刻】谁在最上面,有人正好路过就记成「点不到」,
+      // 于是同一份源码连跑三次报 143 / 140 / 154 件。
+      // 偶发的红比常红更糟:它让每一次真红都能被当成噪音。
+      // 所以判据里把时间也算进去 —— 几帧里只要有一帧点得到,就算点得到。
+      // 这一遍先出候选,后面 `复核` 在别的帧上重跑,全帧都点不到的才算数。
       const hit = []
       const cvEl = document.getElementById(base + 'Canvas')
       const hitAt = cvEl && cvEl.__hitAt
@@ -276,9 +312,27 @@ function roomScript(base) {
       if (cov < 65) problems++
       console.log(`  ${k.padEnd(11)} 可点 ${R.clickable}/${R.kinds} = ${cov}% ${tag}  sayDeep ${R.deep}${R.deep ? '' : ' ✗ 核心物件没有追问层'}`)
       if (!R.deep) problems++
+      /* 逐件命中【暂不计分】,只报数 —— 2026-08-25。
+
+         这一支原先根本没在量:房间是从 window 上扫 `*_ROOM` 来的,页面没在
+         那 3500ms 的固定等待里跑完,表就是空的,四个模块整个跳过,
+         最后打印「✓ 四模块全过」。改成等条件之后它才第一次真的看见东西,
+         而看见的是 140~216 件「点不到自己」,**同一份源码每次跑还都不一样**。
+
+         那六间报出问题的房,正是六间带每帧动画的（ayun / tao / bailu /
+         popo / shenyan / tenz);其余静态房一件都没有。也就是说这一节量的是
+         【一幅正在动的画在某一瞬间】的遮挡关系 —— 人走到哪儿,哪几件就被记成
+         点不到。试过「几帧里有一帧点得到就算点得到」,数没稳下来（166/188/216）。
+
+         所以这一节现在**明说没判**,不再给一个会飘的数:偶发的红比常红更糟,
+         它让每一次真红都能被当成噪音。A / B / D 三节照常计分。
+         要恢复计分,先让它有个确定的取样时刻（冻帧,或把人挪开再量）。 */
       if (!R.hitRan) console.log('     ~ 命中检查没跑(画布未挂 __hitAt)')
-      else if (R.hit.length) { problems += R.hit.length; console.log(`     ✗ ${R.hit.length} 件点不到自己:`); R.hit.slice(0, 8).forEach(h => console.log(`        ${h.id} → 实际命中 ${h.got}`)) }
-      else console.log('     ✓ 逐件点过,每件点到的都是自己')
+      else if (R.hit.length) {
+        console.log(`     ~ ${R.hit.length} 件此刻点不到自己 —— 这一节【没判】:`
+          + '量的是动画里某一瞬间的遮挡,每次跑都不一样')
+        R.hit.slice(0, 8).forEach(h => console.log(`        ${h.id} → 实际命中 ${h.got}`))
+      } else console.log('     ✓ 逐件点过,每件点到的都是自己')
     }
   }
 
@@ -312,7 +366,15 @@ function roomScript(base) {
   }
 
   if (errs.length) console.log('\n页面错误: ' + [...new Set(errs)].slice(0, 3).join(' | '))
-  console.log('\n' + (problems ? `✗ 合计 ${problems} 项` : '✓ 四模块全过'))
+  if (!Object.keys(data).length) {
+    console.log('✗ 一间房都没读到 —— 这道检查够不着它要管的东西，不打分')
+    await b.close(); process.exit(1)
+  }
+  /* 别说「四模块全过」—— C 节的逐件命中现在不计分（见上面那段）。
+     把没判的说成过了,正是这支工具刚犯过的那个错的另一种写法。 */
+  const 没判 = Object.keys(data).filter((k) => data[k].hitRan && data[k].hit.length).length
+  console.log('\n' + (problems ? `✗ 合计 ${problems} 项`
+    : `✓ A / B / D 三节全过${没判 ? ` · C 节逐件命中【没判】(${没判} 间房有件点不到,量的是动画某一瞬间)` : ' · C 节逐件命中也全过'}`))
   await b.close()
   if (problems) process.exit(1)
 })()
