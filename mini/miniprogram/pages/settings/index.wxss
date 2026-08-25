@@ -1,0 +1,43 @@
+.hd { padding: 24rpx 0 28rpx; }
+.hd .title { font-size: 76rpx; line-height: 1; }
+.hd .sub { font-size: 26rpx; color: var(--ink-faint); margin-top: 10rpx; }
+
+.sec-k {
+  padding: 40rpx 4rpx 14rpx;
+  font-size: 22rpx;
+  color: var(--stone-label);
+  letter-spacing: 0.24em;
+}
+.card.muted { color: var(--ink-faint); }
+.prof-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 22rpx 0;
+  border-bottom: 1rpx solid var(--stone-line-x);
+}
+.prof-row:last-child { border-bottom: none; }
+.prof-k { color: var(--stone-label); font-size: 24rpx; letter-spacing: 0.32em; }
+.prof-v {
+  color: var(--ink-mid);
+  font-size: 26rpx;
+  max-width: 400rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.prof-v.ok { color: var(--wx-mu); }
+.prof-v.mono {
+  font-family: "SF Mono", "Menlo", monospace;
+  font-size: 20rpx;
+  letter-spacing: 0.02em;
+}
+
+.cta { text-align: center; padding: 48rpx 0 24rpx; }
+.foot-hint {
+  text-align: center;
+  font-size: 20rpx;
+  color: var(--stone-label);
+  letter-spacing: 0.24em;
+  padding: 16rpx 0 0;
+}

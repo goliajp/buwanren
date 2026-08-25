@@ -1,174 +1,56 @@
-.hd { padding: 24rpx 0 32rpx; }
+.hd { padding: 24rpx 0 20rpx; }
 .hd .eyebrow { margin-bottom: 20rpx; }
-.hd .title { font-size: 128rpx; line-height: 1; margin: 8rpx 0 16rpx; }
+.hd .title { font-size: 108rpx; line-height: 1; margin: 8rpx 0 12rpx; }
 
-/* 已绑定 · profile-card */
-.profile-card {
-  text-align: center;
-  padding: 32rpx 0 24rpx;
-}
-.avatar {
-  width: 140rpx; height: 140rpx;
-  border-radius: 50%;
-  border: 1rpx solid var(--stone-line);
-  background: var(--paper-inset);
-  display: inline-block;
-  margin-bottom: 20rpx;
-}
-.avatar-fallback {
-  font-family: "Songti SC", serif;
-  font-size: 56rpx;
-  font-weight: 500;
+/* 那一句。设计册 M1 上它单独占一行，是这一屏唯一一句「说话」的地方 */
+.say {
+  padding: 28rpx 4rpx 8rpx;
+  font-size: 24rpx;
   color: var(--stone-label);
-  line-height: 138rpx;
-  text-align: center;
-  letter-spacing: 0;
+  letter-spacing: 0.06em;
+  line-height: 1.7;
 }
-.profile-name {
-  font-family: "Songti SC", serif;
-  font-size: 44rpx;
-  color: var(--ink);
-  margin-bottom: 10rpx;
-}
-.profile-badge {
-  display: inline-block;
-  font-size: 20rpx;
-  color: var(--wx-mu);
-  border: 1rpx solid var(--wx-mu);
-  padding: 4rpx 18rpx;
-  border-radius: 999rpx;
+
+.recent-k {
+  padding: 16rpx 4rpx 12rpx;
+  font-size: 22rpx;
+  color: var(--stone-label);
   letter-spacing: 0.18em;
 }
-
-/* onboard 未绑定 */
-.onboard-card {
+.recent {
   background: var(--paper-panel);
   border: 1rpx solid var(--stone-line-x);
   border-radius: 8rpx;
-  padding: 44rpx 32rpx 32rpx;
+  padding: 24rpx 28rpx;
 }
-.onboard-title {
+.recent-title {
   font-family: "Songti SC", serif;
-  font-size: 48rpx;
-  font-weight: 500;
+  font-size: 34rpx;
   color: var(--ink);
-  letter-spacing: 0.12em;
-  margin-bottom: 8rpx;
-}
-.onboard-sub {
-  font-size: 24rpx;
-  color: var(--ink-faint);
-  letter-spacing: 0.14em;
-  margin-bottom: 40rpx;
-}
-
-.wx-form { display: flex; flex-direction: column; gap: 32rpx; }
-.wx-field { display: flex; justify-content: center; }
-
-.avatar-btn {
-  padding: 0;
-  background: transparent;
-  border: none;
-  line-height: 0;
-  width: 140rpx;
-  height: 140rpx;
-}
-.avatar-btn::after { border: none; }
-.avatar-preview {
-  width: 140rpx;
-  height: 140rpx;
-  border-radius: 50%;
-  border: 1rpx dashed var(--stone-line);
-  background: var(--paper-inset);
-  display: block;
-}
-.avatar-preview.avatar-fallback {
-  font-family: "Songti SC", serif;
-  font-size: 22rpx;
-  color: var(--stone-label);
-  line-height: 138rpx;
-  text-align: center;
-  letter-spacing: 0.14em;
-}
-
-.nickname-input {
-  width: 100%;
-  background: var(--paper-inset);
-  padding: 20rpx 24rpx;
-  border-radius: 4rpx;
-  font-size: 30rpx;
-  color: var(--ink);
-  text-align: center;
-  letter-spacing: 0.14em;
-  box-sizing: border-box;
-}
-
-.wx-cta { text-align: center; margin-top: 8rpx; }
-
-.wx-hint {
-  padding: 24rpx 8rpx 0;
-  text-align: center;
-  font-size: 22rpx;
-  color: var(--stone-label);
-  line-height: 1.7;
-  letter-spacing: 0.06em;
-}
-
-/* profile 明细 */
-.prof-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 22rpx 0;
-  border-bottom: 1rpx solid var(--stone-line-x);
-}
-.prof-row:last-child { border-bottom: none; }
-.prof-k {
-  color: var(--stone-label);
-  font-size: 24rpx;
-  letter-spacing: 0.32em;
-}
-.prof-v {
-  color: var(--ink-mid);
-  font-size: 26rpx;
-  max-width: 400rpx;
+  margin-bottom: 10rpx;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.prof-v.ok { color: var(--wx-mu); }
-.prof-v.mono {
-  font-family: "SF Mono", "Menlo", monospace;
-  font-size: 20rpx;
-  color: var(--ink-mid);
-  letter-spacing: 0.02em;
-}
+.recent-line { display: flex; align-items: baseline; }
+.recent-when { flex: 1; font-size: 24rpx; color: var(--ink-faint); }
+.recent-go { flex: none; font-size: 24rpx; color: var(--ink-mid); margin-left: 20rpx; }
 
-.cta {
-  text-align: center;
-  padding: 40rpx 0 24rpx;
-}
-.foot-hint {
-  text-align: center;
-  font-size: 20rpx;
-  color: var(--stone-label);
-  letter-spacing: 0.24em;
-  padding: 24rpx 0 0;
-}
+/* 空着的时候不留白：把「哪儿能有」指出来（设计册 10.2 的空状态块） */
+.recent.empty { background: transparent; border-style: dashed; }
+.recent.empty .recent-title { font-size: 30rpx; color: var(--ink-mid); }
+/* 取不到 ≠ 没有。这一档只说一句，不摆出「还没买过」那副样子 */
+.recent.muted { background: transparent; border-style: dashed; opacity: .7; }
 
-/* 改名 —— 对谁都开着，绑定之后也得改得动 */
-.rename-row { display: flex; align-items: baseline; padding: 18rpx 0;
-              border-top: 1rpx solid var(--stone-line); margin-top: 24rpx; }
-.rename-k { font-size: 26rpx; color: var(--stone-label); width: 120rpx; flex: none; }
-.rename-v { font-family: "Songti SC", serif; font-size: 32rpx; color: var(--ink); flex: 1; }
-.rename-input {
-  display: inline-block; width: 320rpx;
-  border-bottom: 1rpx solid var(--stone-line);
-  font-size: 28rpx; color: var(--ink); padding: 8rpx 0;
-}
-.rename-act { font-size: 24rpx; color: var(--stone-label); margin-left: 24rpx; }
-.rename-note { font-size: 22rpx; color: var(--stone-label); margin-top: 12rpx; }
+.slot-k { font-size: 22rpx; color: var(--stone-label); letter-spacing: 0.24em; }
+.slot-v { flex: 1; margin-left: 20rpx; font-size: 24rpx; color: var(--ink-mid); }
 
-/* 账号明细的开关行：跟 entries 一个样子，免得多一种样式。 */
-.prof-toggle { display: flex; justify-content: space-between; align-items: center;
-               padding: 20rpx 0; border-bottom: 1rpx solid #e0e0e0; }
+/* .flexslot 全局只有一条「矮屏收起」的规则，没有排版 —— 这一屏自己排。
+   （槽里放什么各屏不同，所以布局本来就不该是全局的） */
+.flexslot {
+  display: flex;
+  align-items: center;
+  margin-top: 28rpx;
+  padding: 22rpx 4rpx 0;
+  border-top: 1rpx solid var(--stone-line-x);
+}
