@@ -1117,17 +1117,15 @@ if (API) {
      '按下「再问一次」，回到我家的罗盘',
      await p.evaluate(() => globalThis.__router.current().__route))
 
-  // 问题那一栏（可空，只给自己看）—— 它跟罗盘一起搬到我家了
+  /* 「想问什么」那一栏 2026-08-25 从 H1 上拿掉了（设计 10.8:
+     「起卦那颗按钮写『转一下』—— 它就是转一下」）。它原先待在弹性槽里,
+     而槽在矮屏上收起 —— 也就是说它在我们对着的那台参照机上根本不存在。
+     这里改成钉住【它确实不在了】：哪天有人又把一个输入框摆回主屏,
+     这一条会红,那正是该看一眼的时候。 */
   await p.waitForTimeout(400)
-  const qi = p.locator('.ask-q-input')
-  if (await qi.count() === 1) {
-    await qi.fill('镜像问一句')
-    await p.waitForTimeout(200)
-    ok(await p.evaluate(() => globalThis.__router.current().data.question) === '镜像问一句',
-       '想问的话打进去留得住', 'bindinput → question')
-  } else {
-    ok(false, '想问的话打进去留得住', '输入框都不在')
-  }
+  ok(await p.locator('.ask-q-input').count() === 0,
+     '主屏上没有输入框 —— 转一下就是转一下',
+     String(await p.locator('.ask-q-input').count()))
 
   /* 再转一签 —— 让「近几次」真有两条。
      转完之后**跳去「今天」那一页**（起卦在我家、看卦在那一页），
