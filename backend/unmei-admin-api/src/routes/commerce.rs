@@ -222,8 +222,9 @@ async fn get_outbox(
 }
 
 async fn retry_outbox(
-    State(st): State<AppState>, _admin: Admin, Path(id): Path<String>,
+    State(st): State<AppState>, admin: Admin, Path(id): Path<String>,
 ) -> Result<Json<J>, ApiError> {
+    admin.requires_role("operator")?;    // 重推事件是运维动作
     app_outbox::retry(&st.db, &id).await?;
     Ok(Json(json!({"ok": true})))
 }
@@ -377,6 +378,7 @@ struct ToggleListingBody { status: String }
 async fn toggle_product_listing(
     State(st): State<AppState>, admin: Admin, Path(id): Path<String>, Json(body): Json<ToggleListingBody>,
 ) -> Result<Json<J>, ApiError> {
+    admin.requires_any_role(&["content", "operator"])?;    // 上下架：内容侧编排，运营侧也要动得了
     let status = app_catalog::set_product_status(
         &st.db, &id, &body.status, &Actor::admin(&admin.0.sub),
     ).await?;
@@ -410,6 +412,7 @@ async fn publish_price(
     State(st): State<AppState>, admin: Admin,
     Path(sku_id): Path<String>, Json(b): Json<PublishPriceBody>,
 ) -> Result<Json<J>, ApiError> {
+    admin.requires_role("finance")?;    // 定价直接是钱
     let id = app_catalog::publish_price(&st.db, &sku_id, app_catalog::NewPrice {
         currency: b.currency,
         price_minor: b.price_minor,
@@ -422,8 +425,9 @@ async fn publish_price(
 }
 
 async fn expire_price(
-    State(st): State<AppState>, _: Admin, Path(id): Path<String>,
+    State(st): State<AppState>, admin: Admin, Path(id): Path<String>,
 ) -> Result<Json<J>, ApiError> {
+    admin.requires_role("finance")?;    // 下架一档价同样是钱
     app_catalog::expire_price(&st.db, &id).await?;
     Ok(Json(json!({"ok":true})))
 }
@@ -478,6 +482,7 @@ struct PromoStateBody { status: String }
 async fn update_promotion_state(
     State(st): State<AppState>, admin: Admin, Path(id): Path<String>, Json(b): Json<PromoStateBody>,
 ) -> Result<Json<J>, ApiError> {
+    admin.requires_role("operator")?;    // 促销开关是运营动作
     let status = app_promotion::set_status(
         &st.db, &id, &b.status, &Actor::admin(&admin.0.sub),
     ).await?;
@@ -548,6 +553,7 @@ struct CancelSubBody { immediate: Option<bool>, reason: Option<String> }
 async fn cancel_subscription(
     State(st): State<AppState>, admin: Admin, Path(id): Path<String>, Json(b): Json<CancelSubBody>,
 ) -> Result<Json<J>, ApiError> {
+    admin.requires_any_role(&["support", "finance"])?;    // 客服替用户退订；涉及退款预期，财务也要动得了
     let immediate = b.immediate.unwrap_or(false);
     app_subscription::cancel(
         &st.db, &id, immediate, b.reason.as_deref(), &Actor::admin(&admin.0.sub),
@@ -652,6 +658,7 @@ struct CancelOrderBody { reason: String }
 async fn admin_cancel_order(
     State(st): State<AppState>, admin: Admin, Path(id): Path<String>, Json(b): Json<CancelOrderBody>,
 ) -> Result<Json<J>, ApiError> {
+    admin.requires_role("operator")?;    // 取消订单会牵动库存与履约，不给客服，避免误操作
     // owner 传 None → 后台不受归属限制。
     //
     // ⚠ 行为变更:旧实现允许从 `paid` / `fulfilling` 取消,但 domain 状态机的
@@ -669,6 +676,7 @@ struct AnnotateBody { note: String }
 async fn annotate_order(
     State(st): State<AppState>, admin: Admin, Path(id): Path<String>, Json(b): Json<AnnotateBody>,
 ) -> Result<Json<J>, ApiError> {
+    admin.requires_any_role(&["support", "operator"])?;    // 给单子加备注，客服天天做
     app_order::annotate(&st.db, &id, &b.note, &Actor::admin(&admin.0.sub)).await?;
     Ok(Json(json!({"ok":true})))
 }
@@ -763,6 +771,7 @@ struct MarkFailedBody { code: String, msg: String }
 async fn mark_payment_failed(
     State(st): State<AppState>, admin: Admin, Path(id): Path<String>, Json(b): Json<MarkFailedBody>,
 ) -> Result<Json<J>, ApiError> {
+    admin.requires_role("finance")?;    // 改一笔支付的结局，动的是账
     app_payment::mark_failed(
         &st.db, &id, &b.code, &b.msg, &Actor::admin(&admin.0.sub),
     ).await?;
@@ -799,6 +808,7 @@ async fn list_refunds(
 async fn approve_refund(
     State(st): State<AppState>, admin: Admin, Path(id): Path<String>,
 ) -> Result<Json<J>, ApiError> {
+    admin.requires_role("finance")?;    // 批退款
     app_refund::approve(&st.db, &id, &Actor::admin(&admin.0.sub)).await?;
     Ok(Json(json!({
         "ok": true,
@@ -813,6 +823,7 @@ struct DenyBody { reason: String }
 async fn deny_refund(
     State(st): State<AppState>, admin: Admin, Path(id): Path<String>, Json(b): Json<DenyBody>,
 ) -> Result<Json<J>, ApiError> {
+    admin.requires_role("finance")?;    // 拒退款也是钱的决定，跟批同权
     app_refund::deny(&st.db, &id, &b.reason, &Actor::admin(&admin.0.sub)).await?;
     Ok(Json(json!({"ok":true})))
 }
@@ -891,8 +902,9 @@ struct AssignTrackingBody {
 }
 
 async fn assign_shipment_tracking(
-    State(st): State<AppState>, _admin: Admin, Path(id): Path<String>, Json(b): Json<AssignTrackingBody>,
+    State(st): State<AppState>, admin: Admin, Path(id): Path<String>, Json(b): Json<AssignTrackingBody>,
 ) -> Result<Json<J>, ApiError> {
+    admin.requires_any_role(&["support", "operator"])?;    // 填运单号
     app_shipment::assign_tracking(&st.db, &id, app_shipment::TrackingAssignment {
         carrier_code: b.carrier_code,
         tracking_no: b.tracking_no,
@@ -909,6 +921,7 @@ struct MarkExceptionBody { reason: String }
 async fn mark_shipment_exception(
     State(st): State<AppState>, admin: Admin, Path(id): Path<String>, Json(b): Json<MarkExceptionBody>,
 ) -> Result<Json<J>, ApiError> {
+    admin.requires_any_role(&["support", "operator"])?;    // 标物流异常
     app_shipment::mark_exception(&st.db, &id, &b.reason, &Actor::admin(&admin.0.sub)).await?;
     Ok(Json(json!({"ok":true})))
 }
@@ -968,8 +981,9 @@ async fn list_risk_rules(
 struct RiskRuleStateBody { status: String }
 
 async fn update_risk_rule_state(
-    State(st): State<AppState>, _admin: Admin, Path(id): Path<String>, Json(b): Json<RiskRuleStateBody>,
+    State(st): State<AppState>, admin: Admin, Path(id): Path<String>, Json(b): Json<RiskRuleStateBody>,
 ) -> Result<Json<J>, ApiError> {
+    admin.requires_role("super")?;    // 风控规则是安全面，只给 super
     let status = app_risk::set_rule_status(&st.db, &id, &b.status).await?;
     Ok(Json(json!({"ok":true, "status": status.as_str()})))
 }

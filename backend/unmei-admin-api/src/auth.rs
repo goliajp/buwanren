@@ -57,6 +57,16 @@ impl Admin {
         if self.0.roles.iter().any(|r| r == role || r == "super") { Ok(()) }
         else { Err(ApiError(AppError::Forbidden)) }
     }
+
+    /// 几个角色里有一个就行。`super` 永远通过。
+    ///
+    /// 分工表里不少条是「客服或运营都做得了」（填运单号、标物流异常），
+    /// 硬塞进单角色要么得给客服多发一个运营角色（那等于没分），
+    /// 要么把同一件事拆成两条路由（那是为了迁就写法改产品）。
+    pub fn requires_any_role(&self, roles: &[&str]) -> Result<(), ApiError> {
+        if self.0.roles.iter().any(|r| r == "super" || roles.contains(&r.as_str())) { Ok(()) }
+        else { Err(ApiError(AppError::Forbidden)) }
+    }
 }
 
 // ─── Error wrapper ────────────────────────────────────────────
