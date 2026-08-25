@@ -27,7 +27,11 @@ fi
 
 python3 -m http.server "$PORT" --directory web/dist >/dev/null 2>&1 &
 SRV=$!
-trap 'kill $SRV 2>/dev/null || true' EXIT
+# trap 里最后一句是 `|| true`,而它会把【整支脚本的退出码抹成 0】——
+# 于是脚本死在半路(下面那个空数组就是一例),调用方拿到的仍然是「过了」。
+# 这一支是这一堆门禁里最重的一支,它报绿等于说「动线全通」。
+# 所以退出码要自己接住、原样还回去。
+trap 'rc=$?; kill $SRV 2>/dev/null || true; exit $rc' EXIT
 
 # 等它真的起来再开始 —— 直接跑的话第一次连接可能被拒
 for _ in $(seq 1 40); do
@@ -51,4 +55,10 @@ if [[ "$*" != *"--mingli="* ]] \
   echo "（本机 6027 上有排盘服务，自动接上 —— 这一档会验到用神）"
 fi
 
-bun web/verify.mjs --base="http://127.0.0.1:$PORT" "${MINGLI_ARG[@]}" "$@"
+# `"${MINGLI_ARG[@]}"` 在空数组上会炸 —— macOS 自带的是 bash 3.2,
+# `set -u` 下空数组展开就是 unbound variable。而排盘服务没起时它【就是】空的,
+# 也就是注释上面那句「CI 上那台机器没有它」说的那种机器。
+# 配上上面那个把退出码抹平的 trap,结果是:**没有排盘服务的机器上,
+# 这一支从来没跑过,而且每次都报绿**。
+# `${A[@]+"${A[@]}"}` 是 3.2 下安全的写法:数组为空时整个展开成零个词。
+bun web/verify.mjs --base="http://127.0.0.1:$PORT" ${MINGLI_ARG[@]+"${MINGLI_ARG[@]}"} "$@"
