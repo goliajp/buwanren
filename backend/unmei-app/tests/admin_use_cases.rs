@@ -664,10 +664,15 @@ async fn subscription_on_sku(pool: &sqlx::PgPool, sku: String) -> String {
     .execute(pool)
     .await
     .expect("insert plan");
+    /* 周期【已经走完】—— 这才是 billing worker 真会选出来的样子。
+       原先给的是 `NOW() + 30 days`（还没到期），而当时的 `renew_due` 不问到期与否，
+       所以在一个 worker 永远不会遇到的状态上验了「续费成功」。
+       2026-08-25 那一问加进去之后，这个 fixture 也就得回到真实状态。 */
     sqlx::query(
         "INSERT INTO subscription(id, user_id, plan_id, status, source_channel,
                                   current_period_start, current_period_end)
-         VALUES ($1, $2, $3, 'active', 'wechat', NOW(), NOW() + INTERVAL '30 days')",
+         VALUES ($1, $2, $3, 'active', 'wechat',
+                 NOW() - INTERVAL '31 days', NOW() - INTERVAL '1 day')",
     )
     .bind(&sub_id)
     .bind(&user)
@@ -701,23 +706,25 @@ async fn shipment_fixture(pool: &sqlx::PgPool) -> String {
     shipment_id
 }
 
-/// 同一笔订阅【连着续两次】会怎样 —— 钉住的是现状，不是期望。
+/// 连着续两次，只收一次钱。
 ///
-/// `renew_due` 的文档注释里写着这条（2026-08-18 实测）：它不问「这一期
-/// 是不是已经续过了」，`FOR UPDATE` 只保证两次串行，不保证第二次会退出。
-/// 今天够不着，因为那个 billing worker 单实例、顺序处理，一个 id 一轮只取一次。
+/// 2026-08-24 之前不是这样：`renew_due` 不问「这一期是不是已经续过了」，
+/// 连调两次就是两张发票、两笔订单。当时没出事只是因为 billing worker
+/// 单实例、顺序处理 —— **是部署形态在兜底，不是代码在兜底**。
 ///
-/// 但那是**部署形态在兜底，不是代码在兜底**。多起一个实例、或者来一个
-/// 新调用方，这就是一次重复扣款。所以把它钉下来：
-/// 哪天有人给它加上「这一期续过了吗」，这条会红 —— 那时该改的是这个测试
-/// 和 `scripts/known-money-bugs.json` 里那一条，而不是把它删掉。
+/// 2026-08-25 把那一问加进 `renew_due`（周期没走完就 NotDue），
+/// 数据库那一侧另有 `uq_sub_invoice_period` 兜着。这条测试从钉「现状是两张」
+/// 改成钉「只该有一张」——它变回 2 就是那一问被谁拿掉了。
 #[tokio::test]
-async fn renewing_twice_in_a_row_bills_twice_today() {
+async fn renewing_twice_in_a_row_bills_once() {
     let pool = db_or_skip!();
     let sub_id = subscription_fixture(&pool).await;
 
     subscription::renew_due(&pool, &sub_id).await.expect("第一次续费");
-    subscription::renew_due(&pool, &sub_id).await.expect("第二次续费");
+    let second = subscription::renew_due(&pool, &sub_id).await.expect("第二次续费");
+
+    // 第一次已经把周期推到了将来，所以第二次不到期
+    assert_eq!(second, subscription::RenewOutcome::NotDue, "第二次不该再收钱");
 
     // 订单的 source_ref_id 记的是【发票 id】，不是订阅 id —— 所以顺着发票串起来数
     let orders: i64 = sqlx::query_scalar(
@@ -730,12 +737,30 @@ async fn renewing_twice_in_a_row_bills_twice_today() {
     .await
     .expect("数订单");
 
-    assert_eq!(
-        orders, 2,
-        "现状是连续两次续费开出两张单。变成 1 说明有人加上了「这一期续过了吗」——\
-         那是好事，改这条测试与 known-money-bugs.json，别把它删掉"
-    );
+    assert_eq!(orders, 1, "连着两次续费只该开一张单");
 }
+
+/// 没到期就调它，什么都不该发生 —— 连「到期不续」也不该在这时候生效：
+/// 那句话的意思是「到期时停」，不是「现在就停」。
+#[tokio::test]
+async fn renew_before_the_period_ends_does_nothing() {
+    let pool = db_or_skip!();
+    let sub_id = subscription_fixture(&pool).await;
+    sqlx::query("UPDATE subscription SET current_period_end = NOW() + INTERVAL '5 days' WHERE id=$1")
+        .bind(&sub_id)
+        .execute(&pool)
+        .await
+        .expect("推到将来");
+
+    let outcome = subscription::renew_due(&pool, &sub_id).await.expect("renew_due");
+    assert_eq!(outcome, subscription::RenewOutcome::NotDue);
+
+    let invoices: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM subscription_invoice WHERE subscription_id=$1")
+        .bind(&sub_id).fetch_one(&pool).await.expect("数发票");
+    assert_eq!(invoices, 0, "没到期不该开发票");
+}
+
 
 /// 点过「到期不续」的订阅，到期时**不许收钱**。
 ///

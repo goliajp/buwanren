@@ -110,16 +110,25 @@ pub enum RenewOutcome {
 /// → grace → expired),今天由 worker 在 `renew_due` 报错时调用。
 /// 续一期并收钱。
 ///
-/// **「到期了没有」不由这里判断** —— 它信调用方。`workers/subscription_billing.rs`
-/// 筛的是 `next_billing_attempt_at <= NOW()`，而这里只复核状态与「到期不续」标记。
-/// 现有测试也钉着这个语义：fixture 给的是【未到期】的订阅，期待续费成功。
+/// **「到期了没有」在这里判断**（2026-08-25 改）。周期还没走完就返回
+/// [`RenewOutcome::NotDue`]，一分钱不收、什么都不建。
 ///
-/// 后果要知道：**同一笔订阅并发调两次，会开出两张发票、两笔订单**
-/// （2026-08-18 实测）。`FOR UPDATE OF s` 只保证两次串行，不保证第二次
-/// 会因为「刚才已经续过」而退出 —— 因为这里根本没有那一问。
+/// 原先它信调用方：`workers/subscription_billing.rs` 筛
+/// `next_billing_attempt_at <= NOW()`，这里只复核状态与「到期不续」标记。
+/// 后果是同一笔订阅连着调两次会开出两张发票、两笔订单，也就是扣两次
+/// （2026-08-24 实测）。`FOR UPDATE OF s` 只保证两次串行，不保证第二次
+/// 会因为「刚才已经续过」而退出 —— 因为根本没有那一问。
 ///
-/// 今天够不着：那个 worker 单实例、顺序处理，一个 id 一轮只取一次。
-/// 但**新调用方要自己带上到期判断**，否则这就是一次重复扣款。
+/// 当时没出事，只是因为那个 worker 单实例、顺序处理，一个 id 一轮只取一次。
+/// **那是部署形态在兜底，不是代码在兜底** —— 多起一个实例、或者后台加一颗
+/// 「立即续费」按钮，这就是一次重复扣款。一个只在某种部署下成立的不变式，
+/// 迟早会在换部署的那天塌掉，而塌下来的形态是扣两次钱。
+///
+/// 数据库那一侧再说一遍同一件事：`uq_sub_invoice_period` 是
+/// `subscription_invoice(subscription_id, period_start)` 上的唯一索引。
+///
+/// 「到期不续」的判定排在这一问【后面】：那句话的意思是「到期时停」，
+/// 不是「现在就停」。没到期就调它，订阅照旧活着。
 pub async fn renew_due(pool: &PgPool, subscription_id: &str) -> Result<RenewOutcome, DomainError> {
     let mut tx = pool.begin().await.db()?;
 
@@ -147,6 +156,14 @@ pub async fn renew_due(pool: &PgPool, subscription_id: &str) -> Result<RenewOutc
 
     let status: String = row.get("status");
     if !["active", "past_due", "trialing"].contains(&status.as_str()) {
+        tx.commit().await.db()?;
+        return Ok(RenewOutcome::NotDue);
+    }
+
+    /* 这一期走完了没有。走完了才谈收钱 —— 见上面文档里那一段。
+       续费失败的重试够得着：失败时 current_period_end 没有前进，仍然在过去。 */
+    let current_period_end: DateTime<Utc> = row.get("current_period_end");
+    if current_period_end > Utc::now() {
         tx.commit().await.db()?;
         return Ok(RenewOutcome::NotDue);
     }
@@ -194,7 +211,7 @@ pub async fn renew_due(pool: &PgPool, subscription_id: &str) -> Result<RenewOutc
     let user_id: String = row.get("user_id");
     let currency: String = row.get("currency");
     let billing_period: String = row.get("billing_period");
-    let period_start: DateTime<Utc> = row.get("current_period_end");
+    let period_start: DateTime<Utc> = current_period_end;
     /* 走枚举，不是裸字符串。原先 `_ => 30 天` 把「认不出的周期」跟「月付」
        归成同一件事 —— 认不出的时候按月开一张发票，是拿钱去赌一个猜测。
        这个值来自 `plan.billing_period`，那一列有 CHECK，只允许这四个 ——
