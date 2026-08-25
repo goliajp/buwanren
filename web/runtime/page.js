@@ -190,7 +190,10 @@
        所以同一条规则在这里是 699 + 50。两个数字的关系就是这 50px，
        跟上面那处补偿是同一件事。 */
     fix.textContent = on
-      ? '#app,#app .page{min-height:calc(100vh - 50px - env(safe-area-inset-bottom))}'
+/* 按【页面根】补偿，不按类名 —— 类名会漏：村子那一屏的根是 .wrap 不是 .page，
+         于是它自己那条 min-height:100vh 又把 tabBar 那 50px 让了第二遍。
+         `#app > *` 才是「不管这一页叫什么，它就是那一页」。 */
+      ? '#app,#app>*{min-height:calc(100vh - 50px - env(safe-area-inset-bottom))}'
         + '@media (max-height:749px){#app .flexslot{display:none}}'
       : ''
     for (const b of bar.children) {

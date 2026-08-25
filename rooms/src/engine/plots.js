@@ -1,110 +1,106 @@
 /* 宅基表 —— 40 位不完人各自住在村子的哪一格。
  *
- * 为什么单独一支:这是【数据】,不是画法。村子那三千行是画法,它按这张表
- * 决定在哪儿放门牌、点哪儿算点到谁;而「谁住哪儿」将来会随房间的产出顺序调整,
- * 混在画法里改一次要在三千行里找一次。
+ * 2026-08-25 重排：**八排梯田 × 五格**，全部照这张表画。
  *
- * ── 一格是什么 ──────────────────────────────────────────────────
- *   id        后端的 villager.id(与 backend/seed/villagers.sql 同一套)
- *   x, gy, w  那栋房子的左边、【地面线】、宽度
- *             注意不是画它那一行的原样参数:各画法函数第二个参数的含义不一样
- *             (building 给的是地面,houseDome 给的是墙顶,towerRound 还把
- *             第三个参数当半径用)。表里统一存换算【之后】的地面线与宽度 ——
- *             门牌挂在门口、点选按门脸算,要的都是地面线。
- *             换算表在 scripts/check-plots.py 里,它按同一张表逐格核对。
- *   note      为什么是这一栋。写下来是因为「谁住哪儿」是审美判断,
- *             不写的话下一个人只能猜,一猜就会随手改
+ * 为什么重排：原来的村子是一幅 704 × 1920 的手绘连续村落，而屏幕只给得起
+ * 518pt 的画布高 —— 于是下面那 20 栋（一半的村民）掉在折线以下，
+ * 靠页面滚动才够得到，而「不滚动」是这一屏自己的约束。
+ * 一半的村子看不见、也点不到。来龙去脉见 docs/REDESIGN.md「R1 定了」。
  *
- * ── 两段,两种绑法 ──────────────────────────────────────────────
- * PLOTS(老村 20 格)—— 绑到村子里【一栋栋手摆的】住宅上。坐标必须与画那一行
- *   对得住,靠 scripts/check-plots.py 钉。落位方式:
- *   · 有房间的 6 位 + 4 位一眼就该住那儿的(渔夫住河边、药娘住绿门面铺子……)
- *     ——按【性格与建筑相配】定,每条都写了理由
- *   · 其余 10 位按【从上到下、从左到右】的阅读顺序对应剩下 10 栋
- *     ——这是个可复核的顺序,不用谁去揣摩我的口味
+ * ── 几何 ───────────────────────────────────────────────────────
+ *   世界 704 × 960 · 屏上 375 × 511（缩放 0.5327）
+ *   八排：地面线 108 + 120r     → 屏上一排 64pt（触点下限 44）
+ *   五列：中心 78 + 137c        → 屏上一格 73pt
+ *   奇数排右移 22px —— 梯田的错落
  *
- * DISTRICT(新住区 20 格)—— 反过来,【房子照这张表画】。所以不存在「表改了图没改」,
- *   要查的是别的:互不重叠、别出画布。
+ * ── 八排住谁：按语义梯度排，不是随手摆 ──────────────────────────
+ * 老村那十条「一眼就该住那儿的」理由里藏着整个村子的地理：北边是山与林
+ * （隐者、武僧靠山），中段是村心（婆婆挨着广场、苏合的铺子），南边是河
+ * （老渔夫紧挨水），过了河是外人（陈九离村口远），西头清冷。
+ * 重排保的就是这条北→南的坡度 —— 不是重新发明。
  *
- * 为什么要分两段:老村那张图实测只剩 2 处房子大小的纯草空地,20 栋塞不进去。
- * 所以往南扩了一片新地(44 行 → 60 行),林带原地不动,老村一栋房都没挪。
+ * ── 一格是什么 ────────────────────────────────────────────────
+ *   id           后端的 villager.id（与 backend/seed/villagers.sql 同一套）
+ *   row, col     第几排第几格 —— 坐标由它们算，不手写
+ *   w            房子宽
+ *   kind         bld = building / bldL = buildingL / dome = houseDome
+ *                tower = towerRound / shop = shopHouse / barn = barn
+ *                **加新 kind 要同时改 village.js 的 drawHouse** ——
+ *                那条 if/else 末尾的 else 会把不认识的 kind 默默画成平房，
+ *                scripts/check-plots.py 就是守这个的
+ *   roof         dome / tower 的顶色 [亮, 暗]
+ *   seed         bld 的随机种子 —— 同一个种子每次画出同一栋
+ *   note         为什么是这一格。写下来是因为「谁住哪儿」是审美判断
+ *   x, gy        由 row/col/w 算出来的左边与【地面线】—— 不手写
  *
- * ── 与走位模拟无关 ──────────────────────────────────────────────
- * village.js 里 12 位会走动的村民有各自的 `home` 导航节点(HA / HT / HP …),
- * 那是【逗留点】不是房子 —— HA 在铺子门口、HP 在村公所门口。两套不相干,
- * 这里绑的是房子,那边管的是散步,不要互相对齐。
+ * 各画法函数第二个参数含义不一样（houseDome 给墙顶、towerRound 第三参是
+ * 半径、barn 给屋顶），换算在 village.js 的 drawHouse 里一处完成。
  */
 ;(function () {
-  const PLOTS = [
-    // ── 一眼就该住那儿的 ──────────────────────────────────────
-    { id: 'tenz', x: 452, gy: 226, w: 80, note: '雪山寺下山的武僧 —— 村子最高处那座塔，靠着山' },
-    { id: 'tao', x: 462, gy: 436, w: 108, note: '桃花岛弟子 —— 粉圆顶，村里最大最招摇的一间' },
-    { id: 'bailu', x: 108, gy: 688, w: 104, note: '观里的女冠 —— 紫白小塔，像一座观' },
-    { id: 'popo', x: 148, gy: 932, w: 76, note: '占卜的老太太 —— 圆顶小屋，挨着村公所，谁都路过' },
-    { id: 'ayun', x: 20, gy: 384, w: 76, note: '小道士 —— 西头一间寻常屋，离热闹远一点好睡' },
-    { id: 'shenyan', x: 16, gy: 566, w: 80, note: '落第书生 —— 更靠边的一间，清冷' },
-    { id: 'jiangya', x: 30, gy: 1110, w: 76, note: '老渔夫 —— 河南岸紧挨水的那间，门口就是渔具' },
-    { id: 'suhe', x: 24, gy: 746, w: 76, note: '香药娘子 —— 绿门面那间铺子' },
-    { id: 'chenjiu', x: 614, gy: 1128, w: 76, note: '赌坊里的算手 —— 过了河那边，离村口远' },
-    { id: 'xuanming', x: 36, gy: 242, w: 88, note: '隐者 —— 林子边上那间橙圆顶，再往北就没人了' },
+  const ROW_GY = [108, 228, 348, 468, 588, 708, 828, 948]   // 八排的地面线
+  const COL_CX = [78, 215, 352, 489, 626]                   // 五列的中心
+  const STAGGER = 22                                        // 奇数排右移
 
-    // ── 其余按阅读顺序(上→下、左→右)对应剩下 10 栋 ────────────
-    { id: 'leiming', x: 150, gy: 200, w: 84, note: '阅读顺序' },
-    { id: 'yanniang', x: 252, gy: 240, w: 78, note: '阅读顺序' },
-    { id: 'laogui', x: 556, gy: 244, w: 88, note: '阅读顺序' },
-    { id: 'muyi', x: 600, gy: 314, w: 76, note: '阅读顺序' },
-    { id: 'aluo', x: 600, gy: 408, w: 88, note: '阅读顺序' },
-    { id: 'aying', x: 606, gy: 538, w: 80, note: '阅读顺序' },
-    { id: 'weila', x: 470, gy: 690, w: 92, note: '阅读顺序' },
-    { id: 'rune', x: 608, gy: 692, w: 80, note: '阅读顺序' },
-    { id: 'mago', x: 36, gy: 940, w: 84, note: '阅读顺序' },
-    { id: 'sesir', x: 536, gy: 930, w: 124, note: '阅读顺序 —— 大谷仓' },
+  /* 坐标由 row/col 算，不手写 —— 手写的话，改一次排距要改四十行，
+     而改漏一行不会报错，只会让某个人的门牌歪在邻居家墙上。 */
+  function place(p) {
+    const cx = COL_CX[p.col] + (p.row % 2 ? STAGGER : -STAGGER)
+    return Object.assign({}, p, { x: Math.round(cx - p.w / 2), gy: ROW_GY[p.row] })
+  }
+
+  const TABLE = [
+    // 第一排 —— 林边 · 山脚
+    { id: 'xuanming', row: 0, col: 0, w: 88, kind: 'dome', roof: ['#e8a030', '#c07820'], note: '隐者 —— 林子边上那间橙圆顶，再往北就没人了' },
+    { id: 'tenz', row: 0, col: 1, w: 80, kind: 'tower', roof: ['#5a9a8a', '#3e7a6a'], note: '雪山寺下山的武僧 —— 靠着山那座塔' },
+    { id: 'bailu', row: 0, col: 2, w: 76, kind: 'tower', roof: ['#8a7ab0', '#6a5a90'], note: '观里的女冠 —— 紫白小塔，像一座观' },
+    { id: 'leiming', row: 0, col: 3, w: 84, kind: 'bld', seed: 150116, note: '阅读顺序 —— 北头' },
+    { id: 'laogui', row: 0, col: 4, w: 88, kind: 'bldL', seed: 556152, note: '阅读顺序 —— 北头，L 形地基' },
+    // 第二排 —— 北坡 · 清冷
+    { id: 'ayun', row: 1, col: 0, w: 76, kind: 'bld', seed: 20302, note: '小道士 —— 西头一间寻常屋，离热闹远一点好睡' },
+    { id: 'shenyan', row: 1, col: 1, w: 80, kind: 'bld', seed: 16476, note: '落第书生 —— 挨着阿云，一样清冷' },
+    { id: 'yanniang', row: 1, col: 2, w: 78, kind: 'bld', seed: 252152, note: '阅读顺序' },
+    { id: 'muyi', row: 1, col: 3, w: 76, kind: 'bld', seed: 600262, note: '阅读顺序' },
+    { id: 'aluo', row: 1, col: 4, w: 88, kind: 'bld', seed: 600316, note: '阅读顺序' },
+    // 第三排 —— 入村
+    { id: 'tao', row: 2, col: 0, w: 104, kind: 'dome', roof: ['#e88aa0', '#c86a80'], note: '桃花岛弟子 —— 粉圆顶，村里最招摇的一间' },
+    { id: 'aying', row: 2, col: 1, w: 80, kind: 'bld', seed: 606448, note: '阅读顺序' },
+    { id: 'weila', row: 2, col: 2, w: 92, kind: 'bld', seed: 470604, note: '阅读顺序' },
+    { id: 'rune', row: 2, col: 3, w: 80, kind: 'bld', seed: 608560, note: '阅读顺序' },
+    { id: 'mago', row: 2, col: 4, w: 84, kind: 'bld', seed: 36856, note: '阅读顺序' },
+    // 第四排 —— 村心 · 广场
+    { id: 'popo', row: 3, col: 0, w: 76, kind: 'dome', roof: ['#c8a060', '#a07840'], note: '占卜的老太太 —— 圆顶小屋，挨着广场，谁都路过' },
+    { id: 'suhe', row: 3, col: 1, w: 92, kind: 'shop', note: '香药娘子 —— 绿门面那间铺子，开在村心' },
+    { id: 'orlando', row: 3, col: 2, w: 72, kind: 'dome', roof: ['#6a8cb0', '#4c6a8c'], note: '村心一户' },
+    { id: 'mira', row: 3, col: 3, w: 76, kind: 'dome', roof: ['#e88aa0', '#c86a80'], note: '村心一户' },
+    { id: 'kdata', row: 3, col: 4, w: 76, kind: 'dome', roof: ['#8a6aaa', '#6a4a8a'], note: '村心一户' },
+    // 第五排
+    { id: 'yisha', row: 4, col: 0, w: 80, kind: 'bld', seed: 24150, note: '寻常人家' },
+    { id: 'lilith', row: 4, col: 1, w: 76, kind: 'bld', seed: 20849, note: '寻常人家' },
+    { id: 'thomas', row: 4, col: 2, w: 72, kind: 'bld', seed: 37150, note: '寻常人家' },
+    { id: 'kama', row: 4, col: 3, w: 72, kind: 'bld', seed: 55650, note: '寻常人家' },
+    { id: 'aman', row: 4, col: 4, w: 68, kind: 'bld', seed: 63250, note: '寻常人家' },
+    // 第六排
+    { id: 'engo', row: 5, col: 0, w: 72, kind: 'bld', seed: 40166, note: '寻常人家' },
+    { id: 'rama', row: 5, col: 1, w: 76, kind: 'dome', roof: ['#5a9a8a', '#3e7a6a'], note: '寻常人家' },
+    { id: 'xueyao', row: 5, col: 2, w: 72, kind: 'bld', seed: 22466, note: '寻常人家' },
+    { id: 'chizuru', row: 5, col: 3, w: 76, kind: 'bld', seed: 38866, note: '寻常人家' },
+    { id: 'set', row: 5, col: 4, w: 72, kind: 'bld', seed: 48066, note: '寻常人家' },
+    // 第七排 —— 河这岸
+    { id: 'jiangya', row: 6, col: 0, w: 76, kind: 'bld', seed: 301110, note: '老渔夫 —— 紧挨水那间，门口就是渔具' },
+    { id: 'sesir', row: 6, col: 1, w: 108, kind: 'barn', note: '大谷仓 —— 河这岸，收的是两岸的粮' },
+    { id: 'xiaoman', row: 6, col: 2, w: 72, kind: 'bld', seed: 63266, note: '河这岸' },
+    { id: 'laoxu', row: 6, col: 3, w: 72, kind: 'bld', seed: 60182, note: '河这岸' },
+    { id: 'cyber', row: 6, col: 4, w: 76, kind: 'bld', seed: 15282, note: '河这岸' },
+    // 第八排 —— 河那岸
+    { id: 'chenjiu', row: 7, col: 0, w: 76, kind: 'bld', seed: 614112, note: '赌坊里的算手 —— 过了河那边，离村口远' },
+    { id: 'ami', row: 7, col: 1, w: 76, kind: 'dome', roof: ['#e8a030', '#c07820'], note: '河那岸' },
+    { id: 'barista', row: 7, col: 2, w: 80, kind: 'bld', seed: 40082, note: '河那岸' },
+    { id: 'courier', row: 7, col: 3, w: 72, kind: 'bld', seed: 49282, note: '河那岸' },
+    { id: 'anonymous', row: 7, col: 4, w: 76, kind: 'dome', roof: ['#9a938a', '#6e6862'], note: '河那岸 —— 最南，谁也不知道他是谁' },
   ]
 
-  /* ── 新住区(林子那头)────────────────────────────────────────
-     老村那 20 栋是一栋栋手摆的,位置早就定死;这 20 栋反过来 —— 【由这张表画】。
-     village.js 里那一段只是照着表循环,所以表就是唯一来源,不存在
-     「表改了图没改」这种事(老村那 20 栋要靠 check-plots.py 才对得住)。
-
-     为什么不塞进老村:实测那张图只剩 2 处房子大小的纯草空地。硬塞进去
-     只能压掉现有构图,而现有构图是画好的东西。所以往南扩一片新地,
-     林带原地不动 —— 林子那头新辟的一片宅基,老村一栋房都没挪。
-
-     一律【单层】:既读作「新起的」,与老村的多层楼房分得开;也让高度可控,
-     不会长上去压到林带。
-
-     kind  bld = building(带 floors:1) / dome = houseDome
-     seed  bld 的随机种子 —— 同一个种子每次画出同一栋,换个种子换一栋
-     roof  dome 的顶色 [亮, 暗]
-     顺序照 backend/seed/villagers.sql,不按位置排 —— 按位置排的话,
-     seed 里插一位就要重排一遍,而重排会把已经认得自己家的人换到别处。 */
-  const DISTRICT = [
-    // 第一排(近林子)
-    { id: 'yisha', x: 24, gy: 1500, w: 72, kind: 'bld', seed: 24150 },
-    { id: 'orlando', x: 116, gy: 1500, w: 64, kind: 'dome', roof: ['#6a8cb0', '#4c6a8c'] },
-    { id: 'lilith', x: 208, gy: 1496, w: 72, kind: 'bld', seed: 20849 },
-    { id: 'thomas', x: 372, gy: 1500, w: 64, kind: 'bld', seed: 37150 },
-    { id: 'mira', x: 464, gy: 1496, w: 72, kind: 'dome', roof: ['#e88aa0', '#c86a80'] },
-    { id: 'kama', x: 556, gy: 1500, w: 64, kind: 'bld', seed: 55650 },
-    { id: 'aman', x: 632, gy: 1504, w: 56, kind: 'bld', seed: 63250 },
-    // 第二排
-    { id: 'engo', x: 40, gy: 1660, w: 64, kind: 'bld', seed: 40166 },
-    { id: 'rama', x: 132, gy: 1656, w: 72, kind: 'dome', roof: ['#5a9a8a', '#3e7a6a'] },
-    { id: 'xueyao', x: 224, gy: 1660, w: 64, kind: 'bld', seed: 22466 },
-    { id: 'chizuru', x: 388, gy: 1656, w: 72, kind: 'bld', seed: 38866 },
-    { id: 'set', x: 480, gy: 1660, w: 64, kind: 'bld', seed: 48066 },
-    { id: 'kdata', x: 556, gy: 1656, w: 72, kind: 'dome', roof: ['#8a6aaa', '#6a4a8a'] },
-    { id: 'xiaoman', x: 640, gy: 1664, w: 56, kind: 'bld', seed: 63266 },
-    // 第三排(最南)
-    { id: 'laoxu', x: 60, gy: 1820, w: 64, kind: 'bld', seed: 60182 },
-    { id: 'cyber', x: 152, gy: 1816, w: 72, kind: 'bld', seed: 15282 },
-    { id: 'ami', x: 244, gy: 1820, w: 64, kind: 'dome', roof: ['#e8a030', '#c07820'] },
-    { id: 'barista', x: 400, gy: 1816, w: 72, kind: 'bld', seed: 40082 },
-    { id: 'courier', x: 492, gy: 1820, w: 64, kind: 'bld', seed: 49282 },
-    { id: 'anonymous', x: 584, gy: 1816, w: 72, kind: 'dome', roof: ['#9a938a', '#6e6862'] },
-  ]
-
-  globalThis.VILLAGE_PLOTS = PLOTS.concat(DISTRICT)
-  globalThis.VILLAGE_DISTRICT = DISTRICT
+  const PLOTS = TABLE.map(place)
+  globalThis.VILLAGE_PLOTS = PLOTS
+  globalThis.VILLAGE_DISTRICT = PLOTS          // 现在只有一张表：全部照表画
   globalThis.VILLAGE_UNSITED = []
 })()
