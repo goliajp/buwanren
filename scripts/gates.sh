@@ -112,7 +112,6 @@ gate "tsc · 类型"  mini npx tsc --noEmit
 gate "每一页都走得到吗" . python3 scripts/check-reachable-pages.py
 gate "页面之间没互相 import 吧" . python3 scripts/check-page-imports.py
 gate "bind 的处理器都真有吗" . python3 scripts/check-wxml-handlers.py
-gate "门禁自己在 CI 里跑吗" . python3 scripts/check-gates-in-ci.py
 # 镜像自己会先组装。动线要真跑一遍浏览器,几十秒
 gate "web verify · 动线"  . bash web/run-verify.sh
 
@@ -187,6 +186,31 @@ else
     PSQL_URL='postgres://unmei:unmei_dev_pwd@localhost:6032/unmei' \
     python3 scripts/check-enum-check.py
 fi
+# ── 下面这几支 2026-08-25 之前【只在 CI 的 backend.yml 里跑】 ─────────
+# 删 CI 那天差点跟着一起没了。「只在 CI 里跑过」的东西最容易这样消失:
+# 本机从来看不见它们，于是也想不起它们。
+gate "依赖方向 · domain 不许碰基础设施" . bash scripts/check-domain-purity.sh
+
+if [ "$QUICK" = 1 ]; then
+  skip "cargo check · 全部 target" "--quick"
+else
+  # 比 cargo test 宽:bench / example 编不编得过,它才看得见
+  gate "cargo check · 全部 target" backend cargo check --workspace --all-targets --quiet
+fi
+
+# 本仓禁用 sqlx 的 query! 宏,代价是编译期完全不校验 SQL:表名、列名写错
+# 都要到运行期才变成 500。这一支把那层校验补回来 —— 不自己解析 SQL,
+# 交给真的 Postgres PREPARE 一遍。
+if [ "$QUICK" = 1 ]; then
+  skip "check-sql · 每条 SQL 过一遍 Postgres" "--quick"
+elif ! pg_isready -h localhost -p 6032 >/dev/null 2>&1; then
+  skip "check-sql · 每条 SQL 过一遍 Postgres" "Postgres（:6032）没起 —— 这一项【没验】"
+else
+  gate "check-sql · 每条 SQL 过一遍 Postgres" . env \
+    DATABASE_URL='postgres://unmei:unmei_dev_pwd@localhost:6032/unmei' \
+    python3 scripts/check-sql.py
+fi
+
 if [ "$QUICK" = 1 ]; then
   skip "cargo test --workspace" "--quick"
 elif ! pg_isready -h localhost -p 6032 >/dev/null 2>&1; then
@@ -210,9 +234,10 @@ else
       -c 'CREATE DATABASE unmei_test OWNER unmei' >/dev/null 2>&1 || true
     psql "$TESTDB" -f infra/postgres/init.sql >/dev/null 2>&1 || true
   fi
-  gate "cargo test --workspace" backend env \
-    TEST_DATABASE_URL="$TESTDB" \
-    cargo test --workspace --quiet
+  # 跑测试**并断言它们真的跑了** —— 见 scripts/run-backend-tests.sh。
+  # 没有那道断言的话，集成测试退化成「无 DB 静默跳过」也看着像绿的。
+  gate "cargo test --workspace（并断言真跑了）" . env TESTDB="$TESTDB" \
+    bash scripts/run-backend-tests.sh
 fi
 
 echo
