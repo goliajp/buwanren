@@ -210,22 +210,28 @@ mutate "后端可能不发，前端当必有" check-api-shape \
 
 echo
 echo "── check-plots（宅基表）──"
-mutate "村里那栋房子挪了位置" check-plots \
-  "edit('rooms/src/engine/village.js', 'houseDome(148, 880, 76', 'houseDome(148, 900, 76')"
-# 这一条的变异文本过期过一次:新住区那次重构把 UNSITED 清空、id 挪进了 DISTRICT。
-# 当时这支脚本报的是「变异植不进去(基准源码变了?)」而不是默默跳过 —— 那正是它该有的样子。
+# 2026-08-25 重排之后这七条全部重写。旧的那七条锚在「两份来源要对得上」——
+# 老村手摆在 village.js、plots.js 是它的影子。四十栋改成照表画之后只剩一份来源,
+# 那条不变式没有了,锚着它的变异自然也就植不进去。
+# 这支脚本当时报的是「变异植不进去(基准源码变了?)」而不是默默跳过 —— 那正是它该有的样子。
 mutate "表里漏掉一位不完人" check-plots \
-  "edit('rooms/src/engine/plots.js', \"    { id: 'anonymous', x: 584, gy: 1816, w: 72, kind: 'dome', roof: ['#9a938a', '#6e6862'] },\\n\", '')"
-mutate "两个人分到同一栋" check-plots \
-  "edit('rooms/src/engine/plots.js', \"{ id: 'mago', x: 36, gy: 940, w: 84\", \"{ id: 'mago', x: 36, gy: 242, w: 88\")"
-mutate "renderStatic 改名（核对失效）" check-plots \
-  "edit('rooms/src/engine/village.js', '  function renderStatic()', '  function bakeStatic()')"
-mutate "新住区两栋叠在一起" check-plots \
-  "edit('rooms/src/engine/plots.js', \"{ id: 'engo', x: 40,\", \"{ id: 'engo', x: 100,\")"
-mutate "新住区某格出了画布" check-plots \
-  "edit('rooms/src/engine/plots.js', \"{ id: 'aman', x: 632,\", \"{ id: 'aman', x: 692,\")"
-mutate "DISTRICT 改名（核对失效）" check-plots \
-  "edit('rooms/src/engine/plots.js', 'const DISTRICT = [', 'const NEWTOWN = [')"
+  "edit('rooms/src/engine/plots.js', \"    { id: 'anonymous', row: 7, col: 4,\", \"    { id: 'anonymous_', row: 7, col: 4,\")"
+mutate "两个人分到同一格" check-plots \
+  "edit('rooms/src/engine/plots.js', \"{ id: 'mago', row: 2, col: 4,\", \"{ id: 'mago', row: 2, col: 3,\")"
+mutate "某格出了画布" check-plots \
+  "edit('rooms/src/engine/plots.js', \"{ id: 'aman', row: 4, col: 4, w: 68,\", \"{ id: 'aman', row: 4, col: 4, w: 260,\")"
+mutate "一整排挪出了画布" check-plots \
+  "edit('rooms/src/engine/plots.js', '828, 948]', '828, 1400]')"
+mutate "kind 画的那一侧不认得" check-plots \
+  "edit('rooms/src/engine/plots.js', \"kind: 'dome', roof: ['#9a938a', '#6e6862']\", \"kind: 'yurt', roof: ['#9a938a', '#6e6862']\")"
+mutate "drawHouse 改名（核对失效）" check-plots \
+  "edit('rooms/src/engine/village.js', '    function drawHouse(q) {', '    function paintHouse(q) {')"
+# 这一条守的是【读表的装置本身】。check-plots 是照 plots.js 那套算法
+# 自己把 row/col 还原成坐标的 —— 坐标的定义挪走而它读不到,
+# 那它算出来的每一个 x/gy 都是凭空的,而四十行照样解析得出来:
+# 一屏「✓ 40 格」,量的却不是画上那四十栋。
+mutate "坐标定义改名（核对失效）" check-plots \
+  "edit('rooms/src/engine/plots.js', '  const ROW_GY = [', '  const GROUND_Y = [')"
 
 echo
 echo "── check-relations（对白长在真实关系上）──"
