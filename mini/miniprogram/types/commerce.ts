@@ -58,6 +58,12 @@ export interface ProductDetail {
  */
 export interface OrderCard {
   id: string
+  /** 下单那一刻的商品名（第一行的 sku 快照）。没有明细的单子是 null ——
+   *  **别在这时候编一个名字出来**：显示单号前八位是我们真知道的东西，
+   *  「一件商品」会让人以为系统认得它是什么。 */
+  title: string | null
+  /** 这单几行。> 1 时显示「第一件 等 N 件」 */
+  line_count: number
   status: string
   currency: string
   amount_total_minor: number

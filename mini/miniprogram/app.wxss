@@ -124,6 +124,48 @@ button.btn.stamp {
   box-sizing: border-box;
 }
 
+/* ── 行：键 · 值 · ›（设计册 10.2 的「行」，H2 / M1 / M3 / M5 / P1 / P2 都用）──
+   一直没有样式。`me` 那一屏五条入口都挂着 .entry，而全工程没有一条规则
+   接住它 —— 于是它们渲成三段贴在一起的行内文字，没有行高、没有分隔、
+   点得到的地方只有那几个字本身。不报错，看着也「有内容」。
+
+   高度按【触点】定，不按文字定：88rpx = 44px，是能稳稳点中的下限。
+   值那一栏可长可短，行高不许跟着变。 */
+.entries { border-top: 1rpx solid var(--stone-line-x); }
+.entry {
+  display: flex;
+  align-items: center;
+  min-height: 88rpx;
+  padding: 0 4rpx;
+  border-bottom: 1rpx solid var(--stone-line-x);
+}
+.entry-hover { background: var(--paper-inset); }
+.entry-k {
+  flex: none;
+  font-size: 30rpx;
+  color: var(--ink);
+  letter-spacing: 0.04em;
+}
+.entry-v {
+  flex: 1;
+  margin-left: 24rpx;
+  text-align: right;
+  font-size: 26rpx;
+  color: var(--ink-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.entry-arrow {
+  flex: none;
+  margin-left: 14rpx;
+  font-size: 30rpx;
+  color: var(--stone-label);
+}
+/* 没有下一屏可去的那种：值不是「提示」而是事实，所以颜色跟正文一档，
+   也不该有箭头 —— 有箭头而点不动，比没有箭头更糟 */
+.entry-flat .entry-v { color: var(--ink-mid); }
+
 /* ── 弹性槽：矮屏收起（设计 10.1）───────────────────────────────
    槽里的东西的判据就是「删掉它这一屏仍然成立」，所以放不下时收起来，
    而不是让整屏滚 —— 用户明确要过：小程序没有上下滑动。

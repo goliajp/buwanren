@@ -16,7 +16,9 @@
     "pages/order/index",
     "pages/badges/index",
     "pages/subs/index",
-    "pages/name/index"
+    "pages/name/index",
+    "pages/settings/index",
+    "pages/bind/index"
   ],
   "window": {
     "backgroundTextStyle": "light",

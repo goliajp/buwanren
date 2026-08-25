@@ -1,0 +1,70 @@
+.hd { padding: 24rpx 0 28rpx; }
+.hd .title { font-size: 76rpx; line-height: 1; }
+.hd .sub { font-size: 26rpx; color: var(--ink-faint); margin-top: 10rpx; }
+
+.onboard-card {
+  background: var(--paper-panel);
+  border: 1rpx solid var(--stone-line-x);
+  border-radius: 8rpx;
+  padding: 40rpx 32rpx 32rpx;
+}
+.onboard-sub {
+  font-size: 24rpx;
+  color: var(--ink-faint);
+  letter-spacing: 0.12em;
+  text-align: center;
+  margin-bottom: 36rpx;
+}
+
+.wx-form { display: flex; flex-direction: column; gap: 30rpx; }
+.wx-field { display: flex; justify-content: center; }
+
+.avatar-btn {
+  padding: 0;
+  background: transparent;
+  border: none;
+  line-height: 0;
+  width: 140rpx;
+  height: 140rpx;
+}
+.avatar-btn::after { border: none; }
+.avatar-preview {
+  width: 140rpx;
+  height: 140rpx;
+  border-radius: 50%;
+  border: 1rpx dashed var(--stone-line);
+  background: var(--paper-inset);
+  display: block;
+}
+.avatar-preview.avatar-fallback {
+  font-family: "Songti SC", serif;
+  font-size: 22rpx;
+  color: var(--stone-label);
+  line-height: 138rpx;
+  text-align: center;
+  letter-spacing: 0.14em;
+}
+
+.nickname-input {
+  width: 100%;
+  background: var(--paper-inset);
+  padding: 20rpx 24rpx;
+  border-radius: 4rpx;
+  font-size: 30rpx;
+  color: var(--ink);
+  text-align: center;
+  letter-spacing: 0.14em;
+  box-sizing: border-box;
+}
+
+.wx-cta { text-align: center; margin-top: 8rpx; }
+.wx-hint {
+  padding: 20rpx 8rpx 0;
+  text-align: center;
+  font-size: 22rpx;
+  color: var(--stone-label);
+  line-height: 1.7;
+  letter-spacing: 0.06em;
+}
+
+.acts { margin-top: 40rpx; text-align: center; }

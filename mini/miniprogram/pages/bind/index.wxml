@@ -1,0 +1,49 @@
+<view class="page">
+  <view class="hd">
+    <view class="title">绑定微信</view>
+    <view class="sub">换设备也还在</view>
+  </view>
+
+  <view class="onboard-card">
+    <view class="onboard-sub">
+      绑定之后，本命档案跟着你走，不跟着这台手机
+    </view>
+
+    <view class="wx-form">
+      <view class="wx-field">
+        <button class="avatar-btn"
+                open-type="chooseAvatar"
+                bindchooseavatar="onChooseAvatar">
+          <image wx:if="{{draft.avatar_url}}"
+                 class="avatar-preview"
+                 src="{{draft.avatar_url}}"
+                 mode="aspectFill"/>
+          <view wx:else class="avatar-preview avatar-fallback">选头像</view>
+        </button>
+      </view>
+
+      <view class="wx-field">
+        <input class="nickname-input"
+               type="nickname"
+               placeholder="微信昵称"
+               value="{{draft.nickname}}"
+               bindinput="onNickname"
+               bindblur="onNickname"/>
+      </view>
+
+      <view class="wx-cta">
+        <button class="btn stamp" bindtap="doBind" disabled="{{binding}}">
+          {{binding ? '绑定中…' : '绑定微信'}}
+        </button>
+      </view>
+
+      <view class="wx-hint">
+        我们不读取你的手机号或其它信息 · 仅换 openid + 保存你自己填的头像和昵称
+      </view>
+    </view>
+  </view>
+
+  <view class="acts">
+    <button class="btn ghost" bindtap="onBack">回去</button>
+  </view>
+</view>

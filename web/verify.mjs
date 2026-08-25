@@ -1673,8 +1673,8 @@ if (!API) {
      而 2026-08-19 之前没有任何客户端读它。 */
   await open('pages/me/index')
   const 徽摘要 = await p.evaluate(() => globalThis.__router.current().data.badgeText)
-  ok(/^\d+ \/ \d+$/.test(徽摘要 || ''), '「我」上写着得了几个徽章', String(徽摘要))
-  await p.getByText('徽', { exact: true }).click()
+  ok(/^\d+ \/ \d+ 枚徽章$/.test(徽摘要 || ''), '「我」上写着得了几个徽章', String(徽摘要))
+  await p.getByText('我得到的', { exact: true }).click()
   await p.waitForTimeout(1200)
   ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/badges/index',
      '点得进徽章那一页', await p.evaluate(() => globalThis.__router.current().__route))
@@ -1690,19 +1690,30 @@ if (!API) {
      点它去铺 —— **没有的时候，出口就是「去哪儿能有」**。 */
   await open('pages/me/index')
   const 订摘要 = await p.evaluate(() => globalThis.__router.current().data.subText)
-  ok(订摘要 === '还没有订阅' || /个订着$/.test(订摘要 || ''),
+  ok(订摘要 === '还没有' || /个订着$/.test(订摘要 || ''),
      '「我」上写着订阅的状况', String(订摘要))
-  /* 账号明细默认收起（R4 为了一屏放得下）。收起不等于藏起来 —— 得展得开。 */
-  ok(await p.evaluate(() => globalThis.__router.current().data.profOpen) === false,
-     '账号明细默认收着 —— 一屏放得下靠的是它')
-  await p.getByText('展开', { exact: true }).click()
-  await p.waitForTimeout(300)
-  const 展开后 = await text()
-  ok(展开后.includes('I D') || 展开后.includes('平 台'),
-     '点一下真的展得开 —— 收起来的东西还找得回来', 展开后.slice(0, 40))
+  /* 账号明细搬去「设置」了（M1 只放设计册列的那五条）。
+     它是账号的维护面，不是「我」的内容 —— 但**搬走不等于藏起来**：
+     从「我的」点得到「设置」，进去展得开，五行还在。 */
+  await open('pages/me/index')
+  await p.getByText('设置', { exact: true }).click()
+  await p.waitForFunction(
+    () => globalThis.__router.current().__route === 'pages/settings/index',
+    null, { timeout: 15000 },
+  ).catch(() => {})
+  ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/settings/index',
+     '「我的」点得进「设置」', await p.evaluate(() => globalThis.__router.current().__route))
+  /* 折叠没有了：折叠是为了让【「我的」那一屏】放得下,这五行搬走之后
+     那个理由就不成立了。它们唯一的用途是被人念给客服听 ——
+     多一次「展开」等于给唯一的用途加一道手续。所以这里验的是
+     **不点任何东西就看得见**。 */
+  await p.waitForTimeout(700)
+  const 明细 = await text()
+  ok(明细.includes('I D') && 明细.includes('平 台'),
+     '账号那五行不用点就在 —— 念给客服听的东西不该再藏一层', 明细.slice(0, 40))
   await open('pages/me/index')
 
-  await p.getByText('订', { exact: true }).click()
+  await p.getByText('订着的', { exact: true }).click()
   await p.waitForTimeout(1200)
   ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/subs/index',
      '「订」进得了自己那一页', await p.evaluate(() => globalThis.__router.current().__route))
@@ -1728,7 +1739,7 @@ if (!API) {
   /* 「我」→「单」：花过的钱要能找回来。这是订单这个资源的常设入口 ——
      刚才那条是「刚下完单顺着走」，这条是「过一阵回来找」。 */
   await open('pages/me/index')
-  await p.getByText('单', { exact: true }).click()
+  await p.getByText('我买过的', { exact: true }).click()
   await p.waitForTimeout(1200)
   ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/orders/index',
      '从「我」找得到「单」', await p.evaluate(() => globalThis.__router.current().__route))
@@ -1745,6 +1756,32 @@ if (!API) {
     await p.waitForTimeout(1200)
     ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/order/index',
        '从列表点得进那一张', await p.evaluate(() => globalThis.__router.current().__route))
+  }
+
+  /* M1 那一屏本身。上面几条验的是「从它点得出去」，这几条验的是
+     **它自己写着什么** —— 设计册 10.4 的 M1 是五条入口 + 一句话 + 最近一笔。 */
+  await open('pages/me/index')
+  await p.waitForTimeout(1500)
+  const 我屏 = await text()
+  for (const 条 of ['名字', '我买过的', '我得到的', '订着的', '设置']) {
+    ok(我屏.includes(条), `「我的」上有「${条}」这一条`, 条)
+  }
+  /* 搬走的三块不该还在这一屏上。留一块在这儿,这一屏就又放不下了 ——
+     而「放不下」在真机上的样子是【底下那一截看不见】,不是报错。 */
+  for (const 不该有 of ['退出并重新登录', '这台设备上的账号']) {
+    ok(!我屏.includes(不该有), `「${不该有}」已经不在这一屏上`, 不该有)
+  }
+
+  /* 最近一笔写的是【买的那个东西】,不是订单号。
+     后端 my_orders 的 title 取自下单那一刻的 sku 快照 ——
+     没有它,这一块只显示得出一串 UUID,读的人认不出自己买了什么。 */
+  const 最近 = await p.evaluate(() => globalThis.__router.current().data.recent)
+  ok(!!最近, '「我的」上有「最近一笔」', 最近 ? String(最近.title) : '没有')
+  if (最近) {
+    ok(!!最近.title && !/^单 /.test(最近.title),
+       '最近一笔写的是商品名，不是订单号', String(最近.title))
+    ok(/^\d\d\/\d\d 下单$/.test(最近.when || ''), '写着哪天下的单', String(最近.when))
+    ok(!!最近.state, '写着这单现在什么状况', String(最近.state))
   }
 }
 
@@ -1896,7 +1933,19 @@ for (const api of ['login', 'scanCode', 'getUserProfile']) {
 }
 /* 顺带验一次它在页面里的样子:点「绑定微信」不该看起来成功了。
    这条与上面互补 —— 上面查垫片,这里查【页面拿到之后没把它糊过去】。 */
+/* 表单搬去自己一屏了（M1 上它一块 372px，没有一台机器放得下那一屏）。
+   所以这里先按【真实走法】走进去：我的 → 设置 → 绑定微信。 */
 await open('pages/me/index')
+await p.getByText('设置', { exact: true }).click()
+await p.waitForTimeout(900)
+await p.getByText('绑定微信', { exact: true }).click()
+await p.waitForFunction(
+  () => globalThis.__router.current().__route === 'pages/bind/index',
+  null, { timeout: 15000 },
+).catch(() => {})
+ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/bind/index',
+   '「设置」点得进「绑定微信」那一屏',
+   await p.evaluate(() => globalThis.__router.current().__route))
 /* 昵称这一栏以前是 setData 塞进去的 —— 那样验的是「数据放对了没」，
    不是「这一栏能不能打字」。onNickname 从没被调用过。 */
 const nk = p.locator('input[type="nickname"], .nick-input').first()
@@ -1909,7 +1958,9 @@ if (await nk.count() >= 1) {
   ok(false, '昵称打进了 draft.nickname', '输入框都不在')
   await p.evaluate(() => globalThis.__router.current().setData({ 'draft.nickname': '试试' }))
 }
-await p.getByText('绑定微信', { exact: true }).click()
+/* 按【按钮】,不是按文字 —— 这一屏的标题也叫「绑定微信」,
+   按文字会同时选中标题与按钮,Playwright 直接判违规。 */
+await p.getByRole('button', { name: '绑定微信' }).click()
 await p.waitForTimeout(800)
 ok(await p.evaluate(() => !globalThis.__router.current().data.isWx),
    '点「绑定微信」之后仍然是匿名　—— 这条只有真机走得通')
@@ -1921,6 +1972,8 @@ if (API) {
      这里【不判断该不该这样】——那是身份策略，写在
      docs/FINDING-2026-08-18-匿名用户三十天后村子回不来.md 里等拍板。
      这条只钉住【现状是什么】：换了人。哪天改成不换了，它会红，那正是该看一眼的时候。 */
+  await open('pages/settings/index')
+  await p.waitForTimeout(900)
   const 退出前 = await p.evaluate(() => globalThis.__router.current().data.user && globalThis.__router.current().data.user.id)
   await p.getByText('退出并重新登录').click()
   await p.waitForTimeout(2200)
