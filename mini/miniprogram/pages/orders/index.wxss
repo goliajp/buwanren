@@ -1,11 +1,59 @@
-.hd { padding: 24rpx 0 32rpx; }
-.hd .eyebrow { margin-bottom: 20rpx; }
-.hd .title { font-size: 128rpx; line-height: 1; margin: 8rpx 0 16rpx; }
-.loading, .err, .empty { padding: 80rpx 0; text-align: center; color: var(--stone-label); }
-.err-msg { margin-bottom: 28rpx; }
-.item { border-top: 1rpx solid var(--stone-line); padding: 28rpx 0; }
+.hd { padding: 24rpx 0 0; }
+.hd .title { font-size: 76rpx; line-height: 1; }
+.hd .sub { font-size: 24rpx; color: var(--ink-faint); margin-top: 12rpx; }
+
+.loading, .err { padding: 60rpx 0; color: var(--ink-faint); font-size: 26rpx; }
+.err-msg { margin-bottom: 24rpx; }
+
+.empty { padding: 48rpx 0 32rpx; }
+.empty-t { font-family: "Songti SC", serif; font-size: 34rpx; color: var(--ink); }
+.empty-sub { font-size: 24rpx; color: var(--ink-faint); margin-top: 12rpx; line-height: 1.7; }
+
+.item {
+  padding: 22rpx 4rpx;
+  border-bottom: 1rpx solid var(--stone-line-x);
+}
 .item-hover { background: var(--paper-inset); }
-.item-top { display: flex; justify-content: space-between; align-items: baseline; }
-.item-status { font-family: "Songti SC", serif; font-size: 34rpx; color: var(--ink); }
-.item-total { font-family: "Songti SC", serif; font-size: 34rpx; color: var(--ink); }
-.item-id { font-size: 20rpx; color: var(--stone-label); margin-top: 12rpx; }
+.item-top { display: flex; align-items: baseline; }
+.item-name {
+  flex: 1;
+  font-family: "Songti SC", serif;
+  font-size: 32rpx;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.item-total { flex: none; margin-left: 20rpx; font-size: 28rpx; color: var(--ink); }
+.item-bot { display: flex; align-items: baseline; margin-top: 8rpx; }
+.item-when { flex: 1; font-size: 24rpx; color: var(--ink-faint); }
+.item-go { flex: none; margin-left: 20rpx; font-size: 24rpx; color: var(--ink-mid); }
+
+/* 翻页条：一屏放不下就翻页，不往下滚（设计 10.3） */
+.pager { display: flex; align-items: center; justify-content: space-between; margin-top: 24rpx; }
+.pg { font-size: 26rpx; color: var(--ink); padding: 12rpx 8rpx; }
+.pg-off { opacity: .3; }
+.pg-n { font-size: 24rpx; color: var(--ink-faint); }
+
+.foot { margin-top: 24rpx; font-size: 22rpx; color: var(--stone-label); letter-spacing: 0.1em; }
+
+.go-village {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 28rpx;
+  padding: 22rpx 4rpx;
+  border-top: 1rpx solid var(--stone-line-x);
+  font-size: 26rpx;
+  color: var(--ink);
+}
+.go-village .arrow { color: var(--stone-label); }
+
+.flexslot {
+  margin-top: 20rpx;
+  padding-top: 18rpx;
+  border-top: 1rpx solid var(--stone-line-x);
+  font-size: 22rpx;
+  color: var(--stone-label);
+  letter-spacing: 0.06em;
+}
