@@ -25,6 +25,31 @@ cd "$(dirname "$0")/.."
 QUICK=0
 [ "${1:-}" = "--quick" ] && QUICK=1
 
+# 一次只许跑一份。两份同时跑会互相踩:镜像那一支占的是固定端口,
+# 引擎那几支要重建 design.html 与 mini/miniprogram/engine —— 一份跑到一半
+# 被另一份换掉了产物,量到的就是别人的东西。
+#
+# 2026-08-25 真踩到:一份挂住的旧run 跟新起的一份并行了一个半小时,
+# blobscan 与 web verify 报红,而两支单独跑都是绿的。
+# **看起来像产品坏了,其实是两份门禁在抢同一批文件** —— 这种红最贵:
+# 查错方向完全是反的。变异测试那支早就有锁,这支一直没有。
+LOCK=/tmp/unmei-gates.lock
+if ! mkdir "$LOCK" 2>/dev/null; then
+  OWNER=$(cat "$LOCK/pid" 2>/dev/null || echo 0)
+  if kill -0 "$OWNER" 2>/dev/null; then
+    # 变量名后面紧跟全角字符时一定要加花括号 —— `$OWNER）` 会被当成
+    # 名字叫 `OWNER）` 的变量，`set -u` 当场报 unbound variable。
+    echo "✗ 已经有一份门禁在跑（pid ${OWNER}）—— 两份并行会互相踩，量到的不算数"
+    echo "  等它跑完，或者 kill ${OWNER} 之后 rm -rf ${LOCK}"
+    exit 1
+  fi
+  echo "· 捡到一把没人认领的锁（pid ${OWNER} 已经不在了），接着用"
+  rm -rf "$LOCK"; mkdir "$LOCK"
+fi
+echo $$ > "$LOCK/pid"
+trap 'rm -rf "$LOCK"' EXIT
+trap 'exit 130' INT TERM PIPE
+
 pass=0; fail=0; skipped=0
 FAILED=()
 
