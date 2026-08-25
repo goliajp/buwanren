@@ -27,6 +27,69 @@ async fn start_charges_the_outstanding_balance_not_the_caller_supplied_amount() 
 }
 
 #[tokio::test]
+async fn starting_twice_hands_back_the_same_pending_payment() {
+    let pool = db_or_skip!();
+    let (user, order_id) = unpaid_order(&pool, 19900).await;
+
+    let first = payment::start(&pool, &order_id, &user, "wechat_jsapi", Some("openid_x"))
+        .await
+        .expect("第一次");
+    let second = payment::start(&pool, &order_id, &user, "wechat_jsapi", Some("openid_x"))
+        .await
+        .expect("第二次");
+
+    // 点第二次的意思是「我要接着付这张单」,不是「我要再付一笔」
+    assert_eq!(first.payment_id, second.payment_id, "第二次该拿回同一笔");
+
+    let n: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM payment WHERE order_id=$1 AND status='pending'",
+    )
+    .bind(&order_id)
+    .fetch_one(&pool)
+    .await
+    .expect("count");
+    assert_eq!(n, 1, "一张单同时只该有一笔待付");
+
+    // 这才是那个洞真正要命的地方:两笔 pending 合计【超过应付】,
+    // 渠道那一侧会真收第二笔,而系统这一侧永远记不进来。
+    let sum: i64 = sqlx::query_scalar(
+        "SELECT COALESCE(sum(amount_minor),0)::bigint FROM payment
+          WHERE order_id=$1 AND status='pending'",
+    )
+    .bind(&order_id)
+    .fetch_one(&pool)
+    .await
+    .expect("sum");
+    assert_eq!(sum, 19900, "待付合计不该超过应付");
+}
+
+#[tokio::test]
+async fn switching_channel_supersedes_the_old_pending_payment() {
+    let pool = db_or_skip!();
+    let (user, order_id) = unpaid_order(&pool, 19900).await;
+
+    let first = payment::start(&pool, &order_id, &user, "wechat_jsapi", None).await.expect("微信");
+    let second = payment::start(&pool, &order_id, &user, "alipay_wap", None).await.expect("支付宝");
+
+    // 换渠道是明确的动作:旧的那笔作废,新的建出来
+    assert_ne!(first.payment_id, second.payment_id, "换了渠道该是新的一笔");
+
+    let old_status = common::scalar_string(
+        &pool, "SELECT status FROM payment WHERE id=$1", &first.payment_id).await;
+    assert_eq!(old_status.as_deref(), Some("expired"), "旧的那笔该被顶掉");
+
+    // 顶掉的原因要写在案上 —— 一笔支付凭空变成 expired，查账的人得看得出是谁顶的
+    let note = common::scalar_string(
+        &pool, "SELECT audit_note FROM payment WHERE id=$1", &first.payment_id).await;
+    assert!(note.as_deref().unwrap_or("").contains("顶掉"), "实际 {note:?}");
+
+    let n: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM payment WHERE order_id=$1 AND status='pending'")
+        .bind(&order_id).fetch_one(&pool).await.expect("count");
+    assert_eq!(n, 1, "换完渠道仍然只有一笔待付");
+}
+
+#[tokio::test]
 async fn start_by_non_owner_is_not_found() {
     let pool = db_or_skip!();
     let (_owner, order_id) = unpaid_order(&pool, 100).await;

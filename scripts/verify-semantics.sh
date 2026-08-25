@@ -517,12 +517,32 @@ else
   ZN=$(PSQL "SELECT count(*) FROM payment WHERE order_id='$ZORD' AND status='pending'")
   ZDUE=$(PSQL "SELECT amount_total_minor FROM order_record WHERE id='$ZORD'")
   ZSUM=$(PSQL "SELECT COALESCE(sum(amount_minor),0) FROM payment WHERE order_id='$ZORD' AND status='pending'")
-  if [ "$ZN" = "2" ] && [ "$ZSUM" -gt "$ZDUE" ]; then
-    printf "  \033[33m·\033[0m %-52s 两笔 pending 合计 %s，应付只有 %s —— 台账里记着，修法待拍板\n" \
-      "double-pay：还是老样子" "$ZSUM" "$ZDUE"
+  # 2026-08-25 起这里验的是【修好了】：连点两次拿回的是同一笔。
+  # 在那之前它验的是「还是老样子：两笔全额 pending」——
+  # 台账那一条现在写的是收窄之后剩下的那一支（换渠道），不是这一条。
+  if [ "$ZN" = "1" ] && [ "$ZSUM" = "$ZDUE" ]; then
+    printf "  \033[32m✓\033[0m %-52s 一笔 pending %s = 应付 %s\n" \
+      "连点两次「去支付」只有一笔待付" "$ZSUM" "$ZDUE"; pass=$((pass+1))
   else
-    printf "  \033[31m✗\033[0m %-52s 现在是 %s 笔 pending、合计 %s（应付 %s）—— 行为变了，台账那一条该划掉或重写\n" \
-      "double-pay：跟台账对不上" "$ZN" "$ZSUM" "$ZDUE"; fail=$((fail+1))
+    printf "  \033[31m✗\033[0m %-52s 现在是 %s 笔 pending、合计 %s（应付 %s）\n" \
+      "连点两次「去支付」只有一笔待付" "$ZN" "$ZSUM" "$ZDUE"; fail=$((fail+1))
+  fi
+  # 换渠道那一支（台账 pay-channel-switch）：旧的那笔要被顶掉，且仍然只剩一笔待付。
+  # 换的是【微信内部的模式】(jsapi → h5)：今天 pick() 只认 wechat_*，
+  # 支付宝那种跨渠道在 API 这一侧压根进不来。而 jsapi → h5 是真实场景：
+  # 小程序里发起了，人又去 H5 那一页。
+  curl -sS -o /dev/null -X POST "$API/v1/orders/$ZORD/pay" \
+    -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+    -H "idempotency-key: $(idem dblpay3)" \
+    -d '{"channel":"wechat_h5"}'
+  ZN2=$(PSQL "SELECT count(*) FROM payment WHERE order_id='$ZORD' AND status='pending'")
+  ZEXP=$(PSQL "SELECT count(*) FROM payment WHERE order_id='$ZORD' AND status='expired' AND audit_note LIKE '%顶掉%'")
+  if [ "$ZN2" = "1" ] && [ "$ZEXP" -ge 1 ]; then
+    printf "  \033[33m·\033[0m %-52s 旧那笔被顶掉、仍只剩一笔待付 —— 渠道侧可能已经付得出去，台账 pay-channel-switch 记着\n" \
+      "换渠道：顶掉旧的那一笔"
+  else
+    printf "  \033[31m✗\033[0m %-52s 换渠道之后 %s 笔待付、%s 笔标着被顶掉 —— 行为变了，台账该重写\n" \
+      "换渠道：跟台账对不上" "$ZN2" "$ZEXP"; fail=$((fail+1))
   fi
   # 收尾:把这张单取消掉,别让两笔 pending 被 sweeper 推成 success ——
   # 那会在开发库里留下一张真的重复扣款单,下一次跑校验时它就是噪音。
