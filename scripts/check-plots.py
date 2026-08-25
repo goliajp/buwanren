@@ -39,9 +39,21 @@ WORLD_W, WORLD_H = 704, 960
 def table():
     """读 plots.js 的表。坐标由 row/col 算，这里照同一套算法还原。"""
     src = PLOTS_JS.read_text(encoding='utf-8')
-    gy = [int(v) for v in re.search(r'ROW_GY = \[([^\]]+)\]', src).group(1).split(',')]
-    cx = [int(v) for v in re.search(r'COL_CX = \[([^\]]+)\]', src).group(1).split(',')]
-    stag = int(re.search(r'STAGGER = (\d+)', src).group(1))
+
+    def one(pat, what):
+        """读不到就直接判这道核对失效。
+
+           坐标是**这里自己照 plots.js 那套算法还原**的 —— 定义挪走而读不到时,
+           四十行照样解析得出来,于是它会报一屏「✓ 40 格」,
+           量的却是凭空算出来的坐标,不是画上那四十栋。"""
+        m = re.search(pat, src)
+        if not m:
+            sys.exit(f'✗ plots.js 里找不到 {what} —— 坐标没法还原，这道核对已经失效')
+        return m.group(1)
+
+    gy = [int(v) for v in one(r'ROW_GY = \[([^\]]+)\]', 'ROW_GY').split(',')]
+    cx = [int(v) for v in one(r'COL_CX = \[([^\]]+)\]', 'COL_CX').split(',')]
+    stag = int(one(r'STAGGER = (\d+)', 'STAGGER'))
     out = []
     for m in re.finditer(r"\{ id: '([a-z_]+)', row: (\d+), col: (\d+), w: (\d+), kind: '(\w+)'", src):
         i, r, c, w, k = m.group(1), int(m.group(2)), int(m.group(3)), int(m.group(4)), m.group(5)
