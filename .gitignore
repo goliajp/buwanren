@@ -32,16 +32,15 @@ data/
 backend/data/
 
 # Claude Code 本地会话/权限(pid 句柄、settings 个人偏好不进 git)
-# 项目规则本体 .claude/CLAUDE.md 与系统设计文档 .claude/design/ 要跟踪
-.claude/*
-!.claude/CLAUDE.md
-!.claude/design/
+# `.claude/` 整个不进 git（2026-08-25 用户定）—— 连 CLAUDE.md 一起。
+# 后果要知道：项目的工作规矩与设计册都只在本机，没有版本历史。
+# 决定为什么这么定，写在 commit message 里。
+.claude/
 
 # regress diff 出的「旧 / 新 / 差异」三图 —— 随时可从 baseline 的 gitRev 重建,不入库
 rooms/.roomwork/baseline/diff/
 
 # 进程句柄:pid 是易变的,记下来只为本机好找,不入库
-.claude/pid-registry/
 
 # 开发用的御守二维码（scripts/dev-omamori.py 出的）
 .dev-omamori-*.png
@@ -53,7 +52,6 @@ rooms/.roomwork/baseline/diff/
 # `rooms/design.html` 只是它 36 个源文件的拼装产物（实测逐字节相同）。
 # 也就是说设计册在 rooms 这一块就是源码，拿掉它房间与引擎就生成不出来。
 # 这里拿掉的是【产品与商业设计】和【过程文档】。
-.claude/design/
 docs/
 archive/
 rooms/.roomwork/
