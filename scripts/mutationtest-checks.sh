@@ -35,6 +35,7 @@ FILES=(
   webadmin/src/App.tsx
   webadmin/src/components/Layout.tsx
   webadmin/src/pages/Dashboard.tsx
+  web/run-verify.sh
   backend/unmei-domain/src/lib.rs
   mini/miniprogram/types/natal.ts
   backend/unmei-admin-api/src/routes/users.rs
@@ -464,6 +465,27 @@ if bash web/run-verify.sh >/dev/null 2>&1; then
   printf '  ✗ %-30s 动线没抓到 —— 页面改了它却照样全通\n' "空屋那一句被改掉"; fail=$((fail+1))
 else
   printf '  ✓ %-30s 动线抓到\n' "空屋那一句被改掉"; pass=$((pass+1))
+fi
+restore
+
+# 这一条守的是【它自己跑不起来的时候会不会报绿】。
+#
+# 2026-08-25 真发生过:`"${MINGLI_ARG[@]}"` 在空数组上炸(macOS 自带 bash 3.2,
+# `set -u` 下空数组展开就是 unbound variable),而排盘服务没起时它就是空的;
+# 与此同时 EXIT trap 的最后一句 `|| true` 把退出码抹成了 0。
+# 两件事凑在一起 = **没有排盘服务的机器上,这支门禁从来没跑过,而且每次报绿**。
+# 上面那条「空屋那一句」的变异因此逃掉了 —— 那正是这支脚本存在的理由。
+restore
+python3 -c "
+import pathlib
+p = pathlib.Path('web/run-verify.sh'); s = p.read_text(encoding='utf-8')
+assert s.count('bun web/verify.mjs') == 1
+p.write_text(s.replace('bun web/verify.mjs', 'false  # 变异:让它死在跑动线之前\nbun web/verify.mjs', 1), encoding='utf-8')
+"
+if bash web/run-verify.sh >/dev/null 2>&1; then
+  printf '  ✗ %-30s 它自己死在半路却报绿 —— 退出码被 trap 抹平了\n' "动线跑不起来"; fail=$((fail+1))
+else
+  printf '  ✓ %-30s 跑不起来就报红\n' "动线跑不起来"; pass=$((pass+1))
 fi
 restore
 
