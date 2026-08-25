@@ -359,23 +359,31 @@ if (API) {
   // 订单页同理，得有一张真单子。用镜像自己已经登录的那个 token 建一张。
   // 先开一页：还没导航时读 localStorage 会 SecurityError（about:blank 上没有）。
   await open(routes[0])
-  const 单 = await p.evaluate(async (base) => {
+  /* 建【六张】。一张是订单页要的，六张是「我买过的」翻页要的 ——
+     设计 10.3 说一页五笔、多了左右翻，而五笔以内那两个翻页处理器
+     一次也按不到：那一段就会靠「从不运行」保持绿色。 */
+  const 单们 = await p.evaluate(async (base) => {
     const raw = localStorage.getItem('unmei:buwanren:token')
-    if (!raw) return null
+    if (!raw) return []
     const token = JSON.parse(raw)
-    const r = await fetch(base + '/v1/orders', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        authorization: 'Bearer ' + token,
-        'idempotency-key': 'mirror-sweep-' + Math.random().toString(36).slice(2),
-      },
-      body: JSON.stringify({ lines: [{ sku_id: 'sku-naji-single', qty: 1 }], region: 'cn' }),
-    })
-    if (!r.ok) return null
-    const j = await r.json()
-    return j.order_id || null
+    const out = []
+    for (let i = 0; i < 6; i++) {
+      const r = await fetch(base + '/v1/orders', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: 'Bearer ' + token,
+          'idempotency-key': 'mirror-sweep-' + Math.random().toString(36).slice(2),
+        },
+        body: JSON.stringify({ lines: [{ sku_id: 'sku-naji-single', qty: 1 }], region: 'cn' }),
+      })
+      if (!r.ok) break
+      const j = await r.json()
+      if (j.order_id) out.push(j.order_id)
+    }
+    return out
   }, API)
+  const 单 = 单们[0] || null
   if (单) 要参数['pages/order/index'] = { id: 单 }
 }
 
@@ -1752,10 +1760,53 @@ if (!API) {
   }
   ok(有几单 > 0, '单子列表里有刚才那几张', String(有几单))
   if (有几单 > 0) {
+    /* M2 那一屏本身。它原先一行只写得出状态、金额与**一串订单号** ——
+       因为列表接口不返回商品名。读的人认不出自己买了什么。 */
+    const 一行 = await p.evaluate(() => {
+      const d = globalThis.__router.current().data
+      return d.page && d.page[0] ? { 名: d.page[0].title, 钱: d.page[0].totalText,
+                                     日: d.page[0].whenText, 状: d.page[0].statusText } : null
+    })
+    ok(!!一行 && !!一行.名 && !/^单 /.test(一行.名),
+       '一行写的是买的那个东西，不是订单号', 一行 ? String(一行.名) : '没有')
+    ok(!!一行 && /^\d+\/\d+$/.test(一行.日 || ''), '写着哪天买的', 一行 ? String(一行.日) : '没有')
+
+    /* 一页五笔，多了左右翻（设计 10.3：竖向滚动被翻页替掉）。
+       六张单子正是为这一条建的 —— 五笔以内翻页永远按不到。 */
+    const 页况 = await p.evaluate(() => {
+      const d = globalThis.__router.current().data
+      return { 页数: d.pageCount, 这页: d.page.length, 页号: d.pageNo }
+    })
+    ok(页况.页数 > 1, '超过五笔就分页，而不是往下堆', `${页况.页数} 页`)
+    ok(页况.这页 <= 5, '一页最多五笔', String(页况.这页))
+    if (页况.页数 > 1) {
+      await p.getByText('下一页 ›', { exact: true }).click()
+      await p.waitForTimeout(400)
+      ok(await p.evaluate(() => globalThis.__router.current().data.pageNo) === 1,
+         '「下一页」真的翻过去了',
+         String(await p.evaluate(() => globalThis.__router.current().data.pageNo)))
+      await p.getByText('‹ 上一页', { exact: true }).click()
+      await p.waitForTimeout(400)
+      ok(await p.evaluate(() => globalThis.__router.current().data.pageNo) === 0,
+         '「上一页」也翻得回来',
+         String(await p.evaluate(() => globalThis.__router.current().data.pageNo)))
+    }
+
+    await shot('07-orders')
     await p.locator('.item').first().click()
     await p.waitForTimeout(1200)
     ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/order/index',
        '从列表点得进那一张', await p.evaluate(() => globalThis.__router.current().__route))
+
+    /* 列表末尾那条出口。买过东西的人回到这一屏，下一步多半是再去村里看看 ——
+       出口点不动的话，这一屏就是条死路。 */
+    await open('pages/orders/index')
+    await p.waitForTimeout(1200)
+    await p.getByText('去村里看看谁能来', { exact: true }).click()
+    await p.waitForTimeout(900)
+    ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/village/index',
+       '「我买过的」末尾那条出口真的通到村子',
+       await p.evaluate(() => globalThis.__router.current().__route))
   }
 
   /* M1 那一屏本身。上面几条验的是「从它点得出去」，这几条验的是
@@ -1775,6 +1826,7 @@ if (!API) {
   /* 最近一笔写的是【买的那个东西】,不是订单号。
      后端 my_orders 的 title 取自下单那一刻的 sku 快照 ——
      没有它,这一块只显示得出一串 UUID,读的人认不出自己买了什么。 */
+  await shot('08-me')
   const 最近 = await p.evaluate(() => globalThis.__router.current().data.recent)
   ok(!!最近, '「我的」上有「最近一笔」', 最近 ? String(最近.title) : '没有')
   if (最近) {
@@ -1782,6 +1834,12 @@ if (!API) {
        '最近一笔写的是商品名，不是订单号', String(最近.title))
     ok(/^\d\d\/\d\d 下单$/.test(最近.when || ''), '写着哪天下的单', String(最近.when))
     ok(!!最近.state, '写着这单现在什么状况', String(最近.state))
+    /* 它得点得进那一张 —— 「最近一笔」若点不动，就只是一块公告。 */
+    await p.getByText('看 ›', { exact: true }).click()
+    await p.waitForTimeout(1200)
+    ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/order/index',
+       '「最近一笔」点得进那一张单',
+       await p.evaluate(() => globalThis.__router.current().__route))
   }
 }
 
@@ -1964,6 +2022,12 @@ await p.getByRole('button', { name: '绑定微信' }).click()
 await p.waitForTimeout(800)
 ok(await p.evaluate(() => !globalThis.__router.current().data.isWx),
    '点「绑定微信」之后仍然是匿名　—— 这条只有真机走得通')
+/* 绑不成之后最自然的下一下就是「回去」，而新开的屏最容易漏掉的也是它。 */
+await p.getByText('回去', { exact: true }).click()
+await p.waitForTimeout(700)
+ok(await p.evaluate(() => globalThis.__router.current().__route) !== 'pages/bind/index',
+   '绑定那一屏上的「回去」退得出去',
+   await p.evaluate(() => globalThis.__router.current().__route))
 
 /* 只在打真后端时验:假服务端没有 /v1/auth/anonymous,那边根本没有「人」可换。 */
 if (API) {
@@ -1981,6 +2045,20 @@ if (API) {
   ok(!!退出前 && !!退出后 && 退出前 !== 退出后,
      '「退出并重新登录」当场换成另一个匿名身份　—— 现状如此，待拍板',
      `${String(退出前).slice(0, 14)}… → ${String(退出后).slice(0, 14)}…`)
+
+  /* 换成新人之后他一笔单也没有 —— 这一趟里唯一能看到【空状态】的时刻。
+     空不是问题，说不清哪儿能有才是：那一块得点得动，且通到村子。 */
+  await open('pages/me/index')
+  await p.waitForTimeout(1600)
+  const 空态 = await p.evaluate(() => globalThis.__router.current().data.recentEmpty)
+  ok(空态 === true, '换了人之后「最近一笔」是空状态', String(空态))
+  if (空态) {
+    await p.getByText('去 ›', { exact: true }).click()
+    await p.waitForTimeout(900)
+    ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/village/index',
+       '空着的时候那一块指得出「哪儿能有」，而且点得过去',
+       await p.evaluate(() => globalThis.__router.current().__route))
+  }
 }
 
 // ⑭ 后端不响应时，页面说不说得出话 ───────────────────────────────

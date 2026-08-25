@@ -1,7 +1,9 @@
 <view class="page">
   <view class="hd">
-    <view class="eyebrow">BUWANREN · ORDERS</view>
-    <view class="title">单</view>
+    <view class="title">我买过的</view>
+    <view class="sub" wx:if="{{!loading && !err}}">
+      {{total ? total + ' 笔 · 按时间倒着排' : '还没有'}}
+    </view>
     <view class="hr"></view>
   </view>
 
@@ -13,16 +15,41 @@
   </view>
 
   <block wx:else>
-    <view class="empty" wx:if="{{total === 0}}">还没有单子</view>
-
-    <view wx:for="{{items}}" wx:key="id" class="item"
-          data-id="{{item.id}}" bindtap="onTap"
-          hover-class="item-hover" hover-stay-time="100">
-      <view class="item-top">
-        <text class="item-status">{{item.statusText}}</text>
-        <text class="item-total">{{item.totalText}}</text>
-      </view>
-      <view class="item-id mono">{{item.id}}</view>
+    <!-- 空不是问题，说不清哪儿能有才是 -->
+    <view class="empty" wx:if="{{total === 0}}">
+      <view class="empty-t">还没买过什么</view>
+      <view class="empty-sub">东西长在卖它的人身上 —— 先去村里看看谁能来</view>
     </view>
+
+    <view class="list">
+      <view wx:for="{{page}}" wx:key="id" class="item"
+            data-id="{{item.id}}" bindtap="onTap"
+            hover-class="item-hover" hover-stay-time="100">
+        <view class="item-top">
+          <text class="item-name">{{item.title}}</text>
+          <text class="item-total">{{item.totalText}}</text>
+        </view>
+        <view class="item-bot">
+          <text class="item-when">{{item.whenText}} · {{item.statusText}}</text>
+          <text class="item-go">看 ›</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 翻页代替竖向滚动：一页五笔，一屏放得下（设计 10.3） -->
+    <view class="pager" wx:if="{{pageCount > 1}}">
+      <view class="pg {{pageNo === 0 ? 'pg-off' : ''}}" bindtap="onPrev">‹ 上一页</view>
+      <text class="pg-n">{{pageNo + 1}} / {{pageCount}}</text>
+      <view class="pg {{pageNo + 1 >= pageCount ? 'pg-off' : ''}}" bindtap="onNext">下一页 ›</view>
+    </view>
+
+    <view class="foot" wx:if="{{total > 0 && pageCount <= 1}}">没有更多了</view>
+
+    <view class="go-village" bindtap="goVillage" hover-class="entry-hover" hover-stay-time="100">
+      <text>去村里看看谁能来</text><text class="arrow">›</text>
+    </view>
+
+    <!-- 弹性槽 · 矮屏收起：退款/发票/客服都在单里面，这里只指路 -->
+    <view class="flexslot" wx:if="{{total > 0}}">退款、发票、客服都在单里面</view>
   </block>
 </view>
