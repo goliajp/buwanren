@@ -448,7 +448,7 @@ const v = await p.evaluate(() => {
   for (let i = 3; i < d.length; i += 4) if (d[i]) ink++
   return { w: cv.width, h: cv.height, ink, plots: (globalThis.VILLAGE_PLOTS || []).length }
 })
-ok(v.w === 704 && v.h === 1920, '画布是村子的尺寸', v.w + 'x' + v.h)
+ok(v.w === 704 && v.h === 960, '画布是村子的尺寸', v.w + 'x' + v.h)
 ok(v.ink > 100000, '村子真的画上去了', v.ink + ' 个不透明像素')
 ok(v.plots === 40, '四十格宅基都在', String(v.plots))
 const head = await text()
