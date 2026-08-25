@@ -6,7 +6,7 @@
       "/v1/auth/wx/h5/callback": "公众号 / H5 的 OAuth 回调。小程序走的是 /v1/auth/wx/miniprogram，这条是给网页那一侧的",
       "/v1/auth/wx/h5/url": "同上",
       "/v1/badge": "公开徽章图鉴（earned 恒为 false）。客户端用的是 /v1/user/me/badges —— 它是这条的超集，两条都调只会让「哪条说了算」变成问题",
-      "/v1/config": "四个功能开关。每个开关该管住哪一块界面是产品说了算，接错地方比不接更糟。见 docs/OPEN.md 第 14 条",
+      "/v1/config": "2026-08-26 拍板：**现在不接**。四个开关里 sensitive_terms_strict 是服务端自用的（敏感词严格模式），根本不是界面开关；另外三个（show_ai_explanation_full / show_dayun_in_summary / show_product_iap）各自要管的界面块，有的还没做（IAP 入口就不存在）。现在接上，等于给三条在开发期永远走同一支的分支加代码与验证路径 —— 这个仓已经吃过一次「实现完整、零调用方」的亏，反过来的「接了但永远不走那一支」同样是假的完整。**什么时候接**：某个开关第一次需要在不改代码的情况下切换时（上线前灰度，或海外区开 IAP）——那时它管的界面块也已经存在了，接一条验一条。",
       "/v1/payments/:x": "单笔支付详情。订单详情（GET /v1/orders/:id）里已经带 payments 数组，客户端拿得到，不必再要一条"
     },
     "后台 → unmei-admin-api": {
