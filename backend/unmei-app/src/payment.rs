@@ -32,6 +32,23 @@ pub struct PendingPayment {
 ///
 /// 校验:订单存在 → 属主匹配 → 状态为 `unpaid` → 应付余额 > 0。
 /// 金额取 `amount_total_minor - amount_paid_minor`,不信任调用方传的数。
+///
+/// **同一张单上已有一笔没过期的 pending 时,把那一笔原样还回去,不再建新的。**
+///
+/// 在这之前它只看订单状态:第一次建完 payment 之后订单仍是 `unpaid`,
+/// 于是第二次照样放行。连点两次「去支付」就是两笔独立的 pending,每笔都是全额
+/// (2026-08-23 实测:应付 19900 的单子上两笔各 19900)。幂等键挡不住 ——
+/// 客户端每次点击生成一个新键,两次点击在服务端就是两次新操作。
+///
+/// 为什么是「还回去」而不是「拒绝」:用户点第二次的意思是「我要接着付这张单」,
+/// 不是「我要再付一笔」。还回同一笔 pending,他拿到的是同一份下单参数,
+/// 接着付就是了;拒绝(409)会让放弃支付的人等 30 分钟过期才能重来。
+///
+/// 换渠道是另一回事 —— 那是明确的动作:把旧的那笔作废,再建新的。
+///
+/// 并发由数据库兜底:`uq_payment_one_pending` 是 `payment(order_id) WHERE
+/// status='pending'` 上的唯一索引。只靠这里「先查再写」的话,两个同时进来的
+/// 请求会双双查到「没有 pending」然后双双插入。
 pub async fn start(
     pool: &PgPool,
     order_id: &str,
@@ -76,6 +93,59 @@ pub async fn start(
     }
     let currency: String = order.get("currency");
 
+    let mut tx = pool.begin().await.db()?;
+
+    /* 这张单上还有没有一笔没过期的 pending。
+       `FOR UPDATE` 是为了跟同时进来的另一个请求排队 —— 唯一索引兜的是
+       「最终插不进去」,这里排一下队是为了让第二个请求走到「还回去」那一支,
+       而不是撞索引报一个看不懂的错。 */
+    let live = sqlx::query(
+        "SELECT id, channel, amount_minor, currency, expires_at
+           FROM payment
+          WHERE order_id=$1 AND status='pending' AND (expires_at IS NULL OR expires_at > NOW())
+          FOR UPDATE",
+    )
+    .bind(order_id)
+    .fetch_optional(&mut *tx)
+    .await.db()?;
+
+    if let Some(row) = live {
+        let old_id: String = row.get("id");
+        let old_channel: String = row.get("channel");
+        let old_amount: i64 = row.get("amount_minor");
+
+        // 同一个渠道、同样的金额 —— 就是刚才那一笔,原样还回去
+        if old_channel == channel && old_amount == due {
+            let expires_at: DateTime<Utc> = row.get("expires_at");
+            tx.commit().await.db()?;
+            return Ok(PendingPayment {
+                payment_id: old_id,
+                order_id: order_id.to_string(),
+                user_id: user_id.to_string(),
+                channel: old_channel,
+                amount_minor: old_amount,
+                currency: row.get("currency"),
+                expires_at,
+            });
+        }
+
+        /* 渠道换了(或者中间落了一笔部分付款、应付变了)—— 那是另一件事,
+           旧的那一笔就此作废。写清为什么:一笔支付凭空变成 expired,
+           事后查账的人得看得出是被谁顶掉的。 */
+        sqlx::query(
+            "UPDATE payment
+                SET status='expired',
+                    audit_note = CASE WHEN audit_note='' THEN '' ELSE audit_note || ' | ' END
+                                 || '被同一张单上新发起的支付顶掉（' || $2 || ' → ' || $3 || '）'
+              WHERE id=$1",
+        )
+        .bind(&old_id)
+        .bind(format!("{old_channel}/{old_amount}"))
+        .bind(format!("{channel}/{due}"))
+        .execute(&mut *tx)
+        .await.db()?;
+    }
+
     let payment_id = new_id("pay");
     let expires_at = Utc::now() + Duration::minutes(30);
 
@@ -92,8 +162,10 @@ pub async fn start(
     .bind(&currency)
     .bind(channel_user_ref)
     .bind(expires_at)
-    .execute(pool)
+    .execute(&mut *tx)
     .await.db()?;
+
+    tx.commit().await.db()?;
 
     Ok(PendingPayment {
         payment_id,
