@@ -11,15 +11,6 @@ const ACC_THRESHOLD = 3.6
 /** 摇手机冷却期(ms) · 防重复触发 */
 const ACC_COOLDOWN_MS = 1500
 
-/** 时辰名 · 23-01 子 · 01-03 丑 · ... · 21-23 亥 */
-const SHICHEN = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'] as const
-
-function timeBranchIndex(hour: number): number {
-  // 23 归子 · 其它 (hour+1)/2 mod 12
-  if (hour === 23) return 0
-  return Math.floor((hour + 1) / 2) % 12
-}
-
 // 模块级 · 稳定 handler 引用
 let accHandler: ((res: WechatMiniprogram.OnAccelerometerChangeListenerResult) => void) | null = null
 
@@ -45,14 +36,6 @@ const DIRECTION_ANGLE: Record<string, number> = {
   东南: 315,
 }
 
-function fmtClock(d: Date): string {
-  const idx = timeBranchIndex(d.getHours())
-  const hh = String(d.getHours()).padStart(2, '0')
-  const mm = String(d.getMinutes()).padStart(2, '0')
-  return `${SHICHEN[idx]}时 · ${hh}:${mm}`
-}
-
-let clockTimer: ReturnType<typeof setInterval> | null = null
 
 const YS_PINYIN: Record<string, string> = {
   木: 'mu', 火: 'huo', 土: 'tu', 金: 'jin', 水: 'shui',
@@ -73,8 +56,6 @@ interface IData {
   /** 罗盘的状态。转完就跳去「今天」那一页看结果，所以这里没有 result */
   mode: Mode
   rot: number
-  question: string
-  clockLabel: string
   today: { iso: string; weekday: string; remark: string }
   summary: SummaryView | null
   avoidPinyin: string[]
@@ -94,26 +75,20 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     recentErr: '',
     mode: 'idle',
     rot: 0,
-    question: '',
-    clockLabel: '',
   },
 
   onShow() {
     this.setToday()
     this.refreshSummary()
     this.loadRecent()
-    this.tickClock()
-    this.startClock()
     this.enableAccel()
   },
 
   onHide() {
-    this.stopClock()
     this.disableAccel()
   },
 
   onUnload() {
-    this.stopClock()
     this.disableAccel()
   },
 
@@ -183,34 +158,8 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     }
   },
 
-  tickClock() {
-    this.setData({ clockLabel: fmtClock(new Date()) })
-  },
-
-
-  startClock() {
-    if (clockTimer) return
-    clockTimer = setInterval(() => this.tickClock(), 30_000)
-  },
-
-
-  stopClock() {
-    if (clockTimer) {
-      clearInterval(clockTimer)
-      clockTimer = null
-    }
-  },
-
-
-  onQuestion(e: WechatMiniprogram.CustomEvent<{ value: string }>) {
-    this.setData({ question: e.detail.value })
-  },
-
-
   async doSpin() {
     if (this.data.mode === 'spinning') return
-    const question = this.data.question.trim()
-
     // Phase 1 · tap 立即触发预转 · 给用户 feedback(不等 backend)
     // 累计前值上 +2 圈 + 随机 · face CSS 会从当前值 3s ease-out 到这个 preSpin
     const prev = this.data.rot
@@ -219,7 +168,9 @@ Page<IData, WechatMiniprogram.IAnyObject>({
 
     const t0 = Date.now()
     try {
-      const result = await najiApi.spin(question ? { question } : {})
+      /* 不带 question：那一栏 2026-08-25 从 H1 上拿掉了（见 wxml 里那段）。
+         接口仍然收它 —— H4「问问她」做出来时接得上。 */
+      const result = await najiApi.spin({})
 
       // Phase 2 · backend 返 direction · 修正 rot 让 face 精确停在方位
       // 目标:face 最终旋转值 mod 360 == (360 - directionAngle) % 360
@@ -243,7 +194,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
          是这个交互最值钱的一下，跳早了就把它切掉了。
          上面 MIN_SPIN_MS 那段等待就是为这个。 */
       wx.vibrateShort({ type: 'medium', success() {}, fail() {}, complete() {} })
-      this.setData({ mode: 'idle', question: '' })
+      this.setData({ mode: 'idle' })
       wx.navigateTo({ url: '/pages/ask/index?id=' + result.id + '&new=1' })
       this.loadRecent()
     } catch (_e) {

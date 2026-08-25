@@ -50,23 +50,24 @@
        没本命时它照转，只是多一句「转出来的才是你的」加一个去填的出口
        （设计 10.7：空状态永远带出口）。 -->
   <block wx:if="{{mode === 'idle'}}">
-    <!-- 时辰与「想问什么」都进弹性槽。
-         **设计 H1 上没有这两样** —— 那一屏是：缺什么 / 过什么 / 展开看盘 /
-         今天 / 罗盘 / 一句提示 / 弹性槽（近几次）。它俩是搬罗盘时从旧问签页
-         一并带过来的。没有替谁拍板删掉,只是让它们在放不下的机器上让位:
-         槽的判据就是「删掉这一屏仍然成立」,而不写问题照样摇得出卦。 -->
-    <view class="ask-aux flexslot">
-      <view class="ask-time mono">{{clockLabel}}</view>
+    <!-- 时辰与「想问什么」在这儿待了一阵,2026-08-25 拿掉。
 
-      <view class="ask-q-slim">
-        <input class="ask-q-input"
-               placeholder="想问什么（可空 · 只给你自己看）"
-               maxlength="60"
-               value="{{question}}"
-               bindinput="onQuestion"/>
-      </view>
-    </view>
+         它们是搬罗盘时从旧问签页一并带过来的,设计 H1 上没有这两样
+         （那一屏是：缺什么 / 过什么 / 展开看盘 / 今天 / 罗盘 / 一句提示 /
+         弹性槽（近几次）),10.8 还专门写了一条「H1 起卦那颗按钮写『转一下』——
+         它就是转一下」。
 
+         真正压垮它的是【它待在弹性槽里】：槽在矮屏上收起,而我们对着的
+         最矮那台机器就是 iPhone SE —— 也就是说这个输入框在参照机上
+         **根本不存在**。同一个 app 在两台手机上能做的事不一样,而没有人
+         被告知。这比没有它更糟。
+
+         「问一件具体的事」在设计里有自己的位置：H4「问问她」——
+         对着某一位、收费、有「她会这样答」的预览。那是它该去的地方,
+         不是主屏上一个白送的匿名输入框（那会跟产品要卖的东西打架）。
+         后端 `spin` 仍然收 question,H4 做出来时接得上。
+
+         时辰不用另找地方：起卦时刻记在签上,结果那一页写着 `time_label`。 -->
     <view class="compass-wrap">
       <view class="compass-pointer"></view>
 
@@ -117,8 +118,6 @@
 
   <!-- spinning · 罗盘旋转中 -->
   <block wx:elif="{{mode === 'spinning'}}">
-    <view class="ask-time mono">{{clockLabel}}</view>
-
     <view class="compass-wrap">
       <view class="compass-pointer"></view>
 
