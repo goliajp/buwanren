@@ -105,28 +105,6 @@
 /* ── 罗盘。从 pages/ask 搬来（REDESIGN.md：起卦归我家）──────────
    `.compass-face` 的宽高改由 wxml 上的内联 style 给（按剩余空间算），
    这里不再写死 560rpx —— 写死的话矮屏放不下、长屏留白。 */
-.ask-time {
-  text-align: center;
-  font-size: 24rpx;
-  color: var(--stone-label);
-  letter-spacing: 0.32em;
-  padding: 12rpx 0;
-}
-.ask-q-slim {
-  padding: 12rpx 40rpx 24rpx;
-}
-.ask-q-input {
-  width: 100%;
-  padding: 20rpx 24rpx;
-  background: var(--paper-panel);
-  border: 1rpx solid var(--stone-line-x);
-  border-radius: 6rpx;
-  font-size: 26rpx;
-  color: var(--ink);
-  text-align: center;
-  letter-spacing: 0.06em;
-  box-sizing: border-box;
-}
 /* ── 罗盘吃掉纵向富余 ───────────────────────────────────────
    这就是 `flex: 1` 的字面意思，所以交给 CSS，不再用 JS 量。
 
