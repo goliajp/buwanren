@@ -13,7 +13,7 @@
      尺寸挂到 VILLAGE_SIZE 上,宿主与页面从那里读。扩之前这个数被抄了四份
      (这里两处、设计页的 <canvas> 标签、小程序适配、小程序页面),
      改一次要找四个地方,漏一个就是画布尺寸与内容对不上 —— 那种错不抛异常。 */
-  const VW = 704, VH = 1920
+  const VW = 704, VH = 960
   globalThis.VILLAGE_SIZE = { w: VW, h: VH }
   const bg = globalThis.ENGINE_HOST.createCanvas(VW, VH)
   // 水上前景层(桥/码头/荷叶/芦苇 · 覆盖水面动画)
@@ -23,7 +23,7 @@
   bgG.imageSmoothingEnabled = false
   fgG.imageSmoothingEnabled = false
   let g = bgG
-  const W = VW, H = VH, T = 32, COLS = 22, ROWS = 60
+  const W = VW, H = VH, T = 32, COLS = 22, ROWS = 30
 
   function mulberry32(a) {
     return function () {
@@ -1356,53 +1356,72 @@ KLRLJJJRqK
   }
 
   // ═══ 静态场景 ═══
+  //
+  // 2026-08-25 重排：八排梯田 × 五格，世界 704 × 960。
+  // 原来是一幅 704 × 1920 的连续村落，而屏幕只给得起 518pt 画布高 ——
+  // 下面二十栋掉在折线以下，靠滚动才够得到。见 docs/REDESIGN.md「R1 定了」。
+  //
+  // 三条贯穿全局的规矩：
+  //   ① **按排从上往下画** —— 后排遮住前排的下半截，梯田的立体感全靠这个顺序
+  //   ② 房子一律照 engine/plots.js 的表画，这里不手摆第二份
+  //   ③ 河画在第七排之后、第八排之前 —— 「过了河那边」是画序读出来的，不是标签
   function renderStatic() {
     const rnd = mulberry32(2026)
-    // 房屋占位(禁止随机树落入 · [x,y,w])
-    const HRECTS = [
-      [36, 190, 88], [150, 116, 84], [252, 152, 78], [452, 130, 80], [556, 152, 92], [600, 262, 76],
-      [20, 302, 76], [92, 356, 108], [16, 476, 80], [462, 384, 108], [600, 316, 88], [606, 448, 80],
-      [108, 592, 104], [24, 664, 76], [470, 604, 150], [608, 560, 80], [614, 736, 52],
-      [376, 790, 110], [150, 690, 152], [36, 856, 84], [148, 880, 76], [536, 830, 124], [30, 1066, 76], [614, 1076, 76],
-    ]
+    const P40 = globalThis.VILLAGE_PLOTS || []
+
+    /* 房屋占位框(禁止随机树落入)。从表算 —— 原来这里手抄了第二份坐标，
+       表一改就对不上，而对不上不报错：树会长在人家门口。 */
+    /* 判定框要贴住【真的画出来那块】，宽一像素都不能白让。
+
+       旧构图 704×1920 时这个框是 220px 高、比列距还宽的 —— 房子稀疏，
+       多留点余量只是让树离人家远些。新构图排距 120px、列距 137px，
+       同样的框上下左右首尾相接，把整幅画都盖成了「房子」：
+       6000 次落点只种上 1 棵树，而且不报错。
+
+       房子是从自己的地面线往上画的，两层封顶约 116px，下沿再留 4px 接地。 */
+    const HRECTS = P40.map((q) => [q.x, q.gy, q.w])
     function inHouse(x, y) {
-      // 判定框要罩住整栋楼:三层楼 + 屋顶有 150+px 高。原来只算到 +118,
-      // 树正好种在下沿之外 —— 而森林墙是在建筑之后画的,直接盖住了人家的门。
-      for (const [hx, hy, hw] of HRECTS)
-        if (x > hx - 22 && x < hx + hw + 22 && y > hy - 62 && y < hy + 158) return true
+      for (const [hx, gy2, hw] of HRECTS)
+        if (x > hx - 5 && x < hx + hw + 5 && y > gy2 - 118 && y < gy2 + 5) return true
       return false
     }
+
+    // ═══ 草地 ═══
     for (let ty = 0; ty < ROWS; ty++)
       for (let tx = 0; tx < COLS; tx++)
         tile(GRASS[(rnd() * GRASS.length) | 0], tx, ty)
 
-    // ═══ 草地色彩层次 ═══
-    // 远近渐深(顶部远处更深绿 → 近处更亮)
-    const depth = g.createLinearGradient(0, 90, 0, 1290)
-    depth.addColorStop(0, 'rgba(28,58,26,0.34)')
-    depth.addColorStop(0.28, 'rgba(34,66,30,0.16)')
-    depth.addColorStop(0.55, 'rgba(120,180,90,0.04)')
-    depth.addColorStop(1, 'rgba(180,220,130,0.10)')
-    g.fillStyle = depth
-    g.fillRect(0, 0, W, H)
-    // 分区深浅斑块(多档 · 柔和 radial)
-    for (const [gx, gy, gr2, tone] of [
-      [150, 260, 240, 2], [520, 300, 220, 1], [340, 500, 260, 0],
-      [120, 620, 210, 2], [580, 640, 200, 1], [300, 820, 250, 1],
-      [90, 900, 200, 2], [600, 1000, 190, 0], [420, 200, 190, 1],
-      [660, 460, 170, 2], [40, 440, 180, 1],
-    ]) {
-      const cols = ['rgba(190,228,138,0.10)', 'rgba(56,96,40,0.10)', 'rgba(36,70,28,0.15)']
-      const gg = g.createRadialGradient(gx, gy, 20, gx, gy, gr2)
-      gg.addColorStop(0, cols[tone])
-      gg.addColorStop(1, 'rgba(0,0,0,0)')
-      g.fillStyle = gg
-      g.fillRect(gx - gr2, gy - gr2, gr2 * 2, gr2 * 2)
+    /* 南北明暗：北坡(山那头)深、村心亮、河那岸再压暗一点。
+       这一层是梯田读得出坡度的关键 —— 平铺一色的话，八排会像八条货架。 */
+    for (let y = 0; y < H; y++) {
+      const t = y / H
+      const a = t < 0.42 ? 0.16 * (1 - t / 0.42) : (t > 0.72 ? 0.13 * ((t - 0.72) / 0.28) : 0)
+      if (a > 0.004) { g.fillStyle = 'rgba(24,40,20,' + a.toFixed(3) + ')'; g.fillRect(0, y, W, 1) }
     }
+
+    /* ═══ 梯田的坎 ═══
+       两版都错过：贯穿全宽的土坎读成货架，断续的碎土把整幅图刷成褐色。
+       坎不该自己画 —— **让房子脚下的落影去交代高差**：影子连成一线就是一级台地，
+       而影子只在房子底下，草地是连着的。 */
+    for (const q of P40) {
+      const gy = q.gy
+      g.fillStyle = 'rgba(28,42,24,0.22)'
+      g.fillRect(q.x - 4, gy - 2, q.w + 8, 6)
+      g.fillStyle = 'rgba(28,42,24,0.12)'
+      g.fillRect(q.x - 9, gy + 4, q.w + 18, 4)
+    }
+
+    /* ═══ 河道 ═══
+       riverY / riverH 是【唯一来源】：画河用它，判草地用它，判农田能不能开
+       也用它。分成两处写的话，农田会种到水里 —— 而那不报错，是渲出来才看得见。 */
+    const RIVER_Y0 = 862
+    function riverY(x) { return RIVER_Y0 + Math.sin(x / 118) * 7 }
+    function riverH(x) { return 32 + Math.cos(x / 86) * 4 }
+
+    // ═══ 路网 ═══
     const road = Array.from({ length: ROWS }, () => new Array(COLS).fill(false))
     const plaza = Array.from({ length: ROWS }, () => new Array(COLS).fill(false))
-    // 中央广场是后面用椭圆画的(PCX/PCY = 340/548, rx/ry = 132/74),不走 tile 系统。
-    // 这个数组一直没人填 —— 于是草叶和树全种到广场上去了。
+    const PCX = 352, PCY = 512                  // 广场中心(村心那一排与下一排之间)
     function inPlaza(x, y) {
       const dx = (x - 340) / 152, dy = (y - 548) / 94      // 放大一圈,给树冠留余量
       return dx * dx + dy * dy <= 1
@@ -1433,182 +1452,27 @@ KLRLJJJRqK
         }
       }
     }
-    walkG(road, [[10, 11], [9, 13], [10, 15]], 1)
-    walkG(road, [[10, 18], [11, 20], [9, 23], [10, 26], [11, 28], [10, 29]], 1)
-    walkG(road, [[10, 31], [9, 33], [11, 36], [10, 38]], 1)
-    // 往南穿过林子,进新住区;两条横巷,房子朝巷子开门
-    walkG(road, [[10, 38], [10, 42], [11, 45], [10, 48], [10, 53], [10, 56]], 1)
-    walkG(road, [[2, 48], [10, 48], [19, 48]], 1)
-    walkG(road, [[2, 53], [10, 53], [19, 53]], 1)
-    walkG(road, [[9, 14], [7, 15], [5, 14]], 1)
-    walkG(road, [[12, 14], [14, 15], [17, 14]], 1)
-    walkG(road, [[9, 21], [7, 22], [5, 22]], 1)
-    walkG(road, [[11, 22], [13, 24], [16, 23]], 1)
-    walkG(road, [[9, 13], [7, 11], [6, 9]], 1)
-    walkG(road, [[11, 13], [13, 11], [14, 9]], 1)
-    function autotile(gr2, base) {
-      for (let y = 0; y < ROWS; y++)
-        for (let x = 0; x < COLS; x++) {
-          if (!gr2[y][x]) continue
-          const n = y > 0 && gr2[y - 1][x], s2 = y < ROWS - 1 && gr2[y + 1][x]
-          const w2 = x > 0 && gr2[y][x - 1], e = x < COLS - 1 && gr2[y][x + 1]
-          tile(base[!n ? 0 : (!s2 ? 2 : 1)] + (!w2 ? 0 : (!e ? 2 : 1)), x, y)
-        }
-    }
-    // 路面:一律用中心土 tile —— autotile 的边缘 tile 自带草边框,
-    // 而路只有 2 格宽,每格都是「边缘」,整条路会碎成一块块孤立的土斑。
-    // 边缘的自然过渡交给下面的「路缘过渡」(草探进路 / 土蹭上草)。
+    /* 路脊：从北口一路下到桥。村子得有一条脊梁 —— 没有它，八排就是八条货架。 */
+    walkG(road, [[11, 0], [11, 4], [10, 8], [11, 12], [11, 16], [11, 20], [11, 26], [11, 29]], 2)
+    /* 只再画两条横巷：一条穿广场，一条到桥头。
+       第一版给每家门口都画了支路 —— 五户的支路在同一排上连成一条，
+       等于横巷又回来了，加上坎，整幅图铺满褐色，草没了。
+       四十栋房子在这个尺度上不需要把每条小路都画出来：**路少了，坡才绿**。 */
+    walkG(road, [[6, 15], [11, 15], [16, 15]], 1)
+    walkG(road, [[7, 26], [11, 26], [15, 26]], 1)
+
+    /* 路面用中心土 tile，不用 autotile —— 原实现那条注释说得对：
+       autotile 的边缘 tile 自带草边框，而路只有 2 格宽、每格都是边缘，
+       整条路会碎成一块块孤立的土斑。 */
     for (let ty = 0; ty < ROWS; ty++)
       for (let tx = 0; tx < COLS; tx++)
         if (road[ty][tx]) {
           tile(DIRT[1] + 1, tx, ty)
-          g.fillStyle = 'rgba(132,112,80,0.26)'      // 压一层暖灰降饱和
+          g.fillStyle = 'rgba(132,112,80,0.26)'
           g.fillRect(tx * T, ty * T, T, T)
         }
-    // 路面纹理:碎石 · 土斑 · 车辙 —— 纯色 tile 铺的路太生硬
-    for (let ty = 0; ty < ROWS; ty++)
-      for (let tx = 0; tx < COLS; tx++) {
-        if (!road[ty][tx]) continue
-        for (let i = 0; i < 16; i++) {
-          const x = tx * T + ((rnd() * T) | 0), y = ty * T + ((rnd() * T) | 0)
-          const r = rnd()
-          if (r < 0.40) px(x, y, 1, 1, '#d09a68')                                   // 浅土(微亮)
-          else if (r < 0.72) px(x, y, 1, 1, '#b8825a')                               // 深土(微暗)
-          else if (r < 0.90) { px(x, y, 2, 1, '#c4a084'); px(x, y + 1, 1, 1, '#a8825e') } // 碎石(低对比)
-          else px(x, y, 1, 2, '#a06e46')                                             // 车辙
-        }
-      }
 
-    // 河 + 桥
-    const riverY = x => (960 + Math.sin(x * 0.01) * 10 + Math.sin(x * 0.028) * 5) | 0
-    const riverH = x => (72 + Math.sin(x * 0.014 + 1.4) * 8) | 0
-    for (let x = 0; x < W; x++) {
-      const y0 = riverY(x), h2 = riverH(x)
-      px(x, y0 - 8, 1, 8, '#e6d6a4')
-      px(x, y0 - 3, 1, 3, '#d8c48e')
-      px(x, y0, 1, h2, '#4f9ed6')
-      px(x, y0, 1, 5, '#7cc4e8')
-      px(x, y0 + h2 - 6, 1, 6, '#3f86bc')
-      px(x, y0 + h2, 1, 3, '#d8c48e')
-      px(x, y0 + h2 + 3, 1, 5, '#e6d6a4')
-    }
-    // ─── 切到水上前景层(桥/码头/荷叶/芦苇)───
-    g = fgG
-    // ═══ 木桥(俯视)—— 桥墩 · 桥板 · 栏杆 · 石阶 ═══
-    // 桥墩:横跨桥下,两侧各露出一截 —— 俯视看不到桥下,只能靠露出的部分交代它撑着桥
-    function pier(cy) {
-      g.fillStyle = 'rgba(16,38,58,0.34)'
-      g.beginPath(); g.ellipse(338, cy + 13, 54, 8, 0, 0, 7); g.fill()        // 水下影
-      g.strokeStyle = 'rgba(255,255,255,0.18)'; g.lineWidth = 1
-      g.beginPath(); g.ellipse(338, cy + 15, 60, 7, 0, 0, 7); g.stroke()      // 涟漪
-      g.beginPath(); g.ellipse(338, cy + 16, 68, 9, 0, 0, 7); g.stroke()
-      px(290, cy - 10, 96, 20, '#5e5a50')
-      px(291, cy - 9, 94, 18, '#8a8578')
-      px(292, cy - 8, 92, 5, '#a8a294')                                       // 顶面受光
-      for (let r = 0; r < 3; r++) px(292, cy - 2 + r * 4, 92, 1, 'rgba(40,36,30,0.30)')
-    }
-    pier(966); pier(1020)
-    // 桥头石阶(接主路)
-    for (let k = 0; k < 3; k++) {
-      const c = k % 2 ? '#a8a294' : '#8a8578'
-      px(306 + k * 3, 928 + k * 6, 64 - k * 6, 6, c)
-      px(306 + k * 3, 928 + k * 6, 64 - k * 6, 1, '#c0bcb2')
-      px(306 + k * 3, 1064 - k * 6, 64 - k * 6, 6, c)
-      px(306 + k * 3, 1064 - k * 6, 64 - k * 6, 1, '#c0bcb2')
-    }
-    // 桥板:宽窄不一 + 木纹 + 铁钉(原来是均匀横线,像打印的)
-    px(300, 944, 76, 5, '#4a3220')
-    px(302, 949, 72, 112, '#6e4a2e')
-    let bty = 952
-    while (bty < 1056) {
-      const bh = 6 + ((bty * 7) % 3)
-      px(304, bty, 68, bh, '#a8764a')
-      px(304, bty, 68, 1, '#c08a58')
-      px(304, bty + bh - 1, 68, 1, '#6e4a2e')
-      for (let k = 0; k < 3; k++) px(310 + ((bty * 13 + k * 23) % 52), bty + 2, 4, 1, 'rgba(90,60,30,0.26)')
-      px(307, bty + 2, 2, 2, '#5a5648'); px(367, bty + 2, 2, 2, '#5a5648')    // 铁钉
-      bty += bh + 1
-    }
-    // 栏杆:扶手 + 立柱(俯视:立柱是小方块)+ 落在桥面上的影
-    px(306, 950, 3, 106, 'rgba(30,20,10,0.16)')
-    px(365, 950, 3, 106, 'rgba(30,20,10,0.16)')
-    for (const rx of [298, 370]) {
-      px(rx, 944, 8, 118, '#4a3220')
-      px(rx + 1, 946, 6, 114, '#8a6844')
-      px(rx + 1, 946, 2, 114, '#a8845c')
-      for (let r = 0; r < 6; r++) {
-        const py2 = 950 + r * 20
-        px(rx - 1, py2, 10, 9, '#3a2c20')
-        px(rx, py2 + 1, 8, 7, '#7a5638')
-        px(rx, py2 + 1, 8, 2, '#a8845c')
-      }
-    }
-    // ═══ 河滨:小码头 + 芦苇 + 荷叶 ═══
-    // 码头(左岸伸入河 · 木栈)
-    px(128, 940, 44, 4, '#3a2c20')
-    px(132, 944, 36, 62, '#a06a40')
-    g.fillStyle = '#c08a58'
-    for (let r = 0; r < 7; r++) g.fillRect(134, 948 + r * 8, 32, 4)
-    px(128, 942, 5, 66, '#6e5236'); px(167, 942, 5, 66, '#6e5236')
-    px(140, 1006, 4, 26, '#5a4028'); px(156, 1006, 4, 26, '#5a4028')   // 支柱入水
-    // 水桶 + 鱼篓(码头上)
-    px(136, 986, 12, 14, '#8a6844'); px(136, 986, 12, 3, '#a8825a')
-    px(152, 990, 12, 12, '#c8a850'); px(154, 986, 8, 5, '#a88838')
-    // 钓竿(斜伸出水)
-    g.strokeStyle = '#8a5c34'; g.lineWidth = 2
-    g.beginPath(); g.moveTo(158, 992); g.lineTo(214, 968); g.stroke()
-    g.strokeStyle = 'rgba(60,50,40,0.5)'; g.lineWidth = 1
-    g.beginPath(); g.moveTo(214, 968); g.lineTo(216, 992); g.stroke()
-    // 荷叶×4 + 莲花(避桥/码头)
-    for (const [lx, ly, r2] of [[430, 998, 14], [470, 985, 11], [520, 1004, 13], [250, 1000, 10]]) {
-      g.fillStyle = '#3e7a44'
-      g.beginPath(); g.ellipse(lx, ly, r2, r2 * 0.5, 0, 0, 6.3); g.fill()
-      g.fillStyle = '#5a9a54'
-      g.beginPath(); g.ellipse(lx - 2, ly - 1, r2 - 3, (r2 - 3) * 0.5, 0, 0, 6.3); g.fill()
-      g.strokeStyle = '#3e7a44'; g.lineWidth = 1
-      g.beginPath(); g.moveTo(lx, ly); g.lineTo(lx + r2 - 2, ly - 2); g.stroke()
-    }
-    // 莲花(荷叶间)
-    for (const [fx, fy] of [[448, 984], [500, 992]]) {
-      g.fillStyle = '#f0a8bc'
-      for (let k = 0; k < 5; k++) {
-        const a2 = k * 1.256 - 1.57
-        g.fillRect(fx + Math.cos(a2) * 5 - 2, fy + Math.sin(a2) * 4 - 2, 4, 5)
-      }
-      g.fillStyle = '#e8b23d'; g.fillRect(fx - 1, fy - 1, 3, 3)
-    }
-    // 芦苇丛(两岸 · 避桥码头)
-    for (const [rx, ry] of [[60, 950], [90, 946], [220, 952], [560, 948], [600, 950], [640, 946], [40, 1030], [340, 1044]]) {
-      for (let k = 0; k < 4; k++) {
-        px(rx + k * 4, ry - 18 - (k % 2) * 4, 2, 20 + (k % 2) * 4, '#6a9a44')
-        px(rx + k * 4, ry - 20 - (k % 2) * 4, 3, 6, '#8a6438')   // 芦花
-      }
-    }
-    // ─── 切回底层 ───
-    g = bgG
-
-    // 远山
-    g.fillStyle = '#9ec4b4'
-    g.beginPath(); g.moveTo(0, 96); g.lineTo(120, 20); g.lineTo(260, 96); g.fill()
-    g.fillStyle = '#aecfc0'
-    g.beginPath(); g.moveTo(180, 96); g.lineTo(340, 8); g.lineTo(520, 96); g.fill()
-    g.fillStyle = '#bad8ca'
-    g.beginPath(); g.moveTo(430, 96); g.lineTo(580, 30); g.lineTo(704, 96); g.fill()
-    g.fillStyle = '#f2f6fa'
-    g.beginPath(); g.moveTo(300, 30); g.lineTo(340, 8); g.lineTo(384, 32); g.lineTo(352, 26); g.lineTo(322, 36); g.fill()
-    // 村碑 + 村口树
-    shadow(352, 210, 50, 6)
-    px(334, 168, 36, 40, '#8a857a')
-    px(338, 172, 28, 32, '#9a938a')
-    px(342, 176, 20, 24, '#b0aba0')
-    px(345, 180, 14, 3, '#4a453e'); px(345, 187, 14, 3, '#4a453e'); px(345, 194, 14, 3, '#4a453e')
-    px(328, 204, 48, 8, '#6e675e')
-    px(330, 204, 44, 2, '#8a8276')
-    tree(250, 130, 4)
-    tree(414, 138, 3)
-
-    // ═══ 地被层:草叶 · 野花 · 碎石 ═══
-    // 像素风草地靠密集的草叶像素立住,纯色块渐变再怎么调都是塑料感
+    // ═══ 地被层：草叶 · 野花 · 碎石 ═══
     function onGrass(x, y) {
       const tx = (x / T) | 0, ty = (y / T) | 0
       if (tx < 0 || tx >= COLS || ty < 0 || ty >= ROWS) return false
@@ -1617,83 +1481,91 @@ KLRLJJJRqK
       if (y > ry - 10 && y < ry + riverH(x) + 10) return false // 水面不长草
       return true
     }
-    // 草叶(1px 竖线,近处更亮更密 —— 呼应远深近亮的地面渐变)
-    const BLADE = ['#5a9a3e', '#6aa848', '#4e8c36', '#78b854']
-    for (let i = 0; i < 22000; i++) {
+    for (let i = 0; i < 900; i++) {
       const x = (rnd() * W) | 0, y = (rnd() * H) | 0
-      if (!onGrass(x, y)) continue
-      const near = y / H                                        // 0 远 → 1 近
-      if (rnd() > 0.62 + near * 0.36) continue                  // 近处密,远处疏
-      const c = BLADE[(rnd() * (near > 0.5 ? 4 : 2)) | 0]
-      const h2 = 2 + ((rnd() * 3) | 0)
-      px(x, y, 1, h2, c)
-      if (rnd() < 0.34) px(x + 1, y + 1, 1, h2 - 1, c)          // 双叶
-      if (rnd() < 0.12) px(x - 1, y + 1, 1, h2 - 1, c)          // 三叶丛
+      if (!onGrass(x, y) || inHouse(x, y)) continue
+      px(x, y, 1, 2, rnd() < 0.5 ? '#7ea85e' : '#6a9450')
     }
-    // 野花(星散,不成行)
-    const PETAL = ['#f0f0e0', '#ffd76a', '#e88ca0', '#c8a0e8', '#f6efdc']
-    for (let i = 0; i < 240; i++) {
+    for (let i = 0; i < 120; i++) {
       const x = (rnd() * W) | 0, y = (rnd() * H) | 0
-      if (!onGrass(x, y)) continue
-      px(x + 1, y + 2, 1, 3, '#3e6e2e')
-      g.fillStyle = PETAL[(rnd() * PETAL.length) | 0]
-      px(x, y, 1, 1); px(x + 2, y, 1, 1); px(x + 1, y - 1, 1, 1); px(x + 1, y + 1, 1, 1)
+      if (!onGrass(x, y) || inHouse(x, y)) continue
+      const c = ['#e8d24a', '#e88aa0', '#f0ece0', '#c8a0e8'][(rnd() * 4) | 0]
+      px(x, y, 2, 2, c)
     }
-    // 路缘过渡:草叶探进路面 · 土点探进草地(消掉 autotile 的锯齿边)
-    for (let ty = 0; ty < ROWS; ty++)
-      for (let tx = 0; tx < COLS; tx++) {
-        const isRoad = road[ty][tx]
-        const nb = [[1,0],[-1,0],[0,1],[0,-1]].some(([dx, dy]) => {
-          const nx = tx + dx, ny = ty + dy
-          return nx >= 0 && nx < COLS && ny >= 0 && ny < ROWS && road[ny][nx] !== isRoad
-        })
-        if (!nb) continue
-        for (let i = 0; i < 9; i++) {
-          const x = tx * T + ((rnd() * T) | 0), y = ty * T + ((rnd() * T) | 0)
-          if (isRoad) { px(x, y, 1, 2 + ((rnd() * 2) | 0), '#4e8a3a') }   // 路面冒出的草
-          else { px(x, y, 1 + ((rnd() * 2) | 0), 1, '#a89268') }          // 蹭到草上的土
-        }
+
+    // ═══ 林带：北边压顶、两侧收边 ═══
+    function freeSpot(x, y) {
+      const tx = (x / T) | 0, ty = (y / T) | 0
+      if (tx < 1 || tx >= COLS - 1 || ty < 4 || ty >= ROWS - 3) return false
+      if (road[ty][tx] || plaza[ty][tx]) return false
+      if (inPlaza(x, y) || inPlaza(x + 12, y + 18)) return false   // 树冠也不许压广场
+      // 只查左上角不够 —— 树冠/灌木会向右下延伸,压到人家门上。查整个包围盒。
+      for (const [ox, oy] of [[0, 0], [18, 0], [0, 28], [18, 28], [9, 14]])
+        if (inHouse(x + ox, y + oy)) return false
+      const ry = riverY(x)
+      if (y > ry - 46 && y < ry + riverH(x) + 34) return false   // 河
+      if (y > 1120 && y < 1300) return false                     // 耕地
+      return true
+    }
+    function rtree(x, y, sMin, sMax, pool, rm) {
+      if (inHouse(x + 12, y + 24)) return
+      const P = pool || TV
+      tree(x, y, sMin + rnd() * (sMax - sMin), rm || null, P[(rnd() * P.length) | 0], rnd() < 0.5)
+    }
+    function grove(cx, cy, n, rad, sMin, sMax, pool, rm) {      // 林心 + 聚集
+      for (let i = 0; i < n; i++) {
+        const a2 = rnd() * 6.283, d = Math.sqrt(rnd()) * rad
+        const tx = cx + Math.cos(a2) * d, ty = cy + Math.sin(a2) * d * 0.7
+        if (!freeSpot(tx, ty)) continue
+        rtree(tx, ty, sMin, sMax, pool, rm)
       }
+    }
+    function forestRow(y0, x0, x1, base, jx, jy, sMin, sMax, pool, rm) {
+      for (let x = x0; x < x1; x += base + (rnd() * base * 0.9 - base * 0.3))
+        rtree(x + (rnd() * jx - jx / 2), y0 + (rnd() * jy - jy / 2), sMin, sMax, pool, rm)
+    }
+    /* 树该长在哪儿，不由我指定，由画面剩下的空地决定。
 
-    // 碎石 / 土斑(打破纯绿)
-    for (let i = 0; i < 170; i++) {
-      const x = (rnd() * W) | 0, y = (rnd() * H) | 0
-      if (!onGrass(x, y)) continue
-      const c = rnd() < 0.5 ? '#8a9a72' : '#6e8058'
-      const w2 = 1 + ((rnd() * 2) | 0)
-      px(x, y, w2, 1, c); if (rnd() < 0.4) px(x, y + 1, w2 - 1 || 1, 1, '#5c6e48')
+       前两版都是先划一条「排与排之间的草带」再往里种，两版都一棵没种上：
+       后一排的房子是从它自己的地面线【往上】画一百来像素的，正好把前一排
+       身后那条带子盖满。112 次尝试里 76 次撞房子 —— 那条带子根本不存在。
+       不报错，就是没有树：一幅村子图丢掉一半灵气，而看不出为什么。
+
+       改成在整幅画上拒绝采样：随机取点，撞房子/路/广场/河就换一个，
+       空就种。种够 44 棵或试满次数为止。四十栋房子往哪儿挪，
+       树自己会跟着让开，不用我再算一遍带子。 */
+    const planted = []
+    for (let att = 0; att < 6000 && planted.length < 44; att++) {
+      const tx2 = 6 + rnd() * (W - 24)
+      const ty2 = 10 + rnd() * (H - 40)
+      const gx = (tx2 / T) | 0, gyt = (ty2 / T) | 0
+      if (gyt < 0 || gyt >= ROWS || gx < 0 || gx >= COLS) continue
+      if (road[gyt][gx] || plaza[gyt][gx]) continue
+      if (inPlaza(tx2, ty2)) continue
+      const ry = riverY(tx2)
+      if (ty2 > ry - 30 && ty2 < ry + riverH(tx2) + 24) continue
+      // 树冠向右下铺开，四角加中心都得是空的 —— 只查左上角会压到人家门上
+      let bad = false
+      for (const [ox, oy] of [[1, 6], [12, 6], [1, 20], [12, 20], [6, 13]])
+        if (inHouse(tx2 + ox, ty2 + oy)) { bad = true; break }
+      if (bad) continue
+      // 别挤成一堆
+      if (planted.some(([px2, py2]) => Math.abs(px2 - tx2) < 22 && Math.abs(py2 - ty2) < 16)) continue
+      planted.push([tx2, ty2])
+      const conif = ty2 < 220          // 北边山脚是针叶,村里是阔叶
+      const pool = conif ? TV_CONIF : TV
+      tree(tx2, ty2, 1.15 + rnd() * 0.6, conif ? PINE_RM : null,
+           pool[(rnd() * pool.length) | 0], rnd() < 0.5)
     }
 
-    // ═══ 建筑(类型混搭 · 组团)═══
-    // 村口西群
-    houseDome(36, 190, 88, '#e8a030', '#c07820', '#f2e3c8')
-    building(150, 200, 84, 150116)
-    building(252, 240, 78, 252152)
-    // 村口东群
-    towerRound(452, 130, 40, '#5a9a8a', '#3e7a6a', '#f2e3c8')
-    buildingL(556, 244, 88, 556152)
-    houseDome(600, 262, 76, '#6a8cb0', '#4c6a8c', '#eee6da')
-    // 西翼:阿云家(坡顶蓝瓦大)+ 邻
-    building(20, 384, 76, 20302)
-    shopHouse(92, 356, 108, '#f2e3c8', '#c85a48')  // 店铺(敞门面+遮阳棚)
-    // (原布幌挪到店铺左侧,不再挡 building(20,384) 的门)
-    px(100, 372, 3, 40, '#6e5236'); px(91, 376, 10, 30, '#f6efdc')
-    px(93, 382, 6, 3, '#4a6a88'); px(93, 390, 6, 3, '#4a6a88')
-    px(132, 396, 32, 9, '#3a2c20'); px(134, 398, 28, 5, '#e8b23d')
-    winSq(160, 386, true)
-    building(16, 566, 80, 16476)
-    // 东翼:桃桃家(粉圆顶大)+ 邻
-    houseDome(462, 384, 108, '#e88aa0', '#c86a80', '#f6ecec')
-    for (let k = 0; k < 3; k++) {
-      px(478 + k * 32, 398, 2, 6, '#3a2c20')
-      px(475 + k * 32, 404, 8, 9, '#e87a90')
-    }
-    building(600, 408, 88, 600316)
-    building(606, 538, 80, 606448)
-    tree(430, 300, 4, PEACH_RM)
-    tree(586, 500, 3, PEACH_RM)
-    // ═══ 中央圆形广场(开放式石铺 + 喷泉)═══
-    const PCX = 340, PCY = 548
+    // 两侧收边的林子 —— 贴边但不出界
+    grove(56, 300, 5, 30, 1.6, 2.6, TV, null)
+    grove(648, 250, 5, 30, 1.6, 2.6, TV, null)
+    grove(60, 640, 4, 26, 1.6, 2.4, TV_CONIF, PINE_RM)
+    grove(646, 700, 4, 26, 1.6, 2.4, TV, null)
+
+    // ═══ 房子：按排从上往下画，后排遮前排 ═══
+    // 中间插河与广场 —— 插在哪一排之后，决定了它们在谁前面、谁后面。
     function ellipseFill(cx, cy, rx, ry, col) {
       g.fillStyle = col
       for (let dy = -ry; dy <= ry; dy++) {
@@ -1701,75 +1573,6 @@ KLRLJJJRqK
         g.fillRect(cx - dxw, cy + dy, dxw * 2, 1)
       }
     }
-    shadow(PCX, PCY + 62, 210, 8)
-    ellipseFill(PCX, PCY, 132, 74, '#c8c0b0')
-    ellipseFill(PCX, PCY, 124, 68, '#d4ccbc')
-    // 环形铺石缝
-    g.strokeStyle = 'rgba(120,110,96,0.4)'; g.lineWidth = 2
-    for (const rr of [42, 74, 106]) {
-      g.beginPath()
-      for (let a2 = 0; a2 <= 6.3; a2 += 0.05) {
-        const ex = PCX + Math.cos(a2) * rr, ey = PCY + Math.sin(a2) * rr * 0.56
-        a2 ? g.lineTo(ex, ey) : g.moveTo(ex, ey)
-      }
-      g.stroke()
-    }
-    for (let k = 0; k < 16; k++) {
-      const a2 = k * Math.PI / 8
-      g.beginPath()
-      g.moveTo(PCX + Math.cos(a2) * 42, PCY + Math.sin(a2) * 42 * 0.56)
-      g.lineTo(PCX + Math.cos(a2) * 122, PCY + Math.sin(a2) * 122 * 0.56)
-      g.stroke()
-    }
-    // 石缘
-    g.strokeStyle = '#a89e88'; g.lineWidth = 4
-    g.beginPath()
-    for (let a2 = 0; a2 <= 6.3; a2 += 0.05) {
-      const ex = PCX + Math.cos(a2) * 130, ey = PCY + Math.sin(a2) * 130 * 0.56
-      a2 ? g.lineTo(ex, ey) : g.moveTo(ex, ey)
-    }
-    g.stroke()
-    // 喷泉(大石盆 · 双层 · 高中柱)
-    shadow(PCX, PCY + 10, 110, 8)
-    // 下层大盆
-    ellipseFill(PCX, PCY, 60, 32, '#7a7268')
-    ellipseFill(PCX, PCY - 3, 54, 27, '#8a8276')
-    ellipseFill(PCX, PCY - 5, 50, 25, '#6a9ac0')
-    ellipseFill(PCX, PCY - 7, 50, 24, '#8fc0e0')
-    g.strokeStyle = '#a89e88'; g.lineWidth = 4
-    g.beginPath()
-    for (let a2 = 0; a2 <= 6.3; a2 += 0.05) g[a2 ? 'lineTo' : 'moveTo'](PCX + Math.cos(a2) * 56, PCY - 5 + Math.sin(a2) * 28)
-    g.stroke()
-    // 中柱
-    ellipseFill(PCX, PCY - 18, 22, 11, '#8a8276')
-    px(PCX - 6, PCY - 54, 12, 38, '#9a938a')
-    px(PCX - 6, PCY - 54, 4, 38, '#b0aba0')
-    // 上层小盆
-    ellipseFill(PCX, PCY - 54, 24, 12, '#7a7268')
-    ellipseFill(PCX, PCY - 56, 20, 10, '#8fc0e0')
-    px(PCX - 3, PCY - 74, 6, 22, '#9a938a')
-    ellipseFill(PCX, PCY - 74, 8, 4, '#8a8276')
-    glowG(PCX, PCY - 44, 56, 'rgba(180,220,240,0.30)')
-
-    // 环广场花圃×4(石框 + 密花)
-    for (const [bx, by, hue] of [[PCX - 150, PCY - 34, '#e87a90'], [PCX + 150, PCY - 34, '#c8a0e8'], [PCX - 118, PCY + 60, '#ffd76a'], [PCX + 118, PCY + 60, '#f6a0c0']]) {
-      ellipseFill(bx, by, 30, 16, '#8a7a5c')
-      ellipseFill(bx, by - 1, 26, 13, '#5a8a44')
-      for (let k = 0; k < 9; k++) {
-        const fa = k * 0.7
-        const fx = bx + Math.cos(fa) * (6 + (k % 3) * 6), fy = by + Math.sin(fa) * (4 + (k % 3) * 3) - 2
-        g.fillStyle = k % 3 ? hue : '#ffffff'
-        g.fillRect(fx - 2, fy - 2, 4, 4)
-        g.fillStyle = '#e8b23d'; g.fillRect(fx, fy, 2, 2)
-      }
-    }
-    // 广场长椅×2(弧向)
-    for (const [bx, by] of [[PCX - 70, PCY + 46], [PCX + 40, PCY + 46]]) {
-      shadow(bx + 15, by + 12, 34, 3)
-      px(bx, by, 34, 5, '#a06a40'); px(bx, by - 8, 34, 3, '#a06a40')
-      px(bx + 2, by + 5, 4, 8, '#8a5c34'); px(bx + 28, by + 5, 4, 8, '#8a5c34')
-    }
-    // ═══ 黄金雕像:村口迎客的大金毛(坐姿 · 大理石基座 · 呼吸金光)═══
     function goldStatue(cx, gy) {
       // 大理石基座(三级 + 铭牌)
       shadow(cx, gy + 6, 62, 7)
@@ -1831,88 +1634,63 @@ KLRLJJJRqK
       g.fillStyle = 'rgba(255,255,255,0.16)'
       g.fillRect((ox + 5 * sc) | 0, (oy + 3 * sc) | 0, sc | 0, 22 * sc | 0)
     }
-    goldStatue(340, 632)
-
-    // 告示板(广场东北)
-    shadow(452, 508, 50, 5)
-    px(432, 460, 6, 48, '#6e5236'); px(470, 460, 6, 48, '#6e5236')
-    px(424, 440, 62, 26, '#a06a40')
-    px(428, 444, 54, 18, '#e8d8a0')
-    px(432, 448, 20, 3, '#8a6844'); px(432, 454, 26, 3, '#8a6844')
-    px(462, 448, 14, 10, '#e87a90')
-    // 婆婆家:紫圆塔(魔女感)+ 邻
-    towerRound(108, 592, 52, '#8a6aaa', '#6a4a8a', '#ece6f0')
-    g.fillStyle = '#c8c4bc'; g.beginPath(); g.arc(96, 566, 9, 0, 7); g.fill()
-    g.fillStyle = '#9a938a'; g.beginPath(); g.arc(98, 568, 6, 0, 7); g.fill()
-    px(94, 700, 13, 11, '#e89040'); px(99, 696, 3, 5, '#5a9438')
-    px(112, 704, 9, 7, '#e89040')
-    building(24, 746, 76, 24664)
-    // 丹增家:平顶白墙红檐 + 光伏 + 邻 3 层楼
-    buildingL(470, 690, 92, 470604)              // L 形宅(主楼+配楼)
-    g.save(); g.translate(536, 588); g.rotate(0.26)
-    px(0, 0, 30, 12, '#2a3a5a')
-    for (let k = 0; k < 3; k++) px(2 + k * 10, 2, 8, 8, '#4a6a9a')
-    g.restore()
-    g.strokeStyle = '#8a7a5c'; g.lineWidth = 2
-    g.beginPath(); g.moveTo(470, 648); g.quadraticCurveTo(500, 656, 530, 642); g.stroke()
-    for (let k = 0; k < 5; k++) {
-      g.fillStyle = ['#3868b8', '#f6efdc', '#c83828', '#5a9438', '#e8b23d'][k]
-      g.fillRect(474 + k * 11, 648 + (k % 2) * 3, 7, 6)
+    function pier(cy) {
+      g.fillStyle = 'rgba(16,38,58,0.34)'
+      g.beginPath(); g.ellipse(338, cy + 13, 54, 8, 0, 0, 7); g.fill()        // 水下影
+      g.strokeStyle = 'rgba(255,255,255,0.18)'; g.lineWidth = 1
+      g.beginPath(); g.ellipse(338, cy + 15, 60, 7, 0, 0, 7); g.stroke()      // 涟漪
+      g.beginPath(); g.ellipse(338, cy + 16, 68, 9, 0, 0, 7); g.stroke()
+      px(290, cy - 10, 96, 20, '#5e5a50')
+      px(291, cy - 9, 94, 18, '#8a8578')
+      px(292, cy - 8, 92, 5, '#a8a294')                                       // 顶面受光
+      for (let r = 0; r < 3; r++) px(292, cy - 2 + r * 4, 92, 1, 'rgba(40,36,30,0.30)')
     }
-    building(608, 692, 80, 608560, { floors: 3 })
-    waterTower(614, 736)
-    // 商业:奶茶铺(幌子)+ 杂货店
-    shadow(430, 866, 120, 8)
-    px(376, 790, 110, 76, '#f2e8dc')
-    px(372, 858, 118, 8, '#8a8276')
-    for (let k = 0; k < 7; k++) px(370 + k * 18, 774, 18, 16, k % 2 ? '#e87a90' : '#f6efdc')
-    px(370, 770, 126, 6, '#a85868')
-    px(486, 780, 26, 30, '#e87a90')
-    px(490, 786, 18, 3, '#f6efdc'); px(497, 790, 4, 12, '#f6efdc'); px(490, 796, 18, 3, '#f6efdc')
-    glowG(499, 794, 22, 'rgba(255,180,200,0.5)')
-    px(392, 806, 36, 28, '#3a2c20')
-    px(395, 809, 30, 22, '#ffe9c8')
-    px(438, 806, 22, 30, '#f6efdc')
-    px(441, 810, 14, 2, '#8a6844'); px(441, 816, 16, 2, '#8a6844'); px(441, 822, 12, 2, '#8a6844')
-    // 布幌(奶茶铺侧)
-    px(364, 786, 3, 56, '#6e5236')
-    px(350, 790, 14, 44, '#e87a90')
-    px(353, 796, 8, 8, '#f6efdc'); px(353, 810, 8, 8, '#f6efdc')
-    // 杂货店(2 层平楼 + 大招牌)
-    hall(150, 690, 152)                       // 村公所(地标)
-    px(190, 700, 72, 20, '#5a8a44')
-    g.fillStyle = '#f6efdc'
-    g.fillRect(200, 704, 12, 12); g.fillRect(218, 704, 12, 12); g.fillRect(236, 704, 12, 12)
-    glowG(226, 710, 30, 'rgba(200,240,150,0.35)')
-    // 售货机 + 快递柜 + 邮筒
-    shadow(560, 560, 30, 5)
-    px(546, 500, 32, 58, '#3a2c20')
-    px(548, 502, 28, 54, '#c8384a')
-    px(551, 506, 22, 26, '#8ad0e8')
-    for (let k = 0; k < 3; k++) { px(553 + k * 8, 509, 6, 8, '#f6efdc'); px(553 + k * 8, 520, 6, 8, '#ffd76a') }
-    px(551, 538, 22, 9, '#3a2c20')
-    shadow(80, 762, 48, 5)
-    px(54, 706, 52, 54, '#3a2c20')
-    px(56, 708, 48, 50, '#5a9438')
-    g.fillStyle = '#8ec858'
-    for (let r = 0; r < 3; r++)
-      for (let c = 0; c < 4; c++) g.fillRect(60 + c * 11, 712 + r * 13, 9, 11)
-    px(60, 752, 26, 4, '#f6efdc')
-    shadow(254, 622, 20, 4)
-    px(246, 590, 18, 32, '#c04838')
-    g.fillStyle = '#c04838'; g.beginPath(); g.arc(255, 590, 9, Math.PI, 0); g.fill()
-    px(248, 596, 14, 4, '#3a2c20')
-    px(250, 610, 10, 6, '#e8b23d')
-    // 河北岸群
-    building(36, 940, 84, 36856)
-    houseDome(148, 880, 76, '#5a9a8a', '#3e7a6a', '#f2e3c8')
-    barn(536, 830, 124)                       // 谷仓(地标)
-    // 河南岸
-    building(30, 1110, 76, 30106, { floors: 1 })
-    houseDome(614, 1076, 76, '#e8a030', '#c07820', '#f2e3c8')
-    // ═══ 农田 ═══
-    // 规则长方形排两行 = 贴纸感。改成:边界不规则的有机地块 · 大小不一 ·
-    // 田埂分隔 · 四种作物(稻/菜/麦/新翻地) · 上移避开底部按钮。
+    function drawHouse(q) {
+      if (q.kind === 'dome') houseDome(q.x, q.gy - 52, q.w, q.roof[0], q.roof[1], '#f2e3c8')
+      else if (q.kind === 'tower') towerRound(q.x, q.gy - 96, q.w / 2, q.roof[0], q.roof[1], '#f2e3c8')
+      else if (q.kind === 'shop') shopHouse(q.x, q.gy, q.w, '#f2e3c8', '#5a9a62')
+      else if (q.kind === 'barn') barn(q.x, q.gy - 100, q.w)
+      else if (q.kind === 'bldL') buildingL(q.x, q.gy, q.w, q.seed, { floors: 1 })
+      // 第一排单层 —— 两层的屋顶会被画布上沿切掉
+      else building(q.x, q.gy, q.w, q.seed, { floors: (q.row === 1 || q.row === 2) ? 2 : 1 })
+    }
+    const BY_ROW = Array.from({ length: 8 }, (_, r) => P40.filter((q) => q.row === r))
+
+    for (let r = 0; r < 8; r++) {
+      // 第四排画完之后铺广场 —— 它于是被第五排的房子挡去下沿，像真的嵌在坡上
+      if (r === 4) {
+        ellipseFill(PCX, PCY, 118, 62, '#cfc4ac')
+        ellipseFill(PCX, PCY, 108, 54, '#ded4bd')
+        for (let i = 0; i < 90; i++) {
+          const a2 = rnd() * Math.PI * 2, rr = Math.sqrt(rnd())
+          const sx = PCX + Math.cos(a2) * rr * 104, sy = PCY + Math.sin(a2) * rr * 50
+          px(sx | 0, sy | 0, 2, 1, rnd() < 0.5 ? '#c8bda4' : '#e6ddc8')
+        }
+        goldStatue(PCX, PCY + 26)
+      }
+      // 第七排画完之后铺河 —— 第八排于是站在河那岸
+      if (r === 7) {
+        for (let x = 0; x < W; x++) {
+          const ry = riverY(x) | 0, rh = riverH(x) | 0
+          px(x, ry, 1, rh, '#4a7a9a')
+          px(x, ry + 2, 1, rh - 6, '#5a8aaa')
+          px(x, ry + 7, 1, ((rh - 16) > 2 ? rh - 16 : 2), '#6a9aba')
+        }
+        for (let i = 0; i < 70; i++) {
+          const x = (rnd() * W) | 0
+          px(x, (riverY(x) | 0) + 4 + ((rnd() * 20) | 0), 6, 1, 'rgba(230,244,255,0.35)')
+        }
+        // 木桥：架在路脊上，跨过河最宽处
+        const BY = (riverY(352) | 0) - 6
+        px(320, BY, 68, 46, '#8a6a44')
+        for (let i = 0; i < 7; i++) px(322, BY + 3 + i * 6, 64, 3, '#a07c52')
+        px(318, BY, 4, 46, '#6e5236'); px(386, BY, 4, 46, '#6e5236')
+        pier((riverY(338) | 0) + 26)
+      }
+      for (const q of BY_ROW[r]) drawHouse(q)
+    }
+
+    // ═══ 农田：河这岸的边角 ═══
     const CROPS = {
       rice:   { soil: '#6e5230', row: '#5a9438', tip: '#c8c060', gap: 12, h: 5 },  // 稻:绿行金穗
       veg:    { soil: '#7a5638', row: '#3e7a34', tip: '#68a838', gap: 14, h: 6 },  // 菜:深绿丛
@@ -1959,8 +1737,6 @@ KLRLJJJRqK
       }
       g.restore()
     }
-    // 地块位置改程序化布局 —— 手写坐标不做避让,就会有一块跑进河里。
-    // 每块地按九个方位点逐一校验:不下水、不压路、不压房、不进底部按钮区、彼此不重叠。
     function plotOK(cx, cy, rx, ry) {
       const RX = rx + 2, RY = ry + 2
       for (const [ox, oy] of [[0, 0], [-RX, 0], [RX, 0], [0, -RY], [0, RY],
@@ -1976,22 +1752,12 @@ KLRLJJJRqK
       }
       return true
     }
-    const KINDS = ['rice', 'wheat', 'veg', 'rice', 'wheat', 'fallow']
-    const laid = []
-    for (let t = 0; t < 1600 && laid.length < 13; t++) {
-      const rx = 30 + rnd() * 40, ry = 18 + rnd() * 16
-      const cx = 52 + rnd() * (W - 104), cy = 1072 + rnd() * 182
-      if (!plotOK(cx, cy, rx, ry)) continue
-      if (laid.some(([px2, py2, prx, pry]) =>
-        Math.abs(cx - px2) < rx + prx + 10 && Math.abs(cy - py2) < ry + pry + 8)) continue
-      laid.push([cx, cy, rx, ry])
-      plot(cx, cy, rx, ry, KINDS[(rnd() * KINDS.length) | 0], (t * 37 + 11) | 0)
-    }
-    // 村内小菜园(房前屋后 · 同样走校验)
-    for (const [cx, cy] of [[92, 1052], [640, 1058], [258, 1066]])
-      if (plotOK(cx, cy, 24, 13)) plot(cx, cy, 24, 13, 'veg', (cx * 7) | 0)
+    // kind 是 CROPS 的键，不是序号 —— 传序号会拿到 undefined，
+    // 报出来是「读不到 soil」，指向的是画法，而错在调用。
+    plot(96, 800, 46, 20, 'rice', 771)
+    plot(608, 792, 44, 18, 'veg', 442)
 
-    // ═══ 市集摊位(避房 · 条纹棚 + 货筐)═══
+    // ═══ 市集：广场边上两摊 ═══
     function stall(x, y, awn, goods) {
       shadow(x + 30, y + 40, 68, 5)
       px(x, y - 4, 4, 44, '#8a6844'); px(x + 56, y - 4, 4, 44, '#8a6844')
@@ -2015,55 +1781,10 @@ KLRLJJJRqK
       px(x + 26, y - 26, 2, 12, '#8a5c34')
       px(x + 28, y - 26, 12, 8, awn)
     }
-    const STALLS = [[150, 620, '#e05038', 'fruit'], [488, 636, '#5a9438', 'veg'], [64, 760, '#e8b23d', 'fruit']]
-    for (const [sx, sy, aw, gd] of STALLS) if (!inHouse(sx + 28, sy)) stall(sx, sy, aw, gd)
-    // 节庆灯串(村碑 → 东侧 · 红灯笼 · 暖光)
-    g.strokeStyle = '#8a7a5c'; g.lineWidth = 2
-    g.beginPath(); g.moveTo(250, 150); g.quadraticCurveTo(360, 210, 470, 158); g.stroke()
-    for (let k = 1; k <= 5; k++) {
-      const tt = k / 6
-      const lx = 250 + (470 - 250) * tt
-      const ly = 150 + Math.sin(tt * Math.PI) * 56 + (158 - 150) * tt + 8
-      px(lx - 1, ly - 8, 2, 8, '#8a5c34')
-      px(lx - 5, ly, 10, 12, '#d0402c')
-      px(lx - 5, ly, 10, 3, '#a83020')
-      px(lx - 2, ly + 12, 4, 3, '#e8b23d')
-      glowG(lx, ly + 5, 16, 'rgba(255,150,90,0.4)')
-    }
+    stall(238, 498, '#c85a48', 0)
+    stall(452, 502, '#4a7a9a', 1)
 
-    // ═══ 电线杆(疏 · 细淡电线 · 背景点缀)═══
-    const POLES = [[620, 380], [636, 720], [70, 650], [612, 1030]]
-      .filter(([x, y]) => !inHouse(x, y - 40))
-    const LINKS = [[0, 1], [1, 3], [2, 1]]
-    for (const [a, b] of LINKS) {
-      if (!POLES[a] || !POLES[b]) continue
-      const [x1, y1] = POLES[a], [x2, y2] = POLES[b]
-      const ay = y1 - 72, by = y2 - 72
-      const mx = (x1 + x2) / 2, my = (ay + by) / 2
-      const span = Math.hypot(x2 - x1, y2 - y1)
-      const sag = 12 + span * 0.06
-      g.strokeStyle = 'rgba(40,32,24,0.28)'; g.lineWidth = 1
-      g.beginPath(); g.moveTo(x1, ay)
-      g.quadraticCurveTo(mx, my + 2 * sag, x2, by)
-      g.stroke()
-    }
-    for (const [x, y] of POLES) {
-      shadow(x, y + 2, 10, 2)
-      px(x - 2, y - 76, 5, 78, '#6e5642')
-      px(x - 2, y - 76, 1, 78, '#8a6e52')
-      px(x - 11, y - 72, 24, 4, '#6e5642')
-    }
-    // 栅栏 + 晾衣绳
-    for (let k = 0; k < 6; k++) {
-      px(60 + k * 20, 450, 3, 18, '#a06a40')
-      px(60 + k * 20, 450, 3, 3, '#c08a58')
-    }
-    px(56, 455, 112, 3, '#8a6844')
-    px(56, 462, 112, 2, '#8a6844')
-    px(238, 350, 4, 46, '#6e5236'); px(316, 350, 4, 46, '#6e5236')
-    g.strokeStyle = '#8a7a5c'; g.lineWidth = 2
-    g.beginPath(); g.moveTo(240, 354); g.quadraticCurveTo(278, 366, 318, 354); g.stroke()
-    // ═══ 精心布置的花草灌木 ═══
+    // ═══ 花草灌木 ═══
     function bush(x, y, s) {
       shadow(x + 6 * s, y + 7 * s, 10 * s, 1.5 * s)
       g.fillStyle = '#3e6a34'; g.beginPath(); g.arc(x + 6 * s, y + 4 * s, 5 * s, 0, 7); g.fill()
@@ -2080,285 +1801,59 @@ KLRLJJJRqK
         g.fillStyle = '#e8b23d'; px(fx + 1, fy, 2, 2)
       }
     }
-    // 灌木(墙角/路边成组)
-    for (const [bx, by, bs] of [[150, 240, 2], [178, 250, 1.6], [560, 300, 2], [40, 560, 1.6], [566, 700, 2], [120, 820, 1.6], [470, 560, 2], [590, 1010, 1.8]])
-      if (!inHouse(bx + 6 * bs, by + 5 * bs)) bush(bx, by, bs)     // 这些在建筑之后画,必须自己避让
-    // 花圃(房前/路口)
-    for (const [fx, fy, hue] of [[130, 470, '#e87a90'], [560, 480, '#c8a0e8'], [40, 700, '#ffd76a'], [470, 730, '#f6a0c0'], [180, 900, '#e87a90'], [600, 840, '#c8a0e8'], [90, 1130, '#ffd76a'], [520, 1090, '#f6a0c0']])
-      if (!inHouse(fx + 16, fy + 6)) flowerbed(fx, fy, hue)
-    // 零星野花(疏)
-    for (const [fx, fy] of [[220, 300], [420, 250], [80, 380], [640, 400], [260, 660], [500, 660], [160, 1000], [420, 980], [660, 1130]]) {
-      if (inHouse(fx, fy)) continue
-      px(fx + 1, fy + 3, 2, 4, '#5a9438')
-      g.fillStyle = ['#e87a90', '#ffd76a', '#f6efdc'][(fx + fy) % 3]
-      px(fx, fy, 2, 2); px(fx + 2, fy, 2, 2); px(fx + 1, fy - 2, 2, 2)
+    for (let i = 0; i < 40; i++) {
+      const x = (rnd() * W) | 0, y = (rnd() * H) | 0
+      if (!onGrass(x, y) || inHouse(x, y)) continue
+      bush(x, y, 1 + rnd() * 0.6)
     }
-    // ═══ 村居道具:篱笆 · 水井 · 稻草人 · 柴堆 · 晾衣绳 · 石磨 ═══
-    function fence(x, y, n, vert) {                       // 木篱笆
-      for (let i = 0; i < n; i++) {
-        const fx = vert ? x : x + i * 12, fy = vert ? y + i * 12 : y
-        shadow(fx + 3, fy + 16, 7, 2)
-        px(fx + 1, fy, 5, 17, '#8a6844'); px(fx + 2, fy, 3, 15, '#a8845c'); px(fx + 2, fy, 3, 2, '#c4a074')
-      }
-      const L = vert ? 17 : n * 12
-      if (vert) { px(x, y + 4, 7, 3, '#8a6844'); px(x, y + 11, 7, 3, '#8a6844') }
-      else { px(x, y + 4, L, 3, '#8a6844'); px(x, y + 5, L, 1, '#a8845c'); px(x, y + 11, L, 3, '#8a6844') }
-    }
-    function well(x, y) {                                 // 水井
-      const disc = (cx, cy, r, c) => { g.fillStyle = c; g.beginPath(); g.arc(cx, cy, r, 0, 7); g.fill() }
-      shadow(x + 14, y + 28, 32, 4)
-      disc(x + 14, y + 16, 16, '#6e6a5e')                 // 井台
-      disc(x + 14, y + 15, 13, '#9a9284')
-      disc(x + 14, y + 14, 10, '#2c3a54')                 // 井水
-      disc(x + 11, y + 12, 3, '#4a6a90')                  // 水面反光
-      px(x + 2, y - 8, 4, 24, '#7a5638'); px(x + 22, y - 8, 4, 24, '#7a5638')   // 井架立柱
-      px(x, y - 13, 28, 5, '#8a6844'); px(x + 1, y - 12, 26, 2, '#a8845c')      // 横梁
-      px(x + 6, y - 7, 16, 5, '#6e4a2e'); px(x + 7, y - 6, 14, 2, '#8a6844')    // 辘轳
-      px(x + 13, y - 2, 2, 9, '#8a8578')                                        // 井绳
-      px(x + 9, y + 6, 10, 7, '#a8845c'); px(x + 10, y + 7, 8, 5, '#7a5638')    // 吊桶
-    }
-    function scarecrow(x, y) {                            // 稻草人
-      shadow(x + 8, y + 30, 16, 3)
-      px(x + 7, y + 8, 3, 24, '#8a6844')                  // 立杆
-      px(x - 2, y + 12, 20, 3, '#8a6844')                 // 横杆
-      px(x + 2, y + 2, 12, 10, '#d8b45c'); px(x + 3, y + 3, 10, 8, '#e8c870')  // 草头
-      px(x + 5, y + 6, 2, 2, '#3a2c20'); px(x + 10, y + 6, 2, 2, '#3a2c20')    // 眼
-      px(x + 1, y, 14, 3, '#a8845c')                      // 帽檐
-      px(x + 4, y - 4, 8, 5, '#c49a68')                   // 帽顶
-      px(x + 1, y + 13, 14, 12, '#c85a48')                // 衣
-      px(x + 1, y + 16, 14, 2, '#a84838')
-      for (let k = 0; k < 4; k++) px(x - 3 + k * 6, y + 24, 2, 4, '#d8b45c')   // 稻草
-    }
-    function woodpile(x, y) {                             // 柴堆
-      shadow(x + 10, y + 14, 22, 3)
-      for (let r = 0; r < 3; r++)
-        for (let c = 0; c < 4 - r; c++) {
-          const wx = x + c * 6 + r * 3, wy = y + 10 - r * 5
-          px(wx, wy, 6, 5, '#7a5638'); px(wx + 1, wy + 1, 4, 3, '#a8845c'); px(wx + 2, wy + 2, 2, 1, '#c4a074')
-        }
-    }
-    function laundry(x, y, w2) {                          // 晾衣绳
-      px(x, y, 2, 22, '#8a6844'); px(x + w2, y, 2, 22, '#8a6844')
-      g.strokeStyle = '#a8a294'; g.lineWidth = 1
-      g.beginPath(); g.moveTo(x + 1, y + 3); g.quadraticCurveTo(x + w2 / 2, y + 9, x + w2 + 1, y + 3); g.stroke()
-      const CL = ['#e8e4d8', '#7aa8d8', '#e8a0b0', '#d8c470']
-      for (let k = 0; k < 4; k++) {
-        const lx = x + 8 + k * (w2 - 14) / 4
-        const sag = Math.sin((k + 1) / 5 * Math.PI) * 5
-        px(lx, y + 3 + sag, 9, 11, CL[k % 4]); px(lx + 1, y + 4 + sag, 7, 2, '#00000018')
-      }
-    }
-    function millstone(x, y) {                            // 石磨
-      shadow(x + 12, y + 14, 26, 3)
-      const disc = (cx, cy, r, c) => { g.fillStyle = c; g.beginPath(); g.arc(cx, cy, r, 0, 7); g.fill() }
-      disc(x + 12, y + 10, 13, '#7a7264'); disc(x + 12, y + 9, 11, '#9a9284'); disc(x + 12, y + 8, 4, '#6e6a5e')
-      px(x + 11, y - 2, 3, 10, '#8a6844'); px(x + 13, y - 3, 12, 3, '#a8845c')
-    }
-    // 耕地边:篱笆围一圈 + 稻草人 + 农具
-    fence(108, 1132, 5, false); fence(560, 1132, 5, false)
-    fence(96, 1140, 4, true);   fence(578, 1140, 4, true)
-    // (村里本就有一个稻草人在 300,1144 —— 不再重复放,改摆农具和菜筐)
-    function tools(x, y) {                                // 靠在篱笆上的锄头 + 耙
-      px(x, y - 22, 3, 24, '#a8845c'); px(x - 3, y - 26, 9, 5, '#8a8578')       // 锄
-      px(x + 9, y - 24, 3, 26, '#a8845c'); px(x + 6, y - 28, 9, 3, '#8a8578')   // 耙
-      for (let k = 0; k < 3; k++) px(x + 6 + k * 3, y - 27, 2, 5, '#8a8578')
-      shadow(x + 5, y + 2, 16, 3)
-    }
-    function basket(x, y, veg) {                          // 菜筐
-      shadow(x + 9, y + 14, 20, 3)
-      px(x, y + 2, 18, 12, '#a8845c'); px(x + 1, y + 3, 16, 10, '#c4a074')
-      px(x + 1, y + 6, 16, 1, '#8a6844'); px(x + 1, y + 10, 16, 1, '#8a6844')
-      for (let k = 0; k < 4; k++) { px(x + 2 + k * 4, y - 1, 4, 4, veg); px(x + 3 + k * 4, y, 2, 2, '#00000020') }
-    }
-    tools(120, 1150); tools(566, 1150)
-    basket(232, 1300, '#68a838'); basket(430, 1310, '#e05838'); basket(508, 1112, '#e8b23d')
-    woodpile(88, 1300); woodpile(596, 1180)
-    // 河南岸:水井 + 石磨 + 晾衣绳(住户日常)
-    well(146, 1076)
-    millstone(524, 1064)
-    laundry(196, 1288, 62)
-    laundry(600, 1310, 56)
-    // 村内:井台 + 柴堆 + 晾衣绳(散布在房前屋后)
-    // 村内道具:统一避房(硬编码坐标容易压到门口 —— millstone 曾压在塔2门上)
-    const putIf = (fn, x, y, ...rest) => { if (!inHouse(x + 10, y + 8)) fn(x, y, ...rest) }
-    putIf(well, 470, 706)
-    putIf(woodpile, 70, 622); putIf(woodpile, 636, 806); putIf(woodpile, 246, 884)
-    putIf(laundry, 34, 786, 58); putIf(laundry, 560, 918, 54)
-    putIf(millstone, 300, 470)
-    putIf(fence, 452, 848, 4, false); putIf(fence, 60, 968, 3, false)
+    flowerbed(150, 470, 0); flowerbed(556, 474, 2)
 
-    // ═══ 村内绿化:房前屋后 · 路边 · 空地 ═══
-    // 之前只有边缘一圈森林墙,村子中间光秃秃
-    function freeSpot(x, y) {
-      const tx = (x / T) | 0, ty = (y / T) | 0
-      if (tx < 1 || tx >= COLS - 1 || ty < 4 || ty >= ROWS - 3) return false
-      if (road[ty][tx] || plaza[ty][tx]) return false
-      if (inPlaza(x, y) || inPlaza(x + 12, y + 18)) return false   // 树冠也不许压广场
-      // 只查左上角不够 —— 树冠/灌木会向右下延伸,压到人家门上。查整个包围盒。
-      for (const [ox, oy] of [[0, 0], [18, 0], [0, 28], [18, 28], [9, 14]])
-        if (inHouse(x + ox, y + oy)) return false
-      const ry = riverY(x)
-      if (y > ry - 46 && y < ry + riverH(x) + 34) return false   // 河
-      if (y > 1120 && y < 1300) return false                     // 耕地
-      return true
-    }
-    for (let i = 0; i < 260; i++) {
-      const x = 24 + rnd() * (W - 48), y = 150 + rnd() * (H - 330)
-      if (!freeSpot(x, y)) continue
-      const r = rnd()
-      if (r < 0.40) rtree(x, y, 1.6, 3.2)
-      else if (r < 0.68) bush(x, y, 1.1 + rnd() * 1.5)
-      else if (r < 0.80) { // 草丛(高草)
-        for (let k = 0; k < 5; k++) {
-          const gx = x + (rnd() * 12 | 0), gy = y + (rnd() * 6 | 0)
-          px(gx, gy, 1, 5 + (rnd() * 4 | 0), rnd() < 0.5 ? '#3e6e2e' : '#4e8a3a')
-        }
-      } else if (r < 0.90) { // 小石堆
-        shadow(x + 4, y + 6, 10, 2)
-        px(x, y, 8, 5, '#8a8578'); px(x + 1, y + 1, 5, 2, '#a8a294'); px(x + 2, y + 5, 5, 1, '#6e6a5e')
-      } else { // 树桩
-        shadow(x + 4, y + 7, 10, 2)
-        px(x, y + 1, 9, 6, '#7a5638'); px(x + 1, y, 7, 3, '#9a7048'); px(x + 3, y + 1, 3, 1, '#6a4a2e')
-      }
-    }
-    for (const [fx, fy, hue] of [[236, 340, '#e87a90'], [464, 300, '#c8a0e8'], [320, 660, '#ffd76a'], [520, 560, '#f6a0c0'], [232, 636, '#e87a90']]) {
-      const jx = fx + rnd() * 12, jy = fy + rnd() * 10
-      if (!inHouse(jx + 16, jy + 6)) flowerbed(jx, jy, hue)
-    }
-    // ═══ 林相 ═══
-    // 分布规则:树成「组」不成「阵」—— 先撒林心,再在林心周围聚集;
-    // 不同区域用不同树种(山脚针叶 / 村内阔叶 / 田边果树 / 河岸竹)。
-    function rtree(x, y, sMin, sMax, pool, rm) {
-      if (inHouse(x + 12, y + 24)) return
-      const P = pool || TV
-      tree(x, y, sMin + rnd() * (sMax - sMin), rm || null, P[(rnd() * P.length) | 0], rnd() < 0.5)
-    }
-    function grove(cx, cy, n, rad, sMin, sMax, pool, rm) {      // 林心 + 聚集
-      for (let i = 0; i < n; i++) {
-        const a2 = rnd() * 6.283, d = Math.sqrt(rnd()) * rad
-        const tx = cx + Math.cos(a2) * d, ty = cy + Math.sin(a2) * d * 0.7
-        if (!freeSpot(tx, ty)) continue
-        rtree(tx, ty, sMin, sMax, pool, rm)
-      }
-    }
-    function forestRow(y0, x0, x1, base, jx, jy, sMin, sMax, pool, rm) {
-      for (let x = x0; x < x1; x += base + (rnd() * base * 0.9 - base * 0.3))
-        rtree(x + (rnd() * jx - jx / 2), y0 + (rnd() * jy - jy / 2), sMin, sMax, pool, rm)
-    }
-    // 北面山脚:针叶林(密)
-    forestRow(-34, -30, W + 20, 30, 22, 20, 2.2, 4.2, TV_CONIF, PINE_RM)
-    forestRow(-10, -30, W + 20, 34, 24, 16, 2.4, 4.0, TV_CONIF, PINE_RM)
-    forestRow(14, -30, W + 20, 40, 26, 14, 2.0, 3.6, TV_CONIF, PINE_RM)
-    forestRow(40, -30, W + 20, 52, 28, 16, 1.8, 3.2, TV, null)          // 林缘混阔叶
-    // 东西两侧:阔叶林(疏密不均)
-    for (let y = 116; y < 900; y += 38 + rnd() * 62) {
-      rtree(-18 + rnd() * 18, y + rnd() * 30, 2.2, 3.8, TV, null)
-      rtree(W - 36 - rnd() * 16, y + 30 + rnd() * 36, 2.2, 3.8, TV, null)
-    }
-    // 南面:阔叶 + 针叶混交(密)
-    /* 新住区 —— 照 engine/plots.js 的表画,不在这里手摆第二份。
-       一律单层(floors:1):新起的小屋,与老村的多层楼房分得开,
-       高度也可控 —— 长上去会压到北边那道林带。 */
-    for (const d of (globalThis.VILLAGE_DISTRICT || [])) {
-      if (d.kind === 'dome') houseDome(d.x, d.gy - 52, d.w, d.roof[0], d.roof[1], '#f2e3c8')
-      else building(d.x, d.gy, d.w, d.seed, { floors: 1 })
-    }
-
-    forestRow(1288, -20, W + 20, 34, 26, 22, 2.4, 4.2, TV, null)
-    forestRow(1316, -20, W + 20, 40, 24, 16, 2.2, 3.8, TV_CONIF, PINE_RM)
-    forestRow(1346, -20, W + 20, 46, 28, 12, 2.0, 3.4, TV, null)
-    // 新住区最南也用林带收边 —— 老地图就是这么收的,不收边会像被裁掉一截
-    forestRow(1856, -20, W + 20, 34, 26, 20, 2.4, 4.2, TV, null)
-    forestRow(1886, -20, W + 20, 40, 24, 14, 2.2, 3.8, TV_CONIF, PINE_RM)
-    // 村内树丛(成组 · 疏密不均 · 树种混合)
-    grove(404, 300, 7, 34, 1.8, 3.4, TV, null)
-    grove(158, 552, 6, 30, 1.8, 3.2, TV, null)
-    grove(664, 630, 5, 26, 1.8, 3.0, TV, null)
-    grove(300, 706, 8, 38, 1.6, 3.0, TV, null)
-    grove(230, 420, 5, 28, 1.8, 3.2, TV, null)
-    grove(540, 760, 6, 32, 1.6, 2.8, TV, null)
-    grove(90, 980, 5, 26, 1.8, 3.2, TV_CONIF, PINE_RM)
-    grove(640, 980, 4, 24, 1.8, 3.0, TV_CONIF, PINE_RM)
-    // 一两株秋色 —— 打破满眼绿
-    rtree(126, 476, 2.6, 3.2, TV, AUT_RM)
-    rtree(556, 336, 2.4, 3.0, TV, AUT_RM)
-    rtree(360, 856, 2.6, 3.2, TV, AUT_RM)
-    // 河岸竹丛
-    for (const [bx, by] of [[52, 1044], [96, 1052], [648, 1040], [604, 1050], [30, 918], [672, 912]])
-      if (freeSpot(bx, by)) tree(bx, by, 2.2 + rnd() * 1.2, null, 'bambo', rnd() < 0.5)
-    // 枯树(点缀 · 荒地感)
-    for (const [dx2, dy2] of [[86, 250], [612, 1148], [462, 1120]])
-      if (freeSpot(dx2, dy2)) tree(dx2, dy2, 2.4, null, 'treeD', rnd() < 0.5)
-    // 果园(田边成排 · 但行距不齐)
-    for (let k = 0; k < 7; k++) {
-      const ox = 118 + k * 74 + (rnd() * 20 - 10), oy = 1082 + (rnd() * 16 - 8)
-      if (freeSpot(ox, oy)) rtree(ox, oy, 2.0, 2.8, TV_ORCH, null)
-    }
-    // 零散单株(填空 · 不成行)
-    for (let i = 0; i < 90; i++) {
-      const x = 24 + rnd() * (W - 48), y = 150 + rnd() * (H - 330)
-      if (!freeSpot(x, y)) continue
-      if (rnd() < 0.45) rtree(x, y, 1.6, 3.0, TV, null)
-      else bush(x, y, 1.1 + rnd() * 1.4)
-    }
-
-    // ═══ 深度 polish:光柱 + 顶部天光 + 暖分级 + vignette ═══
-    // 顶部天光渐变(远山方向)
-    const sky = g.createLinearGradient(0, 0, 0, 200)
-    sky.addColorStop(0, 'rgba(200,225,240,0.16)'); sky.addColorStop(1, 'rgba(200,225,240,0)')
-    g.fillStyle = sky; g.fillRect(0, 0, W, 200)
-    // 斜射阳光柱(左上 → 广场)
-    const beam = g.createLinearGradient(120, 120, 420, 620)
-    beam.addColorStop(0, 'rgba(255,240,190,0.10)'); beam.addColorStop(1, 'rgba(255,240,190,0)')
-    g.fillStyle = beam
-    g.beginPath(); g.moveTo(60, 90); g.lineTo(280, 90); g.lineTo(460, 640); g.lineTo(180, 640); g.fill()
-    // 暖色分级
+    // ═══ 光与暗角 ═══
+    g.save()
     g.fillStyle = 'rgba(255,196,120,0.055)'
     g.fillRect(0, 0, W, H)
-    // 冷色压暗底部(河区)
-    const cool = g.createLinearGradient(0, H - 208, 0, H)
-    cool.addColorStop(0, 'rgba(40,60,90,0)'); cool.addColorStop(1, 'rgba(40,60,90,0.12)')
-    g.fillStyle = cool; g.fillRect(0, 1200, W, 208)
-    // 强 vignette(四角压暗)
-    const vg = g.createRadialGradient(352, 640, 420, 352, 700, 940)
+    const vg = g.createRadialGradient(352, 460, 300, 352, 500, 640)
     vg.addColorStop(0, 'rgba(20,24,10,0)')
-    vg.addColorStop(1, 'rgba(20,24,10,0.28)')
+    vg.addColorStop(1, 'rgba(20,24,10,0.26)')
     g.fillStyle = vg
     g.fillRect(0, 0, W, H)
-    // 前景层同步吃 polish(source-atop:只染已绘物体,透明处不动)
+    g.restore()
     fgG.save()
     fgG.globalCompositeOperation = 'source-atop'
     fgG.fillStyle = 'rgba(255,196,120,0.055)'
-    fgG.fillRect(0, 0, W, H)
-    const vg2 = fgG.createRadialGradient(352, 640, 420, 352, 700, 940)
-    vg2.addColorStop(0, 'rgba(20,24,10,0)')
-    vg2.addColorStop(1, 'rgba(20,24,10,0.28)')
-    fgG.fillStyle = vg2
     fgG.fillRect(0, 0, W, H)
     fgG.restore()
   }
 
   // ═══ 路网 ═══
+  /* 村民走的路点图。2026-08-25 重排之后全部重画 —— 老的那 17 个点是给
+     704 × 1920 那幅图定的，其中一个已经掉出画布，其余的落在新村子的房子上。
+     **路点必须跟着构图走**：不跟的话村民会穿墙、会站在河里，而那不报错。
+
+     形状照着路网来：一条脊(N→S)，两条横巷(广场那排、桥头那排)，
+     两侧各留一串让人往边上溜达。 */
   const NAV = {
-    EN: [340, 300], PT: [340, 418], HA: [150, 468], HT: [520, 466],
-    PL: [200, 528], PR: [470, 542], PB: [340, 672],
-    L1: [440, 690], M2: [338, 782], HZ: [520, 760], HP: [150, 704],
-    L2: [140, 800], Rt2: [440, 724], M3: [338, 900], Rv2: [300, 936],
-    M4: [338, 1060], Wl: [70, 600],
+    // y 一律取【某排地面线往下十来像素】—— 那条草带是空的；
+    // 取到排中间就会站进人家屋里（第一版 5 个点正是这么落的）。
+    EN: [352, 62],  N1: [352, 120], N2: [352, 240],
+    PZ: [352, 512], S1: [352, 600], S2: [352, 720],
+    BR: [352, 850], SO: [352, 956],
+    WN: [176, 240], EN2: [530, 240],
+    WM: [176, 480], EM: [530, 480],
+    WS: [190, 600], ES: [520, 600],
   }
   // 网状连线(横向 + 斜向 · 绕喷泉 · 自由漫游)
   const EDGES = {
-    EN: ['PT'],
-    PT: ['EN', 'HA', 'HT', 'PL', 'PR'],
-    HA: ['PT', 'PL'], HT: ['PT', 'PR'],
-    PL: ['PT', 'HA', 'PB', 'Wl'], PR: ['PT', 'HT', 'PB', 'Rt2'],
-    PB: ['PL', 'PR', 'M2', 'L1'],
-    Wl: ['PL', 'HP'], HP: ['Wl', 'L2'],
-    L1: ['PB', 'Rt2', 'M2'], Rt2: ['PR', 'L1', 'M2', 'HZ'],
-    M2: ['PB', 'L1', 'Rt2', 'M3', 'L2'], HZ: ['Rt2', 'M3'],
-    L2: ['HP', 'M2', 'M3'],
-    M3: ['M2', 'L2', 'HZ', 'Rv2', 'M4'],
-    Rv2: ['M3'], M4: ['M3'],
+    EN: ['N1'],
+    N1: ['EN', 'N2', 'WN', 'EN2'],
+    WN: ['N1', 'WM'], EN2: ['N1', 'EM'],
+    N2: ['N1', 'PZ', 'WN', 'EN2'],
+    PZ: ['N2', 'S1', 'WM', 'EM'],
+    WM: ['PZ', 'WN', 'WS'], EM: ['PZ', 'EN2', 'ES'],
+    S1: ['PZ', 'S2', 'WS', 'ES'],
+    WS: ['S1', 'WM', 'S2'], ES: ['S1', 'EM', 'S2'],
+    S2: ['S1', 'BR', 'WS', 'ES'],
+    BR: ['S2', 'SO'], SO: ['BR'],
   }
   const NODES = Object.keys(NAV)
   function bfs(a, b) {
@@ -2787,20 +2282,26 @@ KLRLJJJRqK
       path: [], tx: 0, ty: 0, sayText: null, sayUntil: 0, fly: false, doorFlash: 0,
     }, opts || {})
   }
+  /* 走动的村民。起点用的是 NAV 里的点名 —— 2026-08-25 重排之后
+     老的那些点(HA/HT/HP/HZ/PL/PR/M2/Rt2/Rv2/Wl)全没了，
+     不跟着改的话 mkV 会读 NAV[undefined][0]，整块画布直接不出来。
+     指派原则：各自站在【自家附近】那个点上。 */
   const villagers = [
-    mkV('ayun', 'HA', ['今天云不错', '就打一把……就一把', '课上说什么来着']),
-    mkV('tao', 'HT', ['今日局不错哦', '家人们，点个小红心', '哼，才没在等谁']),
-    mkV('popo', 'HP', ['在线占卜，好评返现', '乖，吃糖', '快递到了没？'], { fly: true }),
-    mkV('tenz', 'HZ', ['一百零八式，走起', '今晚摇滚法会！', '酥油茶，巴适']),
-    mkV('villm', 'PL', ['今儿天气真好', '去买个菜', '早啊'], { remap: { h: '#5a4028', b: '#5a8a44' } }),
-    mkV('villm', 'PR', ['听说要来新住户', '这瓜甜', '回见'], { remap: { h: '#3a2c20', b: '#c85a48' } }),
-    mkV('villm', 'M2', ['纳个吉去', '午饭吃啥好', '哎哟'], { remap: { h: '#6e5236', b: '#4a6a88' } }),
-    mkV('villm', 'Rt2', ['奶茶买一送一！', '慢走啊', '街口新开了铺子'], { remap: { h: '#3a2c20', b: '#c8a0e8' } }),
-    mkV('villm', 'Rv2', ['河边风凉快', '钓两条鱼', '你也来啦'], { remap: { h: '#5a4028', b: '#e8b23d' } }),
-    mkV('villm', 'PL', ['新鲜果子嘞！', '来看看', '甜得很'], { remap: { h: '#3a2c20', b: '#c85a48' }, stationary: true, x: 170, y: 600, lk: 'vfruit' }),
-    mkV('villm', 'Rt2', ['时令青菜！', '刚摘的', '两文一斤'], { remap: { h: '#6e5236', b: '#5a9438' }, stationary: true, x: 508, y: 616, lk: 'vveg' }),
-    mkV('villm', 'Wl', ['桃子便宜卖', '走过路过别错过', '尝一个？'], { remap: { h: '#3a2c20', b: '#e8b23d' }, stationary: true, x: 84, y: 740, lk: 'vpeach' }),
+    mkV('ayun', 'WN', ['今天云不错', '就打一把……就一把', '课上说什么来着']),
+    mkV('tao', 'WM', ['今日局不错哦', '家人们，点个小红心', '哼，才没在等谁']),
+    mkV('popo', 'PZ', ['在线占卜，好评返现', '乖，吃糖', '快递到了没？'], { fly: true }),
+    mkV('tenz', 'N1', ['一百零八式，走起', '今晚摇滚法会！', '酥油茶，巴适']),
+    mkV('villm', 'EN2', ['今儿天气真好', '去买个菜', '早啊'], { remap: { h: '#5a4028', b: '#5a8a44' } }),
+    mkV('villm', 'EM', ['听说要来新住户', '这瓜甜', '回见'], { remap: { h: '#3a2c20', b: '#c85a48' } }),
+    mkV('villm', 'S1', ['纳个吉去', '午饭吃啥好', '哎哟'], { remap: { h: '#6e5236', b: '#4a6a88' } }),
+    mkV('villm', 'ES', ['奶茶买一送一！', '慢走啊', '街口新开了铺子'], { remap: { h: '#3a2c20', b: '#c8a0e8' } }),
+    mkV('villm', 'S2', ['河边风凉快', '钓两条鱼', '你也来啦'], { remap: { h: '#5a4028', b: '#e8b23d' } }),
+    // 摊贩：站着不动，位置跟着 renderStatic 里那两个摊子走
+    mkV('villm', 'PZ', ['新鲜果子嘞！', '来看看', '甜得很'], { remap: { h: '#3a2c20', b: '#c85a48' }, stationary: true, x: 214, y: 486, lk: 'vfruit' }),
+    mkV('villm', 'PZ', ['时令青菜！', '刚摘的', '两文一斤'], { remap: { h: '#6e5236', b: '#5a9438' }, stationary: true, x: 476, y: 490, lk: 'vveg' }),
+    mkV('villm', 'WS', ['桃子便宜卖', '走过路过别错过', '尝一个？'], { remap: { h: '#3a2c20', b: '#e8b23d' }, stationary: true, x: 168, y: 616, lk: 'vpeach' }),
   ]
+
 
   let frame = 0, lastT = 0
   const clouds = [
