@@ -1,40 +1,49 @@
-import { upgradeToWx, ensureLogin, logout } from '../../services/auth'
+/**
+ * M1 · 我的。
+ *
+ * 设计册 10.4 的 M1 就五条入口 + 一句话 + 最近一笔 + 弹性槽。
+ * 这一屏原先还背着授权卡（372px）、账号明细折叠、退出并重新登录 ——
+ * 那三块是**账号**的事，不是「我」的事，且授权卡一块就吃光了这一屏
+ * 全部的纵向富余（台账记着超 230px）。2026-08-25 全部搬进「设置 ›」。
+ */
 import { storage } from '../../services/storage'
 import { mineApi } from '../../services/mine'
-import { CONFIG } from '../../config/index'
-import type { UserPublic } from '../../types/auth'
+import { commerceApi } from '../../services/commerce'
+import { 状态说法 } from '../../utils/money'
+import type { OrderCard, TraceEvent } from '../../types/commerce'
+
+interface Recent {
+  id: string
+  title: string
+  when: string
+  state: string
+}
 
 interface IData {
-  /** 账号明细收着还是展开 —— 见 wxml 那段注释 */
-  profOpen: boolean
-  user: UserPublic | null
-  isWx: boolean
-  activeNatalId: string | null
-  draft: { avatar_url: string; nickname: string }
-  binding: boolean
-  version: string
-  /** 徽章 / 订阅的一句话摘要。取不到写「看不到」，不编数字 */
+  nickname: string
+  orderText: string
   badgeText: string
   subText: string
-  /** 显示用的名字。**不在模板里写 `user.nickname`** —— user 加载前是 null，
-   *  真机上 WXML 会把它渲成空，而镜像的求值器照 JS 抛（web/runtime/wxml.js
-   *  只把 ReferenceError 当空）。两边行为不同的地方，绕开它比赌哪边对更稳。 */
-  nickname: string
+  /** 有单子时的那一笔；没有就是 null */
+  recent: Recent | null
+  /** 真的一笔都没有（区别于「还没取到」——后者不该显示「还没买过什么」） */
+  recentEmpty: boolean
+  /** 取不到时说一句。空着跟「没有」看起来一样，那就等于骗人 */
+  recentNote: string
+  /** 弹性槽：最近一笔的最新一条轨迹。取不到就整块不出现 */
+  nextStop: string
 }
 
 Page<IData, WechatMiniprogram.IAnyObject>({
   data: {
-    
-    /** 账号明细默认收起 —— 见 wxml 那段注释 */
-    profOpen: false,user: null,
-    isWx: false,
-    activeNatalId: null,
-    draft: { avatar_url: '', nickname: '' },
-    binding: false,
-    version: CONFIG.APP_VERSION,
+    nickname: '',
+    orderText: '',
     badgeText: '',
     subText: '',
-    nickname: '',
+    recent: null,
+    recentEmpty: false,
+    recentNote: '',
+    nextStop: '',
   },
 
   onShow() {
@@ -42,6 +51,8 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     if (storage.getToken()) this.loadMine()
   },
 
+  /* 匿名登录是异步的：冷启动时 onShow 会抢在 token 之前跑，
+     拿一串 401 之后再也不重取。app 拿到身份会广播这个。 */
   onAuthReady() {
     this.pull()
     this.loadMine()
@@ -50,136 +61,100 @@ Page<IData, WechatMiniprogram.IAnyObject>({
   pull() {
     const app = getApp<IAppOption>()
     const user = app.globalData.user
-    const isWx = !!user && user.platform === 'mini' && !user.is_anonymous
-    this.setData({
-      user,
-      isWx,
-      nickname: (user && user.nickname) || '过客',
-      activeNatalId: app.globalData.activeNatalId,
-    })
+    this.setData({ nickname: (user && user.nickname) || '过客' })
   },
 
-  onChooseAvatar(e: WechatMiniprogram.CustomEvent<{ avatarUrl: string }>) {
-    this.setData({ 'draft.avatar_url': e.detail.avatarUrl })
-  },
+  goName() { wx.navigateTo({ url: '/pages/name/index' }) },
+  goOrders() { wx.navigateTo({ url: '/pages/orders/index' }) },
+  goBadges() { wx.navigateTo({ url: '/pages/badges/index' }) },
+  goSubs() { wx.navigateTo({ url: '/pages/subs/index' }) },
+  goSettings() { wx.navigateTo({ url: '/pages/settings/index' }) },
+  goVillage() { wx.switchTab({ url: '/pages/village/index' }) },
 
-  onNickname(e: WechatMiniprogram.CustomEvent<{ value: string }>) {
-    this.setData({ 'draft.nickname': e.detail.value })
-  },
-
-  async doBind() {
-    const { draft } = this.data
-    const nickname = draft.nickname.trim()
-    if (!nickname) {
-      wx.showToast({ title: '先填个昵称', icon: 'none' })
-      return
-    }
-    this.setData({ binding: true })
-    try {
-      const { user } = await upgradeToWx({
-        nickname,
-        avatar_url: draft.avatar_url || null,
-      })
-      const app = getApp<IAppOption>()
-      app.globalData.user = user
-      app.globalData.authSource = 'wxmp'
-      this.setData({
-        user,
-        isWx: true,
-        draft: { avatar_url: '', nickname: '' },
-      })
-      wx.showToast({ title: '已绑定微信', icon: 'success' })
-    } catch (_e) {
-      wx.showToast({ title: '绑定失败，请重试', icon: 'error' })
-    } finally {
-      this.setData({ binding: false })
-    }
-  },
-
-  goOrders() {
-    wx.navigateTo({ url: '/pages/orders/index' })
-  },
-
-  goBadges() {
-    wx.navigateTo({ url: '/pages/badges/index' })
-  },
-
-  /* 订阅有自己的一页了（docs/REDESIGN.md R3 顺手拽进来的 M5）。
-     它原先点进铺里看订阅类商品 —— 铺删掉之后那个出口就断了，
-     所以那一页必须跟着铺一起做。
-     **没有的时候，出口就是「去哪儿能有」** 这条没变，只是搬进了那一页里面。 */
-  toggleProf() {
-    this.setData({ profOpen: !this.data.profOpen })
-  },
-
-  goSubs() {
-    wx.navigateTo({ url: '/pages/subs/index' })
-  },
-
-  /** 徽章与订阅的一句话摘要。取不到就不显示数字，不编 */
-  /* 改名搬到 `pages/name`（REDESIGN.md R5 · M6）：名字不是账户字段，
-     是村里的人怎么称呼你 —— 那一屏要给「叫起来什么样」的预览。
-     留在这儿的只有一个入口。 */
-  goName() {
-    wx.navigateTo({ url: '/pages/name/index' })
+  goRecent() {
+    const r = this.data.recent
+    if (r) wx.navigateTo({ url: '/pages/order/index?id=' + r.id })
   },
 
   loadMine() {
-    /* 顺便**问一次服务端我是谁**。`app.globalData.user` 是登录那一刻的快照 ——
-       在别处改过名字之后它就旧了，而这一页是「我」，
-       显示的该是服务端说的那个我。取不到就用手里那份，不空屏。 */
+    /* 顺便问一次服务端我是谁 —— globalData 里那份是登录那一刻的快照，
+       在「名字」那一屏改过之后它就旧了。取不到就用手里那份，不空屏，
+       但**说一句**：不说的话「服务端说我叫这个」跟「问不到」没有区别。 */
     mineApi.me().then(
       (u) => {
         const app = getApp<IAppOption>()
         app.globalData.user = u
         storage.setUser(u)
-        this.setData({ user: u, nickname: u.nickname || '过客' })
+        this.setData({ nickname: u.nickname || '过客' })
       },
-      // 取不到就用手里那份，不空屏；但**说一句** ——
-      // 不说的话「服务端说我叫这个」跟「问不到，显示的是旧的」没有区别。
       (e: { message?: string }) => console.warn('取不到我是谁，显示的是登录时那一份：', e && e.message),
     )
+
     mineApi.badges().then(
-      (list) => this.setData({
-        badgeText: list.filter((b) => b.earned).length + ' / ' + list.length,
-      }),
+      (list) => {
+        const got = list.filter((b) => b.earned).length
+        this.setData({ badgeText: got + ' / ' + list.length + ' 枚徽章' })
+      },
       () => this.setData({ badgeText: '看不到' }),
     )
+
     mineApi.subscriptions().then(
-      (list) => this.setData({
-        subText: list.length ? list.length + ' 个订着' : '还没有订阅',
-      }),
+      (list) => this.setData({ subText: list.length ? list.length + ' 个订着' : '还没有' }),
       () => this.setData({ subText: '看不到' }),
+    )
+
+    commerceApi.orders().then(
+      (page) => {
+        const items = page.items || []
+        this.setData({
+          orderText: page.total ? page.total + ' 笔' : '还没有',
+          recentEmpty: items.length === 0,
+        })
+        if (!items.length) { this.setData({ recent: null }); return }
+        const o: OrderCard = items[0]
+        this.setData({
+          recent: {
+            id: o.id,
+            /* 名字来自下单那一刻的 sku 快照（后端 my_orders 的 title）。
+               取不到就报单号前八位 —— 那是我们真知道的东西，
+               编一个「一件商品」出来会让人以为系统知道它是什么。 */
+            title: o.title
+              ? (o.line_count > 1 ? o.title + ' 等 ' + o.line_count + ' 件' : o.title)
+              : '单 ' + o.id.slice(0, 8),
+            when: (o.created_at || '').slice(5, 10).replace('-', '/') + ' 下单',
+            state: 状态说法[o.status] || o.status,
+          },
+        })
+        this.loadNextStop(o)
+      },
+      (e: { message?: string }) => this.setData({
+        recent: null, recentEmpty: false, orderText: '看不到',
+        recentNote: e && e.message ? e.message : '取不到单子',
+      }),
     )
   },
 
-  async doLogout() {
-    logout()
-    const app = getApp<IAppOption>()
-    app.globalData.token = null
-    app.globalData.user = null
-    app.globalData.authSource = null
-    app.globalData.activeNatalId = null
-    this.setData({ user: null, isWx: false, nickname: '', activeNatalId: null })
-
-    wx.showLoading({ title: '重新登录…', mask: true })
-    try {
-      const { user, source } = await ensureLogin()
-      app.globalData.user = user
-      app.globalData.token = storage.getToken()
-      app.globalData.authSource = source
-      app.globalData.activeNatalId = user.active_natal_id
-      this.setData({
-        user,
-        isWx: user.platform === 'mini' && !user.is_anonymous,
-        activeNatalId: user.active_natal_id,
-      })
-      wx.hideLoading()
-      wx.showToast({ title: '已切换身份', icon: 'success' })
-      app.broadcast('onNatalChanged')
-    } catch (_e) {
-      wx.hideLoading()
-      wx.showToast({ title: '登录失败', icon: 'error' })
-    }
+  /* 弹性槽：最近一笔的最新一条轨迹（设计册 M1 的「下一站」）。
+     只有已付之后才可能有包裹，所以先按状态挡一道，不给每个人白打两条接口。
+     **取不到就整块不出现** —— 弹性槽本来就是「删掉这一屏仍然成立」的那一块。 */
+  loadNextStop(o: OrderCard) {
+    if (['draft', 'unpaid', 'cancelled'].indexOf(o.status) >= 0) return
+    commerceApi.shipments(o.id).then(
+      (list) => {
+        const s = list && list[0]
+        if (!s) return
+        commerceApi.trace(o.id, s.id).then(
+          (t) => {
+            const ev: TraceEvent | undefined = (t.trace || [])[0]
+            if (!ev) return
+            const when = (ev.event_at || '').replace('T', ' ').slice(5, 16)
+            const where = ev.location || ev.description || ''
+            this.setData({ nextStop: (when + '　' + where).trim() })
+          },
+          () => { /* 轨迹取不到，槽不出现。这一屏没有它照样成立 */ },
+        )
+      },
+      () => { /* 没有包裹或取不到，同上 */ },
+    )
   },
 })
