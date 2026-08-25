@@ -245,13 +245,25 @@ async fn my_orders(
 ) -> Result<Json<J>, ApiError> {
     let off = q.page * q.size;
     let lim = q.size.clamp(1, 100);
+    /* `title` / `line_count` 是给「我买过的」那一列用的。
+       没有它,那一列只显示得出订单号 —— 一串 UUID,读的人认不出自己买了什么。
+       名字取【下单那一刻的 sku 快照】,不是 join 现在的 sku 表:
+       商品改了名、下了架,单子上写的还该是当时买的那个东西。
+       逐单再取一次详情也能拿到,但那是 N+1,而这里一次 LATERAL 就够。 */
     let rows = sqlx::query(
-        r#"SELECT id, channel_origin, currency, amount_total_minor, amount_paid_minor,
-                  amount_refunded_minor, status, source_kind, expires_at, paid_at,
-                  fulfilled_at, created_at
-           FROM order_record
-           WHERE user_id=$1 AND ($2::text IS NULL OR status=$2)
-           ORDER BY created_at DESC OFFSET $3 LIMIT $4"#,
+        r#"SELECT o.id, o.channel_origin, o.currency, o.amount_total_minor,
+                  o.amount_paid_minor, o.amount_refunded_minor, o.status,
+                  o.source_kind, o.expires_at, o.paid_at, o.fulfilled_at, o.created_at,
+                  l.title, l.line_count
+           FROM order_record o
+           LEFT JOIN LATERAL (
+             SELECT (array_agg(ol.sku_snapshot_json->>'sku_name'
+                               ORDER BY ol.line_no))[1] AS title,
+                    COUNT(*)::int AS line_count
+             FROM order_line ol WHERE ol.order_id = o.id
+           ) l ON TRUE
+           WHERE o.user_id=$1 AND ($2::text IS NULL OR o.status=$2)
+           ORDER BY o.created_at DESC OFFSET $3 LIMIT $4"#,
     ).bind(&c.sub).bind(&q.status).bind(off).bind(lim)
      .fetch_all(&st.db).await.map_err(map_db)?;
     let total: i64 = sqlx::query_scalar(

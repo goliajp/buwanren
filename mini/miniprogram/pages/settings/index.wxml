@@ -1,0 +1,60 @@
+<view class="page">
+  <view class="hd">
+    <view class="title">设置</view>
+    <view class="sub">账号的事都在这儿</view>
+  </view>
+
+  <!-- 绑定微信自己一屏：那是一张表单（选头像 + 填昵称 + 按钮 + 说明），
+       摆在这儿一块就 372px。跟「名字」独立成屏同一个理由。 -->
+  <view class="entries">
+    <view wx:if="{{isWx}}" class="entry entry-flat">
+      <text class="entry-k">微信</text>
+      <text class="entry-v">{{user.nickname}} · 已绑定</text>
+    </view>
+    <view wx:else class="entry" bindtap="goBind" hover-class="entry-hover" hover-stay-time="100">
+      <text class="entry-k">绑定微信</text>
+      <text class="entry-v">换设备也还在</text>
+      <text class="entry-arrow">›</text>
+    </view>
+  </view>
+
+  <!-- 这五行原先在「我的」上折叠着 —— 折叠是为了让【那一屏】放得下，
+       搬到这一屏之后那个理由没有了。而它们存在的唯一用途就是被人念给客服听，
+       多一次「展开」等于让唯一的用途多一道手续。 -->
+  <view class="sec-k">这台设备上的账号</view>
+  <view class="card" wx:if="{{user}}">
+    <view class="prof-row">
+      <text class="prof-k">I D</text>
+      <text class="prof-v mono">{{user.id}}</text>
+    </view>
+    <view class="prof-row">
+      <text class="prof-k">平 台</text>
+      <text class="prof-v">{{user.platform}}</text>
+    </view>
+    <view class="prof-row">
+      <text class="prof-k">区 域</text>
+      <text class="prof-v">{{user.region}} · {{user.locale}}</text>
+    </view>
+    <view class="prof-row">
+      <text class="prof-k">类 型</text>
+      <text class="prof-v {{user.is_anonymous ? '' : 'ok'}}">
+        {{user.is_anonymous ? '匿名' : '实名'}}
+      </text>
+    </view>
+    <view class="prof-row" wx:if="{{activeNatalId}}">
+      <text class="prof-k">本 命</text>
+      <text class="prof-v mono">{{activeNatalId}}</text>
+    </view>
+  </view>
+  <view class="card muted" wx:else>
+    <text class="prof-v">还没登录上 —— 退出重来一次试试</text>
+  </view>
+
+  <view class="cta">
+    <button class="btn ghost" bindtap="doLogout">退出并重新登录</button>
+  </view>
+
+  <view class="foot-hint">
+    不完人 v{{version}} · 仅供研究与娱乐
+  </view>
+</view>
