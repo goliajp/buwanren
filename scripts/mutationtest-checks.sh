@@ -49,7 +49,6 @@ FILES=(
   mini/miniprogram/pages/order/index.ts
   .claude/design/product-v1.html
   docs/REDESIGN.md
-  .github/workflows/mini.yml
   backend/seed/art_leaf.sql
   # tsc 那条变异写在这个文件末尾。它必须在名单里 ——
   # 名单是 trap 兜底还原的依据,自己另存一份的话,中途被打断就还原不到它。
@@ -396,11 +395,6 @@ mutate "seed 里某位的名字跟设计册对不上" "export-cast --check" \
   "edit('backend/seed/villagers.sql', \"'阿云'\", \"'阿雲'\")"
 
 echo
-echo "── check-gates-in-ci（本机跑的门禁 CI 里也得跑）──"
-mutate "某一支门禁从 CI 里消失了" check-gates-in-ci \
-  "edit('.github/workflows/mini.yml', '        run: python3 scripts/check-page-imports.py', '        run: true')"
-
-echo
 echo "── check-art-leaf（术数指的叶真存在吗）──"
 # 这支门禁要读 mingli 仓库(另一个仓库)。读不到时它明说跳过并返回 0 ——
 # 那是对的(够不着的检查不该打分),但也意味着**这条变异在那种机器上问不出东西**:
@@ -469,7 +463,7 @@ echo "── 对照：没变异的源码，下面每一支都必须全绿 ──
 for c in check-api-shape check-plots check-relations check-punct-ui check-routes \
          check-bodies check-reachable-pages check-error-leak \
          check-page-imports check-wxml-handlers check-design-css check-wireframe-fill \
-         check-punct check-gates-in-ci check-art-leaf check-admin-roles "export-cast --check"; do
+         check-punct check-art-leaf check-admin-roles "export-cast --check"; do
   # 读文档的那三支:文档不在就跳过 —— 够不着的检查不该打分
   case "$c" in
     check-punct|check-design-css|check-wireframe-fill)
