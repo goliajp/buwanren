@@ -34,6 +34,7 @@ FILES=(
   backend/unmei-api/src/auth.rs
   webadmin/src/App.tsx
   webadmin/src/components/Layout.tsx
+  webadmin/src/pages/Dashboard.tsx
   backend/unmei-domain/src/lib.rs
   mini/miniprogram/types/natal.ts
   backend/unmei-admin-api/src/routes/users.rs
@@ -286,10 +287,15 @@ mutate "种子里的文案用了半角" check-punct-ui \
   "edit('backend/seed/seed.sql', '至人无己，神人无功，圣人无名。', '至人无己,神人无功,圣人无名。')"
 keep "JSON 数组里的逗号（不是文案）" check-punct-ui \
   "import pathlib; p = pathlib.Path('backend/seed/seed.sql'); s = p.read_text(encoding='utf-8'); assert s.count(chr(39)+'[\\\"水\\\",\\\"木\\\"]'+chr(39)) >= 1; p.write_text(s.replace(chr(39)+'[\\\"水\\\",\\\"木\\\"]'+chr(39), chr(39)+'[\\\"水\\\",\\\"木\\\",\\\"火\\\"]'+chr(39), 1), encoding='utf-8')"
+# 2026-08-25：这两条原先锚在我家主屏那句「想问什么（可空 · 只给你自己看）」上，
+# 而那一栏当天从 H1 上拿掉了（设计 10.8：转一下就是转一下）。
+# 它当时报的是「变异植不进去（基准源码变了？）」而不是假绿 —— 那正是它该有的样子。
+# 换锚点时挑的是【真显示出来的字】：小程序那一侧现在一句带全角括号的文案都没有,
+# 而后台也归这支门禁管（它是内部工具,看的仍然是人）。
 mutate "括号里是中文却用了半角" check-punct-ui \
-  "edit('mini/miniprogram/pages/home/index.wxml', '（可空 · 只给你自己看）', '(可空 · 只给你自己看)')"
+  "edit('webadmin/src/pages/Dashboard.tsx', '（本页是总览）', '(本页是总览)')"
 keep "括号里是数字或英文（豁免）" check-punct-ui \
-  "edit('mini/miniprogram/pages/home/index.wxml', '（可空 · 只给你自己看）', '（可空 · 只给你自己看）(+8)(control plane)')"
+  "edit('webadmin/src/pages/Dashboard.tsx', '（本页是总览）', '（本页是总览）(+8)(control plane)')"
 keep "中文当对象键的代码" check-punct-ui \
   "edit('mini/miniprogram/pages/village/index.ts', '  /** 他刚说的那一句 */', \"  /* eslint-disable */ // const 五行 = { 木: 'mu', 火: 'huo' }\\n  /** 他刚说的那一句 */\")"
 
