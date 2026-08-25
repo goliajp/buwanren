@@ -16,7 +16,7 @@ content / support / finance 五个，其中 4 处路由真在用它。
   · 台账里的某条已经查了角色          → 红，那一条该划掉
   · 新出现一条没查角色的写操作        → 红，要么加上，要么写明为什么
 
-判据是「函数体里有没有 requires_role」。这判不出角色对不对 ——
+判据是「函数体里有没有 requires_role / requires_any_role」。这判不出角色对不对 ——
 它判的是「这条路由有没有人想过角色这回事」。
 """
 import json
@@ -38,7 +38,12 @@ for f in sorted(SRC.glob('*.rs')):
         m = re.search(r'async fn ' + fn + r'\b(.{0,4000}?)\n}\n', src, re.S)
         body = m.group(1) if m else ''
         key = f'{verb.upper()} {path}'
-        (guarded if 'requires_role' in body else unguarded)[key] = fn
+        # 两个名字都要认。只写 `requires_role` 的话，用 `requires_any_role`
+        # 的那几条会被当成「没查角色」—— 而它们查得比单角色那几条还细。
+        # 不靠「`requires_any_role` 里含 `requires_role`」这种子串巧合：
+        # 那种依赖在有人改名的那天会静静失效。
+        checked = any(t in body for t in ('requires_role', 'requires_any_role'))
+        (guarded if checked else unguarded)[key] = fn
 
 led = json.loads(LEDGER.read_text(encoding='utf-8'))
 known = {k for k in led.get('没查角色的写操作', {})}
