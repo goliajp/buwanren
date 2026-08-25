@@ -23,6 +23,7 @@ review 时看得见 —— 这正是重点：让「改了旧迁移」变成一�
   python3 scripts/check-migrations.py --record   把当前状态记成基准
 """
 import hashlib
+import re
 import json
 import pathlib
 import sys
@@ -39,6 +40,26 @@ def digest(p):
 files = {p.name: digest(p) for p in sorted(MIG.glob('*.sql'))}
 if not files:
     print('✗ 一个迁移都没扫到 —— 路径对不上了？查不到东西的核对必须失败')
+    sys.exit(1)
+
+# 版本号不许撞。sqlx 从文件名【前面那串数字】取版本号,两个迁移同号时
+# 它在【启动那一刻】报 `VersionMismatch(2026xxxx)` —— 一句看不出是哪两个文件、
+# 也看不出该怎么办的错。2026-08-25 真踩到:同一天写了两个迁移,
+# 都以 `20260825_` 开头,整个测试套件 27 条一起挂在这句话上。
+# 已有的命名法是给日期加三位后缀(`20260817002_`),这里把它变成一条会红的规矩。
+import collections
+vers = collections.defaultdict(list)
+for n in files:
+    m = re.match(r'^(\d+)', n)
+    if m:
+        vers[m.group(1)].append(n)
+dup = {v: ns for v, ns in vers.items() if len(ns) > 1}
+if dup:
+    for v, ns in sorted(dup.items()):
+        print(f'✗ 版本号 {v} 撞了 —— sqlx 启动时会报 VersionMismatch({v})：')
+        for n in sorted(ns):
+            print(f'    {n}')
+    print('  同一天的第二个迁移加三位后缀，照 20260817002_ 那样')
     sys.exit(1)
 
 if '--record' in sys.argv:
