@@ -46,24 +46,51 @@ function roomScript(base) {
 
      所以改两处:等到房间与它们的命中函数都就位再量;等不到就报红,
      不再把「够不着」说成「过了」。 */
-  const 就位 = await p.waitForFunction(() => {
-    const ks = Object.keys(window).filter((k) => /^[A-Z][A-Z0-9]*_ROOM$/.test(k)
-      && window[k] && Array.isArray(window[k].plan))
-    if (!ks.length) return false
-    // 命中检查要用画布上的 __hitAt。画布还没挂上它,量出来的是「整件被压住」
-    return ks.every((k) => {
-      const cv = document.getElementById(k.replace(/_ROOM$/, '').toLowerCase() + 'Canvas')
-      return !cv || !!cv.__hitAt
+  /* 等到【版式停下来】再量，不是等一个固定的毫秒数，也不是等「第一间就位」。
+
+     这里前后错过两次，两次的形状一模一样 —— 够不着却当成量到了：
+
+     ① 原先是 `waitForTimeout(3500)`。页面没在这 3.5 秒里跑完时，
+        房间表是空的，四节全部跳过，problems 停在 0，打印「✓ 四模块全过」。
+        这台机器同时跑着别的活儿时它就这么绿了三轮，一件也没量。
+     ② 换成等条件之后，判据写的是「【已经出现的】房间都挂上了 __hitAt」——
+        而房间是逐个注册的，第一间刚挂上，这个条件就成立了。
+        于是量的是半就位的状态，报出 140~216 件「点不到自己」，
+        而且每次跑都不一样（等到的时刻不同）。
+        六间房全部就位之后重量：**一件都没有**，连跑两遍逐字相同。
+
+     所以判据是「连着两次采样，房间数与挂上命中函数的数目都不再变」。
+     快机器上一秒就稳，慢机器上多等几轮；一直不稳就报红，不打分。 */
+  const 就位 = await (async () => {
+    const 看一眼 = () => p.evaluate(() => {
+      const ks = Object.keys(window).filter((k) => /^[A-Z][A-Z0-9]*_ROOM$/.test(k)
+        && window[k] && Array.isArray(window[k].plan))
+      let 命中 = 0
+      for (const k of ks) {
+        const cv = document.getElementById(k.replace(/_ROOM$/, '').toLowerCase() + 'Canvas')
+        if (cv && cv.__hitAt) 命中++
+      }
+      return ks.length + '/' + 命中
     })
-  }, null, { timeout: 60000 }).then(() => true, () => false)
+    let 上一次 = ''
+    for (let i = 0; i < 120; i++) {          // 最多 60 秒
+      await p.waitForTimeout(500)
+      const 这次 = await 看一眼()
+      if (这次 !== '0/0' && 这次 === 上一次) return 这次
+      上一次 = 这次
+    }
+    return null
+  })()
   if (!就位) {
     const 看到 = await p.evaluate(() => Object.keys(window)
       .filter((k) => /^[A-Z][A-Z0-9]*_ROOM$/.test(k)).length)
-    console.log(`✗ 等了 60 秒也没等到房间就位（window 上看到 ${看到} 个 *_ROOM）`)
+    console.log(`✗ 等了 60 秒版式也没停下来（window 上看到 ${看到} 个 *_ROOM）`)
     console.log('  这道检查够不着它要管的东西 —— 够不着就不该打分')
     if (errs.length) errs.slice(0, 4).forEach((e) => console.log('  页面报错 ' + e))
     await b.close(); process.exit(1)
   }
+  console.log(`（房间 / 挂上命中函数：${就位}）`)
+
 
   const data = await p.evaluate(() => {
     const rooms = Object.keys(window)
@@ -312,25 +339,21 @@ function roomScript(base) {
       if (cov < 65) problems++
       console.log(`  ${k.padEnd(11)} 可点 ${R.clickable}/${R.kinds} = ${cov}% ${tag}  sayDeep ${R.deep}${R.deep ? '' : ' ✗ 核心物件没有追问层'}`)
       if (!R.deep) problems++
-      /* 逐件命中【暂不计分】,只报数 —— 2026-08-25。
+      /* 逐件命中【恢复计分】—— 2026-08-26。
 
-         这一支原先根本没在量:房间是从 window 上扫 `*_ROOM` 来的,页面没在
-         那 3500ms 的固定等待里跑完,表就是空的,四个模块整个跳过,
-         最后打印「✓ 四模块全过」。改成等条件之后它才第一次真的看见东西,
-         而看见的是 140~216 件「点不到自己」,**同一份源码每次跑还都不一样**。
+         它在两个时刻之间被误判成「不确定」：上一版的等待条件是
+         「已经出现的房间都挂上了 __hitAt」，而房间是逐个注册的，
+         第一间刚挂上就成立了，于是量的是半就位的状态，
+         报出 140~216 件「点不到自己」，每次跑还都不一样。
 
-         那六间报出问题的房,正是六间带每帧动画的（ayun / tao / bailu /
-         popo / shenyan / tenz);其余静态房一件都没有。也就是说这一节量的是
-         【一幅正在动的画在某一瞬间】的遮挡关系 —— 人走到哪儿,哪几件就被记成
-         点不到。试过「几帧里有一帧点得到就算点得到」,数没稳下来（166/188/216）。
-
-         所以这一节现在**明说没判**,不再给一个会飘的数:偶发的红比常红更糟,
-         它让每一次真红都能被当成噪音。A / B / D 三节照常计分。
-         要恢复计分,先让它有个确定的取样时刻（冻帧,或把人挪开再量）。 */
+         查下来 hit() 只遍历 room.plan（走动的角色根本不参与命中），
+         plan 逐帧不变、房间数不变、depthOf 是纯函数 —— 也就是说
+         它本来就是确定的。等到版式停下来之后重量：六间房一件都没有，
+         连跑三遍逐字相同。飘的是等待，不是这一节。 */
       if (!R.hitRan) console.log('     ~ 命中检查没跑(画布未挂 __hitAt)')
       else if (R.hit.length) {
-        console.log(`     ~ ${R.hit.length} 件此刻点不到自己 —— 这一节【没判】:`
-          + '量的是动画里某一瞬间的遮挡,每次跑都不一样')
+        problems += R.hit.length
+        console.log(`     ✗ ${R.hit.length} 件点不到自己:`)
         R.hit.slice(0, 8).forEach(h => console.log(`        ${h.id} → 实际命中 ${h.got}`))
       } else console.log('     ✓ 逐件点过,每件点到的都是自己')
     }
@@ -370,11 +393,11 @@ function roomScript(base) {
     console.log('✗ 一间房都没读到 —— 这道检查够不着它要管的东西，不打分')
     await b.close(); process.exit(1)
   }
-  /* 别说「四模块全过」—— C 节的逐件命中现在不计分（见上面那段）。
-     把没判的说成过了,正是这支工具刚犯过的那个错的另一种写法。 */
-  const 没判 = Object.keys(data).filter((k) => data[k].hitRan && data[k].hit.length).length
+  /* 「没跑到」不许说成「过了」。C 节的逐件命中要画布上有 __hitAt 才跑得起来,
+     一间都没跑到时，说「四模块全过」等于把够不着说成了通过。 */
+  const 没跑到 = Object.keys(data).filter((k) => !data[k].hitRan).length
   console.log('\n' + (problems ? `✗ 合计 ${problems} 项`
-    : `✓ A / B / D 三节全过${没判 ? ` · C 节逐件命中【没判】(${没判} 间房有件点不到,量的是动画某一瞬间)` : ' · C 节逐件命中也全过'}`))
+    : `✓ 四模块全过${没跑到 ? ` （其中 ${没跑到} 间房的逐件命中没跑起来 —— 画布上没有 __hitAt）` : ''}`))
   await b.close()
   if (problems) process.exit(1)
 })()
