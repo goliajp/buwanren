@@ -122,6 +122,7 @@ if [ "$QUICK" = 1 ]; then
     skip "mutationtest · 报得出红吗" "--quick"
   fi
   skip "mutationtest · SQL 那支" "--quick"
+  skip "mutationtest · 房间那支" "--quick"
 else
   gate "mutationtest · 报得出红吗" . bash scripts/mutationtest-checks.sh
   # SQL 那支只在 CI 里跑过（backend.yml）。本地不跑的后果不是「少验一遍」——
@@ -129,6 +130,13 @@ else
   # 这两支的「捡起没主的锁」分支双双炸掉；CI 全绿，因为全新 runner 上没有锁，
   # 那条分支根本不走。只有本地会走到的路，只有本地跑得出来。
   gate "mutationtest · SQL 那支"  . bash scripts/mutationtest-sql.sh
+  # 房间那批门禁（assetlint / roomaudit / pathlint / walklint / regress / blobscan /
+  # portlint / winlint / buildengine）自己的变异测试。**它一直不在这张清单里** ——
+  # 也就是说「这些门禁报不报得出红」这件事没有任何人在跑。
+  # 2026-08-26 手动跑了一次才发现里面有一条早就失配了：村子重排
+  # （704×1920 → 704×960）把它锚着的那个颜色改没了，而没人看得见。
+  # 一支没人跑的变异测试，比没有更糟：它让人以为那批门禁有人守着。
+  gate "mutationtest · 房间那支" . bash rooms/tools/mutationtest.sh
 fi
 
 echo
