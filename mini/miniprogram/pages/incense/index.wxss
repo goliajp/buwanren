@@ -1,0 +1,29 @@
+.hd { padding: 24rpx 0 20rpx; }
+.hd .title { font-size: 68rpx; line-height: 1.15; }
+.hd .sub { font-size: 24rpx; color: var(--ink-faint); margin-top: 12rpx; letter-spacing: 0.06em; }
+
+.say { padding: 24rpx 0 8rpx; font-size: 30rpx; color: var(--ink); line-height: 1.8; }
+.say.muted { font-size: 26rpx; color: var(--ink-faint); }
+.say-go { display: block; margin-top: 12rpx; font-size: 26rpx; color: var(--ink-mid); }
+
+.recipe {
+  padding: 12rpx 0 24rpx;
+  font-family: "Songti SC", serif;
+  font-size: 32rpx;
+  color: var(--ink-mid);
+  letter-spacing: 0.28em;
+}
+
+.loading, .err { padding: 40rpx 0; color: var(--ink-faint); font-size: 26rpx; }
+.err-msg { margin-bottom: 20rpx; }
+
+.note { padding: 24rpx 4rpx 0; font-size: 22rpx; color: var(--stone-label); line-height: 1.7; }
+.slot-e1 {
+  margin-top: 24rpx; padding-top: 18rpx;
+  border-top: 1rpx solid var(--stone-line-x);
+  font-size: 22rpx; color: var(--stone-label); letter-spacing: 0.06em;
+}
+/* 这一屏的内容就这么多（三档 + 几句话）。让它自然结束、「回去」贴底 ——
+   中间那片空是留白，不是「画到一半」。硬塞内容把它填满才是后者。 */
+.page { display: flex; flex-direction: column; }
+.acts { margin-top: auto; padding-top: 48rpx; text-align: center; }

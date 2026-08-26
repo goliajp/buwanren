@@ -30,6 +30,10 @@ interface IData {
   who: VillagerInVillage | null
   /** 有没有搬进小程序的屋子 —— 没有就不给「去他家坐坐」这颗按钮 */
   canEnter: boolean
+  /** 他卖着东西吗（设计册 10.8：东西长在卖它的人身上） */
+  sells: boolean
+  sellsLabel: string
+  sellsProduct: string
   /** 找他的御守时那一行字 */
   say: string
   inviting: boolean
@@ -37,7 +41,8 @@ interface IData {
 }
 
 Page<IData, WechatMiniprogram.IAnyObject>({
-  data: { id: '', loading: true, err: '', who: null, canEnter: false, say: '', inviting: false, asking: false },
+  data: { id: '', loading: true, err: '', who: null, canEnter: false, say: '', inviting: false, asking: false,
+          sells: false, sellsLabel: '', sellsProduct: '' },
 
   onLoad(q: Record<string, string | undefined>) {
     this.setData({ id: q.id || '' })
@@ -73,6 +78,11 @@ Page<IData, WechatMiniprogram.IAnyObject>({
         loading: false,
         who,
         canEnter: who.at_home && hasRoom(id),
+        /* 他卖的东西，入口在他这儿。**要先请回家** ——
+           人都还没来，摊子就不该摆在这儿。 */
+        sells: !!(who.at_home && who.sells),
+        sellsLabel: who.sells ? who.sells.name : '',
+        sellsProduct: who.sells ? who.sells.product_id : '',
       })
       wx.setNavigationBarTitle({ title: who.name })
     } catch (e) {
@@ -102,6 +112,12 @@ Page<IData, WechatMiniprogram.IAnyObject>({
         })
       },
     )
+  },
+
+  goSells() {
+    if (this.data.sellsProduct) {
+      wx.navigateTo({ url: '/pages/incense/index?id=' + this.data.sellsProduct })
+    }
   },
 
   onEnter() {

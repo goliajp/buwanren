@@ -18,7 +18,8 @@
     "pages/subs/index",
     "pages/name/index",
     "pages/settings/index",
-    "pages/bind/index"
+    "pages/bind/index",
+    "pages/incense/index"
   ],
   "window": {
     "backgroundTextStyle": "light",

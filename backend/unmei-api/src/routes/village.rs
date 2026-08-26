@@ -74,6 +74,27 @@ async fn my_village(
     .fetch_all(&st.db)
     .await?;
 
+    /* 谁卖着东西（设计册 10.8：东西长在卖它的人身上）。
+       **不在页面写死名单** —— 写死的话，第二个卖东西的人来了没人记得改那一处。
+       排除御守：那不是「他卖的」，是「里面封着他」，而且它有自己的入口（扫开）。 */
+    /* 一位村民卖着好几件时挑哪一件要【说得准】。DISTINCT 不定序，
+       挑中哪一件全看行序 —— 那种不确定会在数据一变的时候悄悄换掉入口。
+       按 sort_weight 高的先，同权重按 id，两条都定死。 */
+    let sells_rows = sqlx::query(
+        "SELECT DISTINCT ON (k.villager_id) k.villager_id, p.id AS product_id, p.name
+           FROM sku k JOIN product p ON p.id = k.product_id
+          WHERE k.villager_id IS NOT NULL AND k.status='active'
+            AND p.status='listed' AND p.category <> 'omamori'
+          ORDER BY k.villager_id, p.sort_weight DESC, p.id",
+    )
+    .fetch_all(&st.db)
+    .await?;
+    let sells: std::collections::HashMap<String, (String, String)> = sells_rows
+        .iter()
+        .map(|r| (r.get::<String, _>("villager_id"),
+                  (r.get::<String, _>("product_id"), r.get::<String, _>("name"))))
+        .collect();
+
     let all: Vec<J> = rows
         .iter()
         .map(|r| {
@@ -87,6 +108,9 @@ async fn my_village(
                 "lack": r.get::<String, _>("lack"),
                 "rarity": r.get::<Option<String>, _>("rarity"),
                 "at_home": at_home,
+                "sells": sells.get(&id).map(|(pid, name)| json!({
+                    "product_id": pid, "name": name,
+                })),
             })
         })
         .collect();
