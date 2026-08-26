@@ -642,8 +642,11 @@ if (API) {
          而香上根本没有码。这里把那个反例钉住。 */
       run([
         `INSERT INTO product(id,code,name,category,kind,status,fulfillment_kind)`
+        /* status 用 draft：这一件只是用来验「不是御守的东西不催扫」，
+           判据不看 status。上架的话它会混进真目录 —— 2026-08-27 真混过一次，
+           村民页上苏合卖的成了「校验·香」。校验用的数据不该长得像真数据。 */
         + ` VALUES ('prod-verify-incense','verify_incense','校验·香','charm','one_shot',`
-        + `'listed','shipping') ON CONFLICT (id) DO NOTHING`,
+        + `'draft','shipping') ON CONFLICT (id) DO UPDATE SET status='draft'`,
         `INSERT INTO sku(id,product_id,code,name,villager_id,stock_kind,default_currency)`
         + ` VALUES ('sku-verify-incense','prod-verify-incense','verify_inc','校验香','suhe',`
         + `'unlimited','CNY') ON CONFLICT (id) DO NOTHING`,
@@ -676,6 +679,62 @@ if (API) {
          String(await p.evaluate(() => globalThis.__router.current().data.toScan)))
     }
   }
+
+  /* ── 香在苏合家里卖，不在铺子里（设计册 H5 / 10.8）────────────
+     「东西长在卖它的人身上」是这个产品的一条论点。在这之前它只有御守
+     一个例证 —— 而御守的 villager_id 是「里面封的是谁」，不是「谁卖的」。
+     这是第一个真正的「谁卖的」，所以整条路要真走一遍：
+     她那一页 → 她配的那一味 → 三档价 → 确认页。 */
+  await moveIn('suhe')                    // 人得先请回家：人没来，摊子不该摆在这儿
+  await open('pages/villager/index', { id: 'suhe' })
+  await p.waitForFunction(() => globalThis.__router.current().data.sells === true,
+                          null, { timeout: 15000 }).catch(() => {})
+  ok(await p.evaluate(() => globalThis.__router.current().data.sells) === true,
+     '苏合那一页上有她卖的东西',
+     String(await p.evaluate(() => globalThis.__router.current().data.sellsLabel)))
+  /* 别人那一页不该冒出这颗按钮 —— 「谁卖东西」由后端说，页面不写死名单。 */
+  await open('pages/villager/index', { id: 'ayun' })
+  await p.waitForTimeout(900)
+  ok(await p.evaluate(() => globalThis.__router.current().data.sells) === false,
+     '不卖东西的那一位，页上没有这颗按钮')
+
+  await open('pages/villager/index', { id: 'suhe' })
+  await p.waitForTimeout(900)
+  await p.getByText('苏合配的那一味', { exact: true }).click()
+  await p.waitForFunction(
+    () => globalThis.__router.current().__route === 'pages/incense/index',
+    null, { timeout: 15000 },
+  ).catch(() => {})
+  ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/incense/index',
+     '从她那一页点得进那一味', await p.evaluate(() => globalThis.__router.current().__route))
+
+  await p.waitForFunction(() => (globalThis.__router.current().data.skus || []).length > 0,
+                          null, { timeout: 15000 }).catch(() => {})
+  const 香 = await p.evaluate(() => {
+    const d = globalThis.__router.current().data
+    return { 档: (d.skus || []).map((x) => x.name + ' ' + x.priceText), 那句: d.line }
+  })
+  ok(香.档.length === 3, '三档都在', 香.档.join(' · '))
+  ok(香.档.some((t) => /¥29\b/.test(t)) && 香.档.some((t) => /¥128\b/.test(t))
+     && 香.档.some((t) => /¥268\b/.test(t)),
+     '价钱是设计册上那三档', 香.档.join(' · '))
+  const 香屏 = await text()
+  ok(香屏.includes('乳香 · 安息 · 桂'), '配方写着')
+  /* 她那一句要按【你缺什么】来。这一趟没建本命，所以她该说不知道，
+     **而不是编一句** —— 说错了比不说更伤。 */
+  ok(!香.那句, '没建本命时她不编一句', String(香.那句 || '(空)'))
+  ok(香屏.includes('先把生辰填了'), '而是说不知道，并给出口')
+
+  await p.locator('.entry').first().click()
+  await p.waitForFunction(
+    () => globalThis.__router.current().__route === 'pages/confirm/index',
+    null, { timeout: 15000 },
+  ).catch(() => {})
+  ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/confirm/index',
+     '挑一档点得进确认那一屏', await p.evaluate(() => globalThis.__router.current().__route))
+  await open('pages/incense/index', { id: 'prod-suhe-incense' })
+  await p.waitForTimeout(1200)
+  await shot('10-一味香')
 
   await open('pages/village/index')
   await p.waitForTimeout(600)

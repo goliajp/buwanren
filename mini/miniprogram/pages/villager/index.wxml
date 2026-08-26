@@ -42,6 +42,10 @@
     <view class="acts">
       <block wx:if="{{who.at_home}}">
         <button class="btn" bindtap="onAsk">{{asking ? '问着……' : '问事'}}</button>
+        <!-- 她卖的东西，入口在她这儿（设计册 10.8：香在苏合家里卖，不在铺子里）。
+             这一颗按 `sells` 出现 —— 由后端说这位村民卖不卖东西，页面不写死名单：
+             写死的话，第二个卖东西的人来了没人记得改这里。 -->
+        <button class="btn ghost" wx:if="{{sells}}" bindtap="goSells">{{sellsLabel}}</button>
         <button class="btn ghost" wx:if="{{canEnter}}" bindtap="onEnter">去他家坐坐</button>
         <view class="hint" wx:else>屋子还没搬进来</view>
       </block>
