@@ -65,11 +65,15 @@ interface VillageData {
   /** 手上有一枚已签收还没扫开的御守（设计册 E2「该扫了」）。
    *  没有就是 false —— 这一条只在该出现时出现，常驻的提示会被无视。 */
   toScan: boolean
+  /** 手输的那串编号（E2 的弹性槽）。扫不出来的人走这条路 */
+  code: string
+  codeErr: string
+  codeBusy: boolean
   /** 正在找那一位的御守 —— 找的时候按钮换个字，别让人以为没反应 */
 }
 
 Page<VillageData, WechatMiniprogram.IAnyObject>({
-  data: { cssW: 0, cssH: 0, sub: '', lived: 0, total: 40, err: '', toScan: false },
+  data: { cssW: 0, cssH: 0, sub: '', lived: 0, total: 40, err: '', toScan: false, code: '', codeErr: '', codeBusy: false },
 
   handle: null as { stop(): void } | null,
   // id → 请回家了没。村子画面里那几位与后端的 id 是同一套(ayun / tao / popo / tenz …),
@@ -229,15 +233,52 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
    */
   onScan() {
     wx.scanCode({ onlyFromCamera: false }).then(
-      (r) => villageApi.scan({ carrier: 'qr', credential: r.result }).then((s2) => {
+      (r) => this.唤醒('qr', r.result),
+      () => { /* 用户自己取消扫码，不是错误，什么都不用说 */ },
+    )
+  },
+
+  /* 手输编号。设计册 E2 的弹性槽：「扫不出来？在这儿手输编号 ›」。
+     码磨花了、相机坏了、光线不够 —— 这些人现在一条出路都没有，
+     而他们手上真有一枚御守，是这条链上最不该被卡住的人。
+
+     走的是**同一条接口**（`/v1/omamori/scan`），只是凭证从相机来还是
+     从键盘来。carrier 仍然报 'qr'：那一枚上印的就是 QR，
+     换个输入法不该让服务端以为它是另一种载体。 */
+  onCodeInput(e: WechatMiniprogram.CustomEvent<{ value: string }>) {
+    this.setData({ code: e.detail.value, codeErr: '' })
+  },
+
+  onCodeSubmit() {
+    const code = this.data.code.trim()
+    if (!code) { this.setData({ codeErr: '把御守背面那串字填进来' }); return }
+    this.setData({ codeBusy: true, codeErr: '' })
+    this.唤醒('qr', code)
+  },
+
+  /** 扫来的和手输的走同一条路 —— 两份实现会漂，而漂的那天没人看得出来。 */
+  唤醒(carrier: 'qr' | 'nfc', credential: string) {
+    villageApi.scan({ carrier, credential }).then(
+      (s2) => {
+        this.setData({ codeBusy: false, code: '', codeErr: '' })
         const q = [
           'name=' + encodeURIComponent(s2.villager_name || '他'),
           'n=' + (s2.moved_in ? '1' : '0'),
           'id=' + encodeURIComponent(s2.villager_id || ''),
         ].join('&')
         wx.navigateTo({ url: '/pages/moved/index?' + q })
-      }),
-      () => { /* 用户自己取消扫码，不是错误，什么都不用说 */ },
+      },
+      (e) => {
+        /* 认不出这串字**不是错误提示就完事**：他手上确实有一枚御守。
+           所以话要说清是哪一种情况，而不是一句「失败」。 */
+        const err = e as ApiError
+        this.setData({
+          codeBusy: false,
+          codeErr: err.status === 404
+            ? '这串字对不上任何一枚御守 —— 再看一眼背面，别漏字母'
+            : (err.message || '一时问不到，待会儿再试'),
+        })
+      },
     )
   },
 
