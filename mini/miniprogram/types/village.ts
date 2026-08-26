@@ -26,6 +26,9 @@ export interface MyVillage {
   /** 设定里的总数 */
   total: number
   villagers: VillagerInVillage[]
+  /** 手上有一枚已签收、还没扫开的御守时给出那一单；没有就是 null。
+   *  设计册 E2「该扫了」。**不带是谁** —— 还没请回来的人，名字都不该知道。 */
+  to_scan: { order_id: string; delivered_at: string } | null
 }
 
 /** 图鉴里的样子 —— 不带住没住,未登录也能看 */
