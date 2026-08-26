@@ -155,8 +155,13 @@ pub async fn is_home(pool: &PgPool, user_id: &str, villager_id: &str) -> Result<
 ///
 /// 判据三件事同时成立：
 ///   ① 有一张已签收的包裹（`shipment.status='delivered'`）
-///   ② 那一单里有一行是御守（`sku.villager_id` 非空）
+///   ② 那一单里有一行是**御守**（`product.category='omamori'` 且 `sku.villager_id` 非空）
 ///   ③ 而这位不完人**还没住进这个人的村子**
+///
+/// ② 里的「是御守」这一问不能省。只问 `villager_id` 非空的话，任何一件
+/// 挂在某位村民名下的东西都会触发催扫 —— 而「东西长在卖它的人身上」正是
+/// 这个产品要做的事，也就是说这类商品迟早会有。2026-08-27 拿一盒
+/// 「苏合的香」实测过：包裹一签收，村子就催你去扫，而香上根本没有码。
 ///
 /// **不返回是谁**。「还没请回来的人，名字都不该知道」是这个产品的设定
 /// （空屋那一屏也照这条走），提示里只说「你手上那枚」。
@@ -170,9 +175,11 @@ pub async fn delivered_but_unscanned(
              JOIN order_record o ON o.id = s.order_id
              JOIN order_line ol ON ol.order_id = o.id
              JOIN sku k ON k.id = ol.sku_id
+             JOIN product pr ON pr.id = k.product_id
             WHERE s.status = 'delivered'
               AND s.delivered_at IS NOT NULL
               AND o.user_id = $1
+              AND pr.category = 'omamori'
               AND k.villager_id IS NOT NULL
               AND NOT EXISTS (
                     SELECT 1 FROM villager_residency r
@@ -206,7 +213,9 @@ pub async fn unscanned_in_order(
         r#"SELECT count(*)::bigint
              FROM order_line ol
              JOIN sku k ON k.id = ol.sku_id
+             JOIN product pr ON pr.id = k.product_id
             WHERE ol.order_id = $2
+              AND pr.category = 'omamori'
               AND k.villager_id IS NOT NULL
               AND NOT EXISTS (
                     SELECT 1 FROM villager_residency r
