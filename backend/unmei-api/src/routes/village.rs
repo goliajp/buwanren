@@ -91,10 +91,19 @@ async fn my_village(
         })
         .collect();
 
+    /* 「该扫了」（设计册 E2）。手上有一枚已签收还没扫开的御守时，
+       村子主屏上多一条 —— 只在该出现时出现，常驻的提示会被无视。
+       不说是谁：还没请回来的人，名字都不该知道。 */
+    let to_scan = residency::delivered_but_unscanned(&st.db, &c.sub).await?;
+
     Ok(Json(json!({
         "found": home.len(),
         "total": all.len(),
         "villagers": all,
+        "to_scan": to_scan.map(|(order_id, delivered_at)| json!({
+            "order_id": order_id,
+            "delivered_at": delivered_at,
+        })),
     })))
 }
 

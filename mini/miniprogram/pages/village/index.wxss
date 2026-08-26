@@ -18,3 +18,21 @@
 .hint { color: #9a938a; font-size: 26rpx; }
 .say { margin: 0 32rpx 32rpx; padding: 24rpx 28rpx; border-radius: 10rpx;
        background: #faf7f1; color: #3a352e; font-size: 30rpx; line-height: 1.8; }
+
+/* 「该扫了」（设计册 E2）。高度按触点定：56px = 112rpx，
+   `fitCanvas` 里减掉的就是这个数 —— 两处要对得上，改一处就得改另一处。 */
+.nudge {
+  width: 100%;
+  box-sizing: border-box;
+  height: 112rpx;
+  padding: 0 32rpx;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: #f7f2e8;
+  border-top: 1rpx solid #e0d8c8;
+  border-bottom: 1rpx solid #e0d8c8;
+}
+.nudge-hover { background: #f0e9dc; }
+.nudge-t { font-size: 30rpx; color: #3a352e; }
+.nudge-s { font-size: 24rpx; color: #8a8276; margin-top: 4rpx; }
