@@ -13,6 +13,7 @@ import { storage } from '../../services/storage'
 import type { ApiError } from '../../services/api'
 import type { OrderDetail, Shipment, TraceEvent } from '../../types/commerce'
 import { money, 状态说法 } from '../../utils/money'
+import { 唤醒, 扫一枚 } from '../../utils/omamori'
 
 /** 包裹状态的说法。取值跟后端 `ShipmentStatus` 一一对应，不自创 */
 const 物流说法: Record<string, string> = {
@@ -48,6 +49,12 @@ Page({
     trace: [] as Array<{ 时间: string; 说: string; 在: string }>,
     refunding: false,
     refundKey: '',
+    /** 这一单里还有没有没扫开的御守（设计册 M3）。
+     *  有 → 这一屏的主按钮是「收到了，去扫开它」。 */
+    toScan: false,
+    waking: false,
+    code: '',
+    wakeErr: '',
   },
 
   onLoad(q: Record<string, string | undefined>) {
@@ -91,11 +98,37 @@ Page({
             qty: l.qty,
             sub: money(l.line_subtotal_minor, o.currency),
           })),
+          toScan: !!d.to_scan,
         })
       },
       (e: ApiError) => this.setData({ loading: false, err: e.message || '取不到这一张' }),
     )
     this.loadShipments()
+  },
+
+  /* 「收到了，去扫开它」（设计册 M3）。跟村子主屏共用 `utils/omamori` ——
+     两份实现会漂，而漂的那天村子上催你去扫、点进单子却是另一套话。 */
+  onWake() {
+    if (this.data.waking) return
+    this.setData({ waking: true, wakeErr: '' })
+    扫一枚().then((r) => {
+      this.setData({ waking: false, wakeErr: r && !r.ok ? r.msg : '' })
+      if (r && r.ok) this.load()
+    })
+  },
+
+  onCodeInput(e: WechatMiniprogram.CustomEvent<{ value: string }>) {
+    this.setData({ code: e.detail.value, wakeErr: '' })
+  },
+
+  onCodeSubmit() {
+    const code = this.data.code.trim()
+    if (!code) { this.setData({ wakeErr: '把御守背面那串字填进来' }); return }
+    this.setData({ waking: true, wakeErr: '' })
+    唤醒('qr', code).then((r) => {
+      this.setData({ waking: false, wakeErr: r.ok ? '' : r.msg, code: r.ok ? '' : code })
+      if (r.ok) this.load()
+    })
   },
 
   /* 物流单独取。订单详情里其实也带 `shipments`，但轨迹要另一条接口，

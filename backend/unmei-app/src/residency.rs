@@ -186,3 +186,36 @@ pub async fn delivered_but_unscanned(
     .db()?;
     Ok(row)
 }
+
+/// 【这一单】里还有没有没扫开的御守。
+///
+/// 设计册 M3：一单那一屏的主按钮是「收到了，去扫开它」——
+/// **订单的完成态不是「已签收」，是她住进村里**（10.8 特别点名的一条）。
+/// 包裹到了、人没住进来，这一单就停在半路。
+///
+/// 跟 [`delivered_but_unscanned`] 是同一个判据的两个问法：
+/// 那个问「这个人手上有没有」（村子主屏用），这个问「这一单里有没有」。
+/// 两处都从这张表出发，不各写一套 —— 两套判据会漂，而漂的那天
+/// 村子上催你去扫，点进单子却没有出口。
+pub async fn unscanned_in_order(
+    pool: &PgPool,
+    user_id: &str,
+    order_id: &str,
+) -> Result<bool, DomainError> {
+    let n: Option<i64> = sqlx::query_scalar(
+        r#"SELECT count(*)::bigint
+             FROM order_line ol
+             JOIN sku k ON k.id = ol.sku_id
+            WHERE ol.order_id = $2
+              AND k.villager_id IS NOT NULL
+              AND NOT EXISTS (
+                    SELECT 1 FROM villager_residency r
+                     WHERE r.user_id = $1 AND r.villager_id = k.villager_id)"#,
+    )
+    .bind(user_id)
+    .bind(order_id)
+    .fetch_optional(pool)
+    .await
+    .db()?;
+    Ok(n.unwrap_or(0) > 0)
+}
