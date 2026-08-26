@@ -36,3 +36,18 @@
 .nudge-hover { background: #f0e9dc; }
 .nudge-t { font-size: 30rpx; color: #3a352e; }
 .nudge-s { font-size: 24rpx; color: #8a8276; margin-top: 4rpx; }
+
+/* E2 的弹性槽：手输编号。矮屏收起（app.wxss 里那条 max-height 规则） */
+.manual { width: 100%; box-sizing: border-box; padding: 20rpx 32rpx 24rpx; }
+.manual-k { font-size: 24rpx; color: #8a8276; margin-bottom: 12rpx; }
+.manual-row { display: flex; align-items: center; gap: 16rpx; }
+.manual-input {
+  flex: 1; background: #f7f4ee; border: 1rpx solid #e0d8c8;
+  border-radius: 6rpx; padding: 14rpx 20rpx; font-size: 26rpx; color: #3a352e;
+}
+.manual-go {
+  flex: none; padding: 14rpx 32rpx; border-radius: 6rpx;
+  background: #3a352e; color: #f0ede7; font-size: 26rpx;
+}
+.manual-go-hover { opacity: .75; }
+.manual-err { margin-top: 12rpx; font-size: 24rpx; color: #9a3b3b; line-height: 1.6; }
