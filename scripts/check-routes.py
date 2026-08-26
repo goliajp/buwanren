@@ -202,8 +202,16 @@ for f in sorted((ROOT / 'mini/miniprogram/services').glob('*.ts')):
     src = f.read_text(encoding='utf-8')
     for m in re.finditer(r'^\s{2}([a-zA-Z_]\w*)\s*:\s*\(', src, re.M):
         svc.setdefault(f.stem, []).append(m.group(1))
+# `utils/` 也算调用方。页面之间不许互相 import（check-page-imports 守着），
+# 所以两页共用的那一下只能住在 utils —— `utils/money.ts` 是先例，
+# `utils/omamori.ts`（扫开一枚御守，村子主屏与一单那一屏共用）是第二个。
+# 只扫 pages 的话，共用逻辑一搬进去，它调的那条封装当场变成「孤儿」，
+# 而它明明有两个调用方。
+# **不扫 services**：那是被调方，A 调 B 就算「有人用」会把真孤儿盖住。
 pages_src = ''
-for f in list((ROOT / 'mini/miniprogram/pages').rglob('*.ts')) + list((ROOT / 'mini/miniprogram').glob('*.ts')):
+for f in (list((ROOT / 'mini/miniprogram/pages').rglob('*.ts'))
+          + list((ROOT / 'mini/miniprogram/utils').glob('*.ts'))
+          + list((ROOT / 'mini/miniprogram').glob('*.ts'))):
     pages_src += f.read_text(encoding='utf-8')
 dead = [f'{mod}.{n}' for mod, names in svc.items() for n in names
         if not re.search(r'\b' + re.escape(n) + r'\s*\(', pages_src)]
