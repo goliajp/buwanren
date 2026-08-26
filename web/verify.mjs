@@ -634,6 +634,37 @@ if (API) {
          String(await p.evaluate(() => globalThis.__router.current().data.toScan)))
       await p.setViewportSize({ width: 375, height: 667 })
 
+      /* ── 不是御守的东西，不许催扫 ─────────────────────────────
+         判据里「是御守」那一问不能省。只问「这件东西挂在哪位村民名下」的话，
+         **任何一件长在某人身上的商品**都会触发催扫 —— 而「东西长在卖它的人
+         身上」正是这个产品要做的事，也就是说这类商品迟早会有。
+         2026-08-27 拿一盒「苏合的香」实测过：包裹一签收，村子就催你去扫，
+         而香上根本没有码。这里把那个反例钉住。 */
+      run([
+        `INSERT INTO product(id,code,name,category,kind,status,fulfillment_kind)`
+        + ` VALUES ('prod-verify-incense','verify_incense','校验·香','charm','one_shot',`
+        + `'listed','shipping') ON CONFLICT (id) DO NOTHING`,
+        `INSERT INTO sku(id,product_id,code,name,villager_id,stock_kind,default_currency)`
+        + ` VALUES ('sku-verify-incense','prod-verify-incense','verify_inc','校验香','suhe',`
+        + `'unlimited','CNY') ON CONFLICT (id) DO NOTHING`,
+        `INSERT INTO order_record(id,user_id,channel_origin,currency,`
+        + `amount_subtotal_minor,amount_total_minor,amount_paid_minor,status,`
+        + `source_kind,region,paid_at) VALUES ('ord-inc-${尾}','${我是谁}','mini','CNY',`
+        + `2900,2900,2900,'paid','one_shot','cn',NOW()) ON CONFLICT (id) DO NOTHING`,
+        `INSERT INTO order_line(id,order_id,line_no,sku_id,sku_snapshot_json,`
+        + `unit_price_minor,qty,line_subtotal_minor) VALUES ('ol-inc-${尾}','ord-inc-${尾}',1,`
+        + `'sku-verify-incense','{"sku_name":"校验香"}'::jsonb,2900,1,2900)`
+        + ` ON CONFLICT (id) DO NOTHING`,
+        `INSERT INTO shipment(id,order_id,carrier_code,tracking_no,status,delivered_at)`
+        + ` VALUES ('shp-inc-${尾}','ord-inc-${尾}','manual','INC-${尾}','delivered',NOW())`
+        + ` ON CONFLICT (id) DO NOTHING`,
+      ].join('; '))
+      await open('pages/order/index', { id: 'ord-inc-' + 尾 })
+      await p.waitForTimeout(1500)
+      ok(await p.evaluate(() => globalThis.__router.current().data.toScan) === false,
+         '买一盒香、包裹到了，单子上不说「去扫开它」　—— 香上没有码',
+         String(await p.evaluate(() => globalThis.__router.current().data.toScan)))
+
       /* 另一半：扫开之后它就该消失。只验「出现」的话，
          一个永远挂着的提示也能全绿 —— 而常驻的提示正是设计要避免的那个。 */
       // 婆婆刚刚被手输那一下请回家了 —— 不用再种 residency，那才是真路径
