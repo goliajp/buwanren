@@ -24,6 +24,7 @@ FILES=(
   backend/seed/villagers.sql
   mini/miniprogram/pages/home/index.wxml
   mini/miniprogram/pages/village/index.ts
+  mini/miniprogram/utils/omamori.ts
   # 2026-08-23:「去他家坐坐」搬到了这一屏（REDESIGN.md R2）。
   # 忘了把它加进来的那一次，变异改的是名单外的文件 —— 还原还不到它，
   # `roomz` 被永久烙进了源码，下一条变异在「干净」源码上就报红。
@@ -335,8 +336,11 @@ echo "── check-routes 的孤儿棘轮 ──"
 # 台账原先只报不判。「接上还是删掉是产品决定」对已经在册的成立,
 # 对新长出来的一条不成立 —— 不判的话,第八次「实现完整、零调用方」
 # 照样得靠偶然发现。
-mutate "村里不再调 scan（新长一个死封装）" check-routes \
-  "edit('mini/miniprogram/pages/village/index.ts', 'villageApi.scan({', 'villageApi.scanZZ({')"
+# 2026-08-27 换锚点：那一句从村子页搬进了 `utils/omamori.ts`
+# （村子主屏与一单那一屏共用，页面之间不许互相 import）。
+# 它当时报的是「变异植不进去（基准源码变了？）」而不是假绿 —— 那正是它该有的样子。
+mutate "没人再调 scan（新长一个死封装）" check-routes \
+  "edit('mini/miniprogram/utils/omamori.ts', 'villageApi.scan({', 'villageApi.scanZZ({')"
 mutate "台账上多记了一条（早该划掉）" check-routes \
   "edit('scripts/orphan-routes.json', '      \"/v1/badge\":', '      \"/v1/villagers\": \"探针\",\n      \"/v1/badge\":')"
 # 每条孤儿都要写理由。「暂时没接」不算理由 —— 那是欠账不是决定。
