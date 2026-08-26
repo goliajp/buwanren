@@ -568,6 +568,72 @@ if (API) {
          await p.evaluate(() => globalThis.__router.current().__route))
       await p.setViewportSize({ width: 375, height: 667 })
 
+      /* ── 一单那一屏的主按钮（设计册 M3）───────────────────────
+         10.8 特别点名的一条：**订单的完成态不是「已签收」，是她住进村里**。
+         包裹到了、人没住进来，这一单就停在半路 —— 而催归催，
+         点进单子却没有出口的话，这条链还是断的。 */
+      /* 自己种一单，用【另一位】：上面手输那一下已经把婆婆请回家了，
+         拿同一单来验，`to_scan` 本该是 false —— 而它是 false 看着就像功能没做。 */
+      const sku2 = sql1("SELECT id FROM sku WHERE villager_id='tenz' LIMIT 1")
+      run([
+        `INSERT INTO order_record(id,user_id,channel_origin,currency,`
+        + `amount_subtotal_minor,amount_total_minor,amount_paid_minor,status,`
+        + `source_kind,region,paid_at) VALUES ('ord-m3-${尾}','${我是谁}','mini','CNY',`
+        + `9900,9900,9900,'paid','one_shot','cn',NOW()) ON CONFLICT (id) DO NOTHING`,
+        `INSERT INTO order_line(id,order_id,line_no,sku_id,sku_snapshot_json,`
+        + `unit_price_minor,qty,line_subtotal_minor) VALUES ('ol-m3-${尾}','ord-m3-${尾}',1,`
+        + `'${sku2}','{"sku_name":"御守"}'::jsonb,9900,1,9900) ON CONFLICT (id) DO NOTHING`,
+        `INSERT INTO shipment(id,order_id,carrier_code,tracking_no,status,delivered_at)`
+        + ` VALUES ('shp-m3-${尾}','ord-m3-${尾}','manual','M3-${尾}','delivered',NOW())`
+        + ` ON CONFLICT (id) DO NOTHING`,
+      ].join('; '))
+      await p.setViewportSize({ width: 390, height: 844 })   // 槽在矮屏收起，先在长屏看它
+      await open('pages/order/index', { id: 'ord-m3-' + 尾 })
+      await p.waitForFunction(() => globalThis.__router.current().data.toScan === true,
+                              null, { timeout: 15000 }).catch(() => {})
+      ok(await p.evaluate(() => globalThis.__router.current().data.toScan) === true,
+         '这一单里有没扫开的御守时，单子那一屏知道',
+         String(await p.evaluate(() => globalThis.__router.current().data.toScan)))
+      const 单屏 = await text()
+      ok(单屏.includes('收到了，去扫开它'), '主按钮是「收到了，去扫开它」')
+      ok(单屏.includes('那才是这单真正完成'), '槽里说清了这一单什么时候才算完')
+      /* 主按钮不在槽里 —— 它是这一屏的主按钮，矮屏上也必须在。
+         把它放进槽等于说「放不下就算了」，而这一下正是整条链最要紧的一步。 */
+      await p.setViewportSize({ width: 375, height: 667 })
+      await p.waitForTimeout(400)
+      const 矮屏 = await p.evaluate(() => {
+        const 有 = (t) => [...document.querySelectorAll('button, view, text')]
+          .some((e) => e.innerText && e.innerText.trim() === t)
+        const 槽 = document.querySelector('.slot-done')
+        return { 主按钮在: 有('收到了，去扫开它'),
+                 槽收了: !槽 || getComputedStyle(槽).display === 'none' }
+      })
+      ok(矮屏.主按钮在, '矮屏上主按钮照样在　—— 它不在槽里')
+      ok(矮屏.槽收了, '矮屏上那一句槽收起了')
+      await p.setViewportSize({ width: 390, height: 844 })
+
+      /* 从这一屏手输编号也走得通 —— 出口不能只是一句话。
+         用的是同一支 `utils/omamori`，所以两屏说的是同一句话。 */
+      const 单码 = await mintCredential('tenz')
+      await p.locator('.wake-input').fill(单码)
+      await p.getByText('唤醒', { exact: true }).click()
+      await p.waitForFunction(
+        () => globalThis.__router.current().__route === 'pages/moved/index',
+        null, { timeout: 15000 },
+      ).catch(() => {})
+      ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/moved/index',
+         '单子那一屏上手输编号，也开得出「他住进来了」',
+         await p.evaluate(() => globalThis.__router.current().__route))
+
+      /* 唤醒之后回到那一单：主按钮该没了 —— 这一单到这儿才算真的完成。 */
+      await open('pages/order/index', { id: 'ord-m3-' + 尾 })
+      await p.waitForFunction(() => globalThis.__router.current().data.toScan === false,
+                              null, { timeout: 15000 }).catch(() => {})
+      ok(await p.evaluate(() => globalThis.__router.current().data.toScan) === false,
+         '扫开之后单子上那颗主按钮就没了',
+         String(await p.evaluate(() => globalThis.__router.current().data.toScan)))
+      await p.setViewportSize({ width: 375, height: 667 })
+
       /* 另一半：扫开之后它就该消失。只验「出现」的话，
          一个永远挂着的提示也能全绿 —— 而常驻的提示正是设计要避免的那个。 */
       // 婆婆刚刚被手输那一下请回家了 —— 不用再种 residency，那才是真路径

@@ -59,6 +59,23 @@
 
     <view class="note" wx:if="{{note}}">{{note}}</view>
 
+    <!-- 「收到了，去扫开它」（设计册 M3，10.8 特别点名的一条）。
+         **订单的完成态不是「已签收」，是她住进村里** —— 包裹到了、人没住进来，
+         这一单就停在半路，而扫码率是整条链上最敏感的一个数。
+         所以它是这一屏的主按钮，排在退款前面。 -->
+    <view class="cta" wx:if="{{toScan}}">
+      <button class="btn" bindtap="onWake" disabled="{{waking}}">
+        {{waking ? '唤着……' : '收到了，去扫开它'}}
+      </button>
+      <view class="wake-alt">
+        扫不出来？
+        <input class="wake-input" placeholder="御守背面那串字"
+               value="{{code}}" maxlength="40" bindinput="onCodeInput"/>
+        <text class="wake-go" bindtap="onCodeSubmit">唤醒</text>
+      </view>
+      <view wx:if="{{wakeErr}}" class="wake-err">{{wakeErr}}</view>
+    </view>
+
     <view class="cta">
       <button wx:if="{{status === 'unpaid'}}" class="btn" bindtap="onPay" disabled="{{paying}}">
         {{paying ? '发起中……' : '去支付'}}
@@ -70,6 +87,9 @@
       </button>
       <button class="btn ghost" bindtap="onBack">回去</button>
     </view>
+
+    <!-- 弹性槽（设计册 M3）：说清这一单什么时候才算真的完成 -->
+    <view class="flexslot slot-done" wx:if="{{toScan}}">扫开之后她住进村里 —— 那才是这单真正完成</view>
 
     <view class="foot-hint">支付要在微信里完成 · 移动网页版上到这一步为止</view>
   </block>

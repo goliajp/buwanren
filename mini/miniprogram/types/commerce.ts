@@ -98,6 +98,9 @@ export interface OrderDetail {
   lines: OrderLine[]
   payments: Array<Record<string, unknown>>
   shipments: Array<Record<string, unknown>>
+  /** 这一单里还有没有没扫开的御守（设计册 M3）。
+   *  订单的完成态不是「已签收」，是她住进村里。 */
+  to_scan: boolean
 }
 
 export interface CreatedOrder {
