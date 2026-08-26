@@ -506,6 +506,15 @@ if (API) {
         return e.scrollHeight > e.clientHeight ? e.scrollHeight - e.clientHeight : 0
       })
       ok(滚了 === 0, '多了这一条，村子那一屏仍然放得下', 滚了 ? `超 ${滚了}px` : '不滚')
+      /* 而且是靠【槽收起】放下的，不是靠把画布缩小换来的 ——
+         两种都能让这一屏不滚，但它们是两件事：槽的判据是「删掉这一屏
+         仍然成立」，画布是这一屏的主体。分不清的话，哪天画布被悄悄缩掉
+         一半，上面那条照样绿。 */
+      const 槽收了 = await p.evaluate(() => {
+        const el = document.querySelector('.manual')
+        return !el || getComputedStyle(el).display === 'none'
+      })
+      ok(槽收了, '矮屏上「手输编号」那一槽是收起的')
       /* 画布【还在画上】。改画布尺寸的代码最容易的坏法就是把画面弄没了,
          而「一片空白」在截图之外没有任何东西会红 —— 上面那条「村子真的
          画上去了」跑在这一段【之前】，够不着这一刻。 */
@@ -526,11 +535,42 @@ if (API) {
       await shot('09-该扫了')
       await p.setViewportSize({ width: 390, height: 844 })
 
+      /* 弹性槽：手输编号（设计册 E2）。
+         **这是网页版上唯一走得通的入住路径** —— 扫码只有真机有，
+         而手输走的是同一条接口，凭证从键盘来而已。
+         现实里它服务的是码磨花了、相机坏了的人：他们手上真有一枚御守。 */
+      await p.setViewportSize({ width: 390, height: 844 })   // 槽在矮屏收起，这里要长屏
+      await open('pages/village/index')
+      await p.waitForFunction(() => globalThis.__router.current().data.toScan === true,
+                              null, { timeout: 15000 }).catch(() => {})
+      const 槽 = await text()
+      ok(槽.includes('扫不出来？在这儿手输编号'), '长屏上有「手输编号」那一槽')
+
+      /* 先填一串对不上的：话要说清是哪一种情况，不是一句「失败」。 */
+      await p.locator('.manual-input').fill('NOT-A-REAL-CODE')
+      await p.getByText('唤醒', { exact: true }).click()
+      await p.waitForFunction(() => !!globalThis.__router.current().data.codeErr,
+                              null, { timeout: 15000 }).catch(() => {})
+      const 错话 = await p.evaluate(() => globalThis.__router.current().data.codeErr)
+      ok(/对不上任何一枚御守/.test(错话 || ''), '认不出那串字时说得清是哪一种情况', String(错话))
+
+      /* 再填一串真的。这一下把婆婆请回家 —— 也就是把上面那条提示消掉。 */
+      const 真码 = await mintCredential('popo')
+      await p.locator('.manual-input').fill('')
+      await p.locator('.manual-input').fill(真码)
+      await p.getByText('唤醒', { exact: true }).click()
+      await p.waitForFunction(
+        () => globalThis.__router.current().__route === 'pages/moved/index',
+        null, { timeout: 15000 },
+      ).catch(() => {})
+      ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/moved/index',
+         '手输编号也开得出「他住进来了」那一屏　—— 跟扫码走同一条路',
+         await p.evaluate(() => globalThis.__router.current().__route))
+      await p.setViewportSize({ width: 375, height: 667 })
+
       /* 另一半：扫开之后它就该消失。只验「出现」的话，
          一个永远挂着的提示也能全绿 —— 而常驻的提示正是设计要避免的那个。 */
-      run(`INSERT INTO villager_residency(id,user_id,villager_id,source_kind,source_ref)`
-        + ` VALUES ('res-e2-${尾}','${我是谁}','popo','scan','E2-${尾}')`
-        + ` ON CONFLICT (user_id, villager_id) DO NOTHING`)
+      // 婆婆刚刚被手输那一下请回家了 —— 不用再种 residency，那才是真路径
       await open('pages/village/index')
       await p.waitForFunction(() => globalThis.__router.current().data.toScan === false,
                               null, { timeout: 15000 }).catch(() => {})
