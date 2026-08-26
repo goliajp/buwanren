@@ -13,6 +13,7 @@
 
 import { villageApi } from '../../services/village'
 import type { ApiError } from '../../services/api'
+import { 唤醒, 扫一枚 } from '../../utils/omamori'
 import { storage } from '../../services/storage'
 import type { VillagerInVillage } from '../../types/village'
 
@@ -232,19 +233,13 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
    *  这是整条链上**唯一一次实物变成人**，而 toast 跟「已复制」是同一种语气。
    */
   onScan() {
-    wx.scanCode({ onlyFromCamera: false }).then(
-      (r) => this.唤醒('qr', r.result),
-      () => { /* 用户自己取消扫码，不是错误，什么都不用说 */ },
-    )
+    扫一枚().then((r) => { if (r && !r.ok) this.setData({ codeErr: r.msg }) })
   },
 
   /* 手输编号。设计册 E2 的弹性槽：「扫不出来？在这儿手输编号 ›」。
      码磨花了、相机坏了、光线不够 —— 这些人现在一条出路都没有，
      而他们手上真有一枚御守，是这条链上最不该被卡住的人。
-
-     走的是**同一条接口**（`/v1/omamori/scan`），只是凭证从相机来还是
-     从键盘来。carrier 仍然报 'qr'：那一枚上印的就是 QR，
-     换个输入法不该让服务端以为它是另一种载体。 */
+     走的是**同一条路**（`utils/omamori` 的 `唤醒`），跟一单那一屏共用。 */
   onCodeInput(e: WechatMiniprogram.CustomEvent<{ value: string }>) {
     this.setData({ code: e.detail.value, codeErr: '' })
   },
@@ -253,35 +248,10 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
     const code = this.data.code.trim()
     if (!code) { this.setData({ codeErr: '把御守背面那串字填进来' }); return }
     this.setData({ codeBusy: true, codeErr: '' })
-    this.唤醒('qr', code)
+    唤醒('qr', code).then((r) => {
+      this.setData({ codeBusy: false, codeErr: r.ok ? '' : r.msg, code: r.ok ? '' : code })
+    })
   },
-
-  /** 扫来的和手输的走同一条路 —— 两份实现会漂，而漂的那天没人看得出来。 */
-  唤醒(carrier: 'qr' | 'nfc', credential: string) {
-    villageApi.scan({ carrier, credential }).then(
-      (s2) => {
-        this.setData({ codeBusy: false, code: '', codeErr: '' })
-        const q = [
-          'name=' + encodeURIComponent(s2.villager_name || '他'),
-          'n=' + (s2.moved_in ? '1' : '0'),
-          'id=' + encodeURIComponent(s2.villager_id || ''),
-        ].join('&')
-        wx.navigateTo({ url: '/pages/moved/index?' + q })
-      },
-      (e) => {
-        /* 认不出这串字**不是错误提示就完事**：他手上确实有一枚御守。
-           所以话要说清是哪一种情况，而不是一句「失败」。 */
-        const err = e as ApiError
-        this.setData({
-          codeBusy: false,
-          codeErr: err.status === 404
-            ? '这串字对不上任何一枚御守 —— 再看一眼背面，别漏字母'
-            : (err.message || '一时问不到，待会儿再试'),
-        })
-      },
-    )
-  },
-
 
   onUnload() {
     // 不停的话,这一帧接一帧会一直排下去,离开这一页也还在烧电
