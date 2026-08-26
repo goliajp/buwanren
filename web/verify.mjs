@@ -445,6 +445,101 @@ if (API) {
      '「他住进来了」那一屏上按「去看看他」，真的到得了他那一页',
      await p.evaluate(() => globalThis.__router.current().__route))
 
+  /* ── 「该扫了」（设计册 E2）──────────────────────────────────
+     **这一条只在「有单已签收、还没扫」时出现**：常驻的提示会被无视，
+     只在该出现时出现的才被点。收货扫码率是整条链上最敏感的一个数 ——
+     御守寄到了却没扫，这一单就停在「东西到了」，人一直没住进村子。
+
+     这个状态在开发库里【本来造不出来】：已签收的包裹里一件御守都没有。
+     所以这里自己种一条真的（订单 + 御守行 + 已签收的包裹），
+     否则这一条永远不会出现，而「没出现」跟「没做」在屏幕上长得一模一样。 */
+  const 我是谁 = await p.evaluate(() => {
+    const u = getApp().globalData.user
+    return u ? u.id : null
+  })
+  if (!我是谁) {
+    ok(false, '「该扫了」这一段验不成', '拿不到当前用户 id')
+  } else {
+    const 尾 = 我是谁.slice(-12)
+    const sku = sql1("SELECT id FROM sku WHERE villager_id='popo' LIMIT 1")
+    if (!sku) {
+      ok(false, '「该扫了」这一段验不成', '库里没有绑着村民的御守 sku')
+    } else {
+      /* 挑一位【这一趟没有请回家】的（上面请的是阿云与陈九）——
+         挑到已经住下的那位，这一条本该不出现，而它不出现看着就像功能没做。 */
+      run([
+        `INSERT INTO order_record(id,user_id,channel_origin,currency,`
+        + `amount_subtotal_minor,amount_total_minor,amount_paid_minor,status,`
+        + `source_kind,region,paid_at) VALUES ('ord-e2-${尾}','${我是谁}','mini','CNY',`
+        + `9900,9900,9900,'paid','one_shot','cn',NOW()) ON CONFLICT (id) DO NOTHING`,
+        `INSERT INTO order_line(id,order_id,line_no,sku_id,sku_snapshot_json,`
+        + `unit_price_minor,qty,line_subtotal_minor) VALUES ('ol-e2-${尾}','ord-e2-${尾}',1,`
+        + `'${sku}','{"sku_name":"御守"}'::jsonb,9900,1,9900) ON CONFLICT (id) DO NOTHING`,
+        `INSERT INTO shipment(id,order_id,carrier_code,tracking_no,status,delivered_at)`
+        + ` VALUES ('shp-e2-${尾}','ord-e2-${尾}','manual','E2-${尾}','delivered',NOW())`
+        + ` ON CONFLICT (id) DO NOTHING`,
+      ].join('; '))
+
+      await open('pages/village/index')
+      await p.waitForFunction(() => globalThis.__router.current().data.toScan === true,
+                              null, { timeout: 15000 }).catch(() => {})
+      ok(await p.evaluate(() => globalThis.__router.current().data.toScan) === true,
+         '有单已签收还没扫时，村子主屏上多一条',
+         String(await p.evaluate(() => globalThis.__router.current().data.toScan)))
+      const 那一条 = await text()
+      ok(那一条.includes('你手上那枚，扫开它'), '那一条说的是「你手上那枚，扫开它」')
+      /* **不许说是谁**。「还没请回来的人，名字都不该知道」是这个产品的设定，
+         空屋那一屏也照这条走 —— 提示里漏出名字，等于从后门把它破了。 */
+      const 那位 = sql1(`SELECT name FROM villager WHERE id='popo'`)
+      ok(那位 && !那一条.includes(那位), '那一条不说是谁　—— 还没请回来的人，名字都不该知道', String(那位))
+      /* 村子这一屏本来就是刚好放得下的。多一条不能把它顶出去 ——
+         画布得跟着让位（`fitCanvas` 按可用空间铺，不是硬按屏宽）。
+
+         **在最矮那一档上量**：iPhone SE 375×667 是这个项目所有版式判断
+         对着的那台机器。下面「一屏放得下吗」那一节量的是【没有这一条】的
+         常规态（那时是个新的匿名用户），够不着这一刻。 */
+      await p.setViewportSize({ width: 375, height: 667 })
+      await open('pages/village/index')
+      await p.waitForTimeout(1500)
+      const 滚了 = await p.evaluate(() => {
+        const e = document.documentElement
+        return e.scrollHeight > e.clientHeight ? e.scrollHeight - e.clientHeight : 0
+      })
+      ok(滚了 === 0, '多了这一条，村子那一屏仍然放得下', 滚了 ? `超 ${滚了}px` : '不滚')
+      /* 画布【还在画上】。改画布尺寸的代码最容易的坏法就是把画面弄没了,
+         而「一片空白」在截图之外没有任何东西会红 —— 上面那条「村子真的
+         画上去了」跑在这一段【之前】，够不着这一刻。 */
+      const 还在 = await p.evaluate(() => {
+        const cv = document.querySelector('canvas')
+        if (!cv) return { 有画布: false }
+        const g = cv.getContext('2d')
+        const d = g.getImageData(0, 0, cv.width, Math.min(400, cv.height)).data
+        let ink = 0
+        for (let i = 3; i < d.length; i += 4) if (d[i]) ink++
+        const r = cv.getBoundingClientRect()
+        return { 有画布: true, ink, 像素: cv.width + 'x' + cv.height,
+                 屏上: Math.round(r.width) + 'x' + Math.round(r.height) }
+      })
+      ok(还在.有画布 && 还在.ink > 100000,
+         '多了这一条，村子还在画上　—— 不是把画面挤没了',
+         还在.有画布 ? `${还在.ink} 个不透明像素 · 像素 ${还在.像素} · 屏上 ${还在.屏上}` : '连画布都没有')
+      await shot('09-该扫了')
+      await p.setViewportSize({ width: 390, height: 844 })
+
+      /* 另一半：扫开之后它就该消失。只验「出现」的话，
+         一个永远挂着的提示也能全绿 —— 而常驻的提示正是设计要避免的那个。 */
+      run(`INSERT INTO villager_residency(id,user_id,villager_id,source_kind,source_ref)`
+        + ` VALUES ('res-e2-${尾}','${我是谁}','popo','scan','E2-${尾}')`
+        + ` ON CONFLICT (user_id, villager_id) DO NOTHING`)
+      await open('pages/village/index')
+      await p.waitForFunction(() => globalThis.__router.current().data.toScan === false,
+                              null, { timeout: 15000 }).catch(() => {})
+      ok(await p.evaluate(() => globalThis.__router.current().data.toScan) === false,
+         '扫开之后那一条就没了　—— 只在该出现时出现',
+         String(await p.evaluate(() => globalThis.__router.current().data.toScan)))
+    }
+  }
+
   await open('pages/village/index')
   await p.waitForTimeout(600)
 }

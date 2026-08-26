@@ -5,6 +5,16 @@
     <view class="scan" bindtap="onScan">扫御守</view>
   </view>
 
+  <!-- 「该扫了」（设计册 E2）。**只在「有单已签收、还没扫」时出现** ——
+       常驻的提示会被无视，只在该出现时出现的才被点。
+       不说是谁：还没请回来的人，名字都不该知道（空屋那一屏也照这条走）。
+       收货扫码率是整条链上最敏感的一个数：寄到了却没扫，这一单就停在
+       「东西到了」，那位不完人一直没住进村子。 -->
+  <view wx:if="{{toScan}}" class="nudge" bindtap="onScan" hover-class="nudge-hover" hover-stay-time="100">
+    <view class="nudge-t">你手上那枚，扫开它</view>
+    <view class="nudge-s">御守背面那个码</view>
+  </view>
+
   <!-- type="2d" 是必须的:旧版 canvas 拿不到 node,也就没有 requestAnimationFrame -->
   <canvas
     type="2d"

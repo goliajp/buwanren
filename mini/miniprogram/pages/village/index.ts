@@ -62,11 +62,14 @@ interface VillageData {
   /** 他刚说的那一句 */
   /** 这一格能不能进屋(房间搬进小程序了没) */
   err: string
+  /** 手上有一枚已签收还没扫开的御守（设计册 E2「该扫了」）。
+   *  没有就是 false —— 这一条只在该出现时出现，常驻的提示会被无视。 */
+  toScan: boolean
   /** 正在找那一位的御守 —— 找的时候按钮换个字，别让人以为没反应 */
 }
 
 Page<VillageData, WechatMiniprogram.IAnyObject>({
-  data: { cssW: 0, cssH: 0, sub: '', lived: 0, total: 40, err: '' },
+  data: { cssW: 0, cssH: 0, sub: '', lived: 0, total: 40, err: '', toScan: false },
 
   handle: null as { stop(): void } | null,
   // id → 请回家了没。村子画面里那几位与后端的 id 是同一套(ayun / tao / popo / tenz …),
@@ -101,7 +104,12 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
         VILLAGE_SET_HOME(v.villagers.filter((x) => x.at_home).map((x) => x.id))
         // 名字也从服务端拿,页面不再抄一份
         v.villagers.forEach((x: VillagerInVillage) => { this.nameOf[x.id] = x.name })
-        this.setData({ lived: v.found, total: v.total, err: '' })
+        /* 「该扫了」那一条出现或消失，画布的可用高度就变了 —— 得重算一次，
+           否则那一条把整屏顶出去（村子这一屏本来就是刚好放得下的）。 */
+        const 该扫 = !!v.to_scan
+        const 变了 = 该扫 !== this.data.toScan
+        this.setData({ lived: v.found, total: v.total, err: '', toScan: 该扫 })
+        if (变了 && this.data.cssW) { this.fitCanvas(); this.mount() }
       },
       /* 【还没登录完】不等于【取不到】。匿名登录是 app.ts 异步做的，
          而这一页 onShow 立刻就取一次 —— 冷启动那一次必然 401，
@@ -117,6 +125,28 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
     )
   },
 
+  /* 画布按【可用空间】铺，不是硬按屏宽。
+     设计册 10.1 说场景画布 cover、吃掉纵向富余 —— cover 的意思本来就是
+     按可用空间铺，而不是按宽度算完就不管高度够不够。
+
+     原先是 `cssH = 屏宽 × 960/704`，与可用高度无关：窄高屏上它顶得出去，
+     而「该扫了」那一条一出现（E2）整屏就放不下。
+     现在取两者的小者：常规态在 iPhone SE 上宽度仍是瓶颈（0.533 < 0.622），
+     所以照样铺满屏宽、两侧没有留白；只有挤不下时画布才缩一点点。 */
+  fitCanvas() {
+    const win = wx.getWindowInfo()
+    // 头部与提示条的高度用常量，不去量。
+    // 量完再改、改完再量的收敛循环把版式变成了时序问题 —— 这个仓在我家那一屏
+    // 上栽过一次（2026-08-23：慢机器上还没落定就被量走，本机绿、别处红）。
+    const 头部 = 40
+    const 提示条 = this.data.toScan ? 56 : 0
+    const 可用 = win.windowHeight - 头部 - 提示条
+    const 等比 = Math.round((win.windowWidth * VILLAGE_SIZE.h) / VILLAGE_SIZE.w)
+    const cssH = Math.min(等比, Math.max(120, 可用))
+    const cssW = Math.round((cssH * VILLAGE_SIZE.w) / VILLAGE_SIZE.h)
+    this.setData({ cssW, cssH })
+  },
+
   onReady() {
     if (typeof VILLAGE_CENSUS !== 'function') {
       this.setData({ err: '村子脚本没加载出来 —— 跑过 npm run build:engine 吗？' })
@@ -125,10 +155,18 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
     // 画布铺满屏宽,按村子自己的宽高比。像素尺寸是村子说了算(mountVillage 里设),
     // 这里只决定它在屏幕上占多大 —— 两者分开,村子才在所有机型上是同一幅画。
     // 宽高比也从 VILLAGE_SIZE 读:村子扩过一次地,写死的比例会把画面压扁。
-    const win = wx.getWindowInfo()
-    const cssW = win.windowWidth
-    this.setData({ cssW, cssH: Math.round((cssW * VILLAGE_SIZE.h) / VILLAGE_SIZE.w) })
+    this.fitCanvas()
+    this.mount()
+  },
 
+  /* 拿画布节点、把引擎挂上去。
+
+     **画布的屏上尺寸一变就得重挂一次。** 「该扫了」那一条出现时
+     `fitCanvas` 会改 cssW/cssH，而改 canvas 的 style 会让节点被重建 ——
+     引擎还握着旧的那个，新画布是空的、像素退回默认的 300×150。
+     屏幕上是一整片米色，而【没有任何东西会红】：村子那几条断言跑在
+     这一刻之前。这是 2026-08-26 从截图里看见的。 */
+  mount() {
     wx.createSelectorQuery()
       .select('#village')
       .fields({ node: true, size: true })
@@ -139,6 +177,7 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
           return
         }
         try {
+          if (this.handle) { this.handle.stop(); this.handle = null }
           this.handle = mountVillage(node, TILES, (s) => this.setData({ sub: s }))
         } catch (e) {
           this.setData({ err: String((e as Error).message || e) })
