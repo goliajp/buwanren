@@ -286,11 +286,17 @@ async fn get_my_order(
     let shipments = sqlx::query(
         "SELECT id, carrier_code, tracking_no, status, picked_up_at, delivered_at FROM shipment WHERE order_id=$1 ORDER BY created_at DESC",
     ).bind(&id).fetch_all(&st.db).await.map_err(map_db)?;
+    /* 这一单里还有没有没扫开的御守（设计册 M3）。
+       主按钮是「收到了，去扫开它」—— 订单的完成态不是「已签收」，
+       是她住进村里。判据跟村子主屏那一条同一个来源，不各写一套。 */
+    let to_scan = unmei_app::residency::unscanned_in_order(&st.db, &c.sub, &id).await?;
+
     Ok(Json(json!({
         "order": map_rows(vec![o]).into_iter().next().unwrap_or(J::Null),
         "lines": map_rows(lines),
         "payments": map_rows(payments),
         "shipments": map_rows(shipments),
+        "to_scan": to_scan,
     })))
 }
 
