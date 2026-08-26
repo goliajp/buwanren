@@ -17,6 +17,7 @@
 //! 靠 `UNIQUE (user_id, villager_id)` + `ON CONFLICT DO NOTHING` 兜住 ——
 //! 不是靠调用方记得先查一次。
 
+use chrono::{DateTime, Utc};
 use sqlx::{PgPool, Postgres, Row, Transaction};
 use unmei_domain::DomainError;
 
@@ -143,4 +144,45 @@ pub async fn is_home(pool: &PgPool, user_id: &str, villager_id: &str) -> Result<
     .await
     .db()?;
     Ok(n.is_some())
+}
+
+/// 手上有一枚已经签收、还没扫开的御守吗。
+///
+/// 设计册 E2「该扫了」：**这一条只在「有单已签收、还没扫」时出现**。
+/// 常驻的提示会被无视，只在该出现时出现的才被点 —— 而收货扫码率是
+/// 整条链上最敏感的一个数：御守寄到了却没扫，这一单就停在「东西到了」，
+/// 那位不完人一直没住进村子，整条体验断在最后一步。
+///
+/// 判据三件事同时成立：
+///   ① 有一张已签收的包裹（`shipment.status='delivered'`）
+///   ② 那一单里有一行是御守（`sku.villager_id` 非空）
+///   ③ 而这位不完人**还没住进这个人的村子**
+///
+/// **不返回是谁**。「还没请回来的人，名字都不该知道」是这个产品的设定
+/// （空屋那一屏也照这条走），提示里只说「你手上那枚」。
+pub async fn delivered_but_unscanned(
+    pool: &PgPool,
+    user_id: &str,
+) -> Result<Option<(String, DateTime<Utc>)>, DomainError> {
+    let row: Option<(String, DateTime<Utc>)> = sqlx::query_as(
+        r#"SELECT s.order_id, s.delivered_at
+             FROM shipment s
+             JOIN order_record o ON o.id = s.order_id
+             JOIN order_line ol ON ol.order_id = o.id
+             JOIN sku k ON k.id = ol.sku_id
+            WHERE s.status = 'delivered'
+              AND s.delivered_at IS NOT NULL
+              AND o.user_id = $1
+              AND k.villager_id IS NOT NULL
+              AND NOT EXISTS (
+                    SELECT 1 FROM villager_residency r
+                     WHERE r.user_id = o.user_id AND r.villager_id = k.villager_id)
+            ORDER BY s.delivered_at DESC
+            LIMIT 1"#,
+    )
+    .bind(user_id)
+    .fetch_optional(pool)
+    .await
+    .db()?;
+    Ok(row)
 }
