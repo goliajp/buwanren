@@ -60,6 +60,19 @@ def main() -> int:
             if f.exists():
                 text += f.read_text(encoding='utf-8')
 
+        # 这一页 import 的 utils 也要算进来。两页共用的那一下只能住在
+        # utils（页面之间不许互相 import），而跳哪一页往往就写在里面 ——
+        # `utils/omamori.ts` 里那句 navigateTo('/pages/moved/index') 就是。
+        # 只读页面文件的话，`moved` 会被判成「谁也不指向它」。
+        #
+        # 只并【这一页真的 import 了的】那几支，不是把 utils 全并进来：
+        # 全并等于让每一页都指向所有 utils 提到的页，那样 `moved` 从任何
+        # 一页都「到得了」—— 判据一放宽，这支门禁就再也认不出真的死页。
+        for m in re.finditer(r"from ['\"][^'\"]*utils/([\w-]+)['\"]", text):
+            u = MINI / 'utils' / (m.group(1) + '.ts')
+            if u.exists():
+                text += u.read_text(encoding='utf-8')
+
         for kind, body in NAV.findall(text):
             for url in PAGEPATH.findall(body):
                 target = url.lstrip('/')
