@@ -27,3 +27,5 @@
    中间那片空是留白，不是「画到一半」。硬塞内容把它填满才是后者。 */
 .page { display: flex; flex-direction: column; }
 .acts { margin-top: auto; padding-top: 48rpx; text-align: center; }
+.slot-on { display: flex; align-items: center; color: var(--ink-mid); }
+.slot-arrow { margin-left: auto; color: var(--stone-label); }
