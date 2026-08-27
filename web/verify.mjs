@@ -1389,8 +1389,24 @@ if (API && !MINGLI) {
   console.log('    本机加 --mingli=http://127.0.0.1:6027 就会真验这一段。')
 }
 if (API && MINGLI) {
-  console.log('\n── 建本命（真的按下「生成」）──')
-  await p.getByText('生成', { exact: true }).click()
+  console.log('\n── 建本命（真的按下「算一算」）──')
+
+  /* 「会得到这些」（设计册 10.8 点名的一条）：填生辰是这条链上最贵的一步，
+     先说清换回什么，才有人愿意填。
+
+     **这四行不是文案，是四件真做得到的事** —— 所以这里不只验它写着，
+     还要验它没有把做不到的事写上去：
+       · 你缺的 / 伤你的  → 算完就在这一屏上（下面那几条断言正是它们）
+       · 每天那一句      → 「谁能来」顶上那句「你缺 X，这几位跟你补得上」
+       · 苏合配的香      → 她那一屏按你缺的说的那句话
+     哪天某一条不成立了，这一行就得删；先答应做不到的事，比不答应更伤。 */
+  const 会得到 = await text()
+  ok(会得到.includes('会得到这些'), '算之前先说清换回什么')
+  for (const 一行 of ['你缺的', '伤你的', '每天那一句', '苏合配的香']) {
+    ok(会得到.includes(一行), `「会得到这些」里写着「${一行}」`, 一行)
+  }
+
+  await p.getByText('算一算', { exact: true }).click()
   await p.waitForFunction(() => globalThis.__router.current().data.mode === 'summary', null,
                           { timeout: 20000 }).catch(() => {})
   const n = await p.evaluate(() => {
@@ -1742,6 +1758,8 @@ console.log('\n── 一屏放得下吗（iPhone SE · 内容区 597）──')
     }
     const m = await 量一屏(r, 要参数[r])
     const 名 = r.replace('pages/', '').replace('/index', '')
+    // 「命」那一页有两种形态，记下这一趟量到的是哪一种（下面那一段要说清楚）
+    if (名 === 'natal') 量到.natal形态 = await p.evaluate(() => globalThis.__router.current().data.mode)
     量到[名] = m.溢出
     const 记着 = 台账[名] ? 台账[名].超 : null
     if (m.溢出 > 8) {
@@ -1754,6 +1772,18 @@ console.log('\n── 一屏放得下吗（iPhone SE · 内容区 597）──')
       } else {
         console.log(`  · ${名.padEnd(9)} 超 ${m.溢出}px（台账 ${记着}）—— ${台账[名].为什么.slice(0, 30)}…`)
       }
+    } else if (m.出错) {
+      /* 没超，但这一屏停在【错误态】—— 那不是它真正的版式。
+         错误态往往只剩一行红字，当然放得下；拿它当「放得下」，
+         等于给一屏根本没量到的东西打了分。
+
+         `量一屏` 早就把「出错」量出来了，可从前只在【超了】的时候才报 ——
+         也就是说这个字段只在坏消息里出现，好消息里不出现。
+         2026-08-27 撞上：往建生辰那一屏加了一块「会得到这些」，
+         它真实高度超了 46px，而这一支照旧报「放得下（余 0px）」——
+         因为那一趟它一直停在「取不到本命：unauthorized」。 */
+      ok(false, `${名} 这一趟量到的是真版式`,
+         `它停在错误态：${m.出错}\n         错误态只剩一行字，当然放得下 —— 这一屏这一趟【没量到】`)
     } else {
       if (记着 !== null) {
         ok(false, `${名} 已经放得下了，台账那一条该划掉`, `台账还记着 ${记着}`)
@@ -1762,6 +1792,35 @@ console.log('\n── 一屏放得下吗（iPhone SE · 内容区 597）──')
       }
     }
   }
+  /* ── 一页两种形态的，两种都要量 ────────────────────────────
+     上面那一圈按【页】量，一页只量到一种形态。而「命」那一页有两种：
+     **没建过本命时是填生辰的表单，建过之后是盘面** —— 版式完全不同，
+     而表单那一种正是第一次来的人看到的。
+
+     2026-08-27 撞上：往表单里加了「会得到这些」，它真实超了 46px，
+     上面那一圈却照报「放得下」—— 因为那一趟量到的是盘面。
+     一页只量一种形态，等于给没量到的那一种打了分。 */
+  {
+    const 形态 = 量到.natal形态
+    /* 已经建过本命，所以上面量到的是盘面。把它临时切回表单态再量一次 ——
+       改的是这一屏自己的 mode，不动库里的数据。 */
+    await 量一屏('pages/natal/index')
+    await p.setViewportSize({ width: 375, height: 667 })
+    await p.evaluate(() => globalThis.__router.current().setData({ mode: 'form', err: '' }))
+    await p.waitForTimeout(600)
+    const 表单 = await p.evaluate(() => {
+      const d = document.documentElement, b = document.body
+      return { 内容: Math.max(d.scrollHeight, b.scrollHeight), 视口: window.innerHeight,
+               mode: globalThis.__router.current().data.mode }
+    })
+    await p.setViewportSize({ width: 390, height: 844 })
+    ok(表单.mode === 'form' && 表单.内容 - 表单.视口 <= 8,
+       'natal 的【填生辰】那一态也放得下　—— 第一次来的人看到的就是它',
+       `内容 ${表单.内容} / 视口 ${表单.视口}${表单.内容 - 表单.视口 > 8 ? ' · 超 ' + (表单.内容 - 表单.视口) : ''}`
+       + `（上面那一圈量到的是「${形态 === 'summary' ? '盘面' : 形态}」）`)
+  }
+
+  delete 量到.natal形态          // 它不是一页，别混进「量过几页」的账里
   const 欠 = Object.keys(台账).filter((k) => k !== '_读法')
   const 没量到 = 欠.filter((k) => !(k in 量到))
   ok(没量到.length === 0, '台账上的页这一趟都量到了',
@@ -1984,7 +2043,7 @@ if (!API) {
     // 再建一份：重建生辰 → 生成
     await p.getByText('重建生辰', { exact: true }).click()
     await p.waitForTimeout(400)
-    await p.getByText('生成', { exact: true }).click()
+    await p.getByText('算一算', { exact: true }).click()
     /* 建本命要打排盘服务，慢；固定等几秒会时灵时不灵。轮询到档案变长为止，
        等不到就把页面自己那一行错误读出来 —— 「没变长」和「报错了」不是一回事。 */
     let 现有 = 原有
