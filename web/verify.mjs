@@ -2695,6 +2695,37 @@ for (const [route, 该说, 不该说] of [
        t.includes(不该说) ? `还在渲「${不该说}」` : '')
   }
 }
+
+/* 设计册 10.7 末尾那条【写死的】规则：
+   **任何一屏都不许整屏换成错误页。错误只替换取不到的那一段，其余照常可用。**
+   理由写在它后面：这个产品的主屏是一幅画 —— 画是本地的，
+   不该因为一句话没取到就消失。
+
+   上面那一圈验的是「说不说得出取不到」，那是另一件事：
+   一屏可以既说得出「取不到村子」，又把整幅画一起抹掉 —— 两条都得验。 */
+for (const [route, 什么, 量] of [
+  ['pages/village/index', '村子那幅画',
+    () => {
+      const c = document.querySelector('canvas')
+      if (!c) return 0
+      const g = c.getContext('2d')
+      const d = g.getImageData(0, 0, c.width, Math.min(400, c.height)).data
+      let ink = 0
+      for (let i = 3; i < d.length; i += 4) if (d[i]) ink++
+      return ink
+    }],
+  /* 我家那一屏同理：10.7 明说「罗盘先出、用神那三行占位」「罗盘可转，
+     结果那块单独报错」—— 也就是取不到盘的时候，罗盘照样在、照样转。 */
+  ['pages/home/index', '我家的罗盘',
+    () => document.querySelectorAll('.compass-face .ring').length],
+]) {
+  await open(route)
+  await p.waitForTimeout(2500)
+  const 还在 = await p.evaluate(量)
+  const 说了 = (await text()).includes('取不到')
+  ok(还在 > 0, `后端全挂时，${什么}还在　—— 不许整屏换成错误页`,
+     `${还在 > 0 ? '还在' : '没了'}（这一屏${说了 ? '同时说了「取不到」' : '连话都没说'}）`)
+}
 await p.unroute('**/v1/**')
 
 // ⑮ 一帧要多久 ─────────────────────────────────────────────────
