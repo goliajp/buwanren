@@ -139,15 +139,43 @@ async fn all_villagers(State(st): State<AppState>) -> Result<Json<J>, ApiError> 
     )
     .fetch_all(&st.db)
     .await?;
+
+    /* 哪一位的御守【真的在卖】。设计册 10.8 那条：
+       「没上架的也列出来，写『未上架』—— 四十位里只有四位在卖，
+        照实说，不拿别人顶上」。
+       只列在卖的那几位，读的人会以为世上只有那几位；那是拿别人顶上。
+
+       跟「我的村子」那一条的分别在【作用域】：你村里没请回来的那一格
+       不说是谁（空屋那一屏），因为那是你的村子；而这是目录，
+       四十位是公开的事实（设计册 11：官网放四十位档案）。 */
+    let 在卖: std::collections::HashMap<String, String> = sqlx::query(
+        "SELECT DISTINCT ON (k.villager_id) k.villager_id, p.id AS product_id \
+         FROM sku k JOIN product p ON p.id = k.product_id \
+         WHERE k.villager_id IS NOT NULL AND k.status='active' \
+           AND p.status='listed' AND p.category = 'omamori' \
+         ORDER BY k.villager_id, p.sort_weight DESC, p.id",
+    )
+    .fetch_all(&st.db)
+    .await?
+    .iter()
+    .map(|r| (r.get::<String, _>("villager_id"), r.get::<String, _>("product_id")))
+    .collect();
+
     Ok(Json(json!(rows
         .iter()
-        .map(|r| json!({
-            "id": r.get::<String, _>("id"),
-            "name": r.get::<String, _>("name"),
-            "title": r.get::<Option<String>, _>("title"),
-            "art": r.get::<Option<String>, _>("art_name"),
-            "rarity": r.get::<Option<String>, _>("rarity"),
-        }))
+        .map(|r| {
+            let id: String = r.get("id");
+            let pid = 在卖.get(&id).cloned();
+            json!({
+                "id": id,
+                "name": r.get::<String, _>("name"),
+                "title": r.get::<Option<String>, _>("title"),
+                "art": r.get::<Option<String>, _>("art_name"),
+                "rarity": r.get::<Option<String>, _>("rarity"),
+                // 有就是那件商品的 id；没有就是 null —— 客户端据此写「未上架」
+                "omamori_product_id": pid,
+            })
+        })
         .collect::<Vec<_>>())))
 }
 

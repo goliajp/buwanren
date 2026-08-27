@@ -53,3 +53,12 @@
 .foot { margin-top: 16rpx; font-size: 22rpx; }
 .pager { margin-top: 16rpx; }
 .item { padding-top: 18rpx; padding-bottom: 18rpx; }
+
+/* 没上架的：在册上，但按不动（设计册 10.8「照实说，不拿别人顶上」） */
+.item-off { opacity: .55; }
+.item-meta.off { color: #9a938a; }
+
+/* 两行布局：名 + 动作一行，副题一行 */
+.item-top { display: flex; align-items: baseline; }
+.item-top .item-name { flex: 1; }
+.item-top .item-meta { flex: none; margin-left: 20rpx; }
