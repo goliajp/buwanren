@@ -33,6 +33,19 @@ QUICK=0
 # blobscan 与 web verify 报红,而两支单独跑都是绿的。
 # **看起来像产品坏了,其实是两份门禁在抢同一批文件** —— 这种红最贵:
 # 查错方向完全是反的。变异测试那支早就有锁,这支一直没有。
+# node 得在 PATH 里。不在的话下面那两支报的是
+# 「tsc: 类型」与「webadmin build」挂了 —— 而实际是它们【根本没跑】，
+# 报出来的话把人往「代码有类型错」的方向带，跟真相反着。
+# 2026-08-27 真踩到：换了一个 shell，nvm 的那段没加载，两支当场红。
+#
+# nvm 装的 node 不在默认 PATH 里，这里自己找一次。找不到就明说是它没装，
+# 而不是让两支门禁替它背锅。
+if ! command -v npx >/dev/null 2>&1; then
+  for d in "$HOME/.nvm/versions/node"/*/bin; do
+    [ -x "$d/npx" ] && PATH="$d:$PATH" && export PATH && break
+  done
+fi
+
 LOCK=/tmp/unmei-gates.lock
 if ! mkdir "$LOCK" 2>/dev/null; then
   OWNER=$(cat "$LOCK/pid" 2>/dev/null || echo 0)
@@ -141,7 +154,11 @@ fi
 
 echo
 echo "── 小程序 / 移动网页版 ──"
-gate "tsc · 类型"  mini npx tsc --noEmit
+if command -v npx >/dev/null 2>&1; then
+  gate "tsc · 类型"  mini npx tsc --noEmit
+else
+  skip "tsc · 类型" "PATH 里没有 npx（node 没装或 nvm 没加载）—— 这一项【没验】"
+fi
 gate "每一页都走得到吗" . python3 scripts/check-reachable-pages.py
 gate "页面之间没互相 import 吧" . python3 scripts/check-page-imports.py
 gate "bind 的处理器都真有吗" . python3 scripts/check-wxml-handlers.py
