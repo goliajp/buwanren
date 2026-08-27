@@ -1,0 +1,32 @@
+<!-- 没有顶栏、没有 tab（设计册 10.2 的「全屏时刻」：一屏只有一件事，
+     连退路都只有往前的那两条）。此刻给任何导航都是打断。 -->
+<view class="page">
+  <!-- 「苏合的院子」那幅画还没有。**不假装有** —— 画一支真在烧的香，
+       烟按秒飘。哪天院子画出来了，把它铺在这一层底下就是。 -->
+  <view class="yard">
+    <view class="smoke s1"></view>
+    <view class="smoke s2"></view>
+    <view class="smoke s3"></view>
+    <view class="stick"><view class="ember"></view></view>
+  </view>
+
+  <view class="body">
+    <view class="t1">今晚一起点一支</view>
+    <view class="t2">「不说话也行，坐着就好」</view>
+
+    <!-- 人数取不到就不显示那一行，香照点（设计册 10.7）。
+         显示「0 个人在点」比不显示更糟：那是句假话。 -->
+    <view class="meta">
+      <text wx:if="{{count !== null}}" class="meta-n">还有 {{count}} 个人在点</text>
+      <text class="meta-t">已烧 {{burned}} / 约 {{total}}</text>
+    </view>
+  </view>
+
+  <view class="acts">
+    <button class="btn lit" bindtap="onLit" disabled="{{iLit || busy}}">
+      {{iLit ? '你点上了' : (busy ? '点着……' : '我也点了')}}
+    </button>
+    <!-- 「我没有香」通到苏合那儿 —— 不推销，只放这一个出口（设计册 10.8）。 -->
+    <button class="btn ghost" bindtap="goIncense">我没有香</button>
+  </view>
+</view>
