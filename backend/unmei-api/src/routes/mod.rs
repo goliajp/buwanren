@@ -26,3 +26,4 @@ pub mod health;
 pub mod commerce;
 pub mod village;
 pub mod incense;
+pub mod report;

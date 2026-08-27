@@ -60,3 +60,7 @@
    一列竖着的字 —— 2026-08-28 从截图上看见的。 */
 .cta.cta-wake { flex-direction: column; align-items: stretch; }
 .cta.cta-wake .btn { flex: none; width: 100%; }
+
+/* 册子那条主按钮。跟「去扫开它」一样排在退款前面 ——
+   买家点进这一屏最想做的事是把买的东西拿到手 */
+.cta-read { padding-bottom: 8rpx; }

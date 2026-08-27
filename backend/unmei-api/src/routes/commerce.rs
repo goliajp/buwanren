@@ -290,6 +290,18 @@ async fn get_my_order(
        主按钮是「收到了，去扫开它」—— 订单的完成态不是「已签收」，
        是她住进村里。判据跟村子主屏那一条同一个来源，不各写一套。 */
     let to_scan = unmei_app::residency::unscanned_in_order(&st.db, &c.sub, &id).await?;
+    /* 这一单里买的册子。御守的完成态是住进村里，报告的完成态是**你读到了** ——
+       所以它跟「收到了，去扫开它」一样是这一屏的主按钮，不是一行小字。
+
+       还没出的那些（`awaiting_natal`）也要给出来：一半的买家下单时还没填
+       生辰，那一屏得说得出「还差你的生辰」并给一条去填的路，
+       而不是把这一单显示成已完成。 */
+    let reports = sqlx::query(
+        r#"SELECT r.id, r.status, r.order_line_id
+           FROM report r JOIN order_line ol ON ol.id = r.order_line_id
+           WHERE ol.order_id = $1 AND r.user_id = $2
+           ORDER BY ol.line_no"#,
+    ).bind(&id).bind(&c.sub).fetch_all(&st.db).await.map_err(map_db)?;
 
     Ok(Json(json!({
         "order": map_rows(vec![o]).into_iter().next().unwrap_or(J::Null),
@@ -312,6 +324,7 @@ async fn get_my_order(
         "payments": map_rows(payments),
         "shipments": map_rows(shipments),
         "to_scan": to_scan,
+        "reports": map_rows(reports),
     })))
 }
 

@@ -78,13 +78,35 @@ pub async fn apply_order_paid(pool: &PgPool, order_id: &str) -> Result<Fulfillme
         let line_id: String = l.get("id");
         let kind: String = l.get("fulfillment_kind");
         match kind.as_str() {
-            "instant" | "async_compute" => {
+            "instant" => {
                 sqlx::query(
                     "UPDATE order_line SET fulfillment_status='done',
                        fulfillment_ref=jsonb_build_object('mocked', true, 'kind', $1)
                      WHERE id=$2",
                 )
                 .bind(&kind)
+                .bind(&line_id)
+                .execute(&mut *tx)
+                .await.db()?;
+            }
+            // 报告:出一册,把 mingli 排的整盘冻进去。
+            // 以前这条跟 instant 走同一支,标 done + `{"mocked":true}` ——
+            // 订单显示「已完成」而买家手上什么都没有。
+            //
+            // 生辰还没填的话行**不标 done**:那一单确实还没完成,
+            // 而 done 会让它从「我买过的」里以完成态消失,买家再也想不起
+            // 还差自己一步。停在 processing,订单那一屏说得出「还差你的生辰」。
+            "async_compute" => {
+                let user_id: String = l.get("user_id");
+                let out = crate::report::ensure_for_line(&mut tx, &user_id, &line_id, "bazi_deep").await?;
+                let status = if out.is_ready() { "done" } else { "processing" };
+                sqlx::query(
+                    "UPDATE order_line SET fulfillment_status=$1,
+                       fulfillment_ref=jsonb_build_object('kind','report','report_id',$2)
+                     WHERE id=$3",
+                )
+                .bind(status)
+                .bind(out.report_id())
                 .bind(&line_id)
                 .execute(&mut *tx)
                 .await.db()?;
@@ -181,6 +203,37 @@ pub async fn apply_shipment_delivered(
     .await.db()?;
 
     let outcome = settle_order_in_tx(&mut tx, order_id).await?;
+    tx.commit().await.db()?;
+    Ok(outcome)
+}
+
+/// 报告出册了 → 那条行标 done,全部完成则订单翻 done。
+///
+/// 跟 [`apply_shipment_delivered`] 同构:包裹签收和册子出好都是「等的那件事
+/// 到了」。买家先买后填生辰的那一半走的就是这条 ——
+/// 履约当时行停在 processing,生辰补上才走到这里。
+pub async fn apply_report_ready(pool: &PgPool, order_line_id: &str) -> Result<FulfillmentOutcome, DomainError> {
+    let mut tx = pool.begin().await.db()?;
+
+    // 锁订单:跟 apply_order_paid 用同一把,两条路同时推进同一单时排队
+    let order_id: Option<String> = sqlx::query_scalar(
+        r#"SELECT o.id FROM order_record o
+           JOIN order_line ol ON ol.order_id = o.id
+           WHERE ol.id = $1 FOR UPDATE OF o"#,
+    )
+    .bind(order_line_id)
+    .fetch_optional(&mut *tx)
+    .await.db()?;
+    let Some(order_id) = order_id else {
+        return Err(DomainError::NotFound(format!("order_line {order_line_id}")));
+    };
+
+    sqlx::query("UPDATE order_line SET fulfillment_status='done' WHERE id=$1 AND fulfillment_status<>'done'")
+        .bind(order_line_id)
+        .execute(&mut *tx)
+        .await.db()?;
+
+    let outcome = settle_order_in_tx(&mut tx, &order_id).await?;
     tx.commit().await.db()?;
     Ok(outcome)
 }

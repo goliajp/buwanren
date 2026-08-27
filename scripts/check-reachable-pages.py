@@ -50,7 +50,10 @@ def main() -> int:
     NAV = re.compile(
         r'wx\.(switchTab|navigateTo|redirectTo|reLaunch)\s*\(\s*\{(.*?)\}\s*\)',
         re.S)
-    PAGEPATH = re.compile(r'[\'"]/?((?:pages|packages)/[\w./-]+?)(?:[?\'"])')
+    # 反引号也要认:`/pages/report/index?id=${id}` 是最常见的带参跳法。
+    # 不认的话它长得跟「谁也不指向这一页」一模一样 —— 2026-08-28 报过一次,
+    # 而那一页明明是从单子上点进去的。
+    PAGEPATH = re.compile(r'[\'"`]/?((?:pages|packages)/[\w./-]+?)(?:[?\'"`])')
     links: dict[str, set[str]] = {p: set() for p in pages}
     bad_switch: list[str] = []
     for p in pages:
