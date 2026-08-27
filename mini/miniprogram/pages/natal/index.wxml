@@ -78,8 +78,10 @@
   <block wx:elif="{{!err}}">
     <view class="hd">
       <view class="eyebrow">NATAL · CREATE</view>
-      <view class="title">命</view>
-      <view class="subtitle">先立底盘 · 五行以数为形</view>
+      <view class="title">你的生辰</view>
+      <!-- 原先写的是「先立底盘 · 五行以数为形」。那是行话，
+           它回答不了填的人真正在问的那句「填了会怎样」。 -->
+      <view class="subtitle">填一次，以后都用它。也可以留几份，随时换</view>
     </view>
 
     <view class="hr"></view>
@@ -116,11 +118,29 @@
 
     <view class="cta">
       <button class="btn" bindtap="submit" disabled="{{submitting}}">
-        {{submitting ? '生成中…' : '生成'}}
+        {{submitting ? '算着…' : '算一算'}}
       </button>
     </view>
 
-    <view class="foot-hint">
+    <!-- 「会得到这些」（设计册 10.8 点名的一条）：
+         **填生辰是这条链上最贵的一步** —— 先说清换回什么，才有人愿意填。
+
+         这四行不是文案，是四件真做得到的事：缺什么与过什么算出来就在这一屏上，
+         「每天那一句」是村里按你缺的挑人（「谁能来」那一页顶上那句），
+         「苏合配的香」是她按你缺的那一味配（她那一屏上那句话）。
+         哪天某一条不成立了，这一行就得删 —— 先答应做不到的事，比不答应更伤。 -->
+    <view class="gets">
+      <view class="gets-k">会得到这些</view>
+      <view class="gets-row"><text class="gets-a">你缺的</text><text class="gets-b">一个字</text></view>
+      <view class="gets-row"><text class="gets-a">伤你的</text><text class="gets-b">两个字</text></view>
+      <view class="gets-row"><text class="gets-a">每天那一句</text><text class="gets-b">按它来挑人</text></view>
+      <view class="gets-row"><text class="gets-a">苏合配的香</text><text class="gets-b">按它来配味</text></view>
+    </view>
+
+    <!-- 进弹性槽（矮屏收起）：这是给开发看的技术说明，不是填生辰的人要读的东西，
+         正合槽的判据「删掉这一屏仍然成立」。而「会得到这些」不能进槽 ——
+         它是 10.8 点名的那一块，收起来就等于没有。 -->
+    <view class="foot-hint flexslot">
       时区默认东八区(+8) · 真太阳时校正暂关
     </view>
   </block>
