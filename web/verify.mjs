@@ -42,6 +42,35 @@ const FAKE = {
      不是 404。少了这条的话本命页会认为【取不到】而不是【没有】,
      于是不给表单 —— 那正是产品该有的分寸,却让桩显得像坏了。 */
   '/v1/user/natals': () => [],
+  /* 四十位名册（「谁能来」那一页用它）。少了这条它落到兜底的 404，
+     那一页就停在「取不到」—— 而错误态只剩一行字，当然放得下，
+     于是一屏那一支照报「放得下」，实际上那一页这一趟根本没量到版式。
+     2026-08-27 是新加的「错误态不算通过」把它抓出来的。 */
+  '/v1/villagers': () => [
+    { id: 'ayun', name: '阿云', title: '小道士', art: '大六壬', rarity: '常',
+      omamori_product_id: 'prod-oma-ayun' },
+    { id: 'popo', name: '婆婆', title: '占卜的老太太', art: '塔罗', rarity: '常',
+      omamori_product_id: 'prod-oma-popo' },
+    { id: 'aluo', name: '阿罗', title: '听鸟的少年', art: '鸟占', rarity: '珍',
+      omamori_product_id: null },
+    { id: 'aman', name: '阿曼', title: '画沙的人', art: '沙占', rarity: '珍',
+      omamori_product_id: null },
+    { id: 'suhe', name: '苏合', title: '香药娘子', art: '八字', rarity: '珍',
+      omamori_product_id: null },
+  ],
+  /* 订着的。空数组是「一个都没订」的真实回答（真后端给 []），不是 404 ——
+     而 M5 那一屏的主设计就是这个空状态（设计册 10.7）。
+     少了这条它停在错误态，空状态那一支反而永远验不到。 */
+  '/v1/subscriptions': () => [],
+  /* 目录。「订着的」那一屏空着时要指出「哪儿能有」（设计册 10.8 的 M5），
+     而那半边就是从这条来的 —— 少了它，那一屏一半停在「一时取不到能订的」。
+     这里不按 category 分：桩只需要让页面走完它的路，
+     分类是后端按 query 做的事，前端不过滤。 */
+  '/v1/products': () => [
+    { id: 'prod-membership-gold', code: 'membership_gold', name: '黄金会员',
+      sub_title: '月卡 / 年卡', category: 'service', kind: 'subscription',
+      fulfillment_kind: 'instant', hero_image_url: null, tags: ['会员'] },
+  ],
   /* 问过的签。少了这条的话它落到兜底的 404，于是我家那一屏【永远】停在
      「近几次取不到」—— 而那正是取不到时该有的样子，所以看着像对的。
      成功那条路一次都没被走过：弹性槽装没装得下、矮屏收不收得起来，
@@ -2726,9 +2755,10 @@ const 抹参 = (path) => path.replace(/:[a-z_]+/g, ':x')
 const 孤儿 = new Set(Object.keys(
   JSON.parse(readFileSync('scripts/orphan-routes.json', 'utf8'))['后端有前端没人调']['小程序 → unmei-api'] || {},
 ).map(抹参))
-/* 另一节:封装在、没有页面用它。台账那里按【封装名】记（village.all），
-   所以这里把它对应的那条路由列出来 —— 一行一条,理由仍旧在台账。 */
-const 只有封装 = new Set(['GET /v1/villagers'])
+/* 另一节:封装在、没有页面用它。台账那里按【封装名】记，
+   所以这里把它对应的那条路由列出来 —— 一行一条,理由仍旧在台账。
+   2026-08-27 起是空的：`village.all` 有了调用方（「谁能来」列四十位）。 */
+const 只有封装 = new Set([])
 const 命中 = new Set([...打过].map(归一).filter(Boolean))
 const 全部 = [...new Set(路由)]
 /* 本机打不到的那几条 —— 一条一个理由。
