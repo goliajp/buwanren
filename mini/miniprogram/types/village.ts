@@ -41,6 +41,9 @@ export interface VillagerCard {
   title: string | null
   art: string | null
   rarity: string | null
+  /** 他的御守在不在卖。在 → 那件商品的 id；不在 → null，页面写「未上架」。
+   *  设计册 10.8：「没上架的也列出来 …… 照实说，不拿别人顶上」。 */
+  omamori_product_id: string | null
 }
 
 /** 一签 */

@@ -887,9 +887,44 @@ if (API) {
   })
   const 请文 = await text()
   ok(!请.loading && !请.err &&
-     (请.n > 0 || 请文.includes('一位也请不来')),
+     (请.n > 0 || 请文.includes('一位也没数到')),
      `「谁能来」说得对（${请.n > 0 ? '有 ' + 请.n + ' 位' : '一位没有 · 出空状态'}）`,
      `n=${请.n} err=${请.err}`)
+
+  /* 四十位都在册上，没上架的照实说（设计册 10.8）。
+     只列在卖的那几位，读的人会以为世上只有那几位 —— 那是拿别人顶上。
+     **不断言「几位在卖」** —— 那是这台机器上的数据；断言的是
+     「册上的人比在卖的多」与「多出来的那些写着未上架、按不动」。 */
+  if (请.n > 0) {
+    const 册 = await p.evaluate(() => {
+      const it = globalThis.__router.current().data.items
+      return { 共: it.length, 在卖: it.filter((x) => x.onSale).length }
+    })
+    ok(册.共 >= 册.在卖, '册上的人不比在卖的少', `${册.在卖} 在卖 / 共 ${册.共}`)
+    if (册.共 > 册.在卖) {
+      /* 翻到有「未上架」的那一页去看。在卖的排在前面，所以往后翻。 */
+      const 页数2 = await p.evaluate(() => globalThis.__router.current().data.pageCount)
+      let 看到未上架 = false
+      for (let i = 0; i < 页数2; i++) {
+        await p.evaluate((n) => globalThis.__router.current().gotoPage(n), i)
+        await p.waitForTimeout(150)
+        if ((await text()).includes('未上架')) { 看到未上架 = true; break }
+      }
+      ok(看到未上架, '没上架的也在册上，写着「未上架」', `${册.共 - 册.在卖} 位未上架`)
+      /* 写着未上架就该按不动 —— 点了再说「买不了」是先答应再反悔。 */
+      const 之前 = await p.evaluate(() => globalThis.__router.current().__route)
+      const 那行 = p.locator('.item-off').first()
+      if (await 那行.count()) {
+        await 那行.click()
+        await p.waitForTimeout(700)
+        ok(await p.evaluate(() => globalThis.__router.current().__route) === 之前,
+           '未上架那一行按不动　—— 不是点了再说买不了',
+           await p.evaluate(() => globalThis.__router.current().__route))
+      }
+      await p.evaluate(() => globalThis.__router.current().gotoPage(0))
+      await p.waitForTimeout(150)
+    }
+  }
 
   /* 空的那一支只有 CI 的种子库才碰得到（本机目录里御守上百件）。
      不改共用的库去造空态 —— 那影响面比预期大（docs/FINDING-2026-08-22-*）。
@@ -897,7 +932,7 @@ if (API) {
   await p.evaluate(() => globalThis.__router.current().setData({ items: [], loading: false, err: '' }))
   await p.waitForTimeout(200)
   const 空请 = await text()
-  ok(空请.includes('一位也请不来') && 空请.includes('还在路上'),
+  ok(空请.includes('一位也没数到') && 空请.includes('名册取不到'),
      '「谁能来」空的时候也说得出下一步 —— CI 的种子库就是这一支',
      空请.slice(0, 44))
   await open('pages/invite/index')
@@ -1666,9 +1701,13 @@ if (!API) {
   /* 分类切换那一段删了：铺没了，「谁能来」只列御守，没有分类栏
      （docs/REDESIGN.md R3）。原来那段读 data.cats / data.total / data.shown，
      新页一个都没有 —— 留着会 TypeError，而不是报一句「这一条不适用」。 */
+  /* 册上现在是【人】不是【货】（设计册 10.8：四十位都列出来）。
+     所以这里记的是「他的那件御守是哪一件」，点进去比 id ——
+     比名字的话，比的是村民名与商品名，那两个本来就不该相等。 */
   const 头一件 = await p.evaluate(() => {
     const c = globalThis.__router.current()
-    return c.data.items[0] ? c.data.items[0].name : null
+    const v = (c.data.items || []).find((x) => x.onSale)
+    return v ? { name: v.name, product: v.product } : null
   })
   if (!头一件) {
     console.log('  · 跳过点进详情：一位都请不来（不计入通过）')
@@ -1677,8 +1716,8 @@ if (!API) {
     await p.waitForTimeout(900)
     ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/product/index',
        '点一件进得去详情', await p.evaluate(() => globalThis.__router.current().__route))
-    ok(await p.evaluate(() => globalThis.__router.current().data.name) === 头一件,
-       '详情上正是点的那一件', 头一件)
+    ok(await p.evaluate(() => globalThis.__router.current().data.id) === 头一件.product,
+       '详情上正是点的那一件', `${头一件.name} → ${头一件.product}`)
   }
   await shot('06-invite-product')
 }
