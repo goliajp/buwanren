@@ -9,6 +9,7 @@
  * （「你缺火，我给你配一味暖的」），三档价钱只是那句话的后果。
  */
 import { natalApi } from '../../services/natal'
+import { incenseApi } from '../../services/incense'
 import { commerceApi } from '../../services/commerce'
 import { storage } from '../../services/storage'
 import type { ApiError } from '../../services/api'
@@ -30,13 +31,15 @@ interface IData {
   productId: string
   loading: boolean
   err: string
+  /** 今晚那一场开着没有（设计册 E1）。开着这一槽才是入口 */
+  tonight: boolean
   /** 她那一句。没有本命时是空 —— **不编一句**，改说不知道并给出口 */
   line: string
   skus: Array<{ id: string; name: string; priceText: string }>
 }
 
 Page<IData, WechatMiniprogram.IAnyObject>({
-  data: { productId: 'prod-suhe-incense', loading: true, err: '', line: '', skus: [] },
+  data: { productId: 'prod-suhe-incense', loading: true, err: '', line: '', skus: [], tonight: false },
 
   onLoad(q: Record<string, string | undefined>) {
     if (q.id) this.setData({ productId: q.id })
@@ -67,6 +70,12 @@ Page<IData, WechatMiniprogram.IAnyObject>({
       (e: ApiError) => this.setData({ loading: false, err: e.message || '取不到她配的那一味' }),
     )
     this.loadLine()
+    /* 今晚开着没有。取不到就当没开 —— 猜「开着」的话，
+       这一槽会把人送进一屏说「还没开始」的东西。 */
+    incenseApi.now().then(
+      (n) => this.setData({ tonight: !!n }),
+      () => this.setData({ tonight: false }),
+    )
   },
 
   /** 她那一句要按【你缺什么】来。取不到本命就不说 —— 见 wxml 里那一段。 */
@@ -84,6 +93,8 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     const id = String((e.currentTarget.dataset as Record<string, unknown>).id || '')
     if (id) wx.navigateTo({ url: '/pages/confirm/index?id=' + this.data.productId + '&sku=' + id })
   },
+
+  goTonight() { wx.navigateTo({ url: '/pages/lighting/index' }) },
 
   goNatal() { wx.navigateTo({ url: '/pages/natal/index' }) },
 

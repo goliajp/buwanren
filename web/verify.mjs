@@ -231,6 +231,11 @@ const tapPlot = async (id) => {
 }
 
 console.log('══ 移动网页版 · 动线验证 ══')
+/* 让【页面】也打这个后端，不只是这个脚本自己。
+   页面的基址是 config 算出来的 `http://localhost:6028`；两者恰好同一个地址，
+   所以从前没人发现「--api 管不着页面」。点香那一屏要另一个端口上的实例，
+   当场撞上（见 web/runtime/wx.js 里 request 那一段）。 */
+if (API) await p.addInitScript((b) => { globalThis.__API_BASE = b }, API)
 console.log(API ? '打真后端 ' + API : '用假服务端（拦 /v1/**，前端这一侧照真路走）')
 
 /* 打真后端时,用【真的入住路径】把两位请回家:
@@ -735,6 +740,86 @@ if (API) {
   await open('pages/incense/index', { id: 'prod-suhe-incense' })
   await p.waitForTimeout(1200)
   await shot('10-一味香')
+
+  /* ── 同步点香（设计册 E1）─────────────────────────────────────
+     这一屏一周只有二十五分钟能碰上，所以后端把「几点点香」做成了可配的
+     （UNMEI_INCENSE_WEEKDAY / HOUR / MINUTES）—— 那不是测试后门，
+     是运营本来就该能改的东西，顺带让它验得到。
+
+     这里验的是【不到点】那一支：跑验证的这台机器上多半不是周四晚九点，
+     而那正是设计册 10.7 说的那一条：**不做「本周还没开始」的占位页**。
+     到点那一支要另起一个把时刻设成「现在」的实例，
+     `bash scripts/verify-incense-night.sh` 一条命令跑完。 */
+  const 今晚 = await p.evaluate(() => globalThis.__router.current().data.tonight)
+  const 香屏2 = await text()
+  if (今晚) {
+    ok(香屏2.includes('一起点一支'), '今晚开着，那一槽是入口')
+
+    /* 到点那一档（`scripts/verify-incense-night.sh` 走的就是这里）。
+       它验的是这一屏【真的能用】：点得进、能点上、一人一次不叠加、
+       没香的人有出口。 */
+    await p.getByText('今晚九点已经开始了，一起点一支', { exact: true }).click()
+    await p.waitForFunction(
+      () => globalThis.__router.current().__route === 'pages/lighting/index',
+      null, { timeout: 15000 },
+    ).catch(() => {})
+    ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/lighting/index',
+       '那一槽点得进点香那一屏', await p.evaluate(() => globalThis.__router.current().__route))
+
+    await p.waitForTimeout(1500)
+    const 夜 = await text()
+    ok(夜.includes('今晚一起点一支'), '这一屏说的是「今晚一起点一支」')
+    ok(/已烧 \d\d:\d\d/.test(夜), '烧了多久在走', (夜.match(/已烧 \S+/) || [''])[0])
+    /* 没有顶栏没有 tab —— 全屏时刻（设计册 10.2）。
+       这一刻给任何导航都是打断。 */
+    ok(await p.evaluate(() => {
+      const bar = document.getElementById('wx-tabbar')
+      return !bar || getComputedStyle(bar).display === 'none'
+    }), '这一屏没有 tab 条　—— 全屏时刻')
+
+    const 点前 = await p.evaluate(() => globalThis.__router.current().data.count)
+    await p.getByText('我也点了', { exact: true }).click()
+    await p.waitForFunction(() => globalThis.__router.current().data.iLit === true,
+                            null, { timeout: 15000 }).catch(() => {})
+    ok(await p.evaluate(() => globalThis.__router.current().data.iLit) === true,
+       '点得上', String(await p.evaluate(() => globalThis.__router.current().data.count)))
+    const 点后 = await p.evaluate(() => globalThis.__router.current().data.count)
+    ok(点后 === (点前 || 0) + 1, '人数加了一个', `${点前} → ${点后}`)
+    /* 一个人一场只算一次。连点十下不该变成十个人 —— 按钮点完就禁着，
+       而且后端那一侧也拦（主键 + ON CONFLICT）。 */
+    ok(await p.evaluate(() => {
+      const b = [...document.querySelectorAll('button')].find((e) => /你点上了/.test(e.innerText))
+      return !!b && b.disabled
+    }), '点过之后那颗按钮就按不动了')
+
+    /* 「我没有香」通到苏合那儿 —— 不推销，只放这一个出口。 */
+    await p.getByText('我没有香', { exact: true }).click()
+    await p.waitForFunction(
+      () => globalThis.__router.current().__route === 'pages/incense/index',
+      null, { timeout: 15000 },
+    ).catch(() => {})
+    ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/incense/index',
+       '「我没有香」通到苏合那儿', await p.evaluate(() => globalThis.__router.current().__route))
+    await open('pages/lighting/index')
+    await p.waitForTimeout(1200)
+    await shot('11-同步点香')
+  } else {
+    /* 那一槽在矮屏上是收起的（弹性槽），所以这一条要在长屏上看。
+       在矮屏上读它，读到的永远是空 —— 那样这条断言测的是「槽收没收起」，
+       不是「它是不是入口」。 */
+    await p.setViewportSize({ width: 390, height: 844 })
+    await open('pages/incense/index', { id: 'prod-suhe-incense' })
+    await p.waitForTimeout(1500)
+    const 长屏香 = await text()
+    ok(长屏香.includes('周四晚九点'), '不到点时那一槽只是一句话，不是入口')
+    await p.setViewportSize({ width: 375, height: 667 })
+    /* 直接闯进那一屏也不该看到「大家在点」—— 这一屏不到点就不存在。 */
+    await open('pages/lighting/index')
+    await p.waitForTimeout(1600)
+    ok(await p.evaluate(() => globalThis.__router.current().__route) !== 'pages/lighting/index',
+       '不到点直接闯进点香那一屏，它自己退出去　—— 不做「还没开始」的占位页',
+       await p.evaluate(() => globalThis.__router.current().__route))
+  }
 
   await open('pages/village/index')
   await p.waitForTimeout(600)

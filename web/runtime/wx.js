@@ -177,13 +177,34 @@
         opt.fail({ errMsg: 'navigateBack:fail cannot navigate back at first page' })
       }
       if (opt.complete) opt.complete({})
-      return ok ? Promise.resolve() : Promise.reject(new Error('navigateBack: 退不回去了'))
+      /* 调用方给了 fail 就是「这件事我自己处理」—— 这时再返回一个
+         rejected Promise，没人接，就成了未处理拒绝，逐页扫描把它当成
+         「这一页抛错了」。真机上给了回调不会这样。
+         点香那一屏正是这么被判红的：它不到点时退出去，退不回去就回村子，
+         回得好好的，报出来却是一页抛了错。 */
+      if (ok) return Promise.resolve()
+      if (opt.fail) return Promise.resolve()
+      return Promise.reject(new Error('navigateBack: 退不回去了'))
     },
 
-    // ── 网络。走 fetch,基址由 web/config.js 给 ──
+    /* ── 网络。走 fetch ──────────────────────────────────────
+       页面里的基址是 `config/index.ts` 算出来的，开发环境写死
+       `http://localhost:6028`。也就是说【页面永远打 6028】，
+       跟验证脚本的 `--api` 无关 —— 那个参数从前只影响脚本自己发的请求
+       （种数据、取参数）。两者恰好是同一个地址，所以一直没人发现。
+
+       2026-08-27 撞上了：点香那一屏要一个「此刻正在烧」的后端，
+       只能另起一个实例（别的端口），而页面照旧问 6028，
+       拿到的永远是「不到点」。诊断打出来是 `__API_BASE=undefined`。
+
+       所以 `__API_BASE` 现在会【顶掉绝对地址的 origin】。
+       **与真机的差别**：真机上没有这回事，基址就是 config 算出来那个；
+       这是镜像多出来的一项能力 —— 把页面指到另一个后端。
+       不设它就跟从前一模一样。 */
     request(o) {
       const base = globalThis.__API_BASE || ''
-      const url = /^https?:/.test(o.url) ? o.url : base + o.url
+      let url = /^https?:/.test(o.url) ? o.url : base + o.url
+      if (base && /^https?:/.test(o.url)) url = o.url.replace(/^https?:\/\/[^/]+/, base)
       /* 头要【不分大小写】地合并。用普通对象 Object.assign 的话,
          默认的 'content-type' 与调用方的 'Content-Type' 是两个键都留下,
          fetch 再把同名头拼成 "application/json, application/json",

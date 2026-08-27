@@ -32,9 +32,14 @@
 
   <view class="note">一支烧二三十分钟 · 十支约够一个月</view>
 
-  <!-- 弹性槽 · 矮屏收起。**这一句不是入口** —— 同步点香（设计 E1）还没做，
-       做成可点的就是一条死链，而死链比没有更糟：它答应了一件做不到的事。 -->
-  <view class="flexslot slot-e1">周四晚九点，村里一起点一支</view>
+  <!-- 弹性槽 · 矮屏收起。**到点了才是入口** —— 不到点它只是一句话。
+       一条常年可点、点进去说「还没开始」的链接，等于把设计册明说不要做的
+       那张占位页换个地方摆出来。 -->
+  <view wx:if="{{tonight}}" class="flexslot slot-e1 slot-on"
+        bindtap="goTonight" hover-class="entry-hover" hover-stay-time="100">
+    <text>今晚九点已经开始了，一起点一支</text><text class="slot-arrow">›</text>
+  </view>
+  <view wx:else class="flexslot slot-e1">周四晚九点，村里一起点一支</view>
 
   <view class="acts">
     <button class="btn ghost" bindtap="onBack">回去</button>
