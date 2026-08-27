@@ -1,7 +1,17 @@
 <view class="page">
+  <!-- 标题是【买的那个东西】，不是状态词（设计册 M3 线框：
+       「婆婆的御守 / ¥99 · 8/18 下单 · 已付」）。原先反过来：
+       大字写着「已付」，而买的是什么要往下看一块。
+       状态跟金额、日期一样是这一单的属性，它们一行说完就够。
+
+       并成一行还腾出了地方：轨迹要能排到八条（10.3），
+       而八条轨迹加上原先那三块，这一屏装不下（实测超 157px）。 -->
   <view class="hd">
-    <view class="eyebrow">BUWANREN · ORDER</view>
-    <view class="title">{{statusText || '　'}}</view>
+    <view class="title">{{headline || '　'}}</view>
+    <!-- 取不到时不显示这一行：三个字段都空的话它会渲成「· 下单 ·」，
+         一串没有意义的分隔符。标题区照常在（不许整屏换错误页），
+         但不该在那儿摆一句假话。 -->
+    <view class="sub" wx:if="{{statusText}}">{{totalText}} · {{whenText}}下单 · {{statusText}}</view>
     <view class="hr"></view>
   </view>
 
@@ -13,7 +23,8 @@
   </view>
 
   <block wx:else>
-    <view class="lines">
+    <!-- 多件时才逐行列。单件的话标题已经说了是什么，再列一遍是重复。 -->
+    <view class="lines" wx:if="{{lines.length > 1}}">
       <view wx:for="{{lines}}" wx:key="name" class="line">
         <text class="line-name">{{item.name}}</text>
         <text class="line-qty">×{{item.qty}}</text>
@@ -21,8 +32,9 @@
       </view>
     </view>
 
-    <view class="sum">
-      <view class="sum-row"><text class="sum-k">合计</text><text class="sum-v">{{totalText}}</text></view>
+    <!-- 「已付」只在跟合计对不上时才说（部分退款、还没付）。
+         两个数一样时并排写两遍，读的人得比一比才知道没事。 -->
+    <view class="sum" wx:if="{{paidText !== totalText}}">
       <view class="sum-row"><text class="sum-k">已付</text><text class="sum-v">{{paidText}}</text></view>
     </view>
 
@@ -52,6 +64,9 @@
             <text class="trace-s">{{ev.说}}</text>
             <text class="trace-l" wx:if="{{ev.在}}">{{ev.在}}</text>
           </view>
+          <!-- 超过八条的那几条不显示，但要说一声（设计册 10.3）。
+               默不作声地少几条，跟「就这些」长得一模一样。 -->
+          <view class="trace-more" wx:if="{{traceMore > 0}}">更早还有 {{traceMore}} 条</view>
           <view class="trace-empty" wx:if="{{trace.length === 0}}">还没有轨迹</view>
         </block>
       </view>
@@ -63,7 +78,7 @@
          **订单的完成态不是「已签收」，是她住进村里** —— 包裹到了、人没住进来，
          这一单就停在半路，而扫码率是整条链上最敏感的一个数。
          所以它是这一屏的主按钮，排在退款前面。 -->
-    <view class="cta" wx:if="{{toScan}}">
+    <view class="cta cta-wake" wx:if="{{toScan}}">
       <button class="btn" bindtap="onWake" disabled="{{waking}}">
         {{waking ? '唤着……' : '收到了，去扫开它'}}
       </button>
@@ -91,6 +106,7 @@
     <!-- 弹性槽（设计册 M3）：说清这一单什么时候才算真的完成 -->
     <view class="flexslot slot-done" wx:if="{{toScan}}">扫开之后她住进村里 —— 那才是这单真正完成</view>
 
-    <view class="foot-hint">支付要在微信里完成 · 移动网页版上到这一步为止</view>
+    <!-- 进弹性槽：这是给在网页版上验的人看的说明，不是买家要读的 -->
+    <view class="foot-hint flexslot">支付要在微信里完成 · 移动网页版上到这一步为止</view>
   </block>
 </view>

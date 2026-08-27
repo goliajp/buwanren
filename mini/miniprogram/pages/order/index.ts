@@ -45,7 +45,12 @@ Page({
     /** 取物流失败时说一句 —— 空数组是「没有包裹」，不是「取不到」 */
     shipErr: '',
     /** 展开的那件包裹的轨迹 */
+    /** 标题：买的那个东西（设计册 M3）。多件时「第一件 等 N 件」 */
+    headline: '',
+    whenText: '',
     traceOf: '',
+    /** 超出八条的那几条有几条。0 就是没超（设计册 10.3） */
+    traceMore: 0,
     trace: [] as Array<{ 时间: string; 说: string; 在: string }>,
     refunding: false,
     refundKey: '',
@@ -99,6 +104,13 @@ Page({
             sub: money(l.line_subtotal_minor, o.currency),
           })),
           toScan: !!d.to_scan,
+          /* 标题用【下单那一刻的快照名】，跟「我买过的」那一列同一个来源 ——
+             两处叫法不一样的话，点进来会以为点错了。 */
+          headline: d.lines.length
+            ? ((d.lines[0].sku_name || d.lines[0].sku_id)
+               + (d.lines.length > 1 ? ' 等 ' + d.lines.length + ' 件' : ''))
+            : '单 ' + this.data.id.slice(0, 8),
+          whenText: (String(o.created_at || '')).slice(5, 10).replace('-', '/'),
         })
       },
       (e: ApiError) => this.setData({ loading: false, err: e.message || '取不到这一张' }),
@@ -150,11 +162,18 @@ Page({
   onTrace(e: WechatMiniprogram.BaseEvent) {
     const sid = String((e.currentTarget.dataset as Record<string, unknown>).sid || '')
     if (!sid) return
-    if (this.data.traceOf === sid) { this.setData({ traceOf: '', trace: [] }); return }
+    if (this.data.traceOf === sid) { this.setData({ traceOf: '', trace: [], traceMore: 0 }); return }
     commerceApi.trace(this.data.id, sid).then(
       (t) => this.setData({
         traceOf: sid,
-        trace: (t.trace || []).map((ev: TraceEvent) => ({
+        /* 一屏八条，超了折叠（设计册 10.3）。理由它自己写了：
+           「实测轨迹很少超过六条」—— 八条是安全上限，不是随手定的数。
+
+           **只留最近八条，更早的照实说一句**，不给展开：
+           展开会让这一屏滚，而 10.3 的例外只留给「用户就是来读长东西的」
+           那种页面（报告正文、签词全文）。一单不是来读轨迹全文的。 */
+        traceMore: Math.max(0, (t.trace || []).length - 8),
+        trace: (t.trace || []).slice(0, 8).map((ev: TraceEvent) => ({
           时间: (ev.event_at || '').replace('T', ' ').slice(5, 16),
           说: ev.description || 物流说法[ev.event_kind] || ev.event_kind,
           在: ev.location || '',
