@@ -629,7 +629,18 @@ if (API) {
          '这一单里有没扫开的御守时，单子那一屏知道',
          String(await p.evaluate(() => globalThis.__router.current().data.toScan)))
       const 单屏 = await text()
+      await shot('12-一单')
       ok(单屏.includes('收到了，去扫开它'), '主按钮是「收到了，去扫开它」')
+      /* 标题是买的那个东西，不是状态词（设计册 M3 线框）。
+         原先大字写着「已付」，而买的是什么要往下看一块。 */
+      const 单头 = await p.evaluate(() => ({
+        title: (document.querySelector('.hd .title') || {}).innerText || '',
+        sub: (document.querySelector('.hd .sub') || {}).innerText || '',
+      }))
+      ok(单头.title && !/^(待付|已付|完成|已取消|备着)$/.test(单头.title.trim()),
+         '一单的标题是买的那个东西，不是状态词', 单头.title)
+      ok(/下单/.test(单头.sub) && /(待付|已付|完成|备着)/.test(单头.sub),
+         '金额、日期、状态并成一行', 单头.sub)
       ok(单屏.includes('那才是这单真正完成'), '槽里说清了这一单什么时候才算完')
       /* 主按钮不在槽里 —— 它是这一屏的主按钮，矮屏上也必须在。
          把它放进槽等于说「放不下就算了」，而这一下正是整条链最要紧的一步。 */
@@ -1862,6 +1873,19 @@ console.log('\n── 一屏放得下吗（iPhone SE · 内容区 597）──')
       切: () => globalThis.__router.current().setData({ status: 'paid', toScan: true, err: '' }),
       凭据: '收到了，去扫开它',
       为什么: 'M3 那颗主按钮加一槽话，是这一屏最高的一种形态' },
+    { 页: 'pages/order/index', 名: '轨迹很长',
+      切: () => {
+        /* 塞十二条 —— 比设计定的八条上限多四条。轨迹是承运商推来的，
+           条数不归我们定，所以这一屏得对「比预期多」有个交代。 */
+        const 条 = Array.from({ length: 12 }, (_, i) => ({
+          时间: `08-${String(10 + i).padStart(2, '0')} 09:00`, 说: '到了一站', 在: '某某转运中心',
+        }))
+        const c = globalThis.__router.current()
+        c.setData({ traceOf: 'shp-x', trace: 条.slice(0, 8), traceMore: 条.length - 8,
+                    shipments: [{ id: 'shp-x', statusText: '在路上', tracking_no: 'X1' }], err: '' })
+      },
+      凭据: '更早还有 4 条',
+      为什么: '10.3：一屏八条，超了折叠 —— 全渲的话这一屏会被轨迹顶出去' },
     { 页: 'pages/me/index', 名: '一笔都没买过',
       切: () => globalThis.__router.current().setData({
         recent: null, recentEmpty: true, recentNote: '', orderText: '还没有', nextStop: '' }),
