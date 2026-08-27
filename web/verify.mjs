@@ -1862,6 +1862,24 @@ console.log('\n── 一屏放得下吗（iPhone SE · 内容区 597）──')
       切: () => globalThis.__router.current().setData({ status: 'paid', toScan: true, err: '' }),
       凭据: '收到了，去扫开它',
       为什么: 'M3 那颗主按钮加一槽话，是这一屏最高的一种形态' },
+    { 页: 'pages/me/index', 名: '一笔都没买过',
+      切: () => globalThis.__router.current().setData({
+        recent: null, recentEmpty: true, recentNote: '', orderText: '还没有', nextStop: '' }),
+      凭据: '还没买过什么',
+      为什么: '空状态是这一屏的一半 —— 它要指出「哪儿能有」（设计册 10.7）' },
+    { 页: 'pages/orders/index', 名: '一单都没有',
+      切: () => globalThis.__router.current().setData({
+        loading: false, err: '', total: 0, items: [], page: [], pageCount: 0 }),
+      凭据: '还没买过什么',
+      为什么: 'M2 的空状态：不说「没有订单」，说东西长在人身上、去村里看看' },
+    { 页: 'pages/subs/index', 名: '一个都没订',
+      切: () => globalThis.__router.current().setData({ loading: false, err: '', items: [] }),
+      凭据: '还没有订着的',
+      为什么: '10.7 说得最直白：M5 的空状态【就是这一屏的主设计】' },
+    { 页: 'pages/incense/index', 名: '还没建本命',
+      切: () => globalThis.__router.current().setData({ line: '' }),
+      凭据: '先把生辰填了',
+      为什么: '她不知道你缺什么时说的那一句，比配错一味重要' },
     { 页: 'pages/villager/index', 名: '还没请回来',
       切: () => {
         const c = globalThis.__router.current()
