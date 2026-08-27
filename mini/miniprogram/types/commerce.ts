@@ -101,6 +101,9 @@ export interface OrderDetail {
   /** 这一单里还有没有没扫开的御守（设计册 M3）。
    *  订单的完成态不是「已签收」，是她住进村里。 */
   to_scan: boolean
+  /** 这一单里买的册子。御守的完成态是住进村里，报告的完成态是**你读到了**。
+   *  `awaiting_natal` 的也在里面 —— 那一屏要说得出「还差你的生辰」。 */
+  reports: Array<{ id: string; status: string; order_line_id: string }>
 }
 
 export interface CreatedOrder {

@@ -76,6 +76,29 @@ async fn create(
         tracing::warn!(natal_id = %id, "本命建了但盘没算出来：{}", e.0);
     }
 
+    /* 有人买了报告却还没填生辰 —— 一半的买家是这样（量过：async_compute
+       的行里只有 46% 下单时已有本命）。生辰刚补上，那些等着的册子就该出。
+
+       在这里做，而不是等买家下次进订单页时懒加载：那样「什么时候能读」
+       取决于他走没走到那一屏，而他多半是从这里直接退出去的。
+
+       补不出来【不挡下创建】—— 本命是他刚做的事，册子是上一笔生意。 */
+    match unmei_app::report::fill_awaiting(&st.db, &c.sub, &id).await {
+        Ok(lines) => {
+            for line_id in &lines {
+                // 册子出了，订单也得跟着走完 —— 否则它永远停在 fulfilling，
+                // 买家看到的还是「进行中」
+                if let Err(e) = unmei_app::fulfillment::apply_report_ready(&st.db, line_id).await {
+                    tracing::warn!(line_id, "报告出了但订单没推动：{e}");
+                }
+            }
+            if !lines.is_empty() {
+                tracing::info!(natal_id = %id, "生辰补上了，接着出了 {} 册报告", lines.len());
+            }
+        }
+        Err(e) => tracing::warn!(natal_id = %id, "等着的报告没补上：{e}"),
+    }
+
     Ok(Json(Natal {
         id, user_id: c.sub, label,
         year: req.year, month: req.month, day: req.day,

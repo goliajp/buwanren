@@ -135,6 +135,9 @@ await p.addInitScript(() => {
 const errs = []
 p.on('pageerror', (e) => errs.push(String(e).split('\n')[0]))
 
+/** 种下的那两册：状态 → { report, order }。多状态那一段拿它切换 */
+const 册们 = {}
+
 /* ── 打真后端时先备一份「住着的人」──────────────────────────────
    走的是【真的入住路径】:在库里发一张御守凭据,再让页面调 /v1/omamori/scan。
    不直接往 villager_residency 插一行 —— 那样绕过了入住这件事本身,
@@ -419,11 +422,53 @@ if (API) {
   }, API)
   const 单 = 单们[0] || null
   if (单) 要参数['pages/order/index'] = { id: 单 }
+
+  /* ── 那一册（M2「看 ›」）──────────────────────────────────────
+     `sku-naji-single` 的 fulfillment_kind 是 async_compute，所以上面
+     那六张单本来就该出册子 —— 但要付了钱才出，而付款【只有真机有】。
+
+     所以这里跟 mintCredential 同一个路子：把册子种进库，页面照样走
+     真的 `/v1/reports/:id`。跳过的只有「付钱」这一跳，报告怎么画、
+     还差生辰那半屏怎么说，验的都是真的。
+
+     种两册，因为这一页有【两种状态】而它们长得完全不一样：
+       ready          —— 六页都在
+       awaiting_natal —— 一页都没有，取而代之是「还差你的生辰」+ 去填的路
+     只种 ready 的话，后一半会靠从不运行保持绿色，而它是一半买家的实际遭遇。 */
+  if (单们.length >= 2) {
+    const uid = sql1(`SELECT user_id FROM order_record WHERE id='${单们[0]}'`)
+    // 盘用库里现成的真盘 —— 画出来的四柱、用神、大运都是真算出来的
+    const 盘 = sql1(`SELECT natal_id FROM natal_summary WHERE raw_chart IS NOT NULL LIMIT 1`)
+    if (uid && 盘) {
+      for (const [i, st] of ['ready', 'awaiting_natal'].entries()) {
+        const oid = 单们[i]
+        const line = sql1(`SELECT id FROM order_line WHERE order_id='${oid}' LIMIT 1`)
+        if (!line) continue
+        const rid = 'rpt-verify-' + Math.random().toString(36).slice(2, 10)
+        const 有盘 = st === 'ready'
+        run(`INSERT INTO report (id, user_id, order_line_id, kind, status, natal_id,
+               natal_snapshot_json, chart_json, mingli_version, ready_at)
+             SELECT '${rid}', '${uid}', '${line}', 'bazi_deep', '${st}',
+               ${有盘 ? 's.natal_id' : 'NULL'},
+               ${有盘 ? `jsonb_build_object('label','验','year',1998,'month',3,'day',5,'hour',14,'minute',30,'birth_city','成都')` : 'NULL'},
+               ${有盘 ? 's.raw_chart' : 'NULL'}, ${有盘 ? 's.mingli_version' : 'NULL'},
+               ${有盘 ? 'NOW()' : 'NULL'}
+             FROM natal_summary s WHERE s.natal_id='${盘}'
+             ON CONFLICT (order_line_id) DO NOTHING`)
+        const 真 = sql1(`SELECT id FROM report WHERE order_line_id='${line}'`)
+        if (真) {
+          册们[st] = { report: 真, order: oid }
+          // 逐页那一趟开的是 ready 那册 —— 六页都在，版式才量得到
+          if (有盘) 要参数['pages/report/index'] = { id: 真 }
+        }
+      }
+    }
+  }
 }
 
 for (const r of routes) {
   errs.length = 0
-  if (['pages/product/index', 'pages/order/index', 'pages/villager/index', 'pages/confirm/index'].includes(r) && !要参数[r]) {
+  if (['pages/product/index', 'pages/order/index', 'pages/villager/index', 'pages/confirm/index', 'pages/report/index'].includes(r) && !要参数[r]) {
     console.log(`  · 跳过 ${r.replace('pages/', '').replace('/index', '')}：`
       + '取不到真数据（假服务端 / 目录里没有那个 sku）—— 这一页【没验】')
     continue
@@ -724,6 +769,109 @@ if (API) {
          String(await p.evaluate(() => globalThis.__router.current().data.toScan)))
     }
   }
+
+  /* ── 那一册（设计册 M2「看 ›」的落点）──────────────────────
+     ¥199 的报告在这之前是这样的：付了钱，行标 done，`fulfillment_ref`
+     写一句 `{"mocked": true}` —— 订单显示「已完成」，而买家手上什么都没有。
+
+     这一段验的是「拿得到」：从单子上点得进去、六页翻得动、每一页写得出
+     自己的数是哪儿来的。翻页是这一页的全部，所以**每个翻法都真按一遍** ——
+     页签、下一页、上一页各按到，不然那几个处理器会靠从不运行保持绿色。 */
+  if (册们.ready) {
+    // 一 · 从单子上点进去。册子是这一单的货，不是一行附注
+    await open('pages/order/index', { id: 册们.ready.order })
+    await p.waitForFunction(() => !!globalThis.__router.current().data.report,
+                            null, { timeout: 15000 }).catch(() => {})
+    const 单上 = await text()
+    ok(单上.includes('读你的那一册'), '买了报告的单子上，主按钮是「读你的那一册」')
+    await p.getByText('读你的那一册', { exact: true }).click()
+    await p.waitForFunction(() => globalThis.__router.current().__route === 'pages/report/index',
+                            null, { timeout: 15000 }).catch(() => {})
+    ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/report/index',
+       '从单子上点得进那一册',
+       await p.evaluate(() => globalThis.__router.current().__route))
+
+    // 二 · 头一页是四柱，而且是【真盘】—— 干支不是占位符
+    await p.waitForFunction(() => (globalThis.__router.current().data.tabs || []).length > 0,
+                            null, { timeout: 15000 }).catch(() => {})
+    const 册 = await p.evaluate(() => globalThis.__router.current().data)
+    ok((册.tabs || []).length >= 4, '这一册翻得出好几页', String((册.tabs || []).length))
+    ok(册.page &&册.page.key === 'pillars', '头一页是四柱', 册.page && 册.page.key)
+    const 柱 = (册.page && 册.page.pillars) || []
+    ok(柱.length === 4 && 柱.every((x) => /^[\u4e00-\u9fa5]{2}$/.test(x.ganzhi)),
+       '四根柱子都是真干支　—— 不是占位',
+       柱.map((x) => x.ganzhi).join(' '))
+    ok(柱.some((x) => (x.hidden || []).length > 0), '藏干也在　—— 后面几页都从这儿来')
+
+    // 三 · 每一页都写得出自己的数是哪儿来的（设计册 10.8）。
+    //      一页没有出处，读的人就没法追 —— 那就跟编的没区别
+    let 缺出处 = []
+    for (let i = 0; i < 册.tabs.length; i++) {
+      await p.evaluate((k) => globalThis.__router.current().show(k), i)
+      const pg = await p.evaluate(() => globalThis.__router.current().data.page)
+      if (!pg || !pg.source) 缺出处.push(pg ? pg.title : '第' + i + '页')
+    }
+    ok(缺出处.length === 0, '每一页都写着这一页的数出自哪儿', 缺出处.join(' '))
+
+    // 四 · 翻页三种走法各按一遍
+    await p.evaluate(() => globalThis.__router.current().show(0))
+    await p.getByText('下一页 ›', { exact: true }).click()
+    await p.waitForTimeout(200)
+    ok(await p.evaluate(() => globalThis.__router.current().data.at) === 1,
+       '「下一页」翻得动', String(await p.evaluate(() => globalThis.__router.current().data.at)))
+    await p.getByText('‹ 上一页', { exact: true }).click()
+    await p.waitForTimeout(200)
+    ok(await p.evaluate(() => globalThis.__router.current().data.at) === 0,
+       '「上一页」翻得回来', String(await p.evaluate(() => globalThis.__router.current().data.at)))
+    // 页签是这一页的价值所在:想看用神就点用神,不用一路翻过去
+    const 末 = 册.tabs.length - 1
+    await p.locator('.tab').nth(末).click()
+    await p.waitForTimeout(200)
+    ok(await p.evaluate(() => globalThis.__router.current().data.at) === 末,
+       '点页名直接跳得过去　—— 不用一路翻',
+       String(await p.evaluate(() => globalThis.__router.current().data.at)))
+    await shot('20-那一册')
+
+    // 五 · 大运那页要标出【现在走到哪一格】。十格干支谁都排得出，
+    //      「你在这一格」才是买家要看的那一句
+    const 大运 = 册.tabs.indexOf('大运')
+    if (大运 >= 0) {
+      await p.evaluate((k) => globalThis.__router.current().show(k), 大运)
+      const rows = await p.evaluate(() => globalThis.__router.current().data.page.rows || [])
+      ok(rows.some((r) => r.now === true), '大运那页标着现在走到哪一格',
+         rows.map((r) => r.k + (r.now ? '←' : '')).join(' '))
+    }
+  }
+
+  /* 另一半:册子还没出的那种。**一半的买家是这样** ——
+     量过:async_compute 的行里只有 46% 的买家下单时已经有本命。
+     所以这不是错误页,它要说清还差什么、去哪儿填。 */
+  if (册们.awaiting_natal) {
+    await open('pages/order/index', { id: 册们.awaiting_natal.order })
+    await p.waitForFunction(() => !!globalThis.__router.current().data.report,
+                            null, { timeout: 15000 }).catch(() => {})
+    ok((await text()).includes('还差你的生辰'),
+       '册子没出的单子上说得出还差什么　—— 不显示成「已完成」')
+    await open('pages/report/index', { id: 册们.awaiting_natal.report })
+    await p.waitForFunction(() => globalThis.__router.current().data.status === 'awaiting_natal',
+                            null, { timeout: 15000 }).catch(() => {})
+    const 等屏 = await text()
+    ok(等屏.includes('这一册还差你的生辰'), '还没出的那一册，开出来说的是还差什么')
+    ok(!等屏.includes('取不到') && !等屏.includes('出错'),
+       '它不是一张错误页　—— 是这一单真实的状态')
+    await shot('21-还差生辰')
+    // 出路要真走得通:说了「去填」就得真的到得了填生辰那一屏
+    await p.getByText('去填生辰', { exact: true }).click()
+    await p.waitForFunction(() => globalThis.__router.current().__route === 'pages/natal/index',
+                            null, { timeout: 15000 }).catch(() => {})
+    ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/natal/index',
+       '「去填生辰」真的到得了填生辰那一屏',
+       await p.evaluate(() => globalThis.__router.current().__route))
+  }
+  // 收拾现场:上面停在填生辰那一屏,而下一段的 moveIn 要从村子那一屏起手。
+  // 不回去的话它会等一颗不在这一屏上的按钮,三十秒后超时 —— 而报出来的
+  // 是「点不到扫御守」,跟真的点不到长得一模一样
+  await open('pages/village/index')
 
   /* ── 香在苏合家里卖，不在铺子里（设计册 H5 / 10.8）────────────
      「东西长在卖它的人身上」是这个产品的一条论点。在这之前它只有御守
@@ -1806,7 +1954,7 @@ console.log('\n── 一屏放得下吗（iPhone SE · 内容区 597）──')
   const 台账 = JSON.parse(readFileSync('web/oversize-pages.json', 'utf8'))
   const 量到 = {}
   for (const r of routes) {
-    if (['pages/product/index', 'pages/order/index', 'pages/villager/index', 'pages/confirm/index'].includes(r) && !要参数[r]) {
+    if (['pages/product/index', 'pages/order/index', 'pages/villager/index', 'pages/confirm/index', 'pages/report/index'].includes(r) && !要参数[r]) {
       console.log(`  · ${r.replace('pages/', '').replace('/index', '')} 跳过：这一趟没有真数据（不计入通过）`)
       continue
     }
@@ -1881,8 +2029,12 @@ console.log('\n── 一屏放得下吗（iPhone SE · 内容区 597）──')
           时间: `08-${String(10 + i).padStart(2, '0')} 09:00`, 说: '到了一站', 在: '某某转运中心',
         }))
         const c = globalThis.__router.current()
+        /* 顺便把这一单切成【已付】。一张能有十二条轨迹的单不可能还没付钱 ——
+           没付钱不会发货。不切的话「已付≠合计」那一块会一起显示，
+           而这一屏量到的就成了一个现实中不存在的组合。 */
         c.setData({ traceOf: 'shp-x', trace: 条.slice(0, 8), traceMore: 条.length - 8,
-                    shipments: [{ id: 'shp-x', statusText: '在路上', tracking_no: 'X1' }], err: '' })
+                    shipments: [{ id: 'shp-x', statusText: '在路上', tracking_no: 'X1' }],
+                    status: 'paid', statusText: '已付', paidText: c.data.totalText, err: '' })
       },
       凭据: '更早还有 4 条',
       为什么: '10.3：一屏八条，超了折叠 —— 全渲的话这一屏会被轨迹顶出去' },

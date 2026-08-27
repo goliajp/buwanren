@@ -1,0 +1,87 @@
+/* 一册六页，不滚动（设计册 10.3）。内容区固定，页签贴底 —— 翻页时
+   标题和页签不动，动的只有中间那块，读起来像翻纸而不是刷网页 */
+.page { display: flex; flex-direction: column; min-height: 100vh; }
+
+.hd { padding: 14rpx 0 10rpx; }
+.hd .title { font-size: 52rpx; line-height: 1.15; }
+.hd .sub { font-size: 24rpx; color: var(--ink-faint); margin-top: 10rpx; letter-spacing: 0.04em; }
+
+.loading, .err { padding: 40rpx 0; color: var(--ink-faint); font-size: 26rpx; }
+.err-msg { margin-bottom: 20rpx; }
+
+/* 还差生辰那一屏 */
+.wait { padding: 60rpx 0 0; }
+.wait-line { font-size: 36rpx; color: var(--ink); line-height: 1.6; }
+.wait-note { margin-top: 20rpx; font-size: 26rpx; color: var(--ink-mid); line-height: 1.9; }
+
+.pg { flex: 1; padding-top: 12rpx; }
+.pg-hd { display: flex; align-items: baseline; }
+.pg-title { font-size: 40rpx; color: var(--ink); }
+.pg-lead { margin-left: 16rpx; font-size: 24rpx; color: var(--ink-mid); }
+.pg-note { margin-top: 10rpx; font-size: 22rpx; color: var(--stone-label); line-height: 1.7; }
+
+/* 四柱 */
+.pillars { margin-top: 24rpx; }
+.pillar {
+  display: flex; align-items: center; flex-wrap: wrap;
+  padding: 16rpx 0; border-bottom: 1rpx solid var(--stone-line-x);
+}
+.p-pos { width: 44rpx; font-size: 24rpx; color: var(--stone-label); }
+.p-gz {
+  font-family: "Songti SC", serif; font-size: 42rpx; color: var(--ink);
+  letter-spacing: 0.12em; width: 130rpx;
+}
+.p-side { flex: 1; }
+.p-god { display: block; font-size: 26rpx; color: var(--ink-mid); }
+.p-meta { display: block; font-size: 20rpx; color: var(--stone-label); margin-top: 4rpx; }
+.p-hidden { width: 100%; margin-top: 8rpx; padding-left: 174rpx; }
+.p-h {
+  display: inline-block; margin-right: 14rpx;
+  font-size: 20rpx; color: var(--ink-faint);
+}
+
+/* 五行条 */
+.bars { margin-top: 26rpx; }
+.bar { display: flex; align-items: center; margin-bottom: 14rpx; }
+.bar-k { width: 44rpx; font-size: 26rpx; color: var(--ink-mid); }
+.bar-track { flex: 1; height: 12rpx; background: var(--paper-inset); border-radius: 6rpx; overflow: hidden; }
+.bar-fill { height: 100%; background: var(--ink); }
+.bar-v { width: 56rpx; text-align: right; font-size: 22rpx; color: var(--stone-label); }
+
+.rows { margin-top: 24rpx; }
+.row {
+  display: flex; align-items: baseline;
+  padding: 13rpx 0; border-bottom: 1rpx solid var(--stone-line-x);
+}
+.row-k { width: 110rpx; font-size: 24rpx; color: var(--stone-label); }
+.row-v { flex: 1; font-size: 28rpx; color: var(--ink); }
+/* 大运里的当前那格 —— 十格干支谁都排得出，「你在这一格」才是要看的 */
+.row-now .row-v { font-weight: 600; }
+.row-now-tag {
+  font-size: 20rpx; color: var(--paper); background: var(--ink);
+  padding: 2rpx 10rpx; border-radius: 3rpx;
+}
+
+.quote {
+  margin-top: 24rpx; padding: 18rpx 20rpx;
+  background: var(--paper-inset); border-radius: 4rpx;
+  font-size: 25rpx; color: var(--ink-mid); line-height: 1.9;
+}
+
+.src { margin-top: 20rpx; font-size: 20rpx; color: var(--stone-label); }
+
+/* 页名一排。当前那个反白 —— 六页里在哪儿一眼看得出 */
+.tabs {
+  display: flex; margin-top: auto; padding-top: 20rpx;
+  border-top: 1rpx solid var(--stone-line-x);
+}
+.tab {
+  flex: 1; text-align: center; font-size: 22rpx;
+  color: var(--stone-label); padding: 8rpx 0;
+}
+.tab-on { color: var(--ink); border-bottom: 2rpx solid var(--ink); }
+
+.acts { display: flex; align-items: center; padding: 20rpx 0 24rpx; }
+.turn { font-size: 26rpx; color: var(--ink-mid); }
+.turn-off { color: var(--stone-line); }
+.turn-back { flex: 1; text-align: center; font-size: 24rpx; color: var(--stone-label); }
