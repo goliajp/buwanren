@@ -1,0 +1,96 @@
+/* 那一册 —— 买了报告之后手里拿到的东西（设计册 M2「看 ›」的落点）。
+ *
+ * 这一页不滚动（设计册 10.3）。六页各占一屏，底下一排页名，
+ * 想看用神就直接点「用神」—— 比一路滑下去找快。
+ *
+ * 页序、标题、每页出处都是后端排好的：那是产品文案，改一句不该重新发版。
+ * 所以这一侧只有两个模板 —— 四柱那页（这册的门面，专门画）和其余页。
+ * 后端加一页，这里不动。
+ *
+ * 册子还没出的那一半（买家先买后填生辰）不是错误页：它是这一单真实的
+ * 状态，所以照样有标题、有说明、有一条「去填生辰」的路（设计册 10.7）。
+ */
+
+import { reportApi } from '../../services/report'
+import type { Report, ReportPage } from '../../services/report'
+import type { ApiError } from '../../services/api'
+
+Page({
+  data: {
+    id: '',
+    loading: true,
+    err: '',
+    /** awaiting_natal 时这一屏说的是「还差你的生辰」，不是报告 */
+    status: '' as '' | 'ready' | 'awaiting_natal',
+    whose: '',
+    birthLine: '',
+    /** 页名那一排 */
+    tabs: [] as string[],
+    at: 0,
+    page: null as ReportPage | null,
+    /** 五行条要按最大值折算成百分比 —— 47 跟 8 画一样长的话这一页白画 */
+    bars: [] as Array<{ k: string; v: number; pct: number }>,
+  },
+
+  onLoad(q: Record<string, string>) {
+    this.setData({ id: q.id || '' })
+    this.load()
+  },
+
+  async load() {
+    if (!this.data.id) {
+      this.setData({ loading: false, err: '没说是哪一册' })
+      return
+    }
+    this.setData({ loading: true, err: '' })
+    try {
+      const r: Report = await reportApi.one(this.data.id)
+      const tabs = (r.pages || []).map((p) => p.title)
+      this.setData({
+        loading: false,
+        status: r.status,
+        whose: r.whose || '',
+        birthLine: r.birth_line || '',
+        tabs,
+        at: 0,
+      })
+      this.pages = r.pages || []
+      this.show(0)
+    } catch (e) {
+      this.setData({ loading: false, err: (e as ApiError).message || '取不到这一册' })
+    }
+  },
+
+  /** 后端给的那几页。放在 this 上而不是 data 里：一次只画一页，
+   *  整册塞进 data 会让每次翻页都把六页重新过一遍 setData */
+  pages: [] as ReportPage[],
+
+  show(i: number) {
+    const p = this.pages[i]
+    if (!p) return
+    // 条按这一页里最大的那根折算。用固定分母（比如 100）的话，
+    // 五行都在 20 上下时六根条一样长，等于没画
+    const max = Math.max(1, ...(p.bars || []).map((b) => b.v))
+    this.setData({
+      at: i,
+      page: p,
+      bars: (p.bars || []).map((b) => ({ ...b, pct: Math.round((b.v / max) * 100) })),
+    })
+  },
+
+  onTab(e: WechatMiniprogram.BaseEvent) {
+    this.show(Number(e.currentTarget.dataset.i))
+  },
+
+  onPrev() { if (this.data.at > 0) this.show(this.data.at - 1) },
+  onNext() { if (this.data.at < this.pages.length - 1) this.show(this.data.at + 1) },
+
+  /** 还差生辰那一屏的出路：去填 */
+  onFill() {
+    wx.navigateTo({ url: '/pages/natal/index' })
+  },
+
+  onBack() {
+    wx.navigateBack({ fail: () => wx.switchTab({ url: '/pages/me/index' }) })
+  },
+})
