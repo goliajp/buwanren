@@ -94,6 +94,7 @@ async fn main() -> anyhow::Result<()> {
         .merge(routes::config::router())
         .merge(routes::commerce::router())
         .merge(routes::village::router())
+        .merge(routes::incense::router())
         .merge(routes::health::router())
         .layer(CorsLayer::very_permissive())
         .layer(TraceLayer::new_for_http())
