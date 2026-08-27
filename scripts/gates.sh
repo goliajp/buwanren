@@ -213,6 +213,11 @@ if curl -sf http://127.0.0.1:6028/v1/health >/dev/null 2>&1; then
   gate "要登录的接口挡得住吗" . python3 scripts/check-auth-guards.py
   gate "甲的东西乙碰得到吗" . python3 scripts/check-cross-user.py
   gate "钱的接口要不要幂等键" . bash scripts/check-idem-required.sh
+  # 前端声明的字段，真响应里到底有没有。上一支（check-api-shape）比的是
+  # 源码里 `json!({…})` 的键，够不着 `map_rows` ——而钱那条链整片走的是它。
+  # 2026-08-28 就漏在这儿：`OrderLine.sku_name` 前端有、响应没有，
+  # 于是每一单的商品名都显示成 sku_id，不报错、不留白。
+  gate "声明的字段真响应里有吗" . python3 scripts/check-api-shape-live.py
   # 边界语义：该拒的拒没拒、该 404 的 404 没有、该落库的字段落没落。
   # 要两个服务都在，所以放在这里。
   if curl -sf http://127.0.0.1:6029/admin/health >/dev/null 2>&1; then
@@ -226,6 +231,7 @@ else
   skip "要登录的接口挡得住吗" "后端（:6028）没起，跳过 —— 这一项【没验】"
   skip "甲的东西乙碰得到吗"   "同上"
   skip "钱的接口要不要幂等键" "同上"
+  skip "声明的字段真响应里有吗" "同上"
   skip "语义 · 边界那一半"    "同上"
 fi
 # 枚举声明的取值 vs 库里的 CHECK。要库，不要 API。
