@@ -18,17 +18,26 @@
   <block wx:else>
     <!-- 空不是问题，说不清哪儿能有才是 -->
     <view class="empty" wx:if="{{items.length === 0}}">
-      <view class="empty-t">眼下一位也请不来</view>
-      <view class="empty-sub">四十位都还在路上 —— 有人上架会告诉你</view>
+      <view class="empty-t">一位也没数到</view>
+      <view class="empty-sub">名册取不到 —— 待会儿再看看</view>
     </view>
 
+    <!-- 四十位都列出来，在卖的能点、没上架的照实说（设计册 10.8）。
+         只列在卖的那几位，读的人会以为世上只有那几位 —— 那是拿别人顶上。 -->
     <view class="list">
-      <view wx:for="{{page}}" wx:key="id" class="item"
+      <view wx:for="{{page}}" wx:key="id"
+            class="item {{item.onSale ? '' : 'item-off'}}"
             data-id="{{item.id}}" bindtap="onTap"
-            hover-class="item-hover" hover-stay-time="100">
-        <view class="item-name">{{item.name}}</view>
-        <view class="item-sub" wx:if="{{item.sub_title}}">{{item.sub_title}}</view>
-        <view class="item-meta">请他来 <text class="arrow">›</text></view>
+            hover-class="{{item.onSale ? 'item-hover' : ''}}" hover-stay-time="100">
+        <!-- 两行，不是三行（设计册 V4 线框就是两行）：
+             名 + 动作一行，副题一行。一页五位是「不上下滚动」的落点，
+             三行的话第五位会把这一屏顶出去 —— 实测超 97px。 -->
+        <view class="item-top">
+          <text class="item-name">{{item.name}}</text>
+          <text class="item-meta" wx:if="{{item.onSale}}">请他来 ›</text>
+          <text class="item-meta off" wx:else>未上架</text>
+        </view>
+        <view class="item-sub" wx:if="{{item.sub}}">{{item.sub}}</view>
       </view>
     </view>
 
