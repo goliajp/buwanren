@@ -37,6 +37,7 @@ pub mod payment;
 pub mod promotion;
 pub mod recon;
 pub mod refund;
+pub mod report;
 pub mod residency;
 pub mod risk;
 pub mod shipment;

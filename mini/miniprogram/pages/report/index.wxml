@@ -1,0 +1,91 @@
+<view class="page">
+  <!-- 标题是这一册算的是谁，不是「八字深度报告」——
+       买家知道自己买了什么，他想确认的是「这算的是我吗」 -->
+  <view class="hd">
+    <view class="title">{{whose || '你的那一册'}}</view>
+    <view class="sub" wx:if="{{birthLine}}">{{birthLine}}</view>
+    <view class="hr"></view>
+  </view>
+
+  <view class="loading" wx:if="{{loading}}">翻着……</view>
+
+  <view class="err" wx:elif="{{err}}">
+    <view class="err-msg">{{err}}</view>
+    <button class="btn ghost" bindtap="load">再试一次</button>
+  </view>
+
+  <!-- 还差生辰那一半（量过：报告买家里有一半下单时还没填）。
+       这不是错误页 —— 是这一单真实的状态，所以照样有说明、有出路 -->
+  <block wx:elif="{{status === 'awaiting_natal'}}">
+    <view class="wait">
+      <view class="wait-line">这一册还差你的生辰</view>
+      <view class="wait-note">
+        年月日和几点几分 —— 排出来的盘才是你的。
+        填好这一册就出，不用再等
+      </view>
+    </view>
+    <view class="acts">
+      <button class="btn" bindtap="onFill">去填生辰</button>
+      <button class="btn ghost" bindtap="onBack">回去</button>
+    </view>
+  </block>
+
+  <block wx:else>
+    <view class="pg" wx:if="{{page}}">
+      <view class="pg-hd">
+        <text class="pg-title">{{page.title}}</text>
+        <text class="pg-lead" wx:if="{{page.lead}}">{{page.lead}}</text>
+      </view>
+      <view class="pg-note" wx:if="{{page.note}}">{{page.note}}</view>
+
+      <!-- 模板一 · 四柱。这册的门面，专门画 -->
+      <view class="pillars" wx:if="{{page.pillars}}">
+        <view wx:for="{{page.pillars}}" wx:key="pos" class="pillar">
+          <text class="p-pos">{{item.pos}}</text>
+          <text class="p-gz">{{item.ganzhi}}</text>
+          <view class="p-side">
+            <text class="p-god">{{item.ten_god}}</text>
+            <text class="p-meta">{{item.wuxing}} · 纳音{{item.nayin}} · {{item.twelve}}</text>
+          </view>
+          <view class="p-hidden">
+            <text wx:for="{{item.hidden}}" wx:for-item="h" wx:key="*this" class="p-h">{{h}}</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 模板二 · 其余页 -->
+      <view class="bars" wx:if="{{bars.length}}">
+        <view wx:for="{{bars}}" wx:key="k" class="bar">
+          <text class="bar-k">{{item.k}}</text>
+          <view class="bar-track"><view class="bar-fill" style="width:{{item.pct}}%"></view></view>
+          <text class="bar-v">{{item.v}}</text>
+        </view>
+      </view>
+
+      <view class="rows" wx:if="{{page.rows}}">
+        <view wx:for="{{page.rows}}" wx:key="k" class="row {{item.now ? 'row-now' : ''}}">
+          <text class="row-k">{{item.k}}</text>
+          <text class="row-v">{{item.v}}</text>
+          <text class="row-now-tag" wx:if="{{item.now}}">现在</text>
+        </view>
+      </view>
+
+      <!-- 排盘自己写的推理，原样引。这一册不改写它的话 -->
+      <view class="quote" wx:if="{{page.quote}}">{{page.quote}}</view>
+
+      <view class="src">{{page.source}}</view>
+    </view>
+
+    <!-- 页名一排。想看用神就点「用神」—— 比一路翻过去快 -->
+    <view class="tabs">
+      <text wx:for="{{tabs}}" wx:key="*this" class="tab {{index === at ? 'tab-on' : ''}}"
+            data-i="{{index}}" bindtap="onTab">{{item}}</text>
+    </view>
+
+    <view class="acts">
+      <text class="turn {{at === 0 ? 'turn-off' : ''}}" bindtap="onPrev">‹ 上一页</text>
+      <text class="turn-back" bindtap="onBack">回去</text>
+      <text class="turn {{at === tabs.length - 1 ? 'turn-off' : ''}}" bindtap="onNext">下一页 ›</text>
+    </view>
+  </block>
+</view>

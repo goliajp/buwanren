@@ -57,6 +57,8 @@ Page({
     /** 这一单里还有没有没扫开的御守（设计册 M3）。
      *  有 → 这一屏的主按钮是「收到了，去扫开它」。 */
     toScan: false,
+    /** 这一单买的那一册（设计册 M2「看 ›」）。null = 这单没买报告 */
+    report: null as { id: string; status: string } | null,
     waking: false,
     code: '',
     wakeErr: '',
@@ -104,6 +106,11 @@ Page({
             sub: money(l.line_subtotal_minor, o.currency),
           })),
           toScan: !!d.to_scan,
+          /* 这一单买的册子。御守的完成态是住进村里，报告的完成态是
+             **你读到了** —— 所以它跟「去扫开它」一样是主按钮。
+             还没出的那些（还差生辰）也给出来：它是这一单真实的状态，
+             不给的话这一屏会显示成「已完成」而买家手上什么都没有。 */
+          report: (d.reports || [])[0] || null,
           /* 标题用【下单那一刻的快照名】，跟「我买过的」那一列同一个来源 ——
              两处叫法不一样的话，点进来会以为点错了。 */
           headline: d.lines.length
@@ -231,6 +238,13 @@ Page({
       () => this.load(),
       (e: ApiError) => this.setData({ note: e.message || '取消不了' }),
     )
+  },
+
+  /** 去读那一册。还差生辰的也进去 —— 那一屏说得清还差什么、去哪儿填 */
+  onRead() {
+    const r = this.data.report
+    if (!r) return
+    wx.navigateTo({ url: `/pages/report/index?id=${r.id}` })
   },
 
   onBack() {

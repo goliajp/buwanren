@@ -7,7 +7,7 @@ mod common;
 
 use serde_json::json;
 use unmei_app::fulfillment::{self, FulfillmentOutcome};
-use unmei_app::{order, payment};
+use unmei_app::{order, payment, report};
 
 /// 建一个 shipping 类商品的已付订单。返回 (order_id, line_id)。
 async fn paid_shipping_order(pool: &sqlx::PgPool, with_meta: bool) -> (String, String) {
@@ -199,4 +199,163 @@ async fn interrupted_before_settlement_recovers_on_retry() {
     assert_eq!(outcome, FulfillmentOutcome::Done);
     assert_eq!(common::order_status(&pool, &order_id).await.as_deref(), Some("done"));
     assert_eq!(common::outbox_count(&pool, "OrderFulfilled", &order_id).await, 1);
+}
+
+// ═══════════════════════════ 报告路径 ═══════════════════════════
+//
+// ¥199 的报告在这之前跟 instant 走同一支:付完钱直接标 done,
+// `fulfillment_ref` 写 `{"mocked": true}` —— 订单显示「已完成」,
+// 而买家手上什么都没有。这几条钉住的是「拿得到」。
+
+/// 建一个 async_compute 类商品的已付订单。返回 (order_id, line_id, user_id)
+async fn paid_report_order(pool: &sqlx::PgPool) -> (String, String, String) {
+    let user = common::user(pool).await;
+    let sku = common::sku_with_price(pool, "CNY", 19900).await;
+    sqlx::query(
+        "UPDATE product SET fulfillment_kind='async_compute'
+         WHERE id = (SELECT product_id FROM sku WHERE id=$1)",
+    )
+    .bind(&sku)
+    .execute(pool)
+    .await
+    .expect("set async_compute kind");
+
+    let created = order::create(
+        pool,
+        order::NewOrder {
+            user_id: user.clone(),
+            region: "cn".into(),
+            channel_origin: "web".into(),
+            lines: vec![order::NewOrderLine { sku_id: sku, qty: 1 }],
+            shipping_address: None,
+            contact: None,
+            coupon_codes: vec![],
+            note: None,
+            ip: None,
+            ua: None,
+        },
+    )
+    .await
+    .expect("create");
+    let pending = payment::start(pool, &created.order_id, &user, "wechat_jsapi", None)
+        .await.expect("start");
+    payment::apply_succeeded(pool, &pending.payment_id, None, chrono::Utc::now())
+        .await.expect("pay");
+    let line: String = sqlx::query_scalar("SELECT id FROM order_line WHERE order_id=$1")
+        .bind(&created.order_id).fetch_one(pool).await.expect("line");
+    (created.order_id, line, user)
+}
+
+/// 给这个人建一份【算好了盘的】本命。返回 natal_id
+async fn natal_with_chart(pool: &sqlx::PgPool, user: &str) -> String {
+    let id = common::uniq("n");
+    sqlx::query(
+        "INSERT INTO natal (id,user_id,label,year,month,day,hour,minute,tz,gender,
+                            true_solar_time,subject_type,is_default)
+         VALUES ($1,$2,'我',1998,3,5,14,30,8.0,'F',FALSE,'person',TRUE)",
+    ).bind(&id).bind(user).execute(pool).await.expect("natal");
+    sqlx::query(
+        "INSERT INTO natal_summary (natal_id,day_master,strength_level,strength_score,
+             primary_yongshen,primary_role,secondary_yongshen,avoid_wuxing,
+             pattern_name,friendly_hint,raw_chart,mingli_version)
+         VALUES ($1,'辛金','偏弱',36,'土','印星','金','[\"火\",\"木\"]'::jsonb,
+                 '正财格','', $2, 'mingli-test')",
+    ).bind(&id)
+     .bind(json!({"day_master": "辛", "day": {"ganzhi": "辛亥"}}))
+     .execute(pool).await.expect("summary");
+    id
+}
+
+async fn report_of(pool: &sqlx::PgPool, line_id: &str) -> Option<(String, String)> {
+    sqlx::query_as("SELECT id, status FROM report WHERE order_line_id=$1")
+        .bind(line_id).fetch_optional(pool).await.expect("report")
+}
+
+#[tokio::test]
+async fn report_without_natal_waits_instead_of_claiming_done() {
+    let pool = db_or_skip!();
+    let (order_id, line_id, _user) = paid_report_order(&pool).await;
+
+    let outcome = fulfillment::apply_order_paid(&pool, &order_id).await.expect("fulfill");
+
+    // ★ 这一条是这一轮的要害:生辰还没填,这一单【就是没完成】。
+    //   标 done 的话它会从「我买过的」里以完成态消失,而买家什么都没拿到。
+    assert!(matches!(outcome, FulfillmentOutcome::Fulfilling { .. }),
+            "还差生辰的单子不该翻 done：{outcome:?}");
+    assert_eq!(common::order_status(&pool, &order_id).await.as_deref(), Some("fulfilling"));
+    let (_, status) = report_of(&pool, &line_id).await.expect("册子该立起来了");
+    assert_eq!(status, "awaiting_natal");
+}
+
+#[tokio::test]
+async fn report_with_natal_is_ready_at_once() {
+    let pool = db_or_skip!();
+    let (order_id, line_id, user) = paid_report_order(&pool).await;
+    natal_with_chart(&pool, &user).await;
+
+    let outcome = fulfillment::apply_order_paid(&pool, &order_id).await.expect("fulfill");
+    assert_eq!(outcome, FulfillmentOutcome::Done);
+    let (_, status) = report_of(&pool, &line_id).await.expect("册子");
+    assert_eq!(status, "ready");
+    // 盘要真冻进去 —— 只记一行 ready 而不存盘的话,本命一改这一册就变了
+    let 有盘: bool = sqlx::query_scalar("SELECT chart_json IS NOT NULL FROM report WHERE order_line_id=$1")
+        .bind(&line_id).fetch_one(&pool).await.expect("chart");
+    assert!(有盘, "出好的册子里必须有那一刻的盘");
+}
+
+#[tokio::test]
+async fn filling_the_birth_time_finishes_the_order() {
+    let pool = db_or_skip!();
+    let (order_id, line_id, user) = paid_report_order(&pool).await;
+    fulfillment::apply_order_paid(&pool, &order_id).await.expect("fulfill");
+
+    let natal = natal_with_chart(&pool, &user).await;
+    let lines = report::fill_awaiting(&pool, &user, &natal).await.expect("fill");
+    assert_eq!(lines, vec![line_id.clone()]);
+    for l in &lines {
+        fulfillment::apply_report_ready(&pool, l).await.expect("推进");
+    }
+
+    let (_, status) = report_of(&pool, &line_id).await.expect("册子");
+    assert_eq!(status, "ready");
+    // 册子出了,订单也得跟着走完 —— 停在 fulfilling 的话买家看到的还是「进行中」
+    assert_eq!(common::order_status(&pool, &order_id).await.as_deref(), Some("done"));
+    assert_eq!(common::outbox_count(&pool, "OrderFulfilled", &order_id).await, 1);
+}
+
+#[tokio::test]
+async fn retrying_fulfillment_does_not_mint_a_second_report() {
+    let pool = db_or_skip!();
+    let (order_id, line_id, user) = paid_report_order(&pool).await;
+    natal_with_chart(&pool, &user).await;
+
+    fulfillment::apply_order_paid(&pool, &order_id).await.expect("fulfill");
+    let 第一册 = report_of(&pool, &line_id).await.expect("册子").0;
+
+    // 履约由 outbox 驱动,重试是设计内行为。第二册意味着买家读到的那一册
+    // 可能在他眼前被换掉
+    sqlx::query("UPDATE order_line SET fulfillment_status='pending' WHERE id=$1")
+        .bind(&line_id).execute(&pool).await.expect("rewind");
+    sqlx::query("UPDATE order_record SET status='paid' WHERE id=$1")
+        .bind(&order_id).execute(&pool).await.expect("rewind order");
+    fulfillment::apply_order_paid(&pool, &order_id).await.expect("retry");
+
+    let n: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM report WHERE order_line_id=$1")
+        .bind(&line_id).fetch_one(&pool).await.expect("count");
+    assert_eq!(n, 1, "重试不该出第二册");
+    assert_eq!(report_of(&pool, &line_id).await.expect("册子").0, 第一册, "也不该换一册");
+}
+
+#[tokio::test]
+async fn a_report_only_fills_for_its_own_owner() {
+    let pool = db_or_skip!();
+    let (order_id, line_id, _user) = paid_report_order(&pool).await;
+    fulfillment::apply_order_paid(&pool, &order_id).await.expect("fulfill");
+
+    // 另一个人填了自己的生辰 —— 不该把别人等着的册子填掉
+    let 别人 = common::user(&pool).await;
+    let 他的 = natal_with_chart(&pool, &别人).await;
+    let lines = report::fill_awaiting(&pool, &别人, &他的).await.expect("fill");
+    assert!(lines.is_empty(), "别人的生辰不该补出我的册子：{lines:?}");
+    assert_eq!(report_of(&pool, &line_id).await.expect("册子").1, "awaiting_natal");
 }
