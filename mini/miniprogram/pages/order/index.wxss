@@ -42,3 +42,21 @@
 .wake-err { margin-top: 12rpx; font-size: 24rpx; color: #9a3b3b; line-height: 1.6; }
 .slot-done { margin-top: 24rpx; padding-top: 18rpx; border-top: 1rpx solid var(--stone-line-x);
              font-size: 22rpx; color: var(--stone-label); line-height: 1.7; }
+
+/* 更早那几条（设计册 10.3：一屏八条，超了折叠） */
+.trace-more { padding: 10rpx 0 0; font-size: 22rpx; color: var(--stone-label); }
+
+/* 标题 = 买的那个东西；状态与金额并到副行（设计册 M3） */
+.hd .title { font-size: 60rpx; line-height: 1.2; }
+.hd .sub { margin-top: 10rpx; font-size: 24rpx; color: var(--ink-faint); letter-spacing: 0.04em; }
+
+/* 这一屏是二级页，底下没有 tab 条 —— 全局那 96rpx 是给 tab 让的位，
+   在这儿白占 48px。轨迹要排到八条（10.3），这 48px 正是差的那一截。 */
+.page { padding-bottom: 48rpx; }
+.hd .title { font-size: 52rpx; }
+
+/* 「收到了，去扫开它」那一组自己排一列：主按钮一行、手输那一行在下面。
+   `.cta` 是横排的（两颗按钮并排），把这一组塞进去会让主按钮被挤成
+   一列竖着的字 —— 2026-08-28 从截图上看见的。 */
+.cta.cta-wake { flex-direction: column; align-items: stretch; }
+.cta.cta-wake .btn { flex: none; width: 100%; }
