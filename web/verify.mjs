@@ -1787,8 +1787,6 @@ console.log('\n── 一屏放得下吗（iPhone SE · 内容区 597）──')
     }
     const m = await 量一屏(r, 要参数[r])
     const 名 = r.replace('pages/', '').replace('/index', '')
-    // 「命」那一页有两种形态，记下这一趟量到的是哪一种（下面那一段要说清楚）
-    if (名 === 'natal') 量到.natal形态 = await p.evaluate(() => globalThis.__router.current().data.mode)
     量到[名] = m.溢出
     const 记着 = 台账[名] ? 台账[名].超 : null
     if (m.溢出 > 8) {
@@ -1821,35 +1819,91 @@ console.log('\n── 一屏放得下吗（iPhone SE · 内容区 597）──')
       }
     }
   }
-  /* ── 一页两种形态的，两种都要量 ────────────────────────────
-     上面那一圈按【页】量，一页只量到一种形态。而「命」那一页有两种：
-     **没建过本命时是填生辰的表单，建过之后是盘面** —— 版式完全不同，
-     而表单那一种正是第一次来的人看到的。
+  /* ── 一页有几种形态，就都要量 ──────────────────────────────
+     上面那一圈按【页】量，一页只量到当时那一种形态。而好几页在不同数据下
+     是完全不同的版式：「命」没建过本命时是表单、建过之后是盘面；
+     一单在待付、已付、该扫时给的是三组不同的按钮；一位村民住着与没请回来
+     也不是同一屏。
 
-     2026-08-27 撞上：往表单里加了「会得到这些」，它真实超了 46px，
-     上面那一圈却照报「放得下」—— 因为那一趟量到的是盘面。
-     一页只量一种形态，等于给没量到的那一种打了分。 */
-  {
-    const 形态 = 量到.natal形态
-    /* 已经建过本命，所以上面量到的是盘面。把它临时切回表单态再量一次 ——
-       改的是这一屏自己的 mode，不动库里的数据。 */
-    await 量一屏('pages/natal/index')
+     2026-08-27 撞上一次：往建生辰那一屏加了一块，它真实超了 46px，
+     而那一圈照报「放得下」—— 因为那一趟量到的是盘面。
+     **一页只量一种形态，等于给没量到的那几种打了分。**
+
+     切形态用的是改这一屏自己的 state，不动库里的数据 ——
+     造数据的代价太大，而这里要验的只是「这一组内容排得下吗」。 */
+  const 多形态 = [
+    { 页: 'pages/home/index', 名: '还没建本命',
+      切: () => globalThis.__router.current().setData({ summary: null, err: '' }),
+      凭据: '先填生辰',
+      为什么: '罗盘灰着、压一句「先填生辰」加一个出口 —— 冷启动第一眼就是它' },
+    { 页: 'pages/natal/index', 名: '填生辰',
+      切: () => globalThis.__router.current().setData({ mode: 'form', err: '' }),
+      凭据: '会得到这些',
+      为什么: '第一次来的人看到的是表单，不是盘面' },
+    { 页: 'pages/order/index', 名: '待付',
+      切: () => globalThis.__router.current().setData({ status: 'unpaid', toScan: false, err: '' }),
+      凭据: '去支付',
+      为什么: '待付给的是「去支付 / 不要了」，跟已付那组按钮不一样' },
+    { 页: 'pages/order/index', 名: '该扫了',
+      切: () => globalThis.__router.current().setData({ status: 'paid', toScan: true, err: '' }),
+      凭据: '收到了，去扫开它',
+      为什么: 'M3 那颗主按钮加一槽话，是这一屏最高的一种形态' },
+    { 页: 'pages/villager/index', 名: '还没请回来',
+      切: () => {
+        const c = globalThis.__router.current()
+        c.setData({ who: Object.assign({}, c.data.who, { at_home: false }),
+                    sells: false, canEnter: false, err: '' })
+      },
+      凭据: '请他来',
+      为什么: '没请回来时只有「请他来」，住着时是问事 / 去他家 / 她卖的' },
+  ]
+  for (const 态 of 多形态) {
+    const 名 = 态.页.replace('pages/', '').replace('/index', '')
+    if (态.页 === 'pages/order/index' && !要参数[态.页]) {
+      console.log(`  · ${名}「${态.名}」跳过：这一趟没有真数据（不计入通过）`)
+      continue
+    }
+    if (态.页 === 'pages/villager/index' && !要参数[态.页]) {
+      console.log(`  · ${名}「${态.名}」跳过：这一趟没有真数据（不计入通过）`)
+      continue
+    }
+    await 量一屏(态.页, 要参数[态.页])          // 先正常开一次，让它取完
     await p.setViewportSize({ width: 375, height: 667 })
-    await p.evaluate(() => globalThis.__router.current().setData({ mode: 'form', err: '' }))
-    await p.waitForTimeout(600)
-    const 表单 = await p.evaluate(() => {
+    const 切了 = await p.evaluate(态.切).then(() => true, () => false)
+    if (!切了) {
+      ok(false, `${名}「${态.名}」这一态量得到`, '切不过去 —— 页面的字段变了？')
+      await p.setViewportSize({ width: 390, height: 844 })
+      continue
+    }
+    await p.waitForTimeout(700)
+    /* 切【真的生效了】吗。少了这一问，setData 没落到实处时量的还是上一种形态，
+       而那一种本来就放得下 —— 又一次「够不着却打了分」。
+       凭据是那一态特有的一句话：它不在，就说明这一态根本没量到。 */
+    const 屏文 = await text()
+    if (!屏文.includes(态.凭据)) {
+      ok(false, `${名}「${态.名}」这一态量得到`,
+         `切过去了，但屏上找不到「${态.凭据}」—— 量的多半还是上一种形态`)
+      await p.setViewportSize({ width: 390, height: 844 })
+      continue
+    }
+    const 量 = await p.evaluate(() => {
       const d = document.documentElement, b = document.body
-      return { 内容: Math.max(d.scrollHeight, b.scrollHeight), 视口: window.innerHeight,
-               mode: globalThis.__router.current().data.mode }
+      return {
+        内容: Math.max(d.scrollHeight, b.scrollHeight),
+        视口: window.innerHeight,
+        分块: Array.from((document.querySelector('#app .page') || document.querySelector('#app .wrap')
+                          || { children: [] }).children)
+          .map((el) => `${(el.className || '?').toString().split(' ')[0]}:${Math.round(el.getBoundingClientRect().height)}`)
+          .filter((x) => !x.endsWith(':0')),
+      }
     })
     await p.setViewportSize({ width: 390, height: 844 })
-    ok(表单.mode === 'form' && 表单.内容 - 表单.视口 <= 8,
-       'natal 的【填生辰】那一态也放得下　—— 第一次来的人看到的就是它',
-       `内容 ${表单.内容} / 视口 ${表单.视口}${表单.内容 - 表单.视口 > 8 ? ' · 超 ' + (表单.内容 - 表单.视口) : ''}`
-       + `（上面那一圈量到的是「${形态 === 'summary' ? '盘面' : 形态}」）`)
+    const 溢 = 量.内容 - 量.视口
+    ok(溢 <= 8, `${名}「${态.名}」这一态也放得下`,
+       溢 > 8 ? `超 ${溢}px —— ${态.为什么}\n         这一屏是谁占的：${量.分块.join(' · ')}`
+              : `内容 ${量.内容} / 视口 ${量.视口}`)
   }
 
-  delete 量到.natal形态          // 它不是一页，别混进「量过几页」的账里
   const 欠 = Object.keys(台账).filter((k) => k !== '_读法')
   const 没量到 = 欠.filter((k) => !(k in 量到))
   ok(没量到.length === 0, '台账上的页这一趟都量到了',
