@@ -169,3 +169,11 @@
 .arch-on .arch-label { color: var(--ink); }
 .archive-note { font-size: 22rpx; color: var(--stone-label); margin-top: 16rpx; }
 .note { margin: 20rpx 0; font-size: 26rpx; color: var(--stone-label); }
+
+/* 「会得到这些」（设计册 H2 / 10.8）：填生辰之前先说清换回什么。
+   行高按能读定，不按触点定 —— 它不是可点的东西，是一份清单。 */
+.gets { margin-top: 28rpx; padding-top: 20rpx; border-top: 1rpx solid var(--stone-line-x); }
+.gets-k { font-size: 22rpx; color: var(--stone-label); letter-spacing: 0.24em; margin-bottom: 10rpx; }
+.gets-row { display: flex; align-items: baseline; padding: 6rpx 0; }
+.gets-a { flex: none; width: 180rpx; font-size: 26rpx; color: var(--ink); }
+.gets-b { flex: 1; font-size: 24rpx; color: var(--ink-faint); }
