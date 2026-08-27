@@ -14,6 +14,7 @@
 import { villageApi } from '../../services/village'
 import type { ApiError } from '../../services/api'
 import { 唤醒, 扫一枚 } from '../../utils/omamori'
+import { incenseApi } from '../../services/incense'
 import { storage } from '../../services/storage'
 import type { VillagerInVillage } from '../../types/village'
 
@@ -54,10 +55,47 @@ declare const VILLAGE_SIZE: { w: number; h: number }
 
 // 各页各叫各的名字:这些页面文件没有 import / export,
 // tsc 把它们当脚本、作用域是合并的,两处都叫 IData 会互相污染
+/* 问候语与日期（设计册 V1 / 10.8）。
+   **按你现在几点说话** —— 引擎那句「清晨」说的是画面里的昼夜循环，
+   村子的天几分钟转一轮，跟你几点没关系。
+
+   分档按人怎么过一天来切，不按整点均分：五点到十点是早上，
+   十点到十三点是上午，晚上九点之后是「夜深了」——
+   那句话对着的是还没睡的人。 */
+function 问候(h: number): string {
+  if (h < 5) return '夜深了'
+  if (h < 10) return '早上好'
+  if (h < 13) return '上午好'
+  if (h < 17) return '下午好'
+  if (h < 21) return '傍晚好'
+  return '夜深了'
+}
+
+/* 「八月二十 · 周四」。中文数字照设计册写 ——
+   「8/28」是给系统读的，「八月二十八」是说给人听的。 */
+const 汉数 = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十']
+function 汉日(n: number): string {
+  if (n <= 10) return 汉数[n]
+  if (n < 20) return '十' + 汉数[n - 10]
+  if (n === 20) return '二十'
+  if (n < 30) return '二十' + 汉数[n - 20]
+  if (n === 30) return '三十'
+  return '三十' + 汉数[n - 30]
+}
+function 今天几号(d: Date): string {
+  const 周 = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()]
+  return `${汉日(d.getMonth() + 1)}月${汉日(d.getDate())} · 周${周}`
+}
+
 interface VillageData {
   cssW: number
   cssH: number
   sub: string
+  /** 问候语与日期（设计册 V1）。按【你】现在几点说，不按画面里的昼夜 */
+  greet: string
+  today: string
+  /** 今晚那一场开着没有（设计册 E1）。开着，槽里那一句才是入口 */
+  tonight: boolean
   lived: number
   total: number
   /** 他刚说的那一句 */
@@ -74,7 +112,7 @@ interface VillageData {
 }
 
 Page<VillageData, WechatMiniprogram.IAnyObject>({
-  data: { cssW: 0, cssH: 0, sub: '', lived: 0, total: 40, err: '', toScan: false, code: '', codeErr: '', codeBusy: false },
+  data: { cssW: 0, cssH: 0, sub: '', greet: '', today: '', tonight: false, lived: 0, total: 40, err: '', toScan: false, code: '', codeErr: '', codeBusy: false },
 
   handle: null as { stop(): void } | null,
   // id → 请回家了没。村子画面里那几位与后端的 id 是同一套(ayun / tao / popo / tenz …),
@@ -90,12 +128,29 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
      本机拿假服务端验不出来 —— 假服务端不认 token,怎么都给 200。
      是把移动网页版接上【真后端】跑那一遍才露出来的。 */
   onAuthReady() {
+    this.刷问候()
     this.reload()
   },
 
   onShow() {
+    this.刷问候()
     this.reload()
   },
+
+  /* 每次回到这一屏都重算一次：这一屏是 tab，人会在傍晚离开、夜里回来，
+     而问候语说错时间比不说更糟。 */
+  刷问候() {
+    const now = new Date()
+    this.setData({ greet: 问候(now.getHours()), today: 今天几号(now) })
+    /* 今晚开着没有。取不到就当没开 —— 猜「开着」的话，
+       槽里那一句会把人送进一屏说「还没开始」的东西。 */
+    incenseApi.now().then(
+      (n) => this.setData({ tonight: !!n }),
+      () => this.setData({ tonight: false }),
+    )
+  },
+
+  goTonight() { wx.navigateTo({ url: '/pages/lighting/index' }) },
 
   reload() {
     // 收集数与「谁请回家了」都以服务端为准。引擎那边的 VILLAGE_CENSUS 只报
@@ -143,7 +198,11 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
     // 头部与提示条的高度用常量，不去量。
     // 量完再改、改完再量的收敛循环把版式变成了时序问题 —— 这个仓在我家那一屏
     // 上栽过一次（2026-08-23：慢机器上还没落定就被量走，本机绿、别处红）。
-    const 头部 = 40
+    /* 头部两行（问候语 + 日期）实测 70px。写死是刻意的 ——
+       量完再改、改完再量的收敛循环把版式变成了时序问题（我家那一屏栽过）。
+       **改头部的版式就要改这个数**：它俩对不上时，画布不会让位，
+       症状是「多一条就超出去几十像素」，而那几十像素正好等于差值。 */
+    const 头部 = 70
     const 提示条 = this.data.toScan ? 56 : 0
     const 可用 = win.windowHeight - 头部 - 提示条
     const 等比 = Math.round((win.windowWidth * VILLAGE_SIZE.h) / VILLAGE_SIZE.w)

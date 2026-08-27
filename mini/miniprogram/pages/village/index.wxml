@@ -1,7 +1,16 @@
 <view class="wrap">
+  <!-- 问候语 + 日期（设计册 V1 / 10.8：「它知道现在几点。写『戌时』是把门槛
+       架在自己门口」）。原先这儿写的是引擎那句「村民 12 · 清晨 · 晴」——
+       **那个「清晨」说的是画面里的昼夜循环，不是你现在几点**：村子的天
+       几分钟转一轮。看画就知道天亮没亮，而问候语要知道的是【你】几点。
+
+       收集数挪进了下面的弹性槽（设计 V1 就是这么排的）。
+       「扫御守」留在这儿：它是主链路的入口，而槽在矮屏上会收起来。 -->
   <view class="hd">
-    <text class="sub">{{sub}}</text>
-    <text class="count">收集 {{lived}}/{{total}}</text>
+    <view class="greet">
+      <text class="greet-hi">{{greet}}</text>
+      <text class="greet-day">{{today}}</text>
+    </view>
     <view class="scan" bindtap="onScan">扫御守</view>
   </view>
 
@@ -29,6 +38,15 @@
        留着一个永远不会被填充的卡片，就是「实现完整、零调用方」。 -->
 
   <view wx:if="{{err}}" class="err">{{err}}</view>
+
+  <!-- 弹性槽（设计册 V1）：住着几位、还空几间，以及今晚那一场。
+       收集数放这儿而不是头顶：它是「回来看看又多了谁」的信息，
+       不是每次打开都要先读的东西 —— 头一眼该是有人在跟你打招呼。 -->
+  <view class="flexslot tally">
+    <text class="tally-n">住着 {{lived}} 位 · 还空 {{total - lived}} 间</text>
+    <text wx:if="{{tonight}}" class="tally-go" bindtap="goTonight">今晚九点在苏合院子里 ›</text>
+    <text wx:else class="tally-dim">周四晚九点，苏合在院子里点香</text>
+  </view>
 
   <!-- 弹性槽（设计册 E2）：扫不出来的人走这条路。矮屏收起 ——
        槽的判据就是「删掉这一屏仍然成立」，而扫御守那颗按钮一直在上面。
