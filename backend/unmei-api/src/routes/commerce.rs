@@ -293,7 +293,22 @@ async fn get_my_order(
 
     Ok(Json(json!({
         "order": map_rows(vec![o]).into_iter().next().unwrap_or(J::Null),
-        "lines": map_rows(lines),
+        /* 行上补一个顶层 `sku_name`。名字本来只在 `sku_snapshot_json` 里，
+           而 `types/commerce.ts` 的 `OrderLine` 早就声明了顶层有它 ——
+           两边对不上的后果不是报错，是**每一单的商品名都显示成 sku_id**
+           （`sku-oma-t46166-13`）。2026-08-28 从截图上看见的。
+           `check-api-shape` 够不着这一条：它比的是 `json!({…})` 里的键，
+           而这一条走的是 `map_rows`，键来自 SQL 的列。 */
+        "lines": map_rows(lines).into_iter().map(|mut l| {
+            if let Some(o) = l.as_object_mut() {
+                let name = o.get("sku_snapshot_json")
+                    .and_then(|s| s.get("sku_name"))
+                    .and_then(|n| n.as_str())
+                    .map(|s| s.to_string());
+                if let Some(n) = name { o.insert("sku_name".into(), J::String(n)); }
+            }
+            l
+        }).collect::<Vec<_>>(),
         "payments": map_rows(payments),
         "shipments": map_rows(shipments),
         "to_scan": to_scan,
