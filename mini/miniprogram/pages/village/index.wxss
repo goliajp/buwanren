@@ -51,3 +51,15 @@
 }
 .manual-go-hover { opacity: .75; }
 .manual-err { margin-top: 12rpx; font-size: 24rpx; color: #9a3b3b; line-height: 1.6; }
+
+/* 问候语 + 日期（设计册 V1）。两行，占的是原先那一行副标的位置 */
+.greet { flex: 1; }
+.greet-hi { display: block; font-family: "Songti SC", serif; font-size: 40rpx; color: #3a352e; }
+.greet-day { display: block; margin-top: 4rpx; font-size: 22rpx; color: #8a8276; letter-spacing: 0.06em; }
+
+/* 弹性槽：住着几位、今晚那一场 */
+.tally { width: 100%; box-sizing: border-box; padding: 16rpx 32rpx 20rpx;
+         display: flex; align-items: baseline; gap: 16rpx; }
+.tally-n { flex: none; font-size: 24rpx; color: #6b6459; }
+.tally-go { margin-left: auto; font-size: 24rpx; color: #3a352e; }
+.tally-dim { margin-left: auto; font-size: 22rpx; color: #a09789; }
