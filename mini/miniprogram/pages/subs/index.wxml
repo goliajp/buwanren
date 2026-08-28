@@ -20,9 +20,14 @@
     </view>
 
     <block wx:else>
+      <!-- 「下面是哪儿能有」得下面**真的有**才说得出口。
+           2026-08-28 唯一那件可订的商品下架之后，这一屏成了
+           一句「下面是哪儿能有」跟着一片空白 —— 设计册 10.7 说空状态要
+           指出去处，指向空白比不指更糟。 -->
       <view class="empty">
         <view class="empty-t">还没有订着的</view>
-        <view class="empty-sub">空着不是问题 —— 下面是哪儿能有</view>
+        <view class="empty-sub" wx:if="{{offers.length > 0}}">空着不是问题 —— 下面是哪儿能有</view>
+        <view class="empty-sub" wx:elif="{{!offersErr}}">村里现在没有可以订的东西 · 等有了会摆在这儿</view>
       </view>
 
       <view class="offers" wx:if="{{offers.length > 0}}">
