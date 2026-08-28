@@ -321,6 +321,67 @@ if (API) {
   console.log(`  （后端热好了，用了 ${Date.now() - t0}ms）`)
 }
 
+/* ── 冷启动那一下，登录不许被自己人清掉 ───────────────────────
+   匿名登录是异步的，页面 onShow 抢在它前面就发了一轮请求，那一轮必然 401。
+   而 401 的处理曾经是无条件 `storage.clearAll()` —— 于是：
+
+     ① 页面发 /v1/village（这时还没 token）
+     ② 登录回来，写下 token
+     ③ ①那一条回 401 → clearAll → 刚写下的 token 没了
+
+   成不成看 ②③ 谁先回来，所以它飘。2026-08-29 量到过：连开两页，
+   二十五次里十二次登录完还是没 token —— 而症状是村民、订单、册子
+   三页一起「跳过」，报出来像是后端没数据。
+
+   要新开一个上下文才验得到：这一趟跑到这儿早就登录过了，
+   而这个 bug 只在【第一次登录】那几百毫秒里存在。 */
+if (API) {
+  const 新 = await b.newContext({ viewport: { width: 375, height: 667 } })
+  const 冷 = await 新.newPage()
+  await 冷.addInitScript((base) => { globalThis.__API_BASE = base }, API)
+  /* 慢下来的是【页面抢先发的那一轮】，不是登录。**不是伪造** ——
+     这个窗口本来就存在（匿名登录是异步的，页面 onShow 抢在它前面），
+     慢网络上它每次都会张开。
+
+     方向要对：坏的那一版是「401 回来时把已经写下的 token 清掉」，
+     所以得让 401 【晚于】登录。头一版反过来延迟了登录，于是 401 更早、
+     那时 token 还没写、清了也没影响 —— 一条永远绿的断言。
+
+     靠自然时序去撞的话命中率约一半，而一半时间说谎的门禁比没有更糟：
+     跑到这儿时浏览器已经热了，连撞五次都撞不上。 */
+  for (const 路 of ['**/v1/village', '**/v1/incense']) {
+    await 冷.route(路, async (r) => {
+      await new Promise((res) => setTimeout(res, 600))
+      await r.continue()
+    })
+  }
+  try {
+    const 去 = (r) => 冷.goto(BASE + '/index.html?' + new URLSearchParams({ page: r }))
+    await 去('pages/village/index')
+    const 读 = () => 冷.evaluate(() => !!localStorage.getItem('unmei:buwanren:token')).catch(() => false)
+    // 先等它【出现】
+    let 出现过 = false
+    for (let k = 0; k < 25 && !出现过; k++) {
+      出现过 = await 读()
+      if (!出现过) await 冷.waitForTimeout(200)
+    }
+    /* 再等那两条被拖住的请求回来。要问的是「它【还在】吗」，不是「它出现过吗」——
+       清空发生在 401 回来那一刻，而那在 token 写下之后。
+       只等「出现」的话，读到就 break，正好赶在被清掉之前，
+       于是一条永远绿的断言。 */
+    await 冷.waitForTimeout(1500)
+    const 还在 = await 读()
+    ok(出现过 && 还在,
+       '登录写下的 token，不会被抢在它前面那一轮 401 清掉',
+       出现过 ? (还在 ? '' : '它出现过，然后被清掉了')
+              : '登录压根没写下 token'
+       + '　·　localStorage 里：' + await 冷.evaluate(() => Object.keys(localStorage).join(' ') || '空的').catch(() => '问不到'))
+  } finally {
+    await 新.close()
+  }
+}
+
+
 /* 打真后端时,用【真的入住路径】把两位请回家:
      发一张御守凭据(库里) → 页面点「扫御守」→ /v1/omamori/scan → 入住
    扫码本身只有真机有,所以这里把 wx.scanCode 桩成「扫到了这串凭据」——
