@@ -69,7 +69,19 @@ export function request<T = unknown>(path: string, opts: RequestOptions = {}): P
           resolve(res.data as T)
           return
         }
-        if (status === 401) {
+        /* 401 只在【这一条请求确实带了 token】时才清。
+           没带 token 的 401 意思是「还没登录」，不是「token 失效」——
+           而冷启动时这种请求一定有：匿名登录是异步的，页面 onShow
+           抢在它前面就发了一轮，那一轮必然 401。
+
+           无条件清的后果是**把刚刚登录写进去的 token 一并清掉**：
+             ① 页面发 /v1/village（这时还没 token）
+             ② 登录回来，写下 token
+             ③ ①那一条回 401 → clearAll → 刚写的 token 没了
+           成不成看②③谁先回来，所以它是个飘的 bug。
+           2026-08-29 在镜像上量到过：连开两页，二十五次里有十二次
+           登录完还是没 token。 */
+        if (status === 401 && token) {
           storage.clearAll()
         }
         reject(makeError(status, res.data, `HTTP ${status}`))
