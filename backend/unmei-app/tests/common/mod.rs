@@ -93,7 +93,26 @@ pub async fn pool() -> Option<PgPool> {
 
     MIGRATED
         .get_or_init(|| async {
-            sqlx::migrate!("../migrations").run(&pool).await.expect("migrations");
+            if let Err(e) = sqlx::migrate!("../migrations").run(&pool).await {
+                /* VersionMismatch 值得单说。它的意思是【某一支迁移的内容变了，
+                   而这个库里记着改之前那一版的哈希】—— 本机开发时改一支还没
+                   推出去的迁移就会这样。
+
+                   不单说的话，症状是**这个文件里每一条测试各挂一次**，
+                   二十行红，跟「代码全坏了」长得一模一样。我 2026-08-28
+                   就照着那二十行找了一圈代码，而根因是一支迁移多了三行。 */
+                if let sqlx::migrate::MigrateError::VersionMismatch(v) = e {
+                    panic!(
+                        "迁移 {v} 的内容跟这个库里记着的对不上。\n\
+                         　改的是一支【还没推出去】的迁移就会这样 —— 库里存着改之前那一版的哈希。\n\
+                         　本机修法（测试库叫 unmei_test，不是 unmei）：\n\
+                         　  psql <TEST_DATABASE_URL> -c \"DELETE FROM _sqlx_migrations WHERE version={v}\"\n\
+                         　然后重跑。这支迁移会重新装一遍 —— 所以它得写成【重跑一遍也不出事】的样子。\n\
+                         　要是那支迁移【已经推出去了】，就不该改它，另写一支。"
+                    );
+                }
+                panic!("migrations: {e}");
+            }
             seed_reference_data(&pool).await;
         })
         .await;
