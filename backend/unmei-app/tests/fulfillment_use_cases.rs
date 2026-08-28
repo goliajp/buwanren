@@ -211,8 +211,10 @@ async fn interrupted_before_settlement_recovers_on_retry() {
 async fn paid_report_order(pool: &sqlx::PgPool) -> (String, String, String) {
     let user = common::user(pool).await;
     let sku = common::sku_with_price(pool, "CNY", 19900).await;
+    // `report_kind` 不能省:出哪一种册子是商品的属性,不标就不出 ——
+    // 而在售的商品不标会被库里那道 CHECK 拦住
     sqlx::query(
-        "UPDATE product SET fulfillment_kind='async_compute'
+        "UPDATE product SET fulfillment_kind='async_compute', report_kind='bazi_deep'
          WHERE id = (SELECT product_id FROM sku WHERE id=$1)",
     )
     .bind(&sku)
@@ -358,4 +360,29 @@ async fn a_report_only_fills_for_its_own_owner() {
     let lines = report::fill_awaiting(&pool, &别人, &他的).await.expect("fill");
     assert!(lines.is_empty(), "别人的生辰不该补出我的册子：{lines:?}");
     assert_eq!(report_of(&pool, &line_id).await.expect("册子").1, "awaiting_natal");
+}
+
+#[tokio::test]
+async fn a_kind_we_cannot_produce_yields_no_booklet_at_all() {
+    let pool = db_or_skip!();
+    let (order_id, line_id, user) = paid_report_order(&pool).await;
+    natal_with_chart(&pool, &user).await;
+    // 商品说它要出「合婚双盘」,而这个仓库还做不出那一种
+    sqlx::query(
+        "UPDATE product SET report_kind='hehun_double'
+         WHERE id = (SELECT s.product_id FROM order_line ol JOIN sku s ON s.id=ol.sku_id
+                     WHERE ol.id=$1)",
+    ).bind(&line_id).execute(&pool).await.expect("set kind");
+
+    fulfillment::apply_order_paid(&pool, &order_id).await.expect("fulfill");
+
+    // ★ 要害:**不许出一册不对的**。写死 kind 的那一版会给买合婚的人
+    //   一份他自己的八字册子 —— 而他会以为那就是他买的东西。
+    let n: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM report WHERE order_line_id=$1")
+        .bind(&line_id).fetch_one(&pool).await.expect("count");
+    assert_eq!(n, 0, "做不出来的种类不该出册子");
+    // 行也不许标 done —— 这一单确实没完成,后台要看得见
+    let st: String = sqlx::query_scalar("SELECT fulfillment_status FROM order_line WHERE id=$1")
+        .bind(&line_id).fetch_one(&pool).await.expect("status");
+    assert_eq!(st, "pending", "出不来的行该留在 pending 让人看见");
 }

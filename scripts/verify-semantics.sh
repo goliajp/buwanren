@@ -83,13 +83,13 @@ code=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "$ADMIN/admin/commerce/pr
   -d '{"currency":"CNY","price_minor":100}')
 check "publish_price 到不存在的 SKU" "404" "$code"
 
-echo "  为 sku-naji-single 发一条 JPY 价（建混币种场景）"
+echo "  为 sku-mg-month 发一条 JPY 价（建混币种场景）"
 # 发到 **cn**，不是 jp。原先发到 jp 也能把下一条测红，但那是**靠 bug**：
 # 建单当时不看区域，取的是「最新那一行」，于是 cn 的单拿到了 jp 的价。
 # 2026-08-19 建单改成按区域取价之后，发到 jp 的价对 cn 的单不再可见 ——
 # 混币种这个前提就没了，那一条会变成假绿。
 # 要验「同一笔里币种不一致会不会被拒」，就得把不一致**真的造在同一个区里**。
-resp=$(curl -sS -X POST "$ADMIN/admin/commerce/pricing/sku-naji-single/publish" \
+resp=$(curl -sS -X POST "$ADMIN/admin/commerce/pricing/sku-mg-month/publish" \
   -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' \
   -d '{"currency":"JPY","price_minor":1200,"region":"cn","platform":"all"}')
 check "publish_price 合法请求" "true" "$(echo "$resp" | jq -r .ok)"
@@ -99,7 +99,7 @@ echo "▶ B · 建单：混币种必须被拒（两份旧实现都会静默算�
 code=$(curl -sS -o /tmp/mix.json -w '%{http_code}' -X POST "$API/v1/orders" \
   -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
   -H "idempotency-key: $(idem mix)" \
-  -d '{"lines":[{"sku_id":"sku-naji-deep","qty":1},{"sku_id":"sku-naji-single","qty":1}],"region":"cn"}')
+  -d '{"lines":[{"sku_id":"sku-naji-deep","qty":1},{"sku_id":"sku-mg-month","qty":1}],"region":"cn"}')
 check "混币种下单 HTTP" "422" "$code"
 check "混币种下单 code" "validation" "$(jq -r .code /tmp/mix.json)"
 echo "    错误文本： $(jq -r .error /tmp/mix.json)"
@@ -107,7 +107,7 @@ echo "    错误文本： $(jq -r .error /tmp/mix.json)"
 # 把刚才那条 JPY 的 cn 价收掉 —— 留着的话这个 sku 在 cn 就有两个币种的活价，
 # 而「商品页显示的价 = 下单记的账」这条性质会跟着坏，往后每次跑都更乱。
 PSQL "UPDATE price_book SET status='expired'
-      WHERE sku_id='sku-naji-single' AND region='cn' AND currency='JPY' AND status='active'" >/dev/null
+      WHERE sku_id='sku-mg-month' AND region='cn' AND currency='JPY' AND status='active'" >/dev/null
 
 echo
 echo "▶ C · 建单：ip / ua 落库（旧实现一直写 NULL）"
@@ -143,7 +143,7 @@ echo "▶ G · 归属校验：换个用户取消同一单应 404（旧 service �
 TOKEN2=$(curl -sS -X POST "$API/v1/auth/anonymous" -H 'content-type: application/json' -d '{}' | jq -r .token)
 ORD2=$(curl -sS -X POST "$API/v1/orders" -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
   -H "idempotency-key: $(idem ord2)" \
-  -d '{"lines":[{"sku_id":"sku-naji-single","qty":1}],"region":"cn"}' | jq -r .order_id)
+  -d '{"lines":[{"sku_id":"sku-naji-deep","qty":1}],"region":"cn"}' | jq -r .order_id)
 code=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "$API/v1/orders/$ORD2/cancel" \
   -H "idempotency-key: $(idem cancel2)" \
   -H "authorization: Bearer $TOKEN2" -H 'content-type: application/json' -d '{"reason":"越权"}')
@@ -159,7 +159,7 @@ echo "▶ H · 行为变更：已付订单不能直接取消（状态机没有 P
 PAID=$(curl -sS -X POST "$API/v1/orders" \
   -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
   -H "idempotency-key: $(idem paid)" \
-  -d '{"lines":[{"sku_id":"sku-naji-single","qty":1}],"region":"cn"}' | jq -r .order_id)
+  -d '{"lines":[{"sku_id":"sku-naji-deep","qty":1}],"region":"cn"}' | jq -r .order_id)
 # 直接把它摆成 paid：这一条验的是【状态机拒不拒】，不是怎么付的钱
 PSQL "UPDATE order_record SET status='paid', amount_paid_minor=amount_total_minor, paid_at=NOW() WHERE id='$PAID'" >/dev/null
 echo "  自己造一笔已付的单： $PAID"
@@ -336,7 +336,7 @@ T6=$(curl -sS -X POST "$API/v1/auth/anonymous" -H 'content-type: application/jso
 U6=$(PSQL "SELECT id FROM app_user ORDER BY created_at DESC LIMIT 1")
 ORD6=$(curl -sS -X POST "$API/v1/orders" -H "authorization: Bearer $T6" \
   -H 'content-type: application/json' -H "idempotency-key: $(idem ship)" \
-  -d '{"lines":[{"sku_id":"sku-naji-single","qty":1}],"region":"cn"}' | jq -r '.order_id // empty')
+  -d '{"lines":[{"sku_id":"sku-naji-deep","qty":1}],"region":"cn"}' | jq -r '.order_id // empty')
 if [ -z "$ORD6" ]; then
   check "建一张单（后面几条要用）" "有 order_id" "建不出来"
 else
