@@ -62,7 +62,10 @@ async fn one(
     // 还没出的册子照样回 200 —— 它是这一单真实的状态，不是错误。
     // 客户端据此说「还差你的生辰」并给一条去填的路（设计册 10.7）。
     let pages = match (&status[..], chart.as_ref()) {
-        ("ready", Some(chart)) => 排页(chart, version.as_deref()),
+        // 「今天」从这里传进去,不在 `排页` 里读时钟。读时钟的函数没法钉住行为 ——
+        // 大运标哪一格是随日子走的,而一个自己去问「现在几点」的函数,
+        // 测试只能在它算出来的那一天成立
+        ("ready", Some(chart)) => 排页(chart, version.as_deref(), 今天()),
         _ => vec![],
     };
 
@@ -94,7 +97,24 @@ fn 串(v: Option<&J>) -> String {
 ///
 /// 每页都写出处：读的人要能追到这一句是从哪儿算出来的。
 /// 一页取不到数据就**不出这一页** —— 摆一页空的比少一页糟。
-fn 排页(c: &J, version: Option<&str>) -> Vec<J> {
+/// 上海的今天。生辰、大运都按用户所在的日子算 —— 差八小时的话，
+/// 晚上八点之后就换一天，而大运换格那天会提前一天翻。
+fn 今天() -> chrono::NaiveDate {
+    (chrono::Utc::now() + chrono::Duration::hours(8)).date_naive()
+}
+
+/// 生日到今天的**实龄**。
+///
+/// 原先这里是「今年 − 生年」，那不是实龄：生日在年内较晚的人会多算一岁，
+/// 而多算的那一岁**正好落在换格那一年** —— 整年标错一格。
+/// 本机那份样本是三月生的，两种算法同值，所以测不出来。
+fn 实龄(生: (i64, i64, i64), 今: chrono::NaiveDate) -> i64 {
+    use chrono::Datelike;
+    let (y, m, d) = 生;
+    今.year() as i64 - y - if ((今.month() as i64), (今.day() as i64)) < (m, d) { 1 } else { 0 }
+}
+
+fn 排页(c: &J, version: Option<&str>, 今: chrono::NaiveDate) -> Vec<J> {
     let 出处 = format!("{} 排盘", version.unwrap_or("mingli"));
     let mut pages = vec![];
 
@@ -182,9 +202,14 @@ fn 排页(c: &J, version: Option<&str>) -> Vec<J> {
     // 五 · 大运。**标出现在走到哪一格** —— 十格干支谁都排得出来，
     // 「你在第三格，还有四年换」才是读的人真正要的那一句。
     if let Some(d) = c.get("dayun").and_then(|d| d.get("pillars")).and_then(|p| p.as_array()) {
-        // 岁数从出生年算(虚岁不虚岁差一年,而排盘的 start_age 用的就是这个口径)
-        let 生年 = c.get("input").and_then(|i| i.get("year")).and_then(|v| v.as_i64());
-        let 今岁 = 生年.map(|y| chrono::Utc::now().date_naive().format("%Y").to_string().parse::<i64>().unwrap_or(y) - y);
+        /* 岁数按【实龄】算。排盘给的 `start_age_years` 就是实龄（实测 9.74），
+           `pillars[].start_age` 是它取整后的步长，所以两边口径要对上。 */
+        let 取 = |k: &str| c.get("input").and_then(|i| i.get(k)).and_then(|v| v.as_i64());
+        let 今岁 = match (取("year"), 取("month"), 取("day")) {
+            (Some(y), Some(m), Some(d)) => Some(实龄((y, m, d), 今)),
+            // 生日不全就不标 —— 标错一格比不标糟：读的人会照着它算还有几年换运
+            _ => None,
+        };
         // 现在这一格 = start_age 不超过今岁的最后一格
         let 现格 = 今岁.and_then(|age| d.iter().rposition(|p|
             p.get("start_age").and_then(|v| v.as_i64()).map(|a| a <= age).unwrap_or(false)));
@@ -223,4 +248,74 @@ fn 排页(c: &J, version: Option<&str>) -> Vec<J> {
     }
 
     pages
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::NaiveDate;
+
+    fn 日(y: i32, m: u32, d: u32) -> NaiveDate { NaiveDate::from_ymd_opt(y, m, d).unwrap() }
+
+    #[test]
+    fn 实龄按生日算而不是按年份差() {
+        // 生日还没到:今年减生年会多算一岁
+        assert_eq!(实龄((1998, 12, 5), 日(2026, 8, 29)), 27);
+        // 生日当天就算过了
+        assert_eq!(实龄((1998, 12, 5), 日(2026, 12, 5)), 28);
+        assert_eq!(实龄((1998, 12, 5), 日(2026, 12, 4)), 27);
+        // 生日在年初的:两种算法同值 —— 本机那份样本正是这一种,所以它测不出问题
+        assert_eq!(实龄((1998, 3, 5), 日(2026, 8, 29)), 28);
+    }
+
+    fn 盘(生月日: (i64, i64)) -> J {
+        json!({
+            "input": { "year": 1998, "month": 生月日.0, "day": 生月日.1 },
+            "dayun": { "forward": false, "pillars": [
+                { "ganzhi": "癸丑", "start_age": 10 },
+                { "ganzhi": "壬子", "start_age": 20 },
+                { "ganzhi": "辛亥", "start_age": 30 },
+            ]},
+        })
+    }
+
+    fn 标着现在的那格(pages: &[J]) -> Option<String> {
+        let p = pages.iter().find(|p| p["key"] == "dayun")?;
+        p["rows"].as_array()?.iter()
+            .find(|r| r["now"] == json!(true))
+            .map(|r| r["v"].as_str().unwrap_or("").to_string())
+    }
+
+    #[test]
+    fn 大运标的是现在走着的那一格() {
+        // 三月生,2026-08 实龄 28 → 二十岁那格
+        let p = 排页(&盘((3, 5)), None, 日(2026, 8, 29));
+        assert_eq!(标着现在的那格(&p).as_deref(), Some("壬子"));
+    }
+
+    #[test]
+    fn 换格那一年不许提前翻() {
+        /* ★ 这一条是这次修的东西。十二月生的人在 2026-08-29 实龄 27，
+           还在二十岁那格；按「今年减生年」算成 28，看着仍是二十岁那格 ——
+           所以要挑一个真会翻的日子：实龄 29 vs 30。 */
+        let 十二月生 = 盘((12, 5));
+        // 2027-08-29:实龄 28,仍在二十岁那格
+        assert_eq!(标着现在的那格(&排页(&十二月生, None, 日(2027, 8, 29))).as_deref(), Some("壬子"));
+        // 2028-08-29:实龄 29,还是二十岁那格 —— 而「今年减生年」会算成 30，提前翻到三十岁那格
+        assert_eq!(标着现在的那格(&排页(&十二月生, None, 日(2028, 8, 29))).as_deref(), Some("壬子"),
+                   "生日还没到就翻格了 —— 岁数算成了年份差");
+        // 2028-12-05 生日当天:实龄 30,这才翻
+        assert_eq!(标着现在的那格(&排页(&十二月生, None, 日(2028, 12, 5))).as_deref(), Some("辛亥"));
+    }
+
+    #[test]
+    fn 生日不全就不标哪一格() {
+        let 缺日 = json!({
+            "input": { "year": 1998, "month": 12 },
+            "dayun": { "pillars": [{ "ganzhi": "癸丑", "start_age": 10 }] },
+        });
+        // 标错一格比不标糟:读的人会照着它算还有几年换运
+        assert_eq!(标着现在的那格(&排页(&缺日, None, 日(2026, 8, 29))), None);
+    }
 }
