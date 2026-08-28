@@ -108,11 +108,15 @@ interface VillageData {
   code: string
   codeErr: string
   codeBusy: boolean
+  /** 某位今天说的一句（设计册 V1）。null = 村里还没人，这一块整个不摆。
+   *  它会改画布的可用高度 —— 从无到有那天要重算，见 `fitCanvas` */
+  says: null | { villager_id: string; name: string; title: string | null; art: string | null; text: string }
   /** 正在找那一位的御守 —— 找的时候按钮换个字，别让人以为没反应 */
 }
 
 Page<VillageData, WechatMiniprogram.IAnyObject>({
-  data: { cssW: 0, cssH: 0, sub: '', greet: '', today: '', tonight: false, lived: 0, total: 40, err: '', toScan: false, code: '', codeErr: '', codeBusy: false },
+  data: { cssW: 0, cssH: 0, sub: '', greet: '', today: '', tonight: false, lived: 0, total: 40, err: '', toScan: false, code: '', codeErr: '', codeBusy: false,
+    says: null },
 
   handle: null as { stop(): void } | null,
   // id → 请回家了没。村子画面里那几位与后端的 id 是同一套(ayun / tao / popo / tenz …),
@@ -152,6 +156,13 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
 
   goTonight() { wx.navigateTo({ url: '/pages/lighting/index' }) },
 
+  /** 说话那位的那一页。她已经住着，所以点进去是她本人，不是空屋 */
+  onSays() {
+    const s = this.data.says
+    if (!s) return
+    wx.navigateTo({ url: `/pages/villager/index?id=${s.villager_id}` })
+  },
+
   reload() {
     // 收集数与「谁请回家了」都以服务端为准。引擎那边的 VILLAGE_CENSUS 只报
     // 画面里画了几户,那是另一件事,两个数不该混用。
@@ -167,8 +178,12 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
         /* 「该扫了」那一条出现或消失，画布的可用高度就变了 —— 得重算一次，
            否则那一条把整屏顶出去（村子这一屏本来就是刚好放得下的）。 */
         const 该扫 = !!v.to_scan
-        const 变了 = 该扫 !== this.data.toScan
-        this.setData({ lived: v.found, total: v.total, err: '', toScan: 该扫 })
+        /* 「今天说的一句」跟「该扫了」一样会改可用高度 —— 村里第一个人
+           住进来那天它从无到有，画布得跟着让位。只看 toScan 变没变的话，
+           那一天整屏会被顶出去 88px。 */
+        const 说的 = v.today_says || null
+        const 变了 = 该扫 !== this.data.toScan || !!说的 !== !!this.data.says
+        this.setData({ lived: v.found, total: v.total, err: '', toScan: 该扫, says: 说的 })
         if (变了 && this.data.cssW) { this.fitCanvas(); this.mount() }
       },
       /* 【还没登录完】不等于【取不到】。匿名登录是 app.ts 异步做的，
@@ -204,7 +219,12 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
        症状是「多一条就超出去几十像素」，而那几十像素正好等于差值。 */
     const 头部 = 70
     const 提示条 = this.data.toScan ? 56 : 0
-    const 可用 = win.windowHeight - 头部 - 提示条
+    /* 「某位今天说的一句」那四行，实测 104px。跟头部同一个道理：写死，
+       **改那一块的版式就要改这个数**。它是条件出现的（空村时没有），
+       所以跟提示条一样要参与重算，否则村里第一个人住进来那天，
+       多出来的那一块会把整屏顶出去。 */
+    const 说的 = this.data.says ? 104 : 0
+    const 可用 = win.windowHeight - 头部 - 提示条 - 说的
     const 等比 = Math.round((win.windowWidth * VILLAGE_SIZE.h) / VILLAGE_SIZE.w)
     const cssH = Math.min(等比, Math.max(120, 可用))
     const cssW = Math.round((cssH * VILLAGE_SIZE.w) / VILLAGE_SIZE.h)
