@@ -150,7 +150,19 @@ def ts_fields(src, iface):
     body = src[m.end(): i - 1]
     body = re.sub(r'/\*[\s\S]*?\*/', '', body)
     body = re.sub(r'//[^\n]*', '', body)
-    return set(re.findall(r'^\s*([A-Za-z_][A-Za-z0-9_]*)\s*[?]?\s*:', body, re.M))
+    # 只要【第一层】的字段。内联对象里的那些是另一个形状的事 ——
+    # 把它们跟顶层混在一起，结果是拿嵌套字段去顶层找，找不到就报「后端不给」。
+    # 2026-08-28 撞上一次：`MyVillage.today_says` 是个内联对象，
+    # 它里面的 `text` / `villager_id` 被当成 MyVillage 自己的字段报了红。
+    flat, depth = [], 0
+    for ch in body:
+        if ch == '{':
+            depth += 1
+        elif ch == '}':
+            depth -= 1
+        elif depth == 0:
+            flat.append(ch)
+    return set(re.findall(r'^\s*([A-Za-z_][A-Za-z0-9_]*)\s*[?]?\s*:', ''.join(flat), re.M))
 
 
 # ── 前端依赖的状态码 ──────────────────────────────────────────────
