@@ -120,10 +120,23 @@ async fn my_village(
        不说是谁：还没请回来的人，名字都不该知道。 */
     let to_scan = residency::delivered_but_unscanned(&st.db, &c.sub).await?;
 
+    /* 某位今天说的一句（设计册 V1）。主屏第一眼该是【有人在跟你打招呼】，
+       不是一张地图加两个数。
+
+       只从【住着的人】里选 —— 还没请回来的人连名字都不该知道
+       （空屋那一屏照的也是这一条）。所以空村时它是 null，
+       客户端据此不摆这一块:村里没人，谁都没法说话。
+
+       「今天」是真的按天定：同一个人同一天进来看到的是同一句，
+       换一天换一句。随机选的话刷新一次换一句，那就不是「今天说的」，
+       是一台老虎机。 */
+    let says = today_says(&st.db, &c.sub, &home).await?;
+
     Ok(Json(json!({
         "found": home.len(),
         "total": all.len(),
         "villagers": all,
+        "today_says": says,
         "to_scan": to_scan.map(|(order_id, delivered_at)| json!({
             "order_id": order_id,
             "delivered_at": delivered_at,
@@ -132,6 +145,66 @@ async fn my_village(
 }
 
 /// 图鉴:不带住没住,给未登录的人看。
+/// 按天定的选择种子。**不用标准库的 Hasher** —— `DefaultHasher` 的算法
+/// 不保证跨版本稳定，那意味着升一次工具链，所有人「今天说的话」会集体换一句。
+/// FNV-1a 写死在这儿，行为跟编译器无关。
+fn 日种(user_id: &str, day: &str) -> u64 {
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    for b in user_id.bytes().chain(b"@".iter().copied()).chain(day.bytes()) {
+        h ^= b as u64;
+        h = h.wrapping_mul(0x1000_0000_01b3);
+    }
+    h
+}
+
+/// 住着的人里，今天由谁说、说哪一句。
+///
+/// 村里没人、或住着的人都还没写话 → `None`，客户端不摆这一块。
+/// **不拿没住进来的人顶上**：那等于提前告诉你还没请回来的是谁。
+async fn today_says(
+    db: &sqlx::PgPool,
+    user_id: &str,
+    home: &[String],
+) -> Result<J, ApiError> {
+    if home.is_empty() {
+        return Ok(J::Null);
+    }
+    // 日期按上海时区算 —— 「今天」是用户的今天，不是 UTC 的今天。
+    // 差 8 小时的话，晚上八点之后换一句，那对用户就是「说变就变」
+    let day = (chrono::Utc::now() + chrono::Duration::hours(8))
+        .format("%Y-%m-%d").to_string();
+
+    let rows = sqlx::query(
+        r#"SELECT l.villager_id, l.seq, l.text, v.name, v.title, a.name AS art_name
+             FROM villager_line l
+             JOIN villager v ON v.id = l.villager_id
+             LEFT JOIN art a ON a.key = v.art_key
+            WHERE l.villager_id = ANY($1)
+            ORDER BY l.villager_id, l.seq"#,
+    )
+    .bind(home)
+    .fetch_all(db)
+    .await?;
+    if rows.is_empty() {
+        return Ok(J::Null);
+    }
+
+    // 先定人再定句:同一天里换一个人住进来,别人说的那句不该跟着变
+    let mut 谁们: Vec<&str> = rows.iter().map(|r| r.get::<&str, _>("villager_id")).collect();
+    谁们.dedup();
+    let 谁 = 谁们[(日种(user_id, &day) % 谁们.len() as u64) as usize];
+    let 他的: Vec<_> = rows.iter().filter(|r| r.get::<&str, _>("villager_id") == 谁).collect();
+    let r = 他的[(日种(谁, &day) % 他的.len() as u64) as usize];
+
+    Ok(json!({
+        "villager_id": 谁,
+        "name": r.get::<String, _>("name"),
+        "title": r.get::<Option<String>, _>("title"),
+        "art": r.get::<Option<String>, _>("art_name"),
+        "text": r.get::<String, _>("text"),
+    }))
+}
+
 async fn all_villagers(State(st): State<AppState>) -> Result<Json<J>, ApiError> {
     let rows = sqlx::query(
         "SELECT v.id, v.name, v.title, a.name AS art_name, v.rarity \

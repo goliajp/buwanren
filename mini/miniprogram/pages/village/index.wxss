@@ -63,3 +63,16 @@
 .tally-n { flex: none; font-size: 24rpx; color: #6b6459; }
 .tally-go { margin-left: auto; font-size: 24rpx; color: #3a352e; }
 .tally-dim { margin-left: auto; font-size: 22rpx; color: #a09789; }
+
+/* 某位今天说的一句（设计册 V1）。四行:谁说、说的话、她是谁、去看看。
+   话本身是这一块的主角，所以它最大;别的三行都是给它做注脚的。
+
+   **改这一块的高度就要改 index.ts 里 `fitCanvas` 的那个常量** ——
+   画布按可用高度铺，它俩对不上时画布不会让位，
+   症状是「多一块就超出去几十像素」，而那几十像素正好等于差值。 */
+.says { padding: 14rpx 4rpx 16rpx; }
+.says-hover { opacity: 0.6; }
+.says-who { font-size: 24rpx; color: var(--ink-faint); }
+.says-text { font-size: 34rpx; color: var(--ink); line-height: 1.5; margin-top: 4rpx; }
+.says-id { font-size: 22rpx; color: var(--stone-label); margin-top: 8rpx; }
+.says-go { font-size: 24rpx; color: var(--ink-mid); margin-top: 6rpx; }

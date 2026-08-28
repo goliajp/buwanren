@@ -32,6 +32,17 @@ export interface MyVillage {
   /** 手上有一枚已签收、还没扫开的御守时给出那一单；没有就是 null。
    *  设计册 E2「该扫了」。**不带是谁** —— 还没请回来的人，名字都不该知道。 */
   to_scan: { order_id: string; delivered_at: string } | null
+  /** 某位今天说的一句（设计册 V1）。**只从住着的人里选** ——
+   *  村里没人、或住着的人都还没写话时是 null，那一块整个不摆。
+   *  同一个人同一天看到的是同一句：随机的话刷新一次换一句，
+   *  那就不是「今天说的」，是一台老虎机。 */
+  today_says: {
+    villager_id: string
+    name: string
+    title: string | null
+    art: string | null
+    text: string
+  } | null
 }
 
 /** 图鉴里的样子 —— 不带住没住,未登录也能看 */

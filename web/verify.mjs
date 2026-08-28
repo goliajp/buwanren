@@ -379,17 +379,28 @@ if (API) {
      而报告上写的是「取不到真数据」，看着像后端没给。 */
   await p.waitForFunction(() => !!localStorage.getItem('unmei:buwanren:token'), null,
                           { timeout: 8000 }).catch(() => {})
-  const 某位 = await p.evaluate(async (base) => {
+  /* 三种失败长得一模一样(都是 null),而报出来的都是「取不到真数据」——
+     于是村民那一整页在真后端这一档【从没验过】,而报告上看着像后端没给。
+     2026-08-28 追这件事花了半轮,就因为这一步不说自己卡在哪。 */
+  const 某位说法 = await p.evaluate(async (base) => {
     const raw = localStorage.getItem('unmei:buwanren:token')
-    if (!raw) return null
-    const r = await fetch(base + '/v1/village', {
-      headers: { authorization: 'Bearer ' + JSON.parse(raw) },
-    })
-    if (!r.ok) return null
+    if (!raw) return { id: null, 因为: '这一步还没拿到 token' }
+    let r
+    try {
+      r = await fetch(base + '/v1/village', {
+        headers: { authorization: 'Bearer ' + JSON.parse(raw) },
+      })
+    } catch (e) {
+      return { id: null, 因为: '请求发不出去：' + String(e).slice(0, 60) }
+    }
+    if (!r.ok) return { id: null, 因为: `/v1/village 回了 HTTP ${r.status}` }
     const j = await r.json()
-    return j.villagers && j.villagers[0] ? j.villagers[0].id : null
+    if (!j.villagers || !j.villagers[0]) return { id: null, 因为: 'villagers 是空的' }
+    return { id: j.villagers[0].id, 因为: '' }
   }, API)
+  const 某位 = 某位说法.id
   if (某位) 要参数['pages/villager/index'] = { id: 某位 }
+  else console.log(`  · 挑不出村民那一屏要的那一位：${某位说法.因为}`)
   // 确认那一屏跟商品页要的是同一个 id
   if (商品) 要参数['pages/confirm/index'] = { id: 商品 }
 
@@ -1304,6 +1315,34 @@ ok(said.includes('宜') && said.includes('忌'), '签里有宜有忌', said.slic
 await shot('03-reading')
 
 // ⑤ 住着但房间还没搬进来的 ──────────────────────────────────────
+/* 「今天说的一句」那一块的高度，写死在 `village/index.ts` 的 `fitCanvas` 里
+   （画布按可用高度铺，得知道上面被占了多少）。写死是刻意的 ——
+   量完再改的收敛循环会把版式变成时序问题。
+
+   但**写死的数写错了没人知道**：症状是「多一块就超出去几十像素」，
+   而那几十像素正好等于差值。2026-08-28 头一版差 16px，
+   村子那一屏超出去，画布被顶得点不准，连带 lighting 也报红。
+   所以这里把常量和实测钉在一起。 */
+{
+  if (await p.evaluate(() => globalThis.__router.current().__route) !== 'pages/village/index') {
+    await open('pages/village/index')
+    await p.waitForTimeout(700)
+  }
+  const 实高 = await p.evaluate(() => {
+    const e = document.querySelector('.says')
+    return e ? Math.round(e.getBoundingClientRect().height) : -1
+  })
+  if (实高 < 0) {
+    console.log('  · 「今天说的一句」这一趟没出现（村里还没人）—— 这一条【没验】')
+  } else {
+    const 写死的 = Number((readFileSync('mini/miniprogram/pages/village/index.ts', 'utf8')
+      .match(/const 说的 = this\.data\.says \? (\d+) : 0/) || [])[1])
+    ok(写死的 > 0 && Math.abs(实高 - 写死的) <= 2,
+       'fitCanvas 里写死的那个数，跟「今天说的一句」实际占的一样高',
+       `代码里 ${写死的}，实测 ${实高}`)
+  }
+}
+
 console.log('\n── 点一格住着、但屋子还没搬进来的（陈九）──')
 await tapPlot('chenjiu')
 await 等取完('pages/villager/index')

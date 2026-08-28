@@ -24,6 +24,25 @@
     <view class="nudge-s">御守背面那个码</view>
   </view>
 
+  <!-- 某位今天说的一句（设计册 V1）。主屏第一眼该是【有人在跟你打招呼】，
+       不是一张地图加两个数。
+
+       它不是签、不是运势、不下任何判断 —— 就是她今天说的一句闲话，
+       所以它不需要来源（10.8 管的是「不下没有来源的断言」）。
+
+       村里没人时整块不摆：还没请回来的人连名字都不该知道，
+       拿一位没住进来的顶上等于提前剧透。
+
+       「去看看 ›」**不带代词** —— 设计册那一格举的例子是婆婆，写着「去看看她」，
+       而四十位里男女都有。写死一个「她」，轮到丹增说话那天就是错的。 -->
+  <view wx:if="{{says}}" class="says" bindtap="onSays"
+        hover-class="says-hover" hover-stay-time="100">
+    <view class="says-who">{{says.name}}今天说</view>
+    <view class="says-text">「{{says.text}}」</view>
+    <view class="says-id">{{says.title}}<text wx:if="{{says.art}}"> · {{says.art}}</text></view>
+    <view class="says-go">去看看 ›</view>
+  </view>
+
   <!-- type="2d" 是必须的:旧版 canvas 拿不到 node,也就没有 requestAnimationFrame -->
   <canvas
     type="2d"
