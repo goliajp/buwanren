@@ -412,7 +412,7 @@ if (API) {
           authorization: 'Bearer ' + token,
           'idempotency-key': 'mirror-sweep-' + Math.random().toString(36).slice(2),
         },
-        body: JSON.stringify({ lines: [{ sku_id: 'sku-naji-single', qty: 1 }], region: 'cn' }),
+        body: JSON.stringify({ lines: [{ sku_id: 'sku-naji-deep', qty: 1 }], region: 'cn' }),
       })
       if (!r.ok) break
       const j = await r.json()
@@ -424,7 +424,7 @@ if (API) {
   if (单) 要参数['pages/order/index'] = { id: 单 }
 
   /* ── 那一册（M2「看 ›」）──────────────────────────────────────
-     `sku-naji-single` 的 fulfillment_kind 是 async_compute，所以上面
+     `sku-naji-deep` 的 fulfillment_kind 是 async_compute，所以上面
      那六张单本来就该出册子 —— 但要付了钱才出，而付款【只有真机有】。
 
      所以这里跟 mintCredential 同一个路子：把册子种进库，页面照样走

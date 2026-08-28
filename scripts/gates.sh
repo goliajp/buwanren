@@ -237,10 +237,17 @@ fi
 # 枚举声明的取值 vs 库里的 CHECK。要库，不要 API。
 if ! pg_isready -h localhost -p 6032 >/dev/null 2>&1; then
   skip "枚举跟库里的 CHECK 对得上吗" "Postgres（:6032）没起，跳过 —— 这一项【没验】"
+  skip "在售的报告出得了吗" "同上"
 else
   gate "枚举跟库里的 CHECK 对得上吗" . env \
     PSQL_URL='postgres://unmei:unmei_dev_pwd@localhost:6032/unmei' \
     python3 scripts/check-enum-check.py
+  # 在售的报告商品，履约真出得了那一种册子吗。写死过一版 kind，
+  # 于是买合婚、买问事一卦的人都拿到一份自己的八字册子 ——
+  # 答非所问比什么都不给更糟，买家会以为那就是他买的东西。
+  gate "在售的报告出得了吗" . env \
+    PSQL_URL='postgres://unmei:unmei_dev_pwd@localhost:6032/unmei' \
+    python3 scripts/check-report-kinds.py
 fi
 # ── 下面这几支 2026-08-25 之前【只在 CI 的 backend.yml 里跑】 ─────────
 # 删 CI 那天差点跟着一起没了。「只在 CI 里跑过」的东西最容易这样消失:

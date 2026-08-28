@@ -63,7 +63,7 @@ pub async fn apply_order_paid(pool: &PgPool, order_id: &str) -> Result<Fulfillme
     // user_id 与 villager_id 一起取回来:御守行要靠它们写入住。
     // 分两次查的话,中间那段时间足够订单被改掉。
     let lines = sqlx::query(
-        r#"SELECT ol.id, p.fulfillment_kind, s.villager_id, o.user_id
+        r#"SELECT ol.id, p.fulfillment_kind, p.report_kind, s.villager_id, o.user_id
            FROM order_line ol
            JOIN sku s          ON s.id = ol.sku_id
            JOIN product p      ON p.id = s.product_id
@@ -98,7 +98,22 @@ pub async fn apply_order_paid(pool: &PgPool, order_id: &str) -> Result<Fulfillme
             // 还差自己一步。停在 processing,订单那一屏说得出「还差你的生辰」。
             "async_compute" => {
                 let user_id: String = l.get("user_id");
-                let out = crate::report::ensure_for_line(&mut tx, &user_id, &line_id, "bazi_deep").await?;
+                /* 出【哪一种】册子是商品说了算,不是这里的常量。
+                   写死过一版 `bazi_deep`,于是买合婚、买问事一卦的人
+                   都拿到一份自己的八字册子 —— 答非所问比什么都不给更糟,
+                   因为买家会以为这就是他买的东西。
+
+                   商品没标 / 标了一种我们还做不出来的 → **不出册子**,
+                   行留在 pending。后台看得见,人能去把它补上或者下架。
+                   跟御守 SKU 没有 villager_id 那条同一个处理:
+                   配置错误不许被一句 done 盖过去。 */
+                let report_kind: Option<String> = l.get("report_kind");
+                let Some(kind) = report_kind.filter(|k| crate::report::出得了(k)) else {
+                    tracing::error!(order_id, line_id, kind = ?l.get::<Option<String>, _>("report_kind"),
+                                    "这件商品没说出哪一种册子，或者那一种还做不出来 —— 行留在 pending");
+                    continue;
+                };
+                let out = crate::report::ensure_for_line(&mut tx, &user_id, &line_id, &kind).await?;
                 let status = if out.is_ready() { "done" } else { "processing" };
                 sqlx::query(
                     "UPDATE order_line SET fulfillment_status=$1,
