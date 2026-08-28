@@ -83,13 +83,28 @@ code=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "$ADMIN/admin/commerce/pr
   -d '{"currency":"CNY","price_minor":100}')
 check "publish_price 到不存在的 SKU" "404" "$code"
 
-echo "  为 sku-mg-month 发一条 JPY 价（建混币种场景）"
+# 混币种要【两个不同的、买得到的 SKU】。拿真商品当校验数据的话，
+# 那件商品一下架这一支就跟着红 —— 2026-08-28 已经因此改过两次
+# （问事一卦、黄金会员先后下架，都是因为「卖了给不出东西」）。
+#
+# 所以这里自己种一件，而且它【永远不上架】：product 留在 draft，
+# 只有 sku 是 active。跟「校验·香」同一个路子 ——
+# 校验用的数据不该长得像真数据，也不该混进真目录。
+PSQL "INSERT INTO product(id,code,name,category,kind,status,fulfillment_kind)
+      VALUES ('prod-verify-mix','verify_mix','校验·混币种','report','one_shot','draft','instant')
+      ON CONFLICT (id) DO UPDATE SET status='draft'" >/dev/null
+PSQL "INSERT INTO sku(id,product_id,code,name,stock_kind,default_currency,status)
+      VALUES ('sku-verify-mix','prod-verify-mix','verify_mix_default','校验·混币种',
+              'unlimited','CNY','active')
+      ON CONFLICT (id) DO UPDATE SET status='active'" >/dev/null
+
+echo "  为 sku-verify-mix 发一条 JPY 价（建混币种场景）"
 # 发到 **cn**，不是 jp。原先发到 jp 也能把下一条测红，但那是**靠 bug**：
 # 建单当时不看区域，取的是「最新那一行」，于是 cn 的单拿到了 jp 的价。
 # 2026-08-19 建单改成按区域取价之后，发到 jp 的价对 cn 的单不再可见 ——
 # 混币种这个前提就没了，那一条会变成假绿。
 # 要验「同一笔里币种不一致会不会被拒」，就得把不一致**真的造在同一个区里**。
-resp=$(curl -sS -X POST "$ADMIN/admin/commerce/pricing/sku-mg-month/publish" \
+resp=$(curl -sS -X POST "$ADMIN/admin/commerce/pricing/sku-verify-mix/publish" \
   -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' \
   -d '{"currency":"JPY","price_minor":1200,"region":"cn","platform":"all"}')
 check "publish_price 合法请求" "true" "$(echo "$resp" | jq -r .ok)"
@@ -99,7 +114,7 @@ echo "▶ B · 建单：混币种必须被拒（两份旧实现都会静默算�
 code=$(curl -sS -o /tmp/mix.json -w '%{http_code}' -X POST "$API/v1/orders" \
   -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
   -H "idempotency-key: $(idem mix)" \
-  -d '{"lines":[{"sku_id":"sku-naji-deep","qty":1},{"sku_id":"sku-mg-month","qty":1}],"region":"cn"}')
+  -d '{"lines":[{"sku_id":"sku-naji-deep","qty":1},{"sku_id":"sku-verify-mix","qty":1}],"region":"cn"}')
 check "混币种下单 HTTP" "422" "$code"
 check "混币种下单 code" "validation" "$(jq -r .code /tmp/mix.json)"
 echo "    错误文本： $(jq -r .error /tmp/mix.json)"
@@ -107,7 +122,7 @@ echo "    错误文本： $(jq -r .error /tmp/mix.json)"
 # 把刚才那条 JPY 的 cn 价收掉 —— 留着的话这个 sku 在 cn 就有两个币种的活价，
 # 而「商品页显示的价 = 下单记的账」这条性质会跟着坏，往后每次跑都更乱。
 PSQL "UPDATE price_book SET status='expired'
-      WHERE sku_id='sku-mg-month' AND region='cn' AND currency='JPY' AND status='active'" >/dev/null
+      WHERE sku_id='sku-verify-mix' AND region='cn' AND currency='JPY' AND status='active'" >/dev/null
 
 echo
 echo "▶ C · 建单：ip / ua 落库（旧实现一直写 NULL）"
