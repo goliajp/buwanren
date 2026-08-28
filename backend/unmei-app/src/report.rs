@@ -19,6 +19,20 @@ use unmei_domain::DomainError;
 use crate::new_id;
 use crate::DbResultExt;
 
+/// 这个仓库现在**真出得了**的册子种类。
+///
+/// 商品上的 `report_kind` 要落在这张表里,履约才给出册子。不在的话
+/// 那件商品还没做完 —— 上架它的时候库里那道 CHECK 会拦住
+/// (`product_listed_report_kind`),而这里是第二道:直属数据改到了、
+/// 代码还没跟上时,不让它悄悄出一册不对的。
+///
+/// 加一种的顺序是【先这里、再上架】,不是反过来。
+pub const 出得了的册子: &[&str] = &["bazi_deep"];
+
+pub fn 出得了(kind: &str) -> bool {
+    出得了的册子.contains(&kind)
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum ReportOutcome {
     /// 盘已快照，能读了
