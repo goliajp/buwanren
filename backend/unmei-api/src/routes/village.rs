@@ -130,7 +130,12 @@ async fn my_village(
        「今天」是真的按天定：同一个人同一天进来看到的是同一句，
        换一天换一句。随机选的话刷新一次换一句，那就不是「今天说的」，
        是一台老虎机。 */
-    let says = today_says(&st.db, &c.sub, &home).await?;
+    // 「今天」从这里传进去,不在 `today_says` 里读时钟:读时钟的函数
+    // 没法钉住「同一天同一句、换一天换一句」——测试只能在它算出来的那天成立。
+    // 日期按上海时区 ——「今天」是用户的今天,差八小时的话晚上八点就换一句
+    let day = (chrono::Utc::now() + chrono::Duration::hours(8))
+        .format("%Y-%m-%d").to_string();
+    let says = today_says(&st.db, &c.sub, &home, &day).await?;
 
     Ok(Json(json!({
         "found": home.len(),
@@ -157,6 +162,21 @@ fn 日种(user_id: &str, day: &str) -> u64 {
     h
 }
 
+/// 今天由谁说、说他的第几句 —— 返回 `候选` 里的下标。
+///
+/// `候选` 是 (谁, 行下标)，按 (谁, 第几句) 排好序。
+///
+/// **先定人再定句**：同一天里又请回来一位，别人正说着的那句不该跟着变。
+/// 挑句子用的种子是【那个人】而不是用户 —— 否则同一天里换个人住进来，
+/// 原来那位说的话也会跟着换。
+fn 挑一句(候选: &[(&str, usize)], user_id: &str, day: &str) -> usize {
+    let mut 谁们: Vec<&str> = 候选.iter().map(|(w, _)| *w).collect();
+    谁们.dedup();
+    let 谁 = 谁们[(日种(user_id, day) % 谁们.len() as u64) as usize];
+    let 他的: Vec<usize> = 候选.iter().filter(|(w, _)| *w == 谁).map(|(_, i)| *i).collect();
+    他的[(日种(谁, day) % 他的.len() as u64) as usize]
+}
+
 /// 住着的人里，今天由谁说、说哪一句。
 ///
 /// 村里没人、或住着的人都还没写话 → `None`，客户端不摆这一块。
@@ -165,14 +185,11 @@ async fn today_says(
     db: &sqlx::PgPool,
     user_id: &str,
     home: &[String],
+    day: &str,
 ) -> Result<J, ApiError> {
     if home.is_empty() {
         return Ok(J::Null);
     }
-    // 日期按上海时区算 —— 「今天」是用户的今天，不是 UTC 的今天。
-    // 差 8 小时的话，晚上八点之后换一句，那对用户就是「说变就变」
-    let day = (chrono::Utc::now() + chrono::Duration::hours(8))
-        .format("%Y-%m-%d").to_string();
 
     let rows = sqlx::query(
         r#"SELECT l.villager_id, l.seq, l.text, v.name, v.title, a.name AS art_name
@@ -189,15 +206,12 @@ async fn today_says(
         return Ok(J::Null);
     }
 
-    // 先定人再定句:同一天里换一个人住进来,别人说的那句不该跟着变
-    let mut 谁们: Vec<&str> = rows.iter().map(|r| r.get::<&str, _>("villager_id")).collect();
-    谁们.dedup();
-    let 谁 = 谁们[(日种(user_id, &day) % 谁们.len() as u64) as usize];
-    let 他的: Vec<_> = rows.iter().filter(|r| r.get::<&str, _>("villager_id") == 谁).collect();
-    let r = 他的[(日种(谁, &day) % 他的.len() as u64) as usize];
+    let 候选: Vec<(&str, usize)> = rows.iter().enumerate()
+        .map(|(i, r)| (r.get::<&str, _>("villager_id"), i)).collect();
+    let r = &rows[挑一句(&候选, user_id, &day)];
 
     Ok(json!({
-        "villager_id": 谁,
+        "villager_id": r.get::<String, _>("villager_id"),
         "name": r.get::<String, _>("name"),
         "title": r.get::<Option<String>, _>("title"),
         "art": r.get::<Option<String>, _>("art_name"),
@@ -361,4 +375,57 @@ async fn scan(
         // 第一次是「他住进来了」,第二次是「他早就在了」
         "moved_in": out.is_new(),
     })))
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 四个人各三句，跟真数据一个形状
+    fn 候选() -> Vec<(&'static str, usize)> {
+        let mut v = vec![];
+        for (n, who) in ["ayun", "popo", "shenyan", "tenz"].iter().enumerate() {
+            for j in 0..3 {
+                v.push((*who, n * 3 + j));
+            }
+        }
+        v
+    }
+
+    #[test]
+    fn 同一天同一个人说的是同一句() {
+        let c = 候选();
+        let a = 挑一句(&c, "u_1", "2026-08-29");
+        for _ in 0..20 {
+            assert_eq!(挑一句(&c, "u_1", "2026-08-29"), a,
+                       "同一天同一个人应当每次都拿到同一句 —— 否则刷新一下就换一句，那是老虎机");
+        }
+    }
+
+    #[test]
+    fn 换一天会换() {
+        let c = 候选();
+        let 一个月: std::collections::HashSet<usize> = (1..=30)
+            .map(|d| 挑一句(&c, "u_1", &format!("2026-09-{d:02}")))
+            .collect();
+        // 十二句里一个月至少该听到几句不同的。全都一样 = 日期没参与
+        assert!(一个月.len() >= 4, "一个月只听到 {} 句 —— 日期没起作用？", 一个月.len());
+    }
+
+    #[test]
+    fn 不同的人听到的不都一样() {
+        let c = 候选();
+        let 一天: std::collections::HashSet<usize> = (0..40)
+            .map(|i| 挑一句(&c, &format!("u_{i}"), "2026-08-29"))
+            .collect();
+        assert!(一天.len() >= 4, "四十个人只分出 {} 种 —— 用户没参与？", 一天.len());
+    }
+
+    #[test]
+    fn 只有一个人住着时也说得出话() {
+        let 一个人: Vec<(&str, usize)> = vec![("popo", 0), ("popo", 1)];
+        let i = 挑一句(&一个人, "u_1", "2026-08-29");
+        assert!(i < 2);
+    }
 }

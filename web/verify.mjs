@@ -135,6 +135,32 @@ await p.addInitScript(() => {
 const errs = []
 p.on('pageerror', (e) => errs.push(String(e).split('\n')[0]))
 
+/* 页面自己 `console.error` 出来的话也收着。
+   匿名登录失败时 `app.ts` 打的正是这一句（「[app] 登录失败：…」），
+   而在这之前没人听 —— 于是「token 没写」这件事只剩下一个空的 localStorage，
+   原因烂在浏览器控制台里。2026-08-29 追这个 flaky 追到第四层才想起它。 */
+const 控台错 = []
+p.on('console', (m) => {
+  if (m.type() === 'error') 控台错.push(m.text().replace(/\s+/g, ' ').slice(0, 160))
+})
+/* 「Failed to load resource」这句话不带 URL —— 而没有 URL 的资源错误
+   等于没说。响应这一侧记的是哪一条路、回了什么码。 */
+const 坏响应 = []
+p.on('response', (r) => {
+  if (r.status() >= 400) 坏响应.push(`${r.status()} ${r.url().replace(/^https?:\/\/[^/]+/, '')}`)
+})
+/* 只看【失败的】请求会漏掉最要紧的一种:**根本没发出去的那条**。
+   追登录那个 flaky 时兜了五层圈子,就因为「没有失败」被当成了「都正常」。 */
+const 打过的 = []
+p.on('request', (r) => {
+  const u = r.url()
+  if (u.includes('/v1/')) 打过的.push(r.method() + ' ' + u.replace(/^https?:\/\/[^/]+/, ''))
+})
+p.on('requestfailed', (r) => {
+  if (r.url().includes('/v1/')) 坏响应.push('发不出去 ' + r.url().replace(/^https?:\/\/[^/]+/, '')
+    + '（' + (r.failure() ? r.failure().errorText : '?') + '）')
+})
+
 /** 种下的那两册：状态 → { report, order }。多状态那一段拿它切换 */
 const 册们 = {}
 
@@ -270,6 +296,31 @@ console.log('══ 移动网页版 · 动线验证 ══')
 if (API) await p.addInitScript((b) => { globalThis.__API_BASE = b }, API)
 console.log(API ? '打真后端 ' + API : '用假服务端（拦 /v1/**，前端这一侧照真路走）')
 
+/* 打真后端时先热一下它再开跑。
+   后端刚起来的头一两个请求要建连接池，慢的时候超过八秒 ——
+   而这一趟等 token 的地方只等八秒，等不到就把村民、订单、册子三页
+   一起跳过，报出来的是「取不到真数据（目录里没有那个 sku）」。
+   看着像后端没数据，其实是它还没热。
+   2026-08-29 连着两次撞上，都在重启后端之后的第一跑。 */
+if (API) {
+  const t0 = Date.now()
+  let 热了 = false
+  for (let i = 0; i < 20 && !热了; i++) {
+    try {
+      const r = await fetch(API + '/v1/auth/anonymous', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}',
+      })
+      热了 = r.ok
+    } catch { /* 还没起来,再等 */ }
+    if (!热了) await new Promise((r) => setTimeout(r, 500))
+  }
+  if (!热了) {
+    console.log(`✗ 后端热不起来（${API}）—— 这一趟没法验，别当它过了`)
+    process.exit(1)
+  }
+  console.log(`  （后端热好了，用了 ${Date.now() - t0}ms）`)
+}
+
 /* 打真后端时,用【真的入住路径】把两位请回家:
      发一张御守凭据(库里) → 页面点「扫御守」→ /v1/omamori/scan → 入住
    扫码本身只有真机有,所以这里把 wx.scanCode 桩成「扫到了这串凭据」——
@@ -377,14 +428,28 @@ if (API) {
   /* 等 token 落下来再问。匿名登录是异步的 —— 第一版没等，
      于是这一句在登录之前跑，拿到 null，村民那一页整轮被跳过，
      而报告上写的是「取不到真数据」，看着像后端没给。 */
-  await p.waitForFunction(() => !!localStorage.getItem('unmei:buwanren:token'), null,
-                          { timeout: 8000 }).catch(() => {})
+  /* 自己轮询，不用 `waitForFunction` —— 页面刚导航过去时它会抛
+     「execution context was destroyed」，而外面那个 `.catch(() => {})`
+     一吞就【立刻返回】：写着等二十秒，实际一秒没等。
+     症状是村民那一整页每次都跳过，报出来却是「取不到真数据」。
+     2026-08-29 把超时从八秒放宽到二十秒毫无变化，才看出等待本身是假的。 */
+  for (let i = 0; i < 40; i++) {
+    const 有 = await p.evaluate(() => !!localStorage.getItem('unmei:buwanren:token'))
+      .catch(() => false)
+    if (有) break
+    await p.waitForTimeout(500)
+  }
   /* 三种失败长得一模一样(都是 null),而报出来的都是「取不到真数据」——
      于是村民那一整页在真后端这一档【从没验过】,而报告上看着像后端没给。
      2026-08-28 追这件事花了半轮,就因为这一步不说自己卡在哪。 */
   const 某位说法 = await p.evaluate(async (base) => {
     const raw = localStorage.getItem('unmei:buwanren:token')
-    if (!raw) return { id: null, 因为: '这一步还没拿到 token' }
+    if (!raw) {
+      // 「没 token」还能再分:localStorage 是空的(登录压根没跑),
+      // 还是里头有别的键(登录跑了但键名不是这个)。两种的修法完全不同
+      const 键 = Object.keys(localStorage)
+      return { id: null, 因为: `localStorage 里有：${键.join(' ') || '什么都没有'}；当前 ${location.href.slice(-40)}` }
+    }
     let r
     try {
       r = await fetch(base + '/v1/village', {
@@ -400,7 +465,14 @@ if (API) {
   }, API)
   const 某位 = 某位说法.id
   if (某位) 要参数['pages/villager/index'] = { id: 某位 }
-  else console.log(`  · 挑不出村民那一屏要的那一位：${某位说法.因为}`)
+  /* 打真后端时挑不出人来,那【不是「这一趟没有真数据」】,是这一趟没验成 ——
+     村民那一屏加它的两个状态一起落空,而报出来的是三行温和的「跳过」。
+     跳过不是通过:让它红,红了才有人去看。 */
+  else ok(false, '挑得出村民那一屏要的那一位',
+          某位说法.因为
+          + (控台错.length ? `\n         页面自己报的错：${控台错.slice(-3).join(' | ')}` : '\n         页面一句错也没报')
+          + (坏响应.length ? `\n         回了错的那几条：${坏响应.slice(-5).join(' | ')}` : '\n         没有一条请求回错')
+          + `\n         这一趟打过：${打过的.slice(-8).join(' | ') || '一条都没打'}`)
   // 确认那一屏跟商品页要的是同一个 id
   if (商品) 要参数['pages/confirm/index'] = { id: 商品 }
 
