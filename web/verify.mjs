@@ -2497,7 +2497,17 @@ if (!API) {
   /* 光说「哪儿能有」不算数 —— 得真的走得过去。M5 整页就是为这一下存在的。 */
   const 能订几件 = await p.evaluate(() => (globalThis.__router.current().data.offers || []).length)
   if (!能订几件) {
-    console.log('  · 跳过订阅出口：这个库里没有可订的商品（不计入通过）')
+    /* 没有可订的东西时，这一屏【也要验】—— 原先这一支是 console.log 跳过，
+       而跳过不是通过。2026-08-28 唯一那件可订的商品下架之后，
+       这一屏就长期落在这一支上，等于那一半永远没人看。
+
+       它要说的是「现在就是没有」，**不许**说「下面是哪儿能有」然后
+       什么都不摆：指向空白比不指更糟。 */
+    const 空屏 = await text()
+    ok(!空屏.includes('下面是哪儿能有'),
+       '没有可订的东西时，不说一句指向空白的话', 空屏.slice(0, 60))
+    ok(空屏.includes('等有了会摆在这儿') || 空屏.includes('没有可以订'),
+       '它说得出现在就是没有', 空屏.slice(0, 60))
   } else {
     await p.locator('.offers .item').first().click()
     await p.waitForTimeout(900)
