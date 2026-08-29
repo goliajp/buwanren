@@ -10,7 +10,9 @@
        而这一屏原先只有一段引号里的灰字 —— 谁在说话看不出来。
        跟村子主屏、名字那一屏同一套:头像圆牌 + 气泡。 -->
   <view class="say-row">
-    <view class="say-face">苏</view>
+    <!-- 苏合的方向是 near（往人里去）。这一屏就是她的，所以写死;
+         但写的是她真正的那个色，不是在这儿现调一个 -->
+    <view class="say-face face-near">苏</view>
     <view class="bubble">
       <block wx:if="{{line}}">{{line}}</block>
       <block wx:else>

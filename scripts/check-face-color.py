@@ -65,7 +65,21 @@ for 类, 页名 in 放脸的.items():
                       f'页面样式在 app.wxss 之后加载，它会把方向色盖掉，'
                       f'而看起来像方向色根本没做')
 
+# ── 还有一类漏网的:页面自己现调一个头像渐变。
+#    上面那张表只管【我知道的那几处】，而这个产品里放脸的地方还在长
+#    （名字页的两个气泡、香那一屏的一个 —— 三处都自调过，
+#    于是同两位村民在那三屏是琥珀与绿，别处是粉的）。
+#    所以这里改成盯【写法】而不是盯名单:页面样式里不许出现头像那种渐变。
+#    要新加一处脸，就用 app.wxss 的 `.face-<方向>`，不许现调。
+头像渐变 = re.compile(r'linear-gradient\(150deg,\s*var\(--(amber|moss|peach|wx-)[a-z-]*\)')
+for wxss in sorted(页.glob('*/index.wxss')):
+    for n, 行 in enumerate(wxss.read_text(encoding='utf-8').splitlines(), 1):
+        if 头像渐变.search(行):
+            错.append(f'{wxss.parent.name}/index.wxss:{n} 自调了一个头像渐变 —— '
+                      f'用 app.wxss 的 `.face-<方向>`，不然这一屏的人会是另一个颜色')
+
 if 错:
     print('\n'.join('✗ ' + e for e in 错))
     sys.exit(1)
-print(f'✓ 四处头像都接了方向色，页面里也没有盖回去的写法（{"、".join(sorted(放脸的))}）')
+print(f'✓ 四处头像都接了方向色，页面里既没有盖回去的写法、也没有自调的渐变'
+      f'（{"、".join(sorted(放脸的))}）')

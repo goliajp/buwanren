@@ -63,12 +63,12 @@
       <!-- 模板二 · 其余页 -->
       <view class="bars" wx:if="{{bars.length}}">
         <view wx:for="{{bars}}" wx:key="k" class="bar">
-          <text class="bar-k">{{item.k}}</text>
+          <text class="bar-k {{item.top ? 'bar-k-top' : ''}}">{{item.k}}</text>
           <view class="bar-track">
             <view class="bar-fill wx-{{item.pinyin}}-bg {{item.top ? 'bar-top' : ''}}"
                   style="width:{{item.pct}}%"></view>
           </view>
-          <text class="bar-v">{{item.v}}</text>
+          <text class="bar-v {{item.top ? 'bar-v-top' : ''}}">{{item.v}}</text>
         </view>
       </view>
 

@@ -1,6 +1,6 @@
 <view class="page">
   <view class="hd">
-    <view class="eyebrow">{{today.iso}} · {{today.weekday}}</view>
+    <view class="eyebrow">{{today}}</view>
     <!-- 大标题去掉了：底下 tab 就写着「我家」，这里再来一遍是重复，
          而且它吃掉的正是罗盘要的空间。留日期就够 —— 它说的是「今天」 -->
   </view>
