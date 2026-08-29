@@ -25,7 +25,7 @@
 
     <!-- 「缺」是这个产品的身份字段，所以它排在最前、颜色最重 -->
     <view class="tags">
-      <text class="tag tag-lack">缺 {{who.lack}}</text>
+      <text class="tag tag-lack lack-{{who.direction}}">缺 {{who.lack}}</text>
       <text class="tag" wx:if="{{who.art}}">{{who.art}}</text>
       <text class="tag" wx:if="{{who.rarity}}">{{who.rarity}}</text>
       <text class="tag {{who.at_home ? 'tag-home' : ''}}">{{who.at_home ? '住着' : '还没请来'}}</text>

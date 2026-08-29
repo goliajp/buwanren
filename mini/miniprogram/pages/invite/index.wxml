@@ -53,7 +53,7 @@
         <view class="item-body">
           <view class="item-top">
             <text class="item-name">{{item.name}}</text>
-            <text class="item-lack" wx:if="{{item.lack}}">缺 {{item.lack}}</text>
+            <text class="item-lack lack-{{item.direction}}" wx:if="{{item.lack}}">缺 {{item.lack}}</text>
           </view>
           <view class="item-sub" wx:if="{{item.sub}}">{{item.sub}}</view>
         </view>
