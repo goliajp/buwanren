@@ -22,8 +22,12 @@
 .page { display: flex; flex-direction: column; }
 /* 居中的角色卡。左对齐时头像和标签挤在顶上，底下空六百像素 ——
    而这一屏本来就是「一个人」，居中更像一张卡而不是一条记录。 */
+/* `margin-top: auto` 两头各一个（这里与 `.acts`），剩下的高度就在
+   角色卡上下对半分 —— 卡真的落在中间，而不是贴着顶、底下空六百像素。
+   这一屏的内容天生就少（一张脸、一个名字、几个标签），
+   靠对齐来把「少」变成「一张卡」，而不是变成「没写完」。 */
 .hd { display: flex; flex-direction: column; align-items: center; gap: 16rpx;
-      padding: 40rpx 0 4rpx; text-align: center; }
+      margin-top: auto; padding: 40rpx 0 4rpx; text-align: center; }
 .face {
   flex: none; width: 168rpx; height: 168rpx; border-radius: 999rpx;
   font-size: 74rpx !important;
@@ -37,14 +41,22 @@
 
 /* 属性 = 一排标签。三行横线表格把三个短词读成了三条记录 */
 .tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 12rpx; margin-top: 26rpx; }
+/* `:not(.tag-lack)` 是必须的:页面样式在 app.wxss 之后加载，
+   而 `.tag` 与 `.lack-<方向>` 权重相同 —— 不排除的话这里的灰底
+   会把方向色盖掉，看着就像方向色根本没做（今天踩过三次的那个坑）。 */
 .tag {
   font-size: 23rpx; font-weight: 600;
-  background: var(--paper-inset); color: var(--ink-mid);
   padding: 8rpx 18rpx; border-radius: 999rpx;
 }
-/* 「缺」是身份字段 —— 它排最前，也最重 */
-.tag-lack { background: var(--amber-lite); color: #B25E10; }
-.tag-home { background: var(--moss-lite); color: #2E8B57; }
+.tag:not(.tag-lack) { background: var(--paper-inset); color: var(--ink-mid); }
+/* 「缺」是身份字段 —— 它排最前，也最重。
+   底色由 `.lack-<方向>`（app.wxss）给，跟头像同一个色:
+   同一件事在一张卡上不该用两种颜色说两遍。这里不写 background —— */
+.tag-lack { font-weight: 700; }
+/* 写成 `.tag.tag-home` 而不是 `.tag-home`：上面那条 `:not()` 把权重
+   算成两个类，单个类的规则压不过它 —— 症状是「住着」那颗绿药丸变回灰的，
+   看着像这个状态根本没做。`:not()` 的权重来自它的参数，容易忘。 */
+.tag.tag-home { background: var(--moss-lite); color: #2E8B57; }
 
 .acts { margin-top: auto; display: flex; flex-wrap: wrap; gap: 16rpx; padding-top: 40rpx; }
 /* 主按钮独占一行 —— 它是这一屏要你做的那件事;两颗次要的并排。

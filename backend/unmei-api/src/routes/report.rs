@@ -115,7 +115,10 @@ fn 实龄(生: (i64, i64, i64), 今: chrono::NaiveDate) -> i64 {
 }
 
 fn 排页(c: &J, version: Option<&str>, 今: chrono::NaiveDate) -> Vec<J> {
-    let 出处 = format!("{} 排盘", version.unwrap_or("mingli"));
+    /* 「mingli-v0.1 排盘」—— 前半截是仓库名加版本号,那是写给我看的,
+       而这一册是买家花钱读的东西。留住溯源(每一句都能追到怎么算出来的)是对的,
+       但要说成人话:先说它是什么,再把型号缀在后面,像仪器落款。 */
+    let 出处 = format!("排盘引擎 · {}", version.unwrap_or("mingli"));
     let mut pages = vec![];
 
     // 一 · 四柱。这册的门面，客户端专门画
