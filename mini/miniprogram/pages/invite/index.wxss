@@ -62,3 +62,12 @@
 .item-top { display: flex; align-items: baseline; }
 .item-top .item-name { flex: 1; }
 .item-top .item-meta { flex: none; margin-left: 20rpx; }
+
+/* 「只看在卖的」（设计册 V4 弹性槽）。矮屏收起 ——
+   它是省事的路子，不是这一屏的主干：主干是四十位都在册上。 */
+.onsale {
+  margin-top: 20rpx; padding-top: 16rpx;
+  border-top: 1rpx solid var(--stone-line-x);
+  font-size: 24rpx; color: var(--ink-mid);
+}
+.onsale-hover { opacity: 0.6; }
