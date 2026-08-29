@@ -37,6 +37,17 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     /* 收集数从服务端取 —— 不从上一页带过来。带过来的是【扫之前】那个数，
        而这一屏要显示的正是「多了一位之后」。差一个人，
        而那正好是这一屏存在的理由。 */
+    this.取进度()
+  },
+
+  /* 登录完了再取一次。这一屏是【扫开御守之后】跳过来的，多半已经有 token，
+     但冷启动时（从推送直接进来）不一定 —— 那时 onLoad 那一次会拿 401，
+     而进度条会一直空着。门禁 `check-auth-ready.py` 抓到的正是这一处。 */
+  onAuthReady() {
+    if (!this.data.total) this.取进度()
+  },
+
+  取进度() {
     villageApi.mine().then(
       (v) => this.setData({ lived: v.found, total: v.total }),
       () => { /* 取不到就不摆那一条 —— 空着比摆一个错的数好 */ },
