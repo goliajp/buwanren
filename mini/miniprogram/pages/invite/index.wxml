@@ -49,7 +49,7 @@
         <!-- 脸。四十位原先是四十行文字 —— 一个靠角色立身的产品，
              最不该没有角色的就是这一屏。没有美术之前用姓名末字，
              等头像画好换这一处即可。 -->
-        <view class="item-face">{{item.face}}</view>
+        <view class="item-face face-{{item.direction}}">{{item.face}}</view>
         <view class="item-body">
           <view class="item-top">
             <text class="item-name">{{item.name}}</text>

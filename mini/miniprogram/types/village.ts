@@ -38,6 +38,8 @@ export interface MyVillage {
    *  那就不是「今天说的」，是一台老虎机。 */
   today_says: {
     villager_id: string
+    /** 头像底色按它分 —— 见 VillagerCard.direction */
+    direction: string | null
     name: string
     title: string | null
     art: string | null
@@ -57,6 +59,10 @@ export interface VillagerCard {
   omamori_product_id: string | null
   /** 他缺什么。名册上写出来 —— 「缺 X 的人反过来劝你 Y」是这套推荐的依据 */
   lack?: string
+  /** 他往哪个方向劝你（move / still / wait / keep / let_go / near / ask）。
+   *  头像的底色按它分 —— 四十位共用一个颜色时一眼分不出谁是谁，
+   *  而这个字段本来就带语义:同一路人同一个色 */
+  direction?: string | null
   /** 为什么这一位排在前面。**没按用神排过就是 null** ——
    *  客户端据此决定说不说那句「跟你补得上」，而不是不管怎样都说一遍。 */
   why?: string | null
