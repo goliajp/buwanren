@@ -32,7 +32,7 @@
       </view>
 
       <view class="wx-cta">
-        <button class="btn stamp" bindtap="doBind" disabled="{{binding}}">
+        <button class="btn" bindtap="doBind" disabled="{{binding}}">
           {{binding ? '绑定中…' : '绑定微信'}}
         </button>
       </view>
