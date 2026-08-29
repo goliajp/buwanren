@@ -105,6 +105,7 @@ const 屏 = [
   ['name', 'pages/name/index'],
   ['bind', 'pages/bind/index'],
   ['lighting', 'pages/lighting/index'],
+  ['room', 'pages/room/index', { id: 'ayun' }],
   ...(单子 ? [['order', 'pages/order/index', { id: 单子 }]] : []),
 ]
 

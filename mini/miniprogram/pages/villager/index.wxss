@@ -16,3 +16,41 @@
 .hint { font-size: 24rpx; color: #999; align-self: center; }
 .cta { margin-top: 48rpx; }
 .loading, .err-msg { font-size: 28rpx; color: var(--ink-faint); }
+
+
+/* ── 0830:角色的主页要有脸 ──────────────────────────────── */
+.page { display: flex; flex-direction: column; }
+/* 居中的角色卡。左对齐时头像和标签挤在顶上，底下空六百像素 ——
+   而这一屏本来就是「一个人」，居中更像一张卡而不是一条记录。 */
+.hd { display: flex; flex-direction: column; align-items: center; gap: 16rpx;
+      padding: 40rpx 0 4rpx; text-align: center; }
+.face {
+  flex: none; width: 168rpx; height: 168rpx; border-radius: 999rpx;
+  font-size: 74rpx !important;
+  background: linear-gradient(150deg, var(--amber-lite), #FFC489);
+  color: #8A5A1E; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 0 12rpx rgba(255,154,60,.10), 0 10rpx 28rpx rgba(232,121,26,.24);
+}
+.hd-body { text-align: center; }
+.hd .name { font-size: 46rpx; font-weight: 700; color: var(--ink); line-height: 1.2; }
+.hd .title { margin-top: 6rpx; font-size: 25rpx; color: var(--ink-faint); }
+
+/* 属性 = 一排标签。三行横线表格把三个短词读成了三条记录 */
+.tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 12rpx; margin-top: 26rpx; }
+.tag {
+  font-size: 23rpx; font-weight: 600;
+  background: var(--paper-inset); color: var(--ink-mid);
+  padding: 8rpx 18rpx; border-radius: 999rpx;
+}
+/* 「缺」是身份字段 —— 它排最前，也最重 */
+.tag-lack { background: var(--amber-lite); color: #B25E10; }
+.tag-home { background: var(--moss-lite); color: #2E8B57; }
+
+.acts { margin-top: auto; display: flex; flex-wrap: wrap; gap: 16rpx; padding-top: 40rpx; }
+/* 主按钮独占一行 —— 它是这一屏要你做的那件事;两颗次要的并排。
+   次要按钮的左右内边距要收 —— 用主按钮那个 56rpx 的话，
+   两颗一行放不下，会各占一行、还各自左对齐 */
+.acts .btn { flex: 1; min-width: 0; box-sizing: border-box; }
+.acts .btn:not(.ghost) { flex: none; width: 100%; }
+.acts .btn.ghost { padding-left: 20rpx; padding-right: 20rpx; }

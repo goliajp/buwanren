@@ -28,7 +28,7 @@ interface IData {
   id: string
   loading: boolean
   err: string
-  who: VillagerInVillage | null
+  who: (VillagerInVillage & { face?: string }) | null
   /** 有没有搬进小程序的屋子 —— 没有就不给「去他家坐坐」这颗按钮 */
   canEnter: boolean
   /** 他卖着东西吗（设计册 10.8：东西长在卖它的人身上） */
@@ -77,7 +77,8 @@ Page<IData, WechatMiniprogram.IAnyObject>({
       }
       this.setData({
         loading: false,
-        who,
+        // 头像占位:姓名末字。等 40 张画好换这一行，版式不用动
+        who: { ...who, face: who.name.slice(-1) },
         canEnter: who.at_home && hasRoom(id),
         /* 他卖的东西，入口在他这儿。**要先请回家** ——
            人都还没来，摊子就不该摆在这儿。 */

@@ -68,3 +68,12 @@
 }
 
 .acts { margin-top: 40rpx; text-align: center; }
+
+
+/* ── 0830 ──────────────────────────────────────────────────
+   主按钮原来挂着 `.stamp`（朱印红，这一版映射成桃粉）——
+   而桃粉是「喜欢」那一档，压不住一个账号操作。用主色。
+   两颗按钮都给整行:这一屏一次只让你做一件事。 */
+.page { display: flex; flex-direction: column; }
+.card .btn, .cta .btn { width: 100%; box-sizing: border-box; }
+.cta { margin-top: auto; padding-top: 32rpx; }
