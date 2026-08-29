@@ -288,5 +288,5 @@ button.btn.stamp { background: var(--peach); box-shadow: 0 6rpx 0 #E8596B, 0 10r
   margin-bottom: 30rpx;
 }
 .empty-t { font-size: 33rpx; font-weight: 600; color: var(--ink); }
-.empty-s { font-size: 25rpx; color: var(--ink-faint); margin-top: 12rpx; line-height: 1.7; max-width: 460rpx; }
+.empty-s { font-size: 25rpx; color: var(--ink-faint); margin-top: 12rpx; line-height: 1.7; max-width: 540rpx; }
 .empty-state .btn { margin-top: 36rpx; }
