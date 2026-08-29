@@ -64,12 +64,26 @@
       <view class="bars" wx:if="{{bars.length}}">
         <view wx:for="{{bars}}" wx:key="k" class="bar">
           <text class="bar-k">{{item.k}}</text>
-          <view class="bar-track"><view class="bar-fill" style="width:{{item.pct}}%"></view></view>
+          <view class="bar-track">
+            <view class="bar-fill wx-{{item.pinyin}}-bg {{item.top ? 'bar-top' : ''}}"
+                  style="width:{{item.pct}}%"></view>
+          </view>
           <text class="bar-v">{{item.v}}</text>
         </view>
       </view>
 
-      <view class="rows" wx:if="{{page.rows}}">
+      <!-- 大运单独一个模板:十格干支谁都排得出来，
+           「你在第几格、还有几年换」才是读的人真正要的那一句 ——
+           而那件事横着排成一条时间轴最快看懂，竖着列十行看不出「走到哪儿」。 -->
+      <view class="timeline" wx:if="{{page.key === 'dayun'}}">
+        <view wx:for="{{page.rows}}" wx:key="k" class="tl {{item.now ? 'tl-now' : ''}}">
+          <view class="tl-gz">{{item.v}}</view>
+          <view class="tl-age">{{item.k}}</view>
+          <view class="tl-dot"></view>
+        </view>
+      </view>
+
+      <view class="rows" wx:if="{{page.rows && page.key !== 'dayun'}}">
         <view wx:for="{{page.rows}}" wx:key="k" class="row {{item.now ? 'row-now' : ''}}">
           <text class="row-k">{{item.k}}</text>
           <text class="row-v">{{item.v}}</text>
@@ -78,6 +92,9 @@
       </view>
 
       <!-- 排盘自己写的推理，原样引。这一册不改写它的话 -->
+      <!-- 排盘自己写的推理，原样引。做成【便签】的样子 ——
+           它不是这一册的正文，是夹在里面的一张条子:谁算的、凭什么这么说。
+           微微斜一点点(0.6°)，多一分就成了装饰 -->
       <view class="quote" wx:if="{{page.quote}}">{{page.quote}}</view>
 
       <view class="src">{{page.source}}</view>

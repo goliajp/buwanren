@@ -154,10 +154,14 @@ fn 排页(c: &J, version: Option<&str>, 今: chrono::NaiveDate) -> Vec<J> {
     // 二 · 日主与强弱。五行分布是这一页的主角
     if let Some(s) = c.get("strength") {
         let w = s.get("wuxing");
-        let 名 = [("wood", "木"), ("fire", "火"), ("earth", "土"), ("metal", "金"), ("water", "水")];
-        let bars: Vec<J> = 名.iter().filter_map(|(k, cn)| {
+        // 第三项是客户端的 class 后缀 —— 页面里不再按汉字猜五行
+        let 名 = [("wood", "木", "mu"), ("fire", "火", "huo"), ("earth", "土", "tu"),
+                  ("metal", "金", "jin"), ("water", "水", "shui")];
+        /* 带上拼音 —— 客户端拿它给每根条上色。跟四柱那处同一个道理:
+           在页面里按汉字映射等于抄第二份五行表。 */
+        let bars: Vec<J> = 名.iter().filter_map(|(k, cn, py)| {
             let v = w?.get(k)?.as_i64()?;
-            Some(json!({ "k": cn, "v": v }))
+            Some(json!({ "k": cn, "v": v, "pinyin": py }))
         }).collect();
         pages.push(json!({
             "key": "strength",
