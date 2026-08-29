@@ -16,12 +16,12 @@ bun web/build.mjs >/dev/null
 # 端口得是空的。被别人占着的话,下面的 http.server 绑不上就退了,
 # 而后面那圈 curl 照样能连上【那个别人】—— 于是这一轮验的是别人的服务器,
 # 结果看着像数据。(2026-08-18 真踩到:一个跑偏的 vite 占了 6031。)
-占着() { lsof -nP -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1; }
+port_busy() { lsof -nP -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1; }
 
 if [ -n "${WEB_PORT:-}" ]; then
   # 明说了要哪个口,就不替他挪 —— 挪了他会拿不准自己验的是哪一个
   PORT="$WEB_PORT"
-  if 占着 "$PORT"; then
+  if port_busy "$PORT"; then
     echo "✗ 端口 $PORT 被占着，这一轮不能验 —— 占着它的是："
     lsof -nP -iTCP:"$PORT" -sTCP:LISTEN | tail -n +2 | sed 's/^/   /'
     exit 1
@@ -34,7 +34,7 @@ else
   # 换个空口这件事脚本自己就能做,让人去查才是浪费。
   PORT=""
   for p in 6031 6041 6042 6043 6044 6045; do
-    占着 "$p" || { PORT="$p"; break; }
+    port_busy "$p" || { PORT="$p"; break; }
   done
   if [ -z "$PORT" ]; then
     echo "✗ 6031/6041-6045 全被占着，这一轮不能验 —— 腾一个出来，或 WEB_PORT= 指一个"
@@ -88,33 +88,43 @@ fi
 # 重来一次是正当的:这一支验的东西没有副作用,重跑一遍拿到的是同一个答案。
 # 两次都被收走就明说是哪一种 —— 不许让它跟真红混在一起,
 # 因为「有时候红」会把每一次真红都变得可以被当成噪音。
-跑一趟() {
-  bun web/verify.mjs --base="http://127.0.0.1:$PORT" ${MINGLI_ARG[@]+"${MINGLI_ARG[@]}"} "$@"
-}
-# 变量名只能是 ASCII —— macOS 自带的 bash 3.2 里 `日志=$(mktemp)` 直接
-# 「No such file or directory」，而报的位置是那一行的【值】，看着像 mktemp 坏了。
-# 函数名没这个限制。
-被收走了() {
+# 退出码不够 —— 它被 trap 抹平过一次(2026-08-25),那一次的症状是
+# 「没有排盘服务的机器上这支从来没跑过,且每次报绿」。所以再要一条【证据】:
+# 动线跑完会打印「共验了 N 条」。没有这一行就是没跑完,不管退出码说什么。
+ran_to_end() { grep -q '共验了 [0-9]\{1,\} 条' "$1"; }
+
+# 浏览器被系统收掉,跟「动线断了」在总账上长得一模一样 —— 都是这一支挂。
+# 分得开的只有两条同时出现的旁证:输出里有 Playwright 那句固定的
+# 「Target page, context or browser has been closed」,而失败账是【空的】
+# (一条断言都没红,是半路没的)。
+# 重来一次是正当的:这一支验的东西没有副作用,重跑一遍拿到的是同一个答案。
+browser_killed() {
   grep -q 'Target page, context or browser has been closed\|Target closed\|browser has been closed' "$1" \
     && [ ! -s "${VERIFY_FAILLOG:-/tmp/verify-failures.txt}" ]
 }
 
 LOGF=$(mktemp)
-if 跑一趟 "$@" 2>&1 | tee "$LOGF"; then
-  rm -f "$LOGF"; exit 0
-fi
-if 被收走了 "$LOGF"; then
-  echo "· 浏览器半路被系统收走了（失败账是空的，一条断言都没红）—— 重来一次"
-  rm -f "$LOGF"; LOGF=$(mktemp)
-  if 跑一趟 "$@" 2>&1 | tee "$LOGF"; then
-    rm -f "$LOGF"; exit 0
+# 顶层的循环,不是函数 —— `set -e` 在函数体里被 `if` 的条件位置抑制,
+# 于是「跑动线之前先失败一下」这种事会被悄悄吞掉(变异测试当场抓到过)。
+# 循环体里 `set -e` 照常生效:这一行之前有任何东西失败,整支立刻退出、报红。
+for ROUND in 1 2; do   # 变量名只能 ASCII —— macOS 自带 bash 3.2
+  RC=0
+  bun web/verify.mjs --base="http://127.0.0.1:$PORT" ${MINGLI_ARG[@]+"${MINGLI_ARG[@]}"} "$@" 2>&1 | tee "$LOGF" || RC=$?
+  if [ "$RC" = 0 ]; then
+    if ran_to_end "$LOGF"; then rm -f "$LOGF"; exit 0; fi
+    echo "✗ 退出码说过了，但输出里没有「共验了 N 条」—— 它没跑完，不算过"
+    rm -f "$LOGF"; exit 1
   fi
-  if 被收走了 "$LOGF"; then
-    echo "✗ 连着两轮浏览器都被系统收走，【这一轮没跑完】——"
-    echo "  它跟「动线断了」不是一回事：失败账是空的，一条断言都没红。"
-    echo "  机器闲下来再跑一遍（当前负载：$(uptime | sed 's/.*averages*: *//')）。"
-    rm -f "$LOGF"; exit 2
+  browser_killed "$LOGF" || { rm -f "$LOGF"; exit 1; }
+  # 写成 `[ ... ] && echo`,末轮那次判断为假会让 `set -e` 在这里就退出,
+  # 落不到下面的 exit 2 —— 于是「没跑完」又变回了普通的红
+  if [ "$ROUND" = 1 ]; then
+    echo "· 浏览器半路被系统收走了（失败账是空的，一条断言都没红）—— 重来一次"
   fi
-fi
+done
+
+echo "✗ 连着两轮浏览器都被系统收走，【这一轮没跑完】——"
+echo "  它跟「动线断了」不是一回事：失败账是空的，一条断言都没红。"
+echo "  机器闲下来再跑一遍（当前负载：$(uptime | sed 's/.*averages*: *//')）。"
 rm -f "$LOGF"
-exit 1
+exit 2
