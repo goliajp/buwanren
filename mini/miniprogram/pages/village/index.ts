@@ -111,7 +111,7 @@ interface VillageData {
   codeBusy: boolean
   /** 某位今天说的一句（设计册 V1）。null = 村里还没人，这一块整个不摆。
    *  它会改画布的可用高度 —— 从无到有那天要重算，见 `fitCanvas` */
-  says: null | { villager_id: string; name: string; title: string | null; art: string | null; text: string; face: string }
+  says: null | { villager_id: string; name: string; title: string | null; art: string | null; text: string; face: string; direction: string | null }
   /** 正在找那一位的御守 —— 找的时候按钮换个字，别让人以为没反应 */
 }
 

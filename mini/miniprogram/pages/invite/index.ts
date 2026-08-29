@@ -30,9 +30,9 @@ const 每页 = 5
 interface IData {
   loading: boolean
   err: string
-  items: Array<{ id: string; name: string; sub: string; onSale: boolean; product: string | null; face: string; lack: string }>
+  items: Array<{ id: string; name: string; sub: string; onSale: boolean; product: string | null; face: string; lack: string; direction: string }>
   /** 当前这一页的五位。渲染只认它 —— items 全渲会把一屏撑成五万像素 */
-  page: Array<{ id: string; name: string; sub: string; onSale: boolean; product: string | null; face: string; lack: string }>
+  page: Array<{ id: string; name: string; sub: string; onSale: boolean; product: string | null; face: string; lack: string; direction: string }>
   pageNo: number
   pageCount: number
   /** 「你缺的」那一行。取不到就空着 —— 它是理由，不是门槛 */
@@ -89,6 +89,8 @@ Page<IData, WechatMiniprogram.IAnyObject>({
             // 头像占位:姓名末字。等 40 张画好换成图片地址,版式不动
             face: v.name.slice(-1),
             lack: v.lack || '',
+            // 头像底色按方向分 —— 四十位一个颜色时分不出谁是谁
+            direction: v.direction || '',
           })),
         })
         this.gotoPage(0)
