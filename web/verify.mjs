@@ -2129,15 +2129,45 @@ if (!API) {
   /* 册上现在是【人】不是【货】（设计册 10.8：四十位都列出来）。
      所以这里记的是「他的那件御守是哪一件」，点进去比 id ——
      比名字的话，比的是村民名与商品名，那两个本来就不该相等。 */
+  /* 找第一个【在卖的】,还要知道它排第几 —— 按用神排之后头一位不一定在卖
+     （缺金的人头三位都还没上架）,而点一个「未上架」的行本来就该按不动。
+     原先这里点的是 `.item` 的第一个,那是在假设「第一位一定在卖」。 */
+  /* 「只看在卖的」（设计册 V4 弹性槽）。按用神排之后头一位不一定在卖 ——
+     缺金的人头三位全是「未上架」，一屏点不动，这一条是他的出路。
+     验两头:按下去只剩能请的，再按一下四十位都回来。 */
+  {
+    const 前 = await p.evaluate(() => ({
+      共: (globalThis.__router.current().data.items || []).length,
+      在卖: globalThis.__router.current().data.saleCount,
+    }))
+    if (前.在卖 > 0 && 前.在卖 < 前.共) {
+      await p.getByText(`只看在卖的（${前.在卖} 位）›`, { exact: true }).click()
+      await p.waitForTimeout(400)
+      const 后 = await p.evaluate(() => {
+        const d = globalThis.__router.current().data
+        return { 这页: (d.page || []).length, 全在卖: (d.page || []).every((x) => x.onSale) }
+      })
+      ok(后.全在卖 && 后.这页 > 0, '「只看在卖的」按下去，剩下的都能请',
+         `这一页 ${后.这页} 位，全在卖：${后.全在卖}`)
+      await p.getByText('看回四十位 ›', { exact: true }).click()
+      await p.waitForTimeout(400)
+      ok(await p.evaluate(() => globalThis.__router.current().data.pageCount) > 1,
+         '再按一下，四十位都回来　—— 不是把没上架的永远藏起来')
+    } else {
+      ok(false, '「只看在卖的」验得到', `在卖 ${前.在卖} / 共 ${前.共} —— 这一趟没法验两头`)
+    }
+  }
+
   const 头一件 = await p.evaluate(() => {
     const c = globalThis.__router.current()
-    const v = (c.data.items || []).find((x) => x.onSale)
-    return v ? { name: v.name, product: v.product } : null
+    const i = (c.data.page || []).findIndex((x) => x.onSale)
+    const v = i >= 0 ? c.data.page[i] : null
+    return v ? { name: v.name, product: v.product, 第几: i } : null
   })
   if (!头一件) {
     console.log('  · 跳过点进详情：一位都请不来（不计入通过）')
   } else {
-    await p.locator('.item').first().click()
+    await p.locator('.item').nth(头一件.第几).click()
     await p.waitForTimeout(900)
     ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/product/index',
        '点一件进得去详情', await p.evaluate(() => globalThis.__router.current().__route))

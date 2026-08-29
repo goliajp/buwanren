@@ -18,7 +18,11 @@ export const villageApi = {
   mine: (): Promise<MyVillage> => api.get<MyVillage>('/v1/village'),
 
   /** 图鉴:不带住没住,未登录也能看 */
-  all: (): Promise<VillagerCard[]> => api.get<VillagerCard[]>('/v1/villagers'),
+  /** 四十位名册。传用神（五行单字）就按「你缺的」排，
+   *  不传按原来的规矩（在卖的排前面、再按 id）。
+   *  按谁排是后端的事 —— 那是领域判断，客户端只画。 */
+  all: (forYongshen?: string): Promise<VillagerCard[]> =>
+    api.get<VillagerCard[]>('/v1/villagers' + (forYongshen ? `?for=${encodeURIComponent(forYongshen)}` : '')),
 
   /** 问签。同一天问同一位,逐字相同 —— 那不是缓存,是设定:今天他已经说过了 */
   ask: (villagerId: string): Promise<Reading> =>
