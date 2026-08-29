@@ -94,9 +94,12 @@
 .item-top { display: flex; align-items: center; gap: 12rpx; }
 .item-name { font-size: 31rpx; font-weight: 600; color: var(--ink); }
 /* 「缺 X」做成药丸 —— 跟五行标签同一套语言，一眼看出这一页是同一路人 */
+/* 底色与字色由 `.lack-<方向>`（app.wxss）给 —— 这里不写 background，
+   页面样式在 app.wxss 之后加载，写了就会把方向色盖掉。
+   这个坑今天踩过三次（柱头色带、五行条、头像），症状都是
+   「功能看着像没做」。没有方向时的兜底也放在 app.wxss，不放这儿。 */
 .item-lack {
   font-size: 21rpx; font-weight: 600;
-  background: var(--amber-lite); color: #B25E10;
   padding: 3rpx 12rpx; border-radius: 999rpx;
 }
 .item-sub { font-size: 23rpx; color: var(--ink-faint); margin-top: 5rpx; }
@@ -106,5 +109,6 @@
    四十位都在册上是刻意的，它只是「还没来」，不是「不存在」 */
 .item-off { background: rgba(255,255,255,.55); box-shadow: none; }
 .item-off .item-name { color: var(--ink-mid); }
-.item-off .item-lack { background: var(--paper-inset); color: var(--stone-label); }
+/* 还没来的那几位压暗 —— 这一条要盖住方向色，所以写在页面里是对的 */
+.item-off .item-lack { background: var(--paper-inset) !important; color: var(--stone-label) !important; }
 .item-off .item-face { background: var(--paper-inset); color: var(--stone-label); }

@@ -376,3 +376,19 @@ input::placeholder, textarea::placeholder { color: var(--stone-label); }
 .face-let_go { background: linear-gradient(150deg, #F8DFE4, #E7A8B8); color: #7A3448; }
 .face-near   { background: linear-gradient(150deg, #FFE6D2, #F5A98C); color: #8A3F28; }
 .face-ask    { background: linear-gradient(150deg, #FDEDCB, #E8C878); color: #7A5A1A; }
+
+/* 「缺什么」那颗药丸跟头像走同一个方向色。
+   原先它固定是琥珀 —— 于是丹增的卡上，头像是蓝的（缺静 · 劝你停），
+   药丸却是橙的，同一件事在一张卡上用两种颜色说了两遍。
+   翻名册时颜色本来是最快的那条线索，两套颜色等于没有线索。
+
+   底色比头像浅一档:药丸是标签，不该跟头像抢。
+   跟 `.face-*` 放在一起是刻意的 —— 拆开摆迟早有一边先改。 */
+.item-lack   { background: #FFEEDF; color: #8A4A12; }   /* 没方向时的兜底 */
+.lack-move   { background: #FFEEDF; color: #8A4A12; }
+.lack-still  { background: #E7F3F9; color: #2A5C7A; }
+.lack-wait   { background: #EFECF9; color: #4A3F7A; }
+.lack-keep   { background: #EDF4E8; color: #3F5F31; }
+.lack-let_go { background: #FCECEF; color: #7A3448; }
+.lack-near   { background: #FFF0E6; color: #8A3F28; }
+.lack-ask    { background: #FEF5E2; color: #7A5A1A; }
