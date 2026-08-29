@@ -2,6 +2,7 @@ import { natalApi } from '../../services/natal'
 import type { ApiError } from '../../services/api'
 import { storage } from '../../services/storage'
 import type { Natal, NatalSummary } from '../../types/natal'
+import { 一句 } from '../../utils/say'
 
 const YS_PINYIN: Record<string, string> = {
   木: 'mu', 火: 'huo', 土: 'tu', 金: 'jin', 水: 'shui',
@@ -117,7 +118,7 @@ Page<IData, WechatMiniprogram.IAnyObject & { pendingReload: boolean; loadDefault
 
          照村主屏那条已有的做法：说一句取不到，不换屏。 */
       const err = e as ApiError
-      this.setData({ err: '取不到本命：' + (err.message || '未知错误') })
+      this.setData({ err: '取不到本命：' + (一句(err)) })
     } finally {
       this.setData({ loading: false })
       if (this.pendingReload) {
@@ -202,7 +203,7 @@ Page<IData, WechatMiniprogram.IAnyObject & { pendingReload: boolean; loadDefault
     if (!id) return
     natalApi.activate(id).then(
       () => { this.setData({ archNote: '' }); this.loadDefault() },
-      (err: ApiError) => this.setData({ archNote: err.message || '换不过去' }),
+      (err: ApiError) => this.setData({ archNote: 一句(err) }),
     )
   },
 
@@ -217,7 +218,7 @@ Page<IData, WechatMiniprogram.IAnyObject & { pendingReload: boolean; loadDefault
     if (!id || id === this.data.natal?.id) return
     natalApi.remove(id).then(
       () => { this.setData({ archNote: '' }); this.loadDefault() },
-      (err: ApiError) => this.setData({ archNote: err.message || '删不掉' }),
+      (err: ApiError) => this.setData({ archNote: 一句(err) }),
     )
   },
 })

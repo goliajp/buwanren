@@ -22,7 +22,8 @@
     <!-- 2 × 3 网格。库里就是六枚（当场数的），一屏放得下，不必滚
          （设计 10.3）。灰的那几枚写着怎么得 —— 条件不藏着。 -->
     <view class="grid">
-      <view wx:for="{{items}}" wx:key="id" class="badge {{item.earned ? 'got' : ''}}">
+      <view wx:for="{{items}}" wx:key="id" class="badge enter {{item.earned ? 'got' : ''}}"
+            style="animation-delay:{{index * 40}}ms">
         <!-- 圆牌里放名字的头一个字。得到的是琥珀实心，没得到的是灰的空圈 ——
              一眼看得出还差几个，不用去读「还没得到」四个字 -->
         <view class="badge-art">{{item.glyph || item.name}}</view>

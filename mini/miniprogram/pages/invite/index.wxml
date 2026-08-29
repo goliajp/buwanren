@@ -39,7 +39,8 @@
          只列在卖的那几位，读的人会以为世上只有那几位 —— 那是拿别人顶上。 -->
     <view class="list">
       <view wx:for="{{page}}" wx:key="id"
-            class="item {{item.onSale ? '' : 'item-off'}}"
+            class="item enter {{item.onSale ? '' : 'item-off'}}"
+            style="animation-delay:{{index * 40}}ms"
             data-id="{{item.id}}" bindtap="onTap"
             hover-class="{{item.onSale ? 'item-hover' : ''}}" hover-stay-time="100">
         <!-- 两行，不是三行（设计册 V4 线框就是两行）：

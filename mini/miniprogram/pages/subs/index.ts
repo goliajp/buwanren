@@ -10,9 +10,9 @@
 
 import { commerceApi } from '../../services/commerce'
 import { mineApi } from '../../services/mine'
-import type { ApiError } from '../../services/api'
 import type { ProductCard } from '../../types/commerce'
 import type { Subscription } from '../../types/mine'
+import { 一句 } from '../../utils/say'
 
 interface IData {
   loading: boolean
@@ -46,7 +46,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
       if (!list.length) this.loadOffers()
     } catch (e) {
       // 取不到订阅，跟「一个都没订」是两件事 —— 后者才该出空状态
-      this.setData({ loading: false, err: '取不到：' + ((e as ApiError).message || '未知错误') })
+      this.setData({ loading: false, err: '取不到：' + (一句(e as { status?: number; message?: string })) })
     }
   },
 

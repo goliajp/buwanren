@@ -13,7 +13,7 @@
 
 import { mineApi } from '../../services/mine'
 import { storage } from '../../services/storage'
-import type { ApiError } from '../../services/api'
+import { 一句 } from '../../utils/say'
 
 interface IData {
   nickname: string
@@ -50,7 +50,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
         getApp<IAppOption>().globalData.user = u
         this.setData({ saving: false, nickname: u.nickname || '过客', note: '存下了' })
       },
-      (e) => this.setData({ saving: false, note: '没存上：' + ((e as ApiError).message || '未知错误') }),
+      (e) => this.setData({ saving: false, note: '没存上：' + (一句(e)) }),
     )
   },
 

@@ -30,7 +30,8 @@
     </view>
 
     <view class="list">
-      <view wx:for="{{page}}" wx:key="id" class="item"
+      <view wx:for="{{page}}" wx:key="id" class="item enter"
+            style="animation-delay:{{index * 40}}ms"
             data-id="{{item.id}}" bindtap="onTap"
             hover-class="item-hover" hover-stay-time="100">
         <view class="item-top">
