@@ -14,6 +14,7 @@
 import { reportApi } from '../../services/report'
 import type { Report, ReportPage } from '../../services/report'
 import type { ApiError } from '../../services/api'
+import { 轻 } from '../../utils/feel'
 import { storage } from '../../services/storage'
 
 Page({
@@ -88,11 +89,12 @@ Page({
   },
 
   onTab(e: WechatMiniprogram.BaseEvent) {
+    轻()
     this.show(Number(e.currentTarget.dataset.i))
   },
 
-  onPrev() { if (this.data.at > 0) this.show(this.data.at - 1) },
-  onNext() { if (this.data.at < this.pages.length - 1) this.show(this.data.at + 1) },
+  onPrev() { 轻(); if (this.data.at > 0) this.show(this.data.at - 1) },
+  onNext() { 轻(); if (this.data.at < this.pages.length - 1) this.show(this.data.at + 1) },
 
   /** 还差生辰那一屏的出路：去填 */
   onFill() {

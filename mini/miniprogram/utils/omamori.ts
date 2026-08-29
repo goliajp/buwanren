@@ -10,6 +10,7 @@
  */
 
 import { villageApi } from '../services/village'
+import { 重 } from './feel'
 import type { ApiError } from '../services/api'
 
 export type 唤醒结果 = { ok: true } | { ok: false; msg: string }
@@ -23,6 +24,9 @@ export function 唤醒(carrier: 'qr' | 'nfc', credential: string): Promise<唤�
         'n=' + (s.moved_in ? '1' : '0'),
         'id=' + encodeURIComponent(s.villager_id || ''),
       ].join('&')
+      /* 【实物变成人】那一刻 —— 整条链上唯一一次。给最重的那一档,
+         而且落在跳转【之前】:震在手上、屏幕随即换掉，两件事要挨着 */
+      重()
       wx.navigateTo({ url: '/pages/moved/index?' + q })
       return { ok: true } as 唤醒结果
     },

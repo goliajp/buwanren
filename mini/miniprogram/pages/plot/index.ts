@@ -11,10 +11,13 @@
  * 他不是「所有空屋的代称」。已按真实设定改。
  */
 
+import { 轻 } from '../../utils/feel'
+
 Page({
   data: {},
 
   goInvite() {
+    轻()
     wx.navigateTo({ url: '/pages/invite/index' })
   },
 

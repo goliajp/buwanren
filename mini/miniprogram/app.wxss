@@ -290,3 +290,29 @@ button.btn.stamp { background: var(--peach); box-shadow: 0 6rpx 0 #E8596B, 0 10r
 .empty-t { font-size: 33rpx; font-weight: 600; color: var(--ink); }
 .empty-s { font-size: 25rpx; color: var(--ink-faint); margin-top: 12rpx; line-height: 1.7; max-width: 540rpx; }
 .empty-state .btn { margin-top: 36rpx; }
+
+
+/* ── 骨架屏（0830 新增）──────────────────────────────────────
+   「取着……」四个字是廉价感的头号来源:白屏一闪，然后内容砸下来。
+   骨架屏把那一秒变成「东西正在到位」而不是「什么都没有」。
+
+   两条讲究:
+   ① 形状要跟真内容【对得上】—— 对不上的话内容一来就跳一下，比转圈还差
+   ② 呼吸要慢（1.4s）。快了像在闪，那是焦虑不是等待
+
+   不用转圈。转圈说的是「系统在忙」，骨架说的是「你的东西在路上」。 */
+.sk { background: var(--paper-inset); border-radius: 10rpx; animation: sk-breathe 1.4s ease-in-out infinite; }
+@keyframes sk-breathe { 0%, 100% { opacity: 1 } 50% { opacity: .45 } }
+.sk-line { height: 26rpx; }
+.sk-line.short { width: 38% }
+.sk-line.mid   { width: 62% }
+.sk-line.long  { width: 88% }
+.sk-face { width: 84rpx; height: 84rpx; border-radius: 999rpx; flex: none; }
+.sk-card {
+  background: var(--paper-panel); border-radius: var(--r-card);
+  box-shadow: var(--sh-card); padding: 22rpx 24rpx; margin-bottom: 14rpx;
+  display: flex; gap: 20rpx; align-items: center;
+}
+.sk-card .sk-body { flex: 1; }
+.sk-card .sk-line + .sk-line { margin-top: 12rpx; }
+.sk-rows { padding-top: 8rpx; }
