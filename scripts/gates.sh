@@ -161,6 +161,10 @@ else
 fi
 gate "每一页都走得到吗" . python3 scripts/check-reachable-pages.py
 gate "页面之间没互相 import 吧" . python3 scripts/check-page-imports.py
+# 开屏就取数的页面,都得等得到登录。匿名登录是异步的,冷启动那一次
+# 必然赶在 token 前面拿 401 —— 要紧的不是那次 401,是之后再也不取:
+# 那一屏停在「取不到」,刷新一下又好了。栽过两次(村主屏、那一册)。
+gate "开屏取数的页等得到登录吗" . python3 scripts/check-auth-ready.py
 gate "bind 的处理器都真有吗" . python3 scripts/check-wxml-handlers.py
 # 镜像自己会先组装。动线要真跑一遍浏览器,几十秒
 gate "web verify · 动线"  . bash web/run-verify.sh
