@@ -2372,14 +2372,23 @@ if (!API) {
     ok(/^[^0-9]*[0-9]/.test(标价 || ''), '商品页上有价', String(标价))
 
     /* 「买」现在先去确认那一屏（REDESIGN.md R5 · P2），建单挪到了那里。
-       中间这一屏要问三件事：几件、寄到哪、要不要留句话。 */
-    await p.getByText('请回家', { exact: true }).click()
+       中间这一屏要问三件事：几件、寄到哪、要不要留句话。
+
+       按钮上写什么由卖的东西决定（`买法`：御守「请回家」、报告「就要这份」、
+       其余「就要这个」），所以【问页面它写的是什么】再点，不写死一个。
+       原先写死「请回家」，而这一趟挑中的是一支 ¥20 的香 ——
+       点不着的选择器不当场红，它先挂满三十秒再抛，把后面全带走。 */
+    const 买法 = await p.evaluate(() => globalThis.__router.current().data.买法)
+    if (!ok(!!买法, '商品页的主按钮有话说', String(买法))) {
+      console.log('    ← 读不到按钮文案就没法往下点，这一段跳过')
+    } else {
+    await p.getByText(买法, { exact: true }).click()
     await p.waitForFunction(
       () => globalThis.__router.current().__route === 'pages/confirm/index',
       null, { timeout: 15000 },
     ).catch(() => {})
     ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/confirm/index',
-       '「请他来」先到确认那一屏', await p.evaluate(() => globalThis.__router.current().__route))
+       `「${买法}」先到确认那一屏`, await p.evaluate(() => globalThis.__router.current().__route))
 
     /* 数量真的会改合计 —— 这一屏若只是摆个加减号，那它白加 */
     /* 等它取完再读。第一版没等，`一件` 读到空串，而空串 ≠ ¥40，
@@ -2518,6 +2527,7 @@ if (!API) {
          await p.evaluate(() => globalThis.__router.current().data.statusText))
       await p.getByText('回去', { exact: true }).click()
       await p.waitForTimeout(600)
+    }
     }
   }
 
