@@ -11,30 +11,24 @@
   </view>
 
   <block wx:else>
+    <!-- 0830:这是【这个角色的主页】，而它原先没有脸 ——
+         一个靠角色立身的产品，最不该没有角色的就是这一屏。
+         头像与名字并排，属性从三行横线表格改成一排药丸:
+         「会这一门／稀有度／住下了吗」是三个标签，不是三条记录。 -->
     <view class="hd">
-      <view class="name">{{who.name}}</view>
-      <view class="title" wx:if="{{who.title}}">{{who.title}}</view>
+      <view class="face">{{who.face}}</view>
+      <view class="hd-body">
+        <view class="name">{{who.name}}</view>
+        <view class="title" wx:if="{{who.title}}">{{who.title}}</view>
+      </view>
     </view>
 
-    <!-- 「缺」是这个产品的身份字段，所以它单独占一行、字最大 -->
-    <view class="lack-row">
-      <text class="lack-k">缺的是</text>
-      <text class="lack-v">{{who.lack}}</text>
-    </view>
-
-    <view class="hr"></view>
-
-    <view class="meta">
-      <view class="meta-row" wx:if="{{who.art}}">
-        <text class="meta-k">会这一门</text><text class="meta-v">{{who.art}}</text>
-      </view>
-      <view class="meta-row" wx:if="{{who.rarity}}">
-        <text class="meta-k">稀有度</text><text class="meta-v">{{who.rarity}}</text>
-      </view>
-      <view class="meta-row">
-        <text class="meta-k">住下了吗</text>
-        <text class="meta-v">{{who.at_home ? '住着' : '还没请来'}}</text>
-      </view>
+    <!-- 「缺」是这个产品的身份字段，所以它排在最前、颜色最重 -->
+    <view class="tags">
+      <text class="tag tag-lack">缺 {{who.lack}}</text>
+      <text class="tag" wx:if="{{who.art}}">{{who.art}}</text>
+      <text class="tag" wx:if="{{who.rarity}}">{{who.rarity}}</text>
+      <text class="tag {{who.at_home ? 'tag-home' : ''}}">{{who.at_home ? '住着' : '还没请来'}}</text>
     </view>
 
     <!-- 问签的结果。同一天问同一位逐字相同 —— 那是设定，不是缓存 -->
@@ -58,9 +52,9 @@
              而不是点了再报错 -->
         <button class="btn" bindtap="goInvite">{{inviting ? '找着……' : '请回家'}}</button>
       </block>
-    </view>
-
-    <view class="cta">
+      <!-- 「回村里」原先在另一个容器里，于是它永远自己占一行、
+           还按内容宽左对齐。它跟「去家里坐坐」是同一档的次要动作，
+           该并排 —— 放进同一个 acts 里就行 -->
       <button class="btn ghost" bindtap="onBack">回村里</button>
     </view>
   </block>

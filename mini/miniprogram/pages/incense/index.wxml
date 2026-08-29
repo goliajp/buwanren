@@ -6,13 +6,24 @@
 
   <!-- 她按你缺的那一味说话。没有本命时不编一句 ——
        「你缺火」是算出来的，没算过就说没算过，并给出口（设计 10.7）。 -->
-  <view class="say" wx:if="{{line}}">「{{line}}」</view>
-  <view class="say muted" wx:else>
-    <text>「你缺什么，我还不知道 —— 先把生辰填了，我才配得准」</text>
-    <text class="say-go" bindtap="goNatal">去填生辰 ›</text>
+  <!-- 0830:她说话就该有脸。「东西长在卖它的人身上」是这个产品的论点，
+       而这一屏原先只有一段引号里的灰字 —— 谁在说话看不出来。
+       跟村子主屏、名字那一屏同一套:头像圆牌 + 气泡。 -->
+  <view class="say-row">
+    <view class="say-face">苏</view>
+    <view class="bubble">
+      <block wx:if="{{line}}">{{line}}</block>
+      <block wx:else>
+        你缺什么，我还不知道 —— 先把生辰填了，我才配得准
+        <text class="say-go" bindtap="goNatal">去填生辰 ›</text>
+      </block>
+    </view>
   </view>
 
-  <view class="recipe">乳香 · 安息 · 桂</view>
+  <view class="recipe">
+    <text class="recipe-k">这一味</text>
+    <text class="recipe-v">乳香 · 安息 · 桂</text>
+  </view>
 
   <view class="sk-rows" wx:if="{{loading}}">
     <view class="sk-card"><view class="sk-body">
@@ -24,13 +35,15 @@
     <button class="btn ghost" bindtap="load">再试一次</button>
   </view>
 
-  <view class="entries" wx:else>
-    <view wx:for="{{skus}}" wx:key="id" class="entry"
+  <!-- 三档是【选一个】，不是一张目录。做成牌，价格跟名字一样大 ——
+       它就是这一屏要你做的那个决定 -->
+  <view class="picks" wx:else>
+    <view wx:for="{{skus}}" wx:key="id" class="pick enter"
+          style="animation-delay:{{index * 45}}ms"
           data-id="{{item.id}}" bindtap="onPick"
-          hover-class="entry-hover" hover-stay-time="100">
-      <text class="entry-k">{{item.name}}</text>
-      <text class="entry-v">{{item.priceText}}</text>
-      <text class="entry-arrow">›</text>
+          hover-class="pick-hover" hover-stay-time="100">
+      <view class="pick-n">{{item.name}}</view>
+      <view class="pick-p">{{item.priceText}}</view>
     </view>
   </view>
 
