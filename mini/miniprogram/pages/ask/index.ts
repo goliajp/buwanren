@@ -1,5 +1,6 @@
 import { najiApi } from '../../services/naji'
 import type { NajiDetail, NajiResult } from '../../types/naji'
+import { 今天几号 } from '../../utils/day'
 
 
 
@@ -102,10 +103,10 @@ Page<IData, WechatMiniprogram.IAnyObject>({
   onAuthReady() {
   },
 
+  /* 跟村主屏说同一句话。这里原先是 `2026-08-30` ——
+     同一个产品对同一天两种写法，而 ISO 那种是给系统读的。 */
   setToday() {
-    const d = new Date()
-    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    this.setData({ today: iso })
+    this.setData({ today: 今天几号(new Date()) })
   },
 
 

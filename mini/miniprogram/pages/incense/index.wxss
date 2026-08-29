@@ -34,10 +34,11 @@
 /* ── 0830 ────────────────────────────────────────────────────
    她说话就该有脸;三档是要你选一个，不是一张目录。 */
 .say-row { display: flex; align-items: flex-start; gap: 16rpx; margin-top: 22rpx; }
+/* 底色与字色由 `.face-<方向>`（app.wxss）给 —— 这里自调过一版绿，
+   而苏合的 `lack_bias.direction` 是 near，她在名册与村子里都是粉的。 */
 .say-face {
   flex: none; width: 68rpx; height: 68rpx; border-radius: 999rpx;
-  background: linear-gradient(150deg, var(--moss-lite), #9BD9BA);
-  color: #2E7D5B; font-size: 30rpx; font-weight: 700;
+  font-size: 30rpx; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
 }
 .bubble {
