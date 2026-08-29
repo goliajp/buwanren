@@ -15,7 +15,7 @@
   padding: 16rpx 4rpx 12rpx;
   font-size: 22rpx;
   color: var(--stone-label);
-  letter-spacing: 0.18em;
+  letter-spacing: 0.02em;
 }
 .recent {
   background: var(--paper-panel);
@@ -42,7 +42,7 @@
 /* 取不到 ≠ 没有。这一档只说一句，不摆出「还没买过」那副样子 */
 .recent.muted { background: transparent; border-style: dashed; opacity: .7; }
 
-.slot-k { font-size: 22rpx; color: var(--stone-label); letter-spacing: 0.24em; }
+.slot-k { font-size: 22rpx; color: var(--stone-label); letter-spacing: 0.02em; }
 .slot-v { flex: 1; margin-left: 20rpx; font-size: 24rpx; color: var(--ink-mid); }
 
 /* .flexslot 全局只有一条「矮屏收起」的规则，没有排版 —— 这一屏自己排。

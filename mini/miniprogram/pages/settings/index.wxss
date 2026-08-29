@@ -6,7 +6,7 @@
   padding: 40rpx 4rpx 14rpx;
   font-size: 22rpx;
   color: var(--stone-label);
-  letter-spacing: 0.24em;
+  letter-spacing: 0.02em;
 }
 .card.muted { color: var(--ink-faint); }
 .prof-row {
@@ -17,7 +17,7 @@
   border-bottom: 1rpx solid var(--stone-line-x);
 }
 .prof-row:last-child { border-bottom: none; }
-.prof-k { color: var(--stone-label); font-size: 24rpx; letter-spacing: 0.32em; }
+.prof-k { color: var(--stone-label); font-size: 24rpx; letter-spacing: 0.02em; }
 .prof-v {
   color: var(--ink-mid);
   font-size: 26rpx;
@@ -38,6 +38,6 @@
   text-align: center;
   font-size: 20rpx;
   color: var(--stone-label);
-  letter-spacing: 0.24em;
+  letter-spacing: 0.02em;
   padding: 16rpx 0 0;
 }

@@ -98,7 +98,7 @@ page {
 .subtitle {
   font-size: 24rpx;
   color: var(--ink-mid);
-  letter-spacing: 0.16em;
+  letter-spacing: 0.02em;
 }
 
 .hr {

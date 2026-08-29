@@ -11,7 +11,7 @@
   font-weight: 600;
   font-size: 32rpx;
   color: var(--ink-mid);
-  letter-spacing: 0.28em;
+  letter-spacing: 0.02em;
 }
 
 .loading, .err { padding: 40rpx 0; color: var(--ink-faint); font-size: 26rpx; }
