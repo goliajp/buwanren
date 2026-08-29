@@ -120,7 +120,15 @@ const ok = (cond, what, extra) => {
   return cond
 }
 
-const b = await chromium.launch({ channel: 'chrome' })
+/* 用 Playwright 自带的 chromium，【不要】装机版 Chrome。
+   08-30 实测：`channel: 'chrome'` 拉起来的进程活二三十秒就挨 SIGKILL ——
+   不是崩（没有崩溃报告）、也不是内存（当时空着 67%）。同一台机器同一份页面，
+   自带 chromium 连跑 30 轮 46 秒无事，装机版 22 轮就没。差别只有这一个开关。
+   机器上跑着 GoogleUpdater，而它更新时会清掉所有共用那个 app bundle 的实例。
+   症状很难认：门禁连着报红，而失败账是空的（一条断言都没红），
+   于是「跑不完」跟「动线断了」在总账上长得一模一样。
+   验证工具本来就不该押在用户那份浏览器上 —— 自带的这份就是为可复现装的。 */
+const b = await chromium.launch()
 /* 主页面走【自己的 context】，不用 `browser.newPage()` 的那个临时 context ——
    下面几段冷启动检查各开一个 context 再关掉，而临时 context 会被那几下
    连带清理掉，主流程随后第一个 `open()` 就报「browser has been closed」。
@@ -606,7 +614,15 @@ if (API) {
   ok(落到 === 'pages/moved/index', '扫开之后开的是「他住进来了」那一屏', 落到)
   await moveIn('chenjiu')
   const after = await text()
-  ok(before !== after, '扫御守之后收集数变了', before.match(/收集 \S+/) + ' → ' + after.match(/收集 \S+/))
+  /* 断的是【那个数真的涨了】，不是「屏上某处文本变了」。
+     后者太松:村民今天说的那一句会自己轮换，轮到了就算收集数纹丝不动也能过。
+     取数用的正则要跟 index.wxml 的 `{{lived}} / {{total}}` 对上 ——
+     0830 把「收集 x/40」改成了进度条，而这里原先 grep 的是旧写法，
+     于是证据栏印出 `null → null`，一条真的通过看着像根本没验到。 */
+  const 收集数 = (t) => { const m = t.match(/(\d+)\s*\/\s*(\d+)/); return m ? Number(m[1]) : null }
+  const 前数 = 收集数(before), 后数 = 收集数(after)
+  ok(前数 !== null && 后数 !== null && 后数 > 前数,
+     '扫御守之后收集数真的涨了', `${前数} → ${后数}`)
 
   /* 那一屏说得对不对：头一回是「住进来了」，重复扫是「早就在了」。
      重复扫不是错误，但话要不一样 —— 这是 types/village.ts 上写着的设定。 */
@@ -617,13 +633,13 @@ if (API) {
   ok(重复.includes('早就在了'), '重复扫说的是「早就在了」，不是同一句', 重复.slice(0, 30))
   /* 「他住进来了」那一屏上的出口。扫完一枚御守之后最想做的就是这一下,
      而它从来没被真按过 —— 按钮在、点了没反应是两回事。 */
-  await p.getByText('去看看他', { exact: true }).click()
+  await p.getByText('去看看', { exact: true }).click()
   await p.waitForFunction(
     () => globalThis.__router.current().__route === 'pages/villager/index',
     null, { timeout: 15000 },
   ).catch(() => {})
   ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/villager/index',
-     '「他住进来了」那一屏上按「去看看他」，真的到得了他那一页',
+     '「他住进来了」那一屏上按「去看看」，真的到得了他那一页',
      await p.evaluate(() => globalThis.__router.current().__route))
 
   /* ── 「该扫了」（设计册 E2）──────────────────────────────────
@@ -1020,13 +1036,22 @@ if (API) {
   ok(!香.那句, '没建本命时她不编一句', String(香.那句 || '(空)'))
   ok(香屏.includes('先把生辰填了'), '而是说不知道，并给出口')
 
-  await p.locator('.entry').first().click()
+  /* 选中一档。类名跟 index.wxml 对上 —— 0830 把三档改成了牌（`.pick`），
+     而这里还写着旧的 `.entry`：点不到的选择器不会当场红，它先挂满三十秒再抛，
+     把整趟后面的断言一起带走。所以先确认它真在，再点；
+     不在就报一条说得出名字的红，而不是让整轮停在这儿。 */
+  const 档牌 = p.locator('.pick')
+  if (!ok(await 档牌.count() > 0, '三档点得着（.pick）', `数到 ${await 档牌.count()} 张`)) {
+    console.log('    ← 类名对不上就没法往下点，这一段跳过')
+  } else {
+  await 档牌.first().click()
   await p.waitForFunction(
     () => globalThis.__router.current().__route === 'pages/confirm/index',
     null, { timeout: 15000 },
   ).catch(() => {})
   ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/confirm/index',
      '挑一档点得进确认那一屏', await p.evaluate(() => globalThis.__router.current().__route))
+  }
   await open('pages/incense/index', { id: 'prod-suhe-incense' })
   await p.waitForTimeout(1200)
   await shot('10-一味香')
@@ -1138,8 +1163,11 @@ const 槽文 = await text()
 ok(/\d+\s*\/\s*\d+/.test(槽文), '收集数来自服务端',
    (槽文.match(/住着 \S+ 位 · 还空 \S+ 间/) || ['没找到'])[0])
 /* 头一眼是有人在跟你打招呼，而且【知道你现在几点】（设计册 10.8）。 */
-ok(/(早上好|上午好|下午好|傍晚好|夜深了)/.test(槽文), '头一眼是一句问候',
-   (槽文.match(/(早上好|上午好|下午好|傍晚好|夜深了)/) || [''])[0])
+/* 六档穷举 —— 跟 pages/village/index.ts 的 `问候()` 一一对上。
+   它是白名单，所以那边加一档、这边不加，就会在一天里的某几个钟头误红，
+   而误红只在那几个钟头出现，最容易被当成偶发噪音放过去。 */
+const 问候档 = /(早上好|上午好|下午好|傍晚好|晚上好|夜深了)/
+ok(问候档.test(槽文), '头一眼是一句问候', (槽文.match(问候档) || [''])[0])
 ok(/[一二三四五六七八九十]月[一二三四五六七八九十]+ · 周[一二三四五六日]/.test(槽文),
    '而且写着今天几号', (槽文.match(/[一二三四五六七八九十]月\S+ · 周./) || [''])[0])
 await p.setViewportSize({ width: 375, height: 667 })
@@ -2344,14 +2372,23 @@ if (!API) {
     ok(/^[^0-9]*[0-9]/.test(标价 || ''), '商品页上有价', String(标价))
 
     /* 「买」现在先去确认那一屏（REDESIGN.md R5 · P2），建单挪到了那里。
-       中间这一屏要问三件事：几件、寄到哪、要不要留句话。 */
-    await p.getByText('请回家', { exact: true }).click()
+       中间这一屏要问三件事：几件、寄到哪、要不要留句话。
+
+       按钮上写什么由卖的东西决定（`买法`：御守「请回家」、报告「就要这份」、
+       其余「就要这个」），所以【问页面它写的是什么】再点，不写死一个。
+       原先写死「请回家」，而这一趟挑中的是一支 ¥20 的香 ——
+       点不着的选择器不当场红，它先挂满三十秒再抛，把后面全带走。 */
+    const 买法 = await p.evaluate(() => globalThis.__router.current().data.买法)
+    if (!ok(!!买法, '商品页的主按钮有话说', String(买法))) {
+      console.log('    ← 读不到按钮文案就没法往下点，这一段跳过')
+    } else {
+    await p.getByText(买法, { exact: true }).click()
     await p.waitForFunction(
       () => globalThis.__router.current().__route === 'pages/confirm/index',
       null, { timeout: 15000 },
     ).catch(() => {})
     ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/confirm/index',
-       '「请他来」先到确认那一屏', await p.evaluate(() => globalThis.__router.current().__route))
+       `「${买法}」先到确认那一屏`, await p.evaluate(() => globalThis.__router.current().__route))
 
     /* 数量真的会改合计 —— 这一屏若只是摆个加减号，那它白加 */
     /* 等它取完再读。第一版没等，`一件` 读到空串，而空串 ≠ ¥40，
@@ -2490,6 +2527,7 @@ if (!API) {
          await p.evaluate(() => globalThis.__router.current().data.statusText))
       await p.getByText('回去', { exact: true }).click()
       await p.waitForTimeout(600)
+    }
     }
   }
 

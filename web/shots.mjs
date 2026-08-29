@@ -8,19 +8,56 @@
 import { chromium } from 'playwright'
 import { mkdirSync, readFileSync } from 'fs'
 import { join } from 'path'
-import { execFileSync } from 'child_process'
+import { execFileSync, execFile, spawn } from 'child_process'
 
 const arg = (k, d) => (process.argv.find((a) => a.startsWith(`--${k}=`)) || `=${d}`).split('=').slice(1).join('=')
 const API = arg('api', '')
 const OUT = arg('out', '/tmp/shots')
 const ONLY = arg('only', '').split(',').filter(Boolean)
-const BASE = arg('base', 'http://127.0.0.1:6031')
 mkdirSync(OUT, { recursive: true })
+
+/* 服务器自己起、自己收。
+   原先是「先在别处起一个 6031，再跑这一支」—— 于是那个服务留在那儿，
+   而 `web/run-verify.sh` 要的也是 6031。它看见口被占着就整支退出，
+   在总账上跟「动线真的断了」长得一模一样：连着报红，失败账却是空的
+   （一条断言都没跑到）。08-30 为这个丢了一轮，去查了机器负载。
+   一次性的东西就不该留在世界上过夜。 */
+const 空口 = () => {
+  for (const p of [6051, 6052, 6053, 6054, 6055]) {
+    try { execFileSync('lsof', ['-nP', `-iTCP:${p}`, '-sTCP:LISTEN'], { stdio: 'ignore' }) } catch { return p }
+  }
+  throw new Error('6051-6055 全被占着 —— 腾一个出来，或者 --base= 指一个现成的')
+}
+let 服务 = null
+let BASE = arg('base', '')
+if (!BASE) {
+  await new Promise((r, j) => execFile('bun', ['web/build.mjs'], { cwd: process.cwd() }, (e) => (e ? j(e) : r())))
+    .catch(() => { throw new Error('组装失败 —— 先 bun web/build.mjs 看错在哪') })
+  const 口 = 空口()
+  服务 = spawn('python3', ['-m', 'http.server', String(口), '--directory', 'web/dist'],
+    { stdio: 'ignore', detached: false })
+  BASE = `http://127.0.0.1:${口}`
+  for (let i = 0; i < 40; i++) {
+    try { if ((await fetch(BASE + '/index.html')).ok) break } catch {}
+    await new Promise((r) => setTimeout(r, 250))
+  }
+}
+const 收工 = () => { if (服务) { try { 服务.kill() } catch {} 服务 = null } }
+process.on('exit', 收工)
+process.on('SIGINT', () => { 收工(); process.exit(130) })
 
 const sql1 = (q) => String(execFileSync('docker',
   ['exec', 'unmei-postgres', 'psql', '-U', 'unmei', '-d', 'unmei', '-tAc', q], { stdio: 'pipe' })).trim()
 
-const b = await chromium.launch({ channel: 'chrome' })
+/* 用 Playwright 自带的 chromium，【不要】装机版 Chrome。
+   08-30 实测：`channel: 'chrome'` 拉起来的进程活二三十秒就挨 SIGKILL ——
+   不是崩（没有崩溃报告）、也不是内存（当时空着 67%）。同一台机器同一份页面，
+   自带 chromium 连跑 30 轮 46 秒无事，装机版 22 轮就没。差别只有这一个开关。
+   机器上跑着 GoogleUpdater，而它更新时会清掉所有共用那个 app bundle 的实例。
+   症状很难认：门禁连着报红，而失败账是空的（一条断言都没红），
+   于是「跑不完」跟「动线断了」在总账上长得一模一样。
+   验证工具本来就不该押在用户那份浏览器上 —— 自带的这份就是为可复现装的。 */
+const b = await chromium.launch()
 const p = await b.newPage({ viewport: { width: 375, height: 667 }, deviceScaleFactor: 2 })
 if (API) await p.addInitScript((x) => { globalThis.__API_BASE = x }, API)
 
@@ -132,3 +169,4 @@ for (const [名, 路, q] of 屏) {
 }
 console.log(`\n截了 ${n} 张 → ${OUT}`)
 await b.close()
+收工()
