@@ -381,6 +381,41 @@ if (API) {
   }
 }
 
+/* ── 冷启动那一下，页面得【等得到】登录 ─────────────────────────
+   同一个窗口的另一半：页面 onLoad/onShow 立刻取数，赶在 token 前面拿 401 ——
+   要紧的不是那一次 401，是**之后再也不取**：那一屏就写着「取不到」停在那儿，
+   刷新一下又好了，于是用户觉得这 app 时好时坏。
+
+   `app.ts` 登录完会给页面栈广播 `onAuthReady`，页面接住重取一次就对了。
+   `scripts/check-auth-ready.py` 核的是「有没有那个处理器」；
+   这里跑一遍真的冷启动，看那机制到底转不转。
+
+   拿徽章那一页验：它不要参数，而且空着也说得出话。 */
+if (API) {
+  const 新2 = await b.newContext({ viewport: { width: 375, height: 667 } })
+  const 冷2 = await 新2.newPage()
+  await 冷2.addInitScript((base) => { globalThis.__API_BASE = base }, API)
+  // 把登录拖慢,保证页面那一次取数【一定】赶在 token 前面
+  await 冷2.route('**/v1/auth/anonymous', async (r) => {
+    await new Promise((res) => setTimeout(res, 700))
+    await r.continue()
+  })
+  try {
+    await 冷2.goto(BASE + '/index.html?' + new URLSearchParams({ page: 'pages/badges/index' }))
+    // 等到登录落地之后再看:重取该在这之后发生
+    await 冷2.waitForTimeout(2500)
+    const 屏 = await 冷2.evaluate(() => {
+      const d = globalThis.__router.current().data
+      return { err: d.err || '', 还在转: !!d.loading, 有货: (d.items || []).length }
+    }).catch((e) => ({ err: '问不到：' + String(e), 还在转: false, 有货: 0 }))
+    ok(!屏.err && !屏.还在转,
+       '登录慢的时候开一页，它等得到登录再取　—— 不是停在「取不到」',
+       屏.err ? `停在错误态：${屏.err}` : (屏.还在转 ? '一直转着，没重取' : ''))
+  } finally {
+    await 新2.close()
+  }
+}
+
 
 /* 打真后端时,用【真的入住路径】把两位请回家:
      发一张御守凭据(库里) → 页面点「扫御守」→ /v1/omamori/scan → 入住

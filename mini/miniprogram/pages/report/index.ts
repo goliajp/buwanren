@@ -14,6 +14,7 @@
 import { reportApi } from '../../services/report'
 import type { Report, ReportPage } from '../../services/report'
 import type { ApiError } from '../../services/api'
+import { storage } from '../../services/storage'
 
 Page({
   data: {
@@ -34,7 +35,15 @@ Page({
 
   onLoad(q: Record<string, string>) {
     this.setData({ id: q.id || '' })
-    this.load()
+    /* 有 token 才取。匿名登录是 app.ts 异步做的，而这一页 onLoad 立刻就取 ——
+       冷启动那一次必然 401，而这一屏会写着「取不到这一册」停在那儿。
+       没 token 就先不取，等 `onAuthReady`。 */
+    if (storage.getToken()) this.load()
+  },
+
+  /** 登录完了再取一次 —— 冷启动时 onLoad 那一次是空跑的 */
+  onAuthReady() {
+    if (!this.data.status) this.load()
   },
 
   async load() {
