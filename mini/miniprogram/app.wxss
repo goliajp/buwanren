@@ -150,7 +150,9 @@ button.btn.ghost.btn-hover:not([disabled]) {
   box-shadow: 0 0 0 var(--stone-line-x), 0 3rpx 8rpx rgba(43,38,32,.05);
 }
 
-button.btn.stamp { background: var(--peach); box-shadow: 0 6rpx 0 #E8596B, 0 10rpx 24rpx rgba(232,89,107,.24); }
+/* `.stamp`（朱印红）删了。0830 里它被映射成桃粉，而桃粉是「喜欢」那一档 ——
+   用它做主按钮的地方（绑定微信）压不住，看着像个促销标签。
+   留着一条没人用的按钮样式，只会诱使下一个人用它。 */
 
 /* ── 五行药丸 ──────────────────────────────────────────────
    五行是【内容标签】,第一要务是一眼分得开。

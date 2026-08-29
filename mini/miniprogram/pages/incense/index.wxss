@@ -29,3 +29,46 @@
 .acts { margin-top: auto; padding-top: 48rpx; text-align: center; }
 .slot-on { display: flex; align-items: center; color: var(--ink-mid); }
 .slot-arrow { margin-left: auto; color: var(--stone-label); }
+
+
+/* ── 0830 ────────────────────────────────────────────────────
+   她说话就该有脸;三档是要你选一个，不是一张目录。 */
+.say-row { display: flex; align-items: flex-start; gap: 16rpx; margin-top: 22rpx; }
+.say-face {
+  flex: none; width: 68rpx; height: 68rpx; border-radius: 999rpx;
+  background: linear-gradient(150deg, var(--moss-lite), #9BD9BA);
+  color: #2E7D5B; font-size: 30rpx; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.bubble {
+  position: relative; flex: 1;
+  background: var(--paper-panel); border-radius: 20rpx;
+  box-shadow: var(--sh-card);
+  padding: 20rpx 24rpx; font-size: 28rpx; color: var(--ink); line-height: 1.6;
+}
+.bubble::before {
+  content: ''; position: absolute; left: -10rpx; top: 24rpx;
+  width: 0; height: 0;
+  border-top: 10rpx solid transparent; border-bottom: 10rpx solid transparent;
+  border-right: 12rpx solid var(--paper-panel);
+}
+.say-go { display: block; margin-top: 10rpx; font-size: 25rpx;
+          font-weight: 600; color: var(--amber-deep); }
+
+.recipe { display: flex; align-items: baseline; gap: 18rpx; margin-top: 26rpx; }
+.recipe-k { font-size: 23rpx; color: var(--stone-label); }
+.recipe-v { font-size: 30rpx; font-weight: 600; color: var(--ink); letter-spacing: 0.06em; }
+
+.picks { display: flex; gap: 12rpx; margin-top: 24rpx; }
+.pick {
+  flex: 1; min-width: 0; text-align: center;
+  background: var(--paper-panel); border-radius: var(--r-card);
+  box-shadow: var(--sh-card); padding: 22rpx 10rpx 20rpx;
+  transition: transform .12s cubic-bezier(.34,1.56,.64,1);
+}
+.pick-hover { transform: translateY(3rpx) scale(.98); }
+.pick-n { font-size: 24rpx; color: var(--ink-mid); line-height: 1.4; }
+.pick-p { margin-top: 10rpx; font-size: 30rpx; font-weight: 700; color: var(--ink);
+          font-variant-numeric: tabular-nums; }
+.acts { margin-top: auto; }
+.acts .btn { width: 100%; box-sizing: border-box; }
