@@ -56,7 +56,12 @@
 .bar { display: flex; align-items: center; margin-bottom: 14rpx; }
 .bar-k { width: 44rpx; font-size: 26rpx; color: var(--ink-mid); }
 .bar-track { flex: 1; height: 12rpx; background: var(--paper-inset); border-radius: 16rpx; overflow: hidden; }
-.bar-fill { height: 100%; background: var(--ink); }
+/* 条按五行上色。原先五根全是墨色 —— 那时这一页说的是「有五个数」，
+   而它要说的是「你偏在哪一行」。
+   **不设默认底色**:页面样式排在 app.wxss 之后，写了就会把 wx-*-bg 盖掉。 */
+.bar-fill { height: 100%; border-radius: 999rpx; }
+/* 最高那根加一圈光 —— 答案不该要人自己比一遍 */
+.bar-top { box-shadow: 0 0 0 2rpx rgba(255,255,255,.9), 0 2rpx 8rpx rgba(43,38,32,.18); }
 .bar-v { width: 56rpx; text-align: right; font-size: 22rpx; color: var(--stone-label); }
 
 .rows { margin-top: 24rpx; }
@@ -73,10 +78,16 @@
   padding: 2rpx 10rpx; border-radius: 16rpx;
 }
 
+/* 便签:排盘写给你的一张条子 —— 它不是这一册的正文，
+   是夹在里面说明「凭什么这么说」的那张纸。
+   暖黄底、一点点厚度、斜 0.6° —— 再多就成了装饰，而它是要读的东西。 */
 .quote {
-  margin-top: 24rpx; padding: 18rpx 20rpx;
-  background: var(--paper-inset); border-radius: 16rpx;
-  font-size: 25rpx; color: var(--ink-mid); line-height: 1.9;
+  margin-top: 28rpx; padding: 24rpx 26rpx;
+  background: #FFF8E7;
+  border-radius: 8rpx;
+  transform: rotate(-0.6deg);
+  box-shadow: 0 2rpx 6rpx rgba(43,38,32,.09), 0 12rpx 24rpx rgba(43,38,32,.07);
+  font-size: 26rpx; color: #6B5A3C; line-height: 1.85;
 }
 
 .src { margin-top: 20rpx; font-size: 20rpx; color: var(--stone-label); }
@@ -96,3 +107,35 @@
 .turn { font-size: 26rpx; color: var(--ink-mid); }
 .turn-off { color: var(--stone-line); }
 .turn-back { flex: 1; text-align: center; font-size: 24rpx; color: var(--stone-label); }
+
+
+/* ── 大运时间轴（0830 §6.6）────────────────────────────────
+   原先是十行列表 + 当前那行加粗。列表看得出「有哪些」，看不出「走到哪儿」——
+   而后者才是这一页的价值。横着排成一条，当前那格亮起来，一眼就是答案。
+
+   干支竖排两个字:一格四十来像素，横排放不下。 */
+.timeline { display: flex; gap: 6rpx; margin-top: 26rpx; align-items: flex-end; }
+.tl {
+  flex: 1; min-width: 0; text-align: center;
+  padding: 14rpx 0 10rpx;
+  border-radius: 14rpx;
+  background: var(--paper-panel);
+  box-shadow: 0 1rpx 3rpx rgba(43,38,32,.05);
+}
+.tl-gz { font-size: 26rpx; font-weight: 600; color: var(--ink-mid); line-height: 1.25; }
+.tl-age { margin-top: 6rpx; font-size: 18rpx; color: var(--stone-label);
+          font-variant-numeric: tabular-nums; }
+.tl-dot { display: none; }
+/* 现在走着的那一格:琥珀、抬起来、底下一个点 */
+.tl-now {
+  background: linear-gradient(160deg, #FFB463, var(--amber));
+  box-shadow: 0 6rpx 16rpx rgba(232,121,26,.32);
+  transform: translateY(-6rpx);
+  padding: 18rpx 0 14rpx;
+}
+.tl-now .tl-gz { color: #fff; font-size: 28rpx; font-weight: 700; }
+.tl-now .tl-age { color: rgba(255,255,255,.9); font-weight: 600; }
+.tl-now .tl-dot {
+  display: block; width: 8rpx; height: 8rpx; border-radius: 999rpx;
+  background: var(--amber); margin: 8rpx auto 0;
+}
