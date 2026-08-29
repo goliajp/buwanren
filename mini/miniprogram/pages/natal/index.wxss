@@ -18,7 +18,7 @@
 .basic-k {
   color: var(--stone-label);
   font-size: 24rpx;
-  letter-spacing: 0.32em;
+  letter-spacing: 0.02em;
 }
 .basic-v {
   font-size: 32rpx;
@@ -45,7 +45,7 @@
   font-size: 28rpx;
   font-weight: 500;
   color: var(--stamp);
-  letter-spacing: 0.4em;
+  letter-spacing: 0.02em;
   margin-bottom: 12rpx;
 }
 .stamp-value {
@@ -58,7 +58,7 @@
 .stamp-sub {
   font-size: 22rpx;
   color: var(--ink-faint);
-  letter-spacing: 0.2em;
+  letter-spacing: 0.02em;
 }
 
 /* 过 · chips */
@@ -68,7 +68,7 @@
 .over-k {
   color: var(--stone-label);
   font-size: 24rpx;
-  letter-spacing: 0.32em;
+  letter-spacing: 0.02em;
   margin-bottom: 10rpx;
 }
 .chips {
@@ -102,7 +102,7 @@
   text-align: center;
   font-size: 20rpx;
   color: var(--stone-label);
-  letter-spacing: 0.24em;
+  letter-spacing: 0.02em;
   padding: 20rpx 0 0;
 }
 
@@ -120,14 +120,16 @@
 .field-k {
   color: var(--stone-label);
   font-size: 26rpx;
-  letter-spacing: 0.32em;
+  letter-spacing: 0.02em;
 }
 .field-v {
   font-size: 30rpx;
   color: var(--ink);
 }
 .field-v.mono {
-  font-family: "SF Mono", "Menlo", monospace;
+  /* 原先是 SF Mono —— 数字对齐是对的，等宽字体的「终端」观感不是。
+     `tabular-nums` 同样对齐，而字还是系统字 */
+  font-variant-numeric: tabular-nums;
   font-size: 28rpx;
   letter-spacing: 0.04em;
 }
@@ -173,7 +175,16 @@
 /* 「会得到这些」（设计册 H2 / 10.8）：填生辰之前先说清换回什么。
    行高按能读定，不按触点定 —— 它不是可点的东西，是一份清单。 */
 .gets { margin-top: 28rpx; padding-top: 20rpx; border-top: 1rpx solid var(--stone-line-x); }
-.gets-k { font-size: 22rpx; color: var(--stone-label); letter-spacing: 0.24em; margin-bottom: 10rpx; }
+.gets-k { font-size: 22rpx; color: var(--stone-label); letter-spacing: 0.02em; margin-bottom: 10rpx; }
 .gets-row { display: flex; align-items: baseline; padding: 6rpx 0; }
 .gets-a { flex: none; width: 180rpx; font-size: 26rpx; color: var(--ink); }
 .gets-b { flex: 1; font-size: 24rpx; color: var(--ink-faint); }
+
+
+/* ── 0830 ────────────────────────────────────────────────────
+   选中态原先是黑色方块 —— 整屏最重的一块压在一个表单选项上。
+   琥珀是这一版说「选中/主动作」的颜色。 */
+.seg-item { border-radius: 999rpx; }
+.seg-item.on { background: var(--amber); color: #fff; border-color: var(--amber); }
+/* 「算一算」是这一屏唯一的动作,给它整行 */
+.acts .btn, .submit { width: 100%; box-sizing: border-box; }

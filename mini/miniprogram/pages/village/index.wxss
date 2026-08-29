@@ -5,10 +5,14 @@
 .sub { font-size: 26rpx; color: var(--ink-mid); }
 .count { margin-left: auto; font-size: 26rpx; color: var(--ink); }
 /* 画布的像素尺寸由村子声明(VILLAGE_SIZE),这里只管它在屏幕上占多大 */
-/* 画布按可用高度等比铺，窄屏上两侧会留一点白。
-   给一圈极淡的描边 + 阴影，让那点留白读起来是【画框】而不是「没铺满」 */
-.village { display: block; border-radius: var(--r-card);
-           box-shadow: 0 2rpx 10rpx rgba(43,38,32,.10), 0 0 0 1rpx rgba(43,38,32,.05); }
+/* 画布按可用高度等比铺，窄屏上两侧会留一点白 —— 圆角让那点留白
+   读起来是【画框】而不是「没铺满」。
+
+   **阴影不加在 canvas 上。** 村子每帧都在重画，而阴影要跟着每一帧
+   重新合成 —— 2026-08-30 加上之后，动线跑到一百条上下浏览器就被拖垮，
+   报出来是「browser has been closed」，看着像脚本的问题。
+   要阴影就加在外面那层容器上。 */
+.village { display: block; border-radius: var(--r-card); }
 .card { width: 100%; box-sizing: border-box; padding: 24rpx 32rpx;
         display: flex; align-items: center; gap: 24rpx; }
 .who { font-size: 30rpx; color: var(--ink); }
