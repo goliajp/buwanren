@@ -9,22 +9,38 @@
  * 出口只有两条，都往前。
  */
 
+import { villageApi } from '../../services/village'
+
 interface IData {
   name: string
   /** 头一回扫是「住进来了」，重复扫是「早就在了」—— 不是错误，但话要不一样 */
   isNew: boolean
   id: string
+  /** 圆牌里那个字。没有美术之前用姓名末字 —— 跟村子、名册同一套占位 */
+  face: string
+  /** 收集进度。这一刻最实在的奖励是那个数往上跳一格 */
+  lived: number
+  total: number
 }
 
 Page<IData, WechatMiniprogram.IAnyObject>({
-  data: { name: '', isNew: true, id: '' },
+  data: { name: '', isNew: true, id: '', face: '', lived: 0, total: 0 },
 
   onLoad(q: Record<string, string | undefined>) {
+    const name = q.name || '他'
     this.setData({
-      name: q.name || '他',
+      name,
+      face: name.slice(-1),
       isNew: q.n !== '0',
       id: q.id || '',
     })
+    /* 收集数从服务端取 —— 不从上一页带过来。带过来的是【扫之前】那个数，
+       而这一屏要显示的正是「多了一位之后」。差一个人，
+       而那正好是这一屏存在的理由。 */
+    villageApi.mine().then(
+      (v) => this.setData({ lived: v.found, total: v.total }),
+      () => { /* 取不到就不摆那一条 —— 空着比摆一个错的数好 */ },
+    )
   },
 
   goVillager() {

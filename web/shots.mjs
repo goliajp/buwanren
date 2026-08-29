@@ -75,6 +75,13 @@ const 屏 = [
   ['settings', 'pages/settings/index'],
   ['plot', 'pages/plot/index', { id: '7' }],
   ['villager', 'pages/villager/index', { id: 'popo' }],
+  ['moved', 'pages/moved/index', { name: '婆婆', id: 'popo', n: '1' }],
+  ['report', 'pages/report/index', { id: 'x' }],
+  ['confirm', 'pages/confirm/index', { id: 'prod-suhe-incense' }],
+  ['product', 'pages/product/index', { id: 'prod-suhe-incense' }],
+  ['name', 'pages/name/index'],
+  ['bind', 'pages/bind/index'],
+  ['lighting', 'pages/lighting/index'],
   ...(单子 ? [['order', 'pages/order/index', { id: 单子 }]] : []),
 ]
 
