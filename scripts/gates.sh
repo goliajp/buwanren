@@ -170,6 +170,10 @@ gate "bind 的处理器都真有吗" . python3 scripts/check-wxml-handlers.py
 # 「屏上写着傍晚好而村子已经点起灯」,或者问候语加了一档、验证脚本的白名单没加 ——
 # 后者只在一天里的某几个钟头红,而只在某几个钟头出现的红最容易被当成噪音放过。
 gate "昼夜的边界三处对得上吗" . python3 scripts/check-clock-bands.py
+# 一个人的头像色摊在四屏(名册 / 村主屏 / 他的主页 / 扫开那一屏)。
+# 少接一处,他在那一屏就是另一个颜色 —— 而颜色是翻四十个人时最快的线索,
+# 一处不准整条线索就不能信。页面里写 background 也会盖掉它,症状一模一样。
+gate "一个人的颜色四处一样吗" . python3 scripts/check-face-color.py
 # 镜像自己会先组装。动线要真跑一遍浏览器,几十秒
 gate "web verify · 动线"  . bash web/run-verify.sh
 

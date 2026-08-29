@@ -430,14 +430,26 @@ async fn scan(
     let out = residency::move_in_from_credential(&st.db, &c.sub, &b.carrier, &b.credential).await?;
     let vid = out.villager_id().to_string();
 
-    let name: Option<String> = sqlx::query_scalar("SELECT name FROM villager WHERE id = $1")
-        .bind(&vid)
-        .fetch_optional(&st.db)
-        .await?;
+    /* 方向也一起给 —— 「他住进来了」那一屏要用它上色。
+       让那一屏自己再去要一次的话,脸会先按默认的琥珀渲出来、
+       两百毫秒后才换成他自己的颜色,而那一下正落在光晕炸开的当口。
+       一个人的颜色在四处要一样(名册 / 村子 / 他的主页 / 搬进来那一刻),
+       不然颜色就不是在指人,只是在装饰。 */
+    let r = sqlx::query(
+        "SELECT v.name, b.direction FROM villager v \
+           LEFT JOIN lack_bias b ON b.lack = v.lack \
+          WHERE v.id = $1",
+    )
+    .bind(&vid)
+    .fetch_optional(&st.db)
+    .await?;
+    let name: Option<String> = r.as_ref().map(|x| x.get("name"));
+    let direction: Option<String> = r.as_ref().and_then(|x| x.get("direction"));
 
     Ok(Json(json!({
         "villager_id": vid,
         "villager_name": name,
+        "direction": direction,
         // 重复扫不是错误,但界面要说得不一样:
         // 第一次是「他住进来了」,第二次是「他早就在了」
         "moved_in": out.is_new(),

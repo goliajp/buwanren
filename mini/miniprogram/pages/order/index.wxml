@@ -102,8 +102,11 @@
          **订单的完成态不是「已付」，是你读到了** —— 跟御守那条同一个道理。
          还差生辰的也给这个按钮：进去那一屏说得清还差什么、去哪儿填，
          而不是在这里显示「已完成」让买家以为东西已经到手了。 -->
+    <!-- 还没付钱时它降成次要:这一屏的主按钮只能有一颗，
+         而那一颗永远是【下一步该做的那件事】。两颗橙的并排放着，
+         等于让买家自己猜先按哪个。 -->
     <view class="cta cta-read" wx:if="{{report}}">
-      <button class="btn" bindtap="onRead">
+      <button class="btn {{status === 'unpaid' ? 'ghost' : ''}}" bindtap="onRead">
         {{report.status === 'ready' ? '读你的那一册' : '这一册还差你的生辰'}}
       </button>
     </view>
