@@ -8,6 +8,7 @@ import { mineApi } from '../../services/mine'
 import { storage } from '../../services/storage'
 import type { ApiError } from '../../services/api'
 import type { Badge } from '../../types/mine'
+import { 一句 } from '../../utils/say'
 
 Page({
   data: {
@@ -40,7 +41,7 @@ Page({
         got: list.filter((b) => b.earned).length,
         all: list.length,
       }),
-      (e: ApiError) => this.setData({ loading: false, err: e.message || '取不到徽章' }),
+      (e: ApiError) => this.setData({ loading: false, err: 一句(e) }),
     )
   },
 

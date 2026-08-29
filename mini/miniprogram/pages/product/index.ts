@@ -11,6 +11,7 @@ import { commerceApi } from '../../services/commerce'
 import { storage } from '../../services/storage'
 import type { ApiError } from '../../services/api'
 import type { ProductDetail, Sku } from '../../types/commerce'
+import { 一句 } from '../../utils/say'
 
 /** 分 → 一句能显示的价格。规则跟后端 `ai_compose::money_display` 一致 */
 function money(minor: number | null | undefined, currency: string | null | undefined): string {
@@ -93,7 +94,7 @@ Page({
         })
       },
       (e: ApiError) => {
-        this.setData({ loading: false, err: e.message || '取不到这一件' })
+        this.setData({ loading: false, err: 一句(e) })
       },
     )
   },

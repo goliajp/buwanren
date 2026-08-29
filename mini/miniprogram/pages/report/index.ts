@@ -13,9 +13,9 @@
 
 import { reportApi } from '../../services/report'
 import type { Report, ReportPage } from '../../services/report'
-import type { ApiError } from '../../services/api'
 import { 轻 } from '../../utils/feel'
 import { storage } from '../../services/storage'
+import { 一句 } from '../../utils/say'
 
 Page({
   data: {
@@ -67,7 +67,7 @@ Page({
       this.pages = r.pages || []
       this.show(0)
     } catch (e) {
-      this.setData({ loading: false, err: (e as ApiError).message || '取不到这一册' })
+      this.setData({ loading: false, err: 一句(e as { status?: number; message?: string }) })
     }
   },
 

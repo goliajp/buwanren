@@ -43,14 +43,17 @@
       <view class="pg-note" wx:if="{{page.note}}">{{page.note}}</view>
 
       <!-- 模板一 · 四柱。这册的门面，专门画 -->
+      <!-- 0830:四柱做成【四张牌并排】。原先是四行列表 —— 那读起来是一张表，
+           而它是一【盘】。牌的样子还让五行色用得上:每张牌顶上一条色带，
+           四张一字排开就能一眼看出这个人偏在哪一行。 -->
       <view class="pillars" wx:if="{{page.pillars}}">
-        <view wx:for="{{page.pillars}}" wx:key="pos" class="pillar">
+        <view wx:for="{{page.pillars}}" wx:key="pos" class="pillar enter"
+              style="animation-delay:{{index * 50}}ms">
+          <view class="p-bar wx-{{item.pinyin}}-bg"></view>
           <text class="p-pos">{{item.pos}}</text>
           <text class="p-gz">{{item.ganzhi}}</text>
-          <view class="p-side">
-            <text class="p-god">{{item.ten_god}}</text>
-            <text class="p-meta">{{item.wuxing}} · 纳音{{item.nayin}} · {{item.twelve}}</text>
-          </view>
+          <text class="p-god">{{item.ten_god}}</text>
+          <text class="p-meta">{{item.wuxing}}</text>
           <view class="p-hidden">
             <text wx:for="{{item.hidden}}" wx:for-item="h" wx:key="*this" class="p-h">{{h}}</text>
           </view>

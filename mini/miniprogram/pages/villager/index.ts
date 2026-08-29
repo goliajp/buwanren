@@ -15,6 +15,7 @@ import { villageApi } from '../../services/village'
 import { commerceApi } from '../../services/commerce'
 import type { ApiError } from '../../services/api'
 import type { VillagerInVillage } from '../../types/village'
+import { 一句 } from '../../utils/say'
 
 /* 哪几间房搬进来了 —— 由 engine/rooms/index.js 报，不在这手写一份。
    手写的话：rooms/ 那边新做一间房，这里忘了加，那间房永远进不去而且不报错。
@@ -86,7 +87,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
       })
       wx.setNavigationBarTitle({ title: who.name })
     } catch (e) {
-      this.setData({ loading: false, err: '取不到：' + ((e as ApiError).message || '未知错误') })
+      this.setData({ loading: false, err: '取不到：' + (一句(e as { status?: number; message?: string })) })
     }
   },
 
@@ -108,7 +109,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
           say: '',
           err: err.status === 404
             ? (who ? who.name : '他') + '还没住进你的村子'
-            : (err.message || '问签失败'),
+            : (一句(err)),
         })
       },
     )

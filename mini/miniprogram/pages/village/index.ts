@@ -12,12 +12,12 @@
  */
 
 import { villageApi } from '../../services/village'
-import type { ApiError } from '../../services/api'
 import { 唤醒, 扫一枚 } from '../../utils/omamori'
 import { 轻 } from '../../utils/feel'
 import { incenseApi } from '../../services/incense'
 import { storage } from '../../services/storage'
 import type { VillagerInVillage } from '../../types/village'
+import { 一句 } from '../../utils/say'
 
 // 三支生成物,靠副作用挂到 globalThis 上。顺序不能换。
 require('../../engine/engine.js')
@@ -202,7 +202,7 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
          有 token 之后还失败，才是真取不到。 */
       (e) => {
         if (!storage.getToken()) return
-        this.setData({ err: '取不到村子：' + ((e as ApiError).message || '未知错误') })
+        this.setData({ err: '取不到村子：' + (一句(e)) })
       },
     )
   },

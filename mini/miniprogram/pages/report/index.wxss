@@ -20,25 +20,36 @@
 .pg-lead { margin-left: 16rpx; font-size: 24rpx; color: var(--ink-mid); }
 .pg-note { margin-top: 10rpx; font-size: 22rpx; color: var(--stone-label); line-height: 1.7; }
 
-/* 四柱 */
-.pillars { margin-top: 24rpx; }
+/* 四柱 —— 四张牌并排（0830）。
+   原先是四行列表:读起来是一张表，而它是一【盘】。
+   牌的样子也让五行色用得上 —— 每张顶一条色带，四张排开就看得出偏在哪一行。 */
+.pillars { margin-top: 22rpx; display: flex; gap: 12rpx; }
 .pillar {
-  display: flex; align-items: center; flex-wrap: wrap;
-  padding: 16rpx 0; border-bottom: 1rpx solid var(--stone-line-x);
+  flex: 1; min-width: 0;
+  background: var(--paper-panel);
+  border-radius: 20rpx;
+  box-shadow: var(--sh-card);
+  padding: 0 0 16rpx;
+  overflow: hidden;
+  text-align: center;
 }
-.p-pos { width: 44rpx; font-size: 24rpx; color: var(--stone-label); }
+/* 顶上那条色带 = 这一柱的天干五行。
+   **不给默认底色** —— 页面样式排在 app.wxss 之后，写了默认值就会把
+   `.wx-mu-bg` 那几条盖掉，四条色带全变成同一个灰。
+   没有 pinyin 时它就是透明的，那也如实:数据不全就别假装有颜色。 */
+.p-bar { height: 10rpx; width: 100%; }
+.p-pos { display: block; margin-top: 14rpx; font-size: 21rpx; color: var(--stone-label); }
 .p-gz {
-  font-weight: 600; font-size: 42rpx; color: var(--ink);
-  letter-spacing: 0.12em; width: 130rpx;
+  display: block; margin-top: 4rpx;
+  font-size: 40rpx; font-weight: 700; color: var(--ink);
+  letter-spacing: 0.02em; line-height: 1.15;
 }
-.p-side { flex: 1; }
-.p-god { display: block; font-size: 26rpx; color: var(--ink-mid); }
-.p-meta { display: block; font-size: 20rpx; color: var(--stone-label); margin-top: 4rpx; }
-.p-hidden { width: 100%; margin-top: 8rpx; padding-left: 174rpx; }
-.p-h {
-  display: inline-block; margin-right: 14rpx;
-  font-size: 20rpx; color: var(--ink-faint);
-}
+.p-god { display: block; margin-top: 8rpx; font-size: 23rpx; font-weight: 600; color: var(--ink-mid); }
+.p-meta { display: block; margin-top: 3rpx; font-size: 19rpx; color: var(--stone-label); }
+/* 藏干竖着排在牌底 —— 横排四张牌里放不下三个词 */
+.p-hidden { margin-top: 10rpx; padding: 0 6rpx; }
+.p-h { display: block; font-size: 18rpx; color: var(--ink-faint); line-height: 1.55; }
+.p-foot { margin-top: 12rpx; font-size: 19rpx; color: var(--stone-label); }
 
 /* 五行条 */
 .bars { margin-top: 26rpx; }

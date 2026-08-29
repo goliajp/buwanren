@@ -14,6 +14,7 @@ import type { ApiError } from '../../services/api'
 import type { OrderDetail, Shipment, TraceEvent } from '../../types/commerce'
 import { money, 状态说法 } from '../../utils/money'
 import { 唤醒, 扫一枚 } from '../../utils/omamori'
+import { 一句 } from '../../utils/say'
 
 /** 包裹状态的说法。取值跟后端 `ShipmentStatus` 一一对应，不自创 */
 const 物流说法: Record<string, string> = {
@@ -123,7 +124,7 @@ Page({
           whenText: (String(o.created_at || '')).slice(5, 10).replace('-', '/'),
         })
       },
-      (e: ApiError) => this.setData({ loading: false, err: e.message || '取不到这一张' }),
+      (e: ApiError) => this.setData({ loading: false, err: 一句(e) }),
     )
     this.loadShipments()
   },
@@ -165,7 +166,7 @@ Page({
         shipErr: '',
         shipments: list.map((s) => ({ ...s, statusText: 物流说法[s.status] || s.status })),
       }),
-      (e: ApiError) => this.setData({ shipments: [], shipErr: e.message || '取不到物流' }),
+      (e: ApiError) => this.setData({ shipments: [], shipErr: 一句(e) }),
     )
   },
 
@@ -189,7 +190,7 @@ Page({
           在: ev.location || '',
         })),
       }),
-      (err: ApiError) => this.setData({ note: err.message || '取不到轨迹' }),
+      (err: ApiError) => this.setData({ note: 一句(err) }),
     )
   },
 
@@ -198,7 +199,7 @@ Page({
     this.setData({ refunding: true, note: '' })
     commerceApi.refund(this.data.id, 'user_request', this.data.refundKey).then(
       () => { this.setData({ refunding: false, note: '退款已申请，等审核' }); this.load() },
-      (e: ApiError) => this.setData({ refunding: false, note: e.message || '退不了' }),
+      (e: ApiError) => this.setData({ refunding: false, note: 一句(e) }),
     )
   },
 
@@ -232,14 +233,14 @@ Page({
           fail: () => this.setData({ note: '支付没完成' }),
         })
       },
-      (e: ApiError) => this.setData({ paying: false, note: e.message || '发起支付失败' }),
+      (e: ApiError) => this.setData({ paying: false, note: 一句(e) }),
     )
   },
 
   onCancel() {
     commerceApi.cancelOrder(this.data.id, this.data.cancelKey).then(
       () => this.load(),
-      (e: ApiError) => this.setData({ note: e.message || '取消不了' }),
+      (e: ApiError) => this.setData({ note: 一句(e) }),
     )
   },
 
