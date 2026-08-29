@@ -8,14 +8,43 @@
 import { chromium } from 'playwright'
 import { mkdirSync, readFileSync } from 'fs'
 import { join } from 'path'
-import { execFileSync } from 'child_process'
+import { execFileSync, execFile, spawn } from 'child_process'
 
 const arg = (k, d) => (process.argv.find((a) => a.startsWith(`--${k}=`)) || `=${d}`).split('=').slice(1).join('=')
 const API = arg('api', '')
 const OUT = arg('out', '/tmp/shots')
 const ONLY = arg('only', '').split(',').filter(Boolean)
-const BASE = arg('base', 'http://127.0.0.1:6031')
 mkdirSync(OUT, { recursive: true })
+
+/* 服务器自己起、自己收。
+   原先是「先在别处起一个 6031，再跑这一支」—— 于是那个服务留在那儿，
+   而 `web/run-verify.sh` 要的也是 6031。它看见口被占着就整支退出，
+   在总账上跟「动线真的断了」长得一模一样：连着报红，失败账却是空的
+   （一条断言都没跑到）。08-30 为这个丢了一轮，去查了机器负载。
+   一次性的东西就不该留在世界上过夜。 */
+const 空口 = () => {
+  for (const p of [6051, 6052, 6053, 6054, 6055]) {
+    try { execFileSync('lsof', ['-nP', `-iTCP:${p}`, '-sTCP:LISTEN'], { stdio: 'ignore' }) } catch { return p }
+  }
+  throw new Error('6051-6055 全被占着 —— 腾一个出来，或者 --base= 指一个现成的')
+}
+let 服务 = null
+let BASE = arg('base', '')
+if (!BASE) {
+  await new Promise((r, j) => execFile('bun', ['web/build.mjs'], { cwd: process.cwd() }, (e) => (e ? j(e) : r())))
+    .catch(() => { throw new Error('组装失败 —— 先 bun web/build.mjs 看错在哪') })
+  const 口 = 空口()
+  服务 = spawn('python3', ['-m', 'http.server', String(口), '--directory', 'web/dist'],
+    { stdio: 'ignore', detached: false })
+  BASE = `http://127.0.0.1:${口}`
+  for (let i = 0; i < 40; i++) {
+    try { if ((await fetch(BASE + '/index.html')).ok) break } catch {}
+    await new Promise((r) => setTimeout(r, 250))
+  }
+}
+const 收工 = () => { if (服务) { try { 服务.kill() } catch {} 服务 = null } }
+process.on('exit', 收工)
+process.on('SIGINT', () => { 收工(); process.exit(130) })
 
 const sql1 = (q) => String(execFileSync('docker',
   ['exec', 'unmei-postgres', 'psql', '-U', 'unmei', '-d', 'unmei', '-tAc', q], { stdio: 'pipe' })).trim()
@@ -132,3 +161,4 @@ for (const [名, 路, q] of 屏) {
 }
 console.log(`\n截了 ${n} 张 → ${OUT}`)
 await b.close()
+收工()

@@ -61,15 +61,18 @@ declare const VILLAGE_SIZE: { w: number; h: number }
    村子的天几分钟转一轮，跟你几点没关系。
 
    分档按人怎么过一天来切，不按整点均分：五点到十点是早上，
-   十点到十三点是上午，晚上九点之后是「夜深了」——
-   那句话对着的是还没睡的人。 */
+   十点到十三点是上午，夜里十一点之后是「夜深了」——
+   那句话对着的是还没睡的人。
+
+   【边界要跟村子的天色对齐】。引擎那边日落是 17:30–19:30，之后全黑。
+   这里原先「傍晚好」一直说到二十一点 —— 于是晚上八点，屏上写着傍晚好，
+   底下的村子已经点起灯、飞着萤火虫。跟「早上好配深夜」是同一种矛盾，
+   只是没那么显眼。改后 19.5 这个数两处都用，谁动了都得一起动。 */
+const 边界 = [5, 10, 13, 17, 19.5, 23]
+const 档 = ['夜深了', '早上好', '上午好', '下午好', '傍晚好', '晚上好', '夜深了']
 function 问候(h: number): string {
-  if (h < 5) return '夜深了'
-  if (h < 10) return '早上好'
-  if (h < 13) return '上午好'
-  if (h < 17) return '下午好'
-  if (h < 21) return '傍晚好'
-  return '夜深了'
+  const i = 边界.findIndex((b) => h < b)
+  return i === -1 ? 档[档.length - 1] : 档[i]
 }
 
 /* 「八月二十 · 周四」。中文数字照设计册写 ——
@@ -92,7 +95,7 @@ interface VillageData {
   cssW: number
   cssH: number
   sub: string
-  /** 问候语与日期（设计册 V1）。按【你】现在几点说，不按画面里的昼夜 */
+  /** 问候语与日期（设计册 V1）。整点不够用 —— 19:30 那条边界两边分属傍晚与夜 */
   greet: string
   today: string
   /** 今晚那一场开着没有（设计册 E1）。开着，槽里那一句才是入口 */
@@ -120,6 +123,8 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
     says: null },
 
   handle: null as { stop(): void } | null,
+  // 下一个分档边界上的一次性闹钟（见 刷问候）
+  闹钟: 0,
   // id → 请回家了没。村子画面里那几位与后端的 id 是同一套(ayun / tao / popo / tenz …),
   // 所以这里不需要另造一张映射表 —— 造了就会跟 seed 漂。
   atHome: {} as Record<string, boolean>,
@@ -143,10 +148,22 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
   },
 
   /* 每次回到这一屏都重算一次：这一屏是 tab，人会在傍晚离开、夜里回来，
-     而问候语说错时间比不说更糟。 */
+     而问候语说错时间比不说更糟。
+
+     光回来时算一次还不够 —— 村子的天色是【每一帧】跟着钟走的，
+     有人正好开着这一屏跨过 19:30，天会当场黑下去而这行字还写着「傍晚好」。
+     所以再挂一个闹钟，只响在下一个分档的边界上：一次会话响不了几回，
+     比每分钟醒一次便宜，也比不管它诚实。 */
   刷问候() {
     const now = new Date()
-    this.setData({ greet: 问候(now.getHours()), today: 今天几号(now) })
+    const h = now.getHours() + now.getMinutes() / 60
+    if (this.闹钟) { clearTimeout(this.闹钟); this.闹钟 = 0 }
+    const 下一档 = 边界.find((b) => b > h)
+    if (下一档 !== undefined) {
+      // +1 秒，免得算出来恰好卡在边界上、醒来发现还是同一档
+      this.闹钟 = setTimeout(() => this.刷问候(), (下一档 - h) * 3600e3 + 1000) as unknown as number
+    }
+    this.setData({ greet: 问候(h), today: 今天几号(now) })
     /* 今晚开着没有。取不到就当没开 —— 猜「开着」的话，
        槽里那一句会把人送进一屏说「还没开始」的东西。 */
     incenseApi.now().then(
@@ -344,5 +361,6 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
   onUnload() {
     // 不停的话,这一帧接一帧会一直排下去,离开这一页也还在烧电
     if (this.handle) this.handle.stop()
+    if (this.闹钟) { clearTimeout(this.闹钟); this.闹钟 = 0 }
   },
 })

@@ -606,7 +606,15 @@ if (API) {
   ok(落到 === 'pages/moved/index', '扫开之后开的是「他住进来了」那一屏', 落到)
   await moveIn('chenjiu')
   const after = await text()
-  ok(before !== after, '扫御守之后收集数变了', before.match(/收集 \S+/) + ' → ' + after.match(/收集 \S+/))
+  /* 断的是【那个数真的涨了】，不是「屏上某处文本变了」。
+     后者太松:村民今天说的那一句会自己轮换，轮到了就算收集数纹丝不动也能过。
+     取数用的正则要跟 index.wxml 的 `{{lived}} / {{total}}` 对上 ——
+     0830 把「收集 x/40」改成了进度条，而这里原先 grep 的是旧写法，
+     于是证据栏印出 `null → null`，一条真的通过看着像根本没验到。 */
+  const 收集数 = (t) => { const m = t.match(/(\d+)\s*\/\s*(\d+)/); return m ? Number(m[1]) : null }
+  const 前数 = 收集数(before), 后数 = 收集数(after)
+  ok(前数 !== null && 后数 !== null && 后数 > 前数,
+     '扫御守之后收集数真的涨了', `${前数} → ${后数}`)
 
   /* 那一屏说得对不对：头一回是「住进来了」，重复扫是「早就在了」。
      重复扫不是错误，但话要不一样 —— 这是 types/village.ts 上写着的设定。 */
@@ -617,13 +625,13 @@ if (API) {
   ok(重复.includes('早就在了'), '重复扫说的是「早就在了」，不是同一句', 重复.slice(0, 30))
   /* 「他住进来了」那一屏上的出口。扫完一枚御守之后最想做的就是这一下,
      而它从来没被真按过 —— 按钮在、点了没反应是两回事。 */
-  await p.getByText('去看看他', { exact: true }).click()
+  await p.getByText('去看看', { exact: true }).click()
   await p.waitForFunction(
     () => globalThis.__router.current().__route === 'pages/villager/index',
     null, { timeout: 15000 },
   ).catch(() => {})
   ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/villager/index',
-     '「他住进来了」那一屏上按「去看看他」，真的到得了他那一页',
+     '「他住进来了」那一屏上按「去看看」，真的到得了他那一页',
      await p.evaluate(() => globalThis.__router.current().__route))
 
   /* ── 「该扫了」（设计册 E2）──────────────────────────────────
@@ -1138,8 +1146,11 @@ const 槽文 = await text()
 ok(/\d+\s*\/\s*\d+/.test(槽文), '收集数来自服务端',
    (槽文.match(/住着 \S+ 位 · 还空 \S+ 间/) || ['没找到'])[0])
 /* 头一眼是有人在跟你打招呼，而且【知道你现在几点】（设计册 10.8）。 */
-ok(/(早上好|上午好|下午好|傍晚好|夜深了)/.test(槽文), '头一眼是一句问候',
-   (槽文.match(/(早上好|上午好|下午好|傍晚好|夜深了)/) || [''])[0])
+/* 六档穷举 —— 跟 pages/village/index.ts 的 `问候()` 一一对上。
+   它是白名单，所以那边加一档、这边不加，就会在一天里的某几个钟头误红，
+   而误红只在那几个钟头出现，最容易被当成偶发噪音放过去。 */
+const 问候档 = /(早上好|上午好|下午好|傍晚好|晚上好|夜深了)/
+ok(问候档.test(槽文), '头一眼是一句问候', (槽文.match(问候档) || [''])[0])
 ok(/[一二三四五六七八九十]月[一二三四五六七八九十]+ · 周[一二三四五六日]/.test(槽文),
    '而且写着今天几号', (槽文.match(/[一二三四五六七八九十]月\S+ · 周./) || [''])[0])
 await p.setViewportSize({ width: 375, height: 667 })
