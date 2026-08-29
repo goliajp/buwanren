@@ -57,3 +57,27 @@
   color: var(--stone-label);
   letter-spacing: 0.06em;
 }
+
+/* ── 0830:一行 → 一张卡 ──────────────────────────────────────
+   跟名册那一屏同一套语言。横线是文档的语言，卡片是物件的语言，
+   而一笔订单是一件【东西】。 */
+.list { display: flex; flex-direction: column; gap: 14rpx; }
+.item {
+  background: var(--paper-panel);
+  border-radius: var(--r-card);
+  box-shadow: var(--sh-card);
+  padding: 22rpx 24rpx;
+  border-bottom: none;
+  transition: transform .12s cubic-bezier(.34,1.56,.64,1);
+}
+.item-hover { transform: scale(.985); }
+.item-top { display: flex; align-items: baseline; gap: 16rpx; }
+.item-name { flex: 1; font-size: 30rpx; font-weight: 600; color: var(--ink);
+             overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item-total { flex: none; font-size: 28rpx; font-weight: 700; color: var(--ink);
+              font-variant-numeric: tabular-nums; }
+.item-bot { display: flex; align-items: baseline; margin-top: 8rpx; }
+.item-when { flex: 1; font-size: 23rpx; color: var(--ink-faint); }
+.item-go { flex: none; font-size: 24rpx; font-weight: 600; color: var(--amber-deep); }
+/* 「去村里看看谁能来」是这一屏的出口，给它卡片的分量 */
+.page { display: flex; flex-direction: column; }
