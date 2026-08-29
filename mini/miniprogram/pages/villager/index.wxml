@@ -16,7 +16,7 @@
          头像与名字并排，属性从三行横线表格改成一排药丸:
          「会这一门／稀有度／住下了吗」是三个标签，不是三条记录。 -->
     <view class="hd">
-      <view class="face">{{who.face}}</view>
+      <view class="face face-{{who.direction}}">{{who.face}}</view>
       <view class="hd-body">
         <view class="name">{{who.name}}</view>
         <view class="title" wx:if="{{who.title}}">{{who.title}}</view>

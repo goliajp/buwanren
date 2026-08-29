@@ -102,8 +102,6 @@
 .says-face {
   flex: none;
   width: 84rpx; height: 84rpx; border-radius: 999rpx;
-  background: linear-gradient(150deg, var(--amber-lite), #FFC489);
-  color: #8A5A1E;
   font-size: 38rpx; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
 }

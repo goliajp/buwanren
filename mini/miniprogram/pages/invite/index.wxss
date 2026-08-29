@@ -87,8 +87,7 @@
 .item-hover { transform: scale(.985); }
 .item-face {
   flex: none; width: 70rpx; height: 70rpx; border-radius: 999rpx;
-  background: linear-gradient(150deg, var(--amber-lite), #FFC489);
-  color: #8A5A1E; font-size: 34rpx; font-weight: 700;
+
   display: flex; align-items: center; justify-content: center;
 }
 .item-body { flex: 1; min-width: 0; }

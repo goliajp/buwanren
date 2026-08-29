@@ -349,3 +349,30 @@ input::placeholder, textarea::placeholder { color: var(--stone-label); }
   0%   { transform: translateY(14rpx); opacity: 0 }
   100% { transform: translateY(0);     opacity: 1 }
 }
+
+
+/* 头像的默认底色。**必须写在这里，不能写在页面里** ——
+   页面样式排在 app.wxss 之后，在那儿写 background 会把下面七条方向色
+   全部盖掉，症状是四十个人共用一个颜色（看着就像方向色没做）。
+   四柱那条色带踩过同一个坑。 */
+.says-face, .item-face, .face {
+  background: linear-gradient(150deg, var(--amber-lite), #FFC489);
+  color: #8A5A1E;
+}
+
+/* ── 头像的七种底色（0830）──────────────────────────────────
+   四十位共用一个琥珀圆牌时，翻名册一眼分不出谁是谁 —— 而这个产品
+   立身之本就是「四十个各不相同的人」。
+
+   配色不是随机分的，按 `lack_bias` 的【方向】走:
+   缺勤的催你动、缺静的劝你停、缺亲人的往人里去 —— 同一路人同一个色，
+   所以颜色本身也在说事。
+
+   等 40 张头像画好，这一整套连同 `.face-*` 一起撤掉。 */
+.face-move   { background: linear-gradient(150deg, #FFE0C2, #FFB067); color: #8A4A12; }
+.face-still  { background: linear-gradient(150deg, #DCEEF7, #9CC9E4); color: #2A5C7A; }
+.face-wait   { background: linear-gradient(150deg, #E6E2F5, #B3AADD); color: #4A3F7A; }
+.face-keep   { background: linear-gradient(150deg, #E3EDDC, #A9C99A); color: #3F5F31; }
+.face-let_go { background: linear-gradient(150deg, #F8DFE4, #E7A8B8); color: #7A3448; }
+.face-near   { background: linear-gradient(150deg, #FFE6D2, #F5A98C); color: #8A3F28; }
+.face-ask    { background: linear-gradient(150deg, #FDEDCB, #E8C878); color: #7A5A1A; }

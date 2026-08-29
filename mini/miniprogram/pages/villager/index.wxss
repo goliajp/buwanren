@@ -27,8 +27,7 @@
 .face {
   flex: none; width: 168rpx; height: 168rpx; border-radius: 999rpx;
   font-size: 74rpx !important;
-  background: linear-gradient(150deg, var(--amber-lite), #FFC489);
-  color: #8A5A1E; font-weight: 700;
+
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 0 0 12rpx rgba(255,154,60,.10), 0 10rpx 28rpx rgba(232,121,26,.24);
 }
