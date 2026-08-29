@@ -166,6 +166,10 @@ gate "页面之间没互相 import 吧" . python3 scripts/check-page-imports.py
 # 那一屏停在「取不到」,刷新一下又好了。栽过两次(村主屏、那一册)。
 gate "开屏取数的页等得到登录吗" . python3 scripts/check-auth-ready.py
 gate "bind 的处理器都真有吗" . python3 scripts/check-wxml-handlers.py
+# 昼夜的边界摊在三个文件里(天色、问候语、村民语料的四段)。走散的样子是
+# 「屏上写着傍晚好而村子已经点起灯」,或者问候语加了一档、验证脚本的白名单没加 ——
+# 后者只在一天里的某几个钟头红,而只在某几个钟头出现的红最容易被当成噪音放过。
+gate "昼夜的边界三处对得上吗" . python3 scripts/check-clock-bands.py
 # 镜像自己会先组装。动线要真跑一遍浏览器,几十秒
 gate "web verify · 动线"  . bash web/run-verify.sh
 
