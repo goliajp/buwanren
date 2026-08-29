@@ -1,8 +1,13 @@
 <view class="page">
   <view class="hd">
     <view class="title">谁能来</view>
-    <!-- 有本命就说清为什么是这几位；没有就不编理由 -->
-    <view class="why" wx:if="{{lack}}">你缺「{{lack}}」，下面这几位跟你补得上</view>
+    <!-- 说「为什么是这几位」得【真的按它排过】。
+         这一句原先是笼统的「跟你补得上」，而排序只按「在卖的排前面、
+         再按 id」—— 陈述了一个不存在的因果（设计册 10.8）。
+         现在理由是后端给的那条（用神 → 该找哪一路人），
+         没排过时 `why` 是空的，这一句就不说。 -->
+    <view class="why" wx:if="{{lack && why}}">你缺「{{lack}}」·{{why}}</view>
+    <view class="why" wx:elif="{{lack}}">你缺「{{lack}}」</view>
     <view class="why" wx:elif="{{lackErr}}">{{lackErr}}</view>
     <view class="why" wx:else>先填生辰，这里就能按你缺的排</view>
     <view class="hr"></view>
@@ -50,6 +55,19 @@
 
     <view class="foot" wx:if="{{items.length > 0}}">
       买下之后寄一枚实物到你手上 · 扫开它，他就住进来
+    </view>
+
+    <!-- 弹性槽（设计册 V4）：「只看在卖的」。
+         四十位里只有几位在卖，而按用神排之后头一位不一定在卖 ——
+         缺金的人头三位全是「未上架」，一屏点不动。
+         这一条让他一下看到能请的那几位。
+
+         默认【关着】：四十位都列出来是刻意的（只列在卖的那几位，
+         读的人会以为世上只有那几位）。想买的时候按一下就行。 -->
+    <view class="flexslot onsale" wx:if="{{saleCount > 0}}" bindtap="onToggleOnSale"
+          hover-class="onsale-hover" hover-stay-time="100">
+      <text wx:if="{{onlyOnSale}}">看回四十位 ›</text>
+      <text wx:else>只看在卖的（{{saleCount}} 位）›</text>
     </view>
   </block>
 </view>
