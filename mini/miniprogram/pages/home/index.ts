@@ -3,6 +3,7 @@ import { natalApi } from '../../services/natal'
 import { storage } from '../../services/storage'
 import type { NatalSummary } from '../../types/natal'
 import type { ApiError } from '../../services/api'
+import { 一句 } from '../../utils/say'
 
 /* ── 以下从 `pages/ask` 搬来（REDESIGN.md：起卦归我家）───────── */
 /** 摇手机检测阈值 · |x|+|y|+|z| */
@@ -153,7 +154,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
            这里以前不分:两种都渲成「先输入生辰，再看每日」——
            叫一个已经建过本命的人再去建一次,而真正发生的是后端不响应。
            照村主屏那条已有的做法:说一句取不到,不改口。 */
-        this.setData({ err: '取不到今天的对照：' + (err.message || '未知错误') })
+        this.setData({ err: '取不到今天的对照：' + (一句(err)) })
       }
     }
   },

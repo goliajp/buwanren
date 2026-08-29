@@ -123,10 +123,18 @@ fn 排页(c: &J, version: Option<&str>, 今: chrono::NaiveDate) -> Vec<J> {
     let 位 = ["年", "月", "日", "时"];
     let pillars: Vec<J> = 柱.iter().zip(位).filter_map(|(k, p)| {
         let x = c.get(k)?;
+        /* 天干那一行的拼音 —— 客户端拿它给这一柱的牌顶配色。
+           不给汉字让客户端自己映射:那等于在页面里抄一份五行表,
+           抄的那天是对的，改的那天就不是了。 */
+        let 拼 = match 串(x.get("stem_wuxing")).as_str() {
+            "木" => "mu", "火" => "huo", "土" => "tu", "金" => "jin", "水" => "shui",
+            _ => "",
+        };
         Some(json!({
             "pos": p,
             "ganzhi": 串(x.get("ganzhi")),
             "ten_god": 串(x.get("ten_god")),
+            "pinyin": 拼,
             "wuxing": format!("{}{}", 串(x.get("stem_wuxing")), 串(x.get("branch_wuxing"))),
             "nayin": 串(x.get("nayin")),
             "twelve": 串(x.get("day_twelve")),

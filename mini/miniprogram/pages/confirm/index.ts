@@ -9,9 +9,9 @@
  */
 
 import { commerceApi } from '../../services/commerce'
-import type { ApiError } from '../../services/api'
 import type { ProductDetail } from '../../types/commerce'
 import { money } from '../../utils/money'
+import { 一句 } from '../../utils/say'
 
 interface Contact { name?: string; phone?: string; address?: string }
 
@@ -78,7 +78,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
           totalText: sku ? money(unit * this.data.qty, cur) : '',
         })
       },
-      (e) => this.setData({ loading: false, err: '取不到：' + ((e as ApiError).message || '未知错误') }),
+      (e) => this.setData({ loading: false, err: '取不到：' + (一句(e)) }),
     )
   },
 
@@ -135,7 +135,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
         this.setData({ buying: false })
         wx.redirectTo({ url: '/pages/order/index?id=' + o.order_id })
       },
-      (e) => this.setData({ buying: false, note: (e as ApiError).message || '下不了单' }),
+      (e) => this.setData({ buying: false, note: 一句(e) }),
     )
   },
 
