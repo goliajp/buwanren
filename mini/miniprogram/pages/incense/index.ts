@@ -14,6 +14,7 @@ import { commerceApi } from '../../services/commerce'
 import { storage } from '../../services/storage'
 import type { ApiError } from '../../services/api'
 import { money } from '../../utils/money'
+import { 一句 } from '../../utils/say'
 
 /** 她按你缺的那一味说话。缺什么由本命算出来，这里只负责挑一句。 */
 const 配语: Record<string, string> = {
@@ -67,7 +68,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
             priceText: money(s.current_price_minor as number, s.current_currency as string),
           })),
       }),
-      (e: ApiError) => this.setData({ loading: false, err: e.message || '取不到她配的那一味' }),
+      (e: ApiError) => this.setData({ loading: false, err: 一句(e) }),
     )
     this.loadLine()
     /* 今晚开着没有。取不到就当没开 —— 猜「开着」的话，

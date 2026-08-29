@@ -14,6 +14,7 @@ import { storage } from '../../services/storage'
 import type { ApiError } from '../../services/api'
 import type { OrderCard } from '../../types/commerce'
 import { money, 状态说法 } from '../../utils/money'
+import { 一句 } from '../../utils/say'
 
 /** 一页五笔 —— 设计 10.3：一屏放得下五笔，多了左右翻，不往下滚 */
 const 每页 = 5
@@ -91,7 +92,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
         this.setData({ loading: false, err: '', total: page.total, items })
         this.gotoPage(0)
       },
-      (e: ApiError) => this.setData({ loading: false, err: e.message || '取不到单子' }),
+      (e: ApiError) => this.setData({ loading: false, err: 一句(e) }),
     )
   },
 })

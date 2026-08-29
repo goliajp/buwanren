@@ -332,3 +332,18 @@ input, textarea, .field-input {
   box-sizing: border-box;
 }
 input::placeholder, textarea::placeholder { color: var(--stone-label); }
+
+
+/* ── 列表逐个入场（0830）────────────────────────────────────
+   一整屏内容【一起】出现是「数据到了」；一个接一个出现是「东西正在摆上来」。
+   差别只有两百毫秒，但后者是游戏，前者是表格。
+
+   每项差 40ms:五项共 200ms，有节奏而不拖。
+   超过 60ms 就开始等 —— 那时它从「有生气」变成「慢」。
+
+   翻页时会再跑一遍,那正好:翻页本来就该有翻的感觉。 */
+.enter { animation: enter .34s cubic-bezier(.22,1,.36,1) both; }
+@keyframes enter {
+  0%   { transform: translateY(14rpx); opacity: 0 }
+  100% { transform: translateY(0);     opacity: 1 }
+}

@@ -21,6 +21,7 @@ import { natalApi } from '../../services/natal'
 import type { ApiError } from '../../services/api'
 import type { VillagerCard } from '../../types/village'
 import { 轻 } from '../../utils/feel'
+import { 一句 } from '../../utils/say'
 
 /** 一页五位。设计（product-v1.html 10.3）：横向翻页代替竖向滚动 ——
  *  她不是在比价，是在挑人，一次看五个正好。 */
@@ -92,7 +93,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
         })
         this.gotoPage(0)
       },
-      (e) => this.setData({ loading: false, err: '取不到：' + ((e as ApiError).message || '未知错误') }),
+      (e) => this.setData({ loading: false, err: '取不到：' + (一句(e)) }),
     )
   },
 

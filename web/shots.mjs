@@ -61,6 +61,29 @@ const 单子 = API ? await p.evaluate(async (base) => {
   return r.ok ? (await r.json()).order_id : null
 }, API) : null
 
+/* 那一册要有真内容才看得出好坏 —— 六页盘面是这一屏的全部。
+   跟 verify 同一个路子:把册子种进库，页面照样走真的 /v1/reports/:id，
+   跳过的只有「付钱」那一跳（那只有真机有）。 */
+let 册 = null
+if (API && 单子) {
+  try {
+    const uid = sql1(`SELECT user_id FROM order_record WHERE id='${单子}'`)
+    const 盘 = sql1(`SELECT natal_id FROM natal_summary WHERE raw_chart IS NOT NULL LIMIT 1`)
+    const line = sql1(`SELECT id FROM order_line WHERE order_id='${单子}' LIMIT 1`)
+    if (uid && 盘 && line) {
+      const rid = 'rpt-shot-' + Math.random().toString(36).slice(2, 10)
+      sql1(`INSERT INTO report (id,user_id,order_line_id,kind,status,natal_id,
+              natal_snapshot_json,chart_json,mingli_version,ready_at)
+            SELECT '${rid}','${uid}','${line}','bazi_deep','ready',s.natal_id,
+              jsonb_build_object('label','我','year',1998,'month',3,'day',5,'hour',14,'minute',30,'birth_city','成都'),
+              s.raw_chart, s.mingli_version, NOW()
+            FROM natal_summary s WHERE s.natal_id='${盘}'
+            ON CONFLICT (order_line_id) DO NOTHING`)
+      册 = sql1(`SELECT id FROM report WHERE order_line_id='${line}'`) || null
+    }
+  } catch (e) { console.log('  · 种不出册子：', String(e).slice(0, 60)) }
+}
+
 const 屏 = [
   ['village', 'pages/village/index'],
   ['home', 'pages/home/index'],
@@ -76,7 +99,7 @@ const 屏 = [
   ['plot', 'pages/plot/index', { id: '7' }],
   ['villager', 'pages/villager/index', { id: 'popo' }],
   ['moved', 'pages/moved/index', { name: '婆婆', id: 'popo', n: '1' }],
-  ['report', 'pages/report/index', { id: 'x' }],
+  ...(册 ? [['report', 'pages/report/index', { id: 册 }]] : []),
   ['confirm', 'pages/confirm/index', { id: 'prod-suhe-incense' }],
   ['product', 'pages/product/index', { id: 'prod-suhe-incense' }],
   ['name', 'pages/name/index'],
