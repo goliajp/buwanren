@@ -113,6 +113,17 @@ for (const [名, 路, q] of 屏) {
   if (ONLY.length && !ONLY.includes(名)) continue
   await 去(路, q)
   await p.screenshot({ path: join(OUT, `${名}.png`) })
+  /* 那一册有六页，一张截图只看得到第一页 —— 而用神与大运在后面。
+     翻过去各截一张:看不到的地方等于没打磨过。 */
+  if (名 === 'report') {
+    const 页数 = await p.evaluate(() => (globalThis.__router.current().data.tabs || []).length).catch(() => 0)
+    for (let i = 1; i < 页数; i++) {
+      await p.evaluate((k) => globalThis.__router.current().show(k), i)
+      await p.waitForTimeout(400)
+      const 名字 = await p.evaluate(() => (globalThis.__router.current().data.page || {}).key || 'p')
+      await p.screenshot({ path: join(OUT, `report-${i}-${名字}.png`) })
+    }
+  }
   const 文 = await p.evaluate(() => (document.querySelector('#app') || {}).innerText || '')
   const 坏 = /取不到|失败|出错|unauthorized/.test(文)
   console.log(`  ${坏 ? '⚠' : '·'} ${名.padEnd(9)} ${OUT}/${名}.png${坏 ? '　← 停在错误态' : ''}`)

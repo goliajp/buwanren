@@ -84,7 +84,11 @@ Page({
     this.setData({
       at: i,
       page: p,
-      bars: (p.bars || []).map((b) => ({ ...b, pct: Math.round((b.v / max) * 100) })),
+      /* 最高的那一根标出来 —— 它是「这个人偏在哪一行」的答案，
+         而五根一样重的话，读的人还得自己比一遍 */
+      bars: (p.bars || []).map((b) => ({
+        ...b, pct: Math.round((b.v / max) * 100), top: b.v === max,
+      })),
     })
   },
 
