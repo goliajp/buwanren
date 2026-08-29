@@ -1,14 +1,14 @@
 .hd { padding: 24rpx 0 32rpx; }
 .hd .eyebrow { margin-bottom: 20rpx; }
-.hd .title { font-size: 128rpx; line-height: 1; margin: 8rpx 0 16rpx; }
+.hd .title { font-size: 56rpx; line-height: 1; margin: 8rpx 0 16rpx; }
 
 .cats { margin-bottom: 32rpx; }
 .cat {
   display: inline-block;
   font-size: 26rpx;
   color: var(--stone-label);
-  border: 1rpx solid var(--stone-line);
-  border-radius: 6rpx;
+  box-shadow: var(--sh-card);
+  border-radius: 16rpx;
   padding: 8rpx 22rpx;
   margin: 0 14rpx 14rpx 0;
 }
@@ -22,7 +22,7 @@
   padding: 28rpx 0;
 }
 .item-hover { background: var(--paper-inset); }
-.item-name { font-family: "Songti SC", serif; font-size: 36rpx; color: var(--ink); }
+.item-name { font-weight: 600; font-size: 36rpx; color: var(--ink); }
 .item-sub { font-size: 26rpx; color: var(--stone-label); margin-top: 10rpx; line-height: 1.6; }
 .item-meta { font-size: 22rpx; color: var(--stone-label); margin-top: 12rpx; }
 .arrow { float: right; }
@@ -36,16 +36,16 @@
 }
 
 /* 谁能来：比铺少一层分类栏，多一句「为什么是这几位」。 */
-.why { font-size: 26rpx; color: #767676; margin-top: 12rpx; line-height: 1.5; }
-.foot { font-size: 24rpx; color: #767676; margin-top: 28rpx; line-height: 1.6; }
+.why { font-size: 26rpx; color: var(--ink-faint); margin-top: 12rpx; line-height: 1.5; }
+.foot { font-size: 24rpx; color: var(--ink-faint); margin-top: 28rpx; line-height: 1.6; }
 .empty-t { font-size: 30rpx; font-weight: 600; }
-.empty-sub { font-size: 26rpx; color: #767676; margin-top: 12rpx; }
+.empty-sub { font-size: 26rpx; color: var(--ink-faint); margin-top: 12rpx; }
 
 /* 翻页条：一屏放不下就翻页，不往下滚（设计 10.3）。 */
 .pager { display: flex; align-items: center; justify-content: space-between; margin-top: 28rpx; }
-.pg { font-size: 26rpx; color: #1a1a1c; padding: 12rpx 8rpx; }
+.pg { font-size: 26rpx; color: var(--ink); padding: 12rpx 8rpx; }
 .pg-off { opacity: .3; }
-.pg-n { font-size: 24rpx; color: #767676; }
+.pg-n { font-size: 24rpx; color: var(--ink-faint); }
 
 /* 收掉最后那 32px：头部 eyebrow 与页脚各让一点。
    一屏差 32px 不是「差不多」—— 差 1px 也要滚，滚了就没有提示。 */
@@ -56,7 +56,7 @@
 
 /* 没上架的：在册上，但按不动（设计册 10.8「照实说，不拿别人顶上」） */
 .item-off { opacity: .55; }
-.item-meta.off { color: #9a938a; }
+.item-meta.off { color: var(--ink-faint); }
 
 /* 两行布局：名 + 动作一行，副题一行 */
 .item-top { display: flex; align-items: baseline; }
@@ -71,3 +71,41 @@
   font-size: 24rpx; color: var(--ink-mid);
 }
 .onsale-hover { opacity: 0.6; }
+
+
+/* ── 0830:一行 → 一张卡（名册就是图鉴，图鉴要有脸）────────────── */
+.list { display: flex; flex-direction: column; gap: 12rpx; }
+.item {
+  display: flex; align-items: center; gap: 18rpx;
+  background: var(--paper-panel);
+  border-radius: var(--r-card);
+  box-shadow: var(--sh-card);
+  padding: 15rpx 18rpx;
+  border-bottom: none;
+  transition: transform .12s cubic-bezier(.34,1.56,.64,1);
+}
+.item-hover { transform: scale(.985); }
+.item-face {
+  flex: none; width: 70rpx; height: 70rpx; border-radius: 999rpx;
+  background: linear-gradient(150deg, var(--amber-lite), #FFC489);
+  color: #8A5A1E; font-size: 34rpx; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.item-body { flex: 1; min-width: 0; }
+.item-top { display: flex; align-items: center; gap: 12rpx; }
+.item-name { font-size: 31rpx; font-weight: 600; color: var(--ink); }
+/* 「缺 X」做成药丸 —— 跟五行标签同一套语言，一眼看出这一页是同一路人 */
+.item-lack {
+  font-size: 21rpx; font-weight: 600;
+  background: var(--amber-lite); color: #B25E10;
+  padding: 3rpx 12rpx; border-radius: 999rpx;
+}
+.item-sub { font-size: 23rpx; color: var(--ink-faint); margin-top: 5rpx; }
+.item-go { flex: none; margin-left: 14rpx; font-size: 25rpx; font-weight: 600; color: var(--amber-deep); }
+.item-go.off { color: var(--stone-label); font-weight: 400; }
+/* 还没上架的压暗，但【留住卡片的形】—— 背景透明会让它看起来像被裁掉半张。
+   四十位都在册上是刻意的，它只是「还没来」，不是「不存在」 */
+.item-off { background: rgba(255,255,255,.55); box-shadow: none; }
+.item-off .item-name { color: var(--ink-mid); }
+.item-off .item-lack { background: var(--paper-inset); color: var(--stone-label); }
+.item-off .item-face { background: var(--paper-inset); color: var(--stone-label); }

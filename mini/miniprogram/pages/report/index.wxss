@@ -28,7 +28,7 @@
 }
 .p-pos { width: 44rpx; font-size: 24rpx; color: var(--stone-label); }
 .p-gz {
-  font-family: "Songti SC", serif; font-size: 42rpx; color: var(--ink);
+  font-weight: 600; font-size: 42rpx; color: var(--ink);
   letter-spacing: 0.12em; width: 130rpx;
 }
 .p-side { flex: 1; }
@@ -44,7 +44,7 @@
 .bars { margin-top: 26rpx; }
 .bar { display: flex; align-items: center; margin-bottom: 14rpx; }
 .bar-k { width: 44rpx; font-size: 26rpx; color: var(--ink-mid); }
-.bar-track { flex: 1; height: 12rpx; background: var(--paper-inset); border-radius: 6rpx; overflow: hidden; }
+.bar-track { flex: 1; height: 12rpx; background: var(--paper-inset); border-radius: 16rpx; overflow: hidden; }
 .bar-fill { height: 100%; background: var(--ink); }
 .bar-v { width: 56rpx; text-align: right; font-size: 22rpx; color: var(--stone-label); }
 
@@ -59,12 +59,12 @@
 .row-now .row-v { font-weight: 600; }
 .row-now-tag {
   font-size: 20rpx; color: var(--paper); background: var(--ink);
-  padding: 2rpx 10rpx; border-radius: 3rpx;
+  padding: 2rpx 10rpx; border-radius: 16rpx;
 }
 
 .quote {
   margin-top: 24rpx; padding: 18rpx 20rpx;
-  background: var(--paper-inset); border-radius: 4rpx;
+  background: var(--paper-inset); border-radius: 16rpx;
   font-size: 25rpx; color: var(--ink-mid); line-height: 1.9;
 }
 

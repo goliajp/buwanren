@@ -37,10 +37,17 @@
        而四十位里男女都有。写死一个「她」，轮到丹增说话那天就是错的。 -->
   <view wx:if="{{says}}" class="says" bindtap="onSays"
         hover-class="says-hover" hover-stay-time="100">
-    <view class="says-who">{{says.name}}今天说</view>
-    <view class="says-text">「{{says.text}}」</view>
-    <view class="says-id">{{says.title}}<text wx:if="{{says.art}}"> · {{says.art}}</text></view>
-    <view class="says-go">去看看 ›</view>
+    <!-- 脸。没有美术之前用姓名末字 —— 不假装有立绘，但「有人在跟你说话」
+         这件事得在零点几秒内成立，纯文字做不到 -->
+    <view class="says-face">{{says.face}}</view>
+    <view class="says-body">
+      <view class="says-who">{{says.name}}今天说</view>
+      <view class="says-text">{{says.text}}</view>
+      <view class="says-foot">
+        <text class="says-id">{{says.title}}<text wx:if="{{says.art}}"> · {{says.art}}</text></text>
+        <text class="says-go">去看看 ›</text>
+      </view>
+    </view>
   </view>
 
   <!-- type="2d" 是必须的:旧版 canvas 拿不到 node,也就没有 requestAnimationFrame -->
@@ -61,8 +68,16 @@
   <!-- 弹性槽（设计册 V1）：住着几位、还空几间，以及今晚那一场。
        收集数放这儿而不是头顶：它是「回来看看又多了谁」的信息，
        不是每次打开都要先读的东西 —— 头一眼该是有人在跟你打招呼。 -->
+  <!-- 收集进度。常驻 —— 它是这个产品的核心反馈（还差多少人），
+       不是「删掉这一屏仍然成立」的那种补充，所以不进弹性槽 -->
+  <view class="bar">
+    <view class="bar-track"><view class="bar-fill" style="width:{{lived * 100 / total}}%"></view></view>
+    <text class="bar-n">{{lived}} / {{total}}</text>
+  </view>
+
   <view class="flexslot tally">
-    <text class="tally-n">住着 {{lived}} 位 · 还空 {{total - lived}} 间</text>
+    <text class="tally-n" wx:if="{{lived === 0}}">四十间屋子，现在都空着</text>
+    <text class="tally-n" wx:else>还差 {{total - lived}} 位就集齐了</text>
     <text wx:if="{{tonight}}" class="tally-go" bindtap="goTonight">今晚九点在苏合院子里 ›</text>
     <text wx:else class="tally-dim">周四晚九点，苏合在院子里点香</text>
   </view>

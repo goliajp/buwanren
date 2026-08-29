@@ -1,11 +1,11 @@
 .page { padding: 32rpx 40rpx 40rpx; }
-.card { padding: 24rpx; background: #f6f6f6; }
+.card { padding: 24rpx; background: var(--paper-inset); }
 .card-name { font-size: 34rpx; font-weight: 700; }
-.card-sub { font-size: 24rpx; color: #767676; margin-top: 8rpx; }
-.card-price { font-size: 32rpx; font-weight: 700; color: #b00020; margin-top: 16rpx; }
-.hr { height: 1rpx; background: #e0e0e0; margin: 28rpx 0; }
+.card-sub { font-size: 24rpx; color: var(--ink-faint); margin-top: 8rpx; }
+.card-price { font-size: 32rpx; font-weight: 700; color: var(--peach); margin-top: 16rpx; }
+.hr { height: 1rpx; background: var(--stone-line-x); margin: 28rpx 0; }
 .row { display: flex; justify-content: space-between; align-items: center;
-       padding: 22rpx 0; border-bottom: 1rpx solid #f0f0f0; }
+       padding: 22rpx 0; border-bottom: 1rpx solid var(--paper-inset); }
 .row.col { display: block; }
 .row-k { font-size: 28rpx; }
 .row-v { font-size: 26rpx; color: #555; max-width: 60%; text-align: right; }
@@ -14,9 +14,9 @@
 .step { font-size: 34rpx; width: 56rpx; text-align: center; }
 .step-off { opacity: .3; }
 .step-n { font-size: 30rpx; min-width: 48rpx; text-align: center; }
-.msg { margin-top: 16rpx; font-size: 28rpx; padding: 12rpx 0; border-bottom: 1rpx solid #e0e0e0; }
-.sum-k { font-size: 24rpx; color: #767676; margin-bottom: 8rpx; }
-.note { font-size: 26rpx; color: #b00020; margin-top: 16rpx; }
+.msg { margin-top: 16rpx; font-size: 28rpx; padding: 12rpx 0; border-bottom: 1rpx solid var(--stone-line-x); }
+.sum-k { font-size: 24rpx; color: var(--ink-faint); margin-bottom: 8rpx; }
+.note { font-size: 26rpx; color: var(--peach); margin-top: 16rpx; }
 .pay { display: flex; justify-content: space-between; align-items: center; margin-top: 40rpx; }
 .pay-total { font-size: 34rpx; font-weight: 700; }
-.foot { font-size: 24rpx; color: #767676; margin-top: 20rpx; }
+.foot { font-size: 24rpx; color: var(--ink-faint); margin-top: 20rpx; }

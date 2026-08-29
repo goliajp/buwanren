@@ -1210,7 +1210,9 @@ await p.setViewportSize({ width: 390, height: 844 })
 await open('pages/village/index')
 await p.waitForTimeout(1500)
 const 槽文 = await text()
-ok(/住着 \d+ 位 · 还空 \d+ 间/.test(槽文), '收集数来自服务端',
+/* 0830:那一行运营口径（「住着 N 位 · 还空 M 间」）换成了进度条 + 「N / 40」。
+   要验的东西没变 —— 这个数来自服务端而不是画面里数出来的。 */
+ok(/\d+\s*\/\s*\d+/.test(槽文), '收集数来自服务端',
    (槽文.match(/住着 \S+ 位 · 还空 \S+ 间/) || ['没找到'])[0])
 /* 头一眼是有人在跟你打招呼，而且【知道你现在几点】（设计册 10.8）。 */
 ok(/(早上好|上午好|下午好|傍晚好|夜深了)/.test(槽文), '头一眼是一句问候',
@@ -1289,9 +1291,10 @@ if (API) {
       for (let i = 0; i < 页数2; i++) {
         await p.evaluate((n) => globalThis.__router.current().gotoPage(n), i)
         await p.waitForTimeout(150)
-        if ((await text()).includes('未上架')) { 看到未上架 = true; break }
+        // 0830:「未上架」是运营词，买家那一侧说的是「还没来」
+        if ((await text()).includes('还没来')) { 看到未上架 = true; break }
       }
-      ok(看到未上架, '没上架的也在册上，写着「未上架」', `${册.共 - 册.在卖} 位未上架`)
+      ok(看到未上架, '没上架的也在册上，照实写着「还没来」', `${册.共 - 册.在卖} 位还没上架`)
       /* 写着未上架就该按不动 —— 点了再说「买不了」是先答应再反悔。 */
       const 之前 = await p.evaluate(() => globalThis.__router.current().__route)
       const 那行 = p.locator('.item-off').first()
@@ -1370,7 +1373,7 @@ if (API) {
   const 试 = async (id, 名) => {
     await open('pages/villager/index', { id })
     await 等取完('pages/villager/index')
-    await p.getByText('请他来', { exact: true }).click()
+    await p.getByText('请回家', { exact: true }).click()
     await p.waitForTimeout(1500)
     return {
       路由: await p.evaluate(() => globalThis.__router.current().__route),
@@ -1405,7 +1408,7 @@ if (API) {
   if (有货的那位) {
     const 有货 = await 试(有货的那位, '某位')
     ok(有货.路由 === 'pages/product/index',
-       `「请他来」找到了 ${有货的那位} 的御守`, 有货.路由)
+       `「请回家」找到了 ${有货的那位} 的御守`, 有货.路由)
   } else {
     console.log('  · 跳过「有货那条」：这个库里没有任何御守在卖（不计入通过）')
   }
@@ -1440,9 +1443,9 @@ const t2 = await text()
 ok(t2.includes('阿云'), '认出是谁')
 /* 这一屏比原先那张卡片多说的，正是它存在的理由：**他缺什么**。
    「缺」是这个产品的身份字段，塞在两行的卡片里等于没说。 */
-ok(t2.includes('他缺的是'), '说得出他缺什么　—— 卡片放不下的正是这一行', t2.slice(0, 40))
+ok(t2.includes('缺的是'), '说得出缺什么　—— 卡片放不下的正是这一行', t2.slice(0, 40))
 ok(t2.includes('问事'), '给「问事」')
-ok(t2.includes('去他家坐坐'), '给「去他家坐坐」　—— 阿云那间房搬进来了')
+ok(t2.includes('去家里坐坐'), '给「去家里坐坐」　—— 阿云那间房搬进来了')
 
 /* 先按一下「回村里」再回来。下面那条同样的检查挂在「目录里有他的 sku」上,
    而这一趟没有 sku 时它整条跳过 —— 于是从村子点进来的这一支,
@@ -1522,7 +1525,7 @@ ok(t4.includes('屋子还没搬进来'), '明说屋子还没搬进来　—— �
 console.log('\n── 进屋 ──')
 await tapPlot('ayun')
 await 等取完('pages/villager/index')
-await p.getByText('去他家坐坐', { exact: true }).click()
+await p.getByText('去家里坐坐', { exact: true }).click()
 await p.waitForTimeout(2500)
 const r2 = await p.evaluate(() => {
   const cv = document.querySelector('canvas')
@@ -2299,8 +2302,8 @@ console.log('\n── 一屏放得下吗（iPhone SE · 内容区 597）──')
         c.setData({ who: Object.assign({}, c.data.who, { at_home: false }),
                     sells: false, canEnter: false, err: '' })
       },
-      凭据: '请他来',
-      为什么: '没请回来时只有「请他来」，住着时是问事 / 去他家 / 她卖的' },
+      凭据: '请回家',
+      为什么: '没请回来时只有「请回家」，住着时是问事 / 去家里 / 她卖的' },
   ]
   for (const 态 of 多形态) {
     const 名 = 态.页.replace('pages/', '').replace('/index', '')
@@ -2413,7 +2416,7 @@ if (!API) {
 
     /* 「买」现在先去确认那一屏（REDESIGN.md R5 · P2），建单挪到了那里。
        中间这一屏要问三件事：几件、寄到哪、要不要留句话。 */
-    await p.getByText('请他来', { exact: true }).click()
+    await p.getByText('请回家', { exact: true }).click()
     await p.waitForFunction(
       () => globalThis.__router.current().__route === 'pages/confirm/index',
       null, { timeout: 15000 },

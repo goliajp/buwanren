@@ -1,7 +1,6 @@
 <view class="page">
   <view class="hd">
-    <view class="eyebrow">BUWANREN · BADGES</view>
-    <view class="title">徽</view>
+    <view class="title">我得到的</view>
     <view class="hr"></view>
   </view>
 
@@ -19,10 +18,12 @@
          （设计 10.3）。灰的那几枚写着怎么得 —— 条件不藏着。 -->
     <view class="grid">
       <view wx:for="{{items}}" wx:key="id" class="badge {{item.earned ? 'got' : ''}}">
-        <view class="badge-name">{{item.name}}</view>
-        <view class="badge-desc">{{item.description}}</view>
-        <view class="badge-when" wx:if="{{item.earned}}">{{item.earned_at}} 得</view>
-        <view class="badge-when" wx:else>还没得到</view>
+        <!-- 圆牌里放名字的头一个字。得到的是琥珀实心，没得到的是灰的空圈 ——
+             一眼看得出还差几个，不用去读「还没得到」四个字 -->
+        <view class="badge-art">{{item.glyph || item.name}}</view>
+        <view class="badge-n">{{item.name}}</view>
+        <view class="badge-d">{{item.description}}</view>
+        <view class="badge-s" wx:if="{{item.earned}}">{{item.earned_at}}</view>
       </view>
     </view>
   </block>

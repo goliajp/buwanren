@@ -25,15 +25,15 @@
   ],
   "window": {
     "backgroundTextStyle": "light",
-    "navigationBarBackgroundColor": "#f0ede7",
+    "navigationBarBackgroundColor": "#FFFCF6",
     "navigationBarTitleText": "不完人",
     "navigationBarTextStyle": "black",
-    "backgroundColor": "#f0ede7"
+    "backgroundColor": "#FFFCF6"
   },
   "tabBar": {
     "color": "#a29e97",
     "selectedColor": "#1a1a1c",
-    "backgroundColor": "#f0ede7",
+    "backgroundColor": "#FFFCF6",
     "borderStyle": "white",
     "list": [
       {

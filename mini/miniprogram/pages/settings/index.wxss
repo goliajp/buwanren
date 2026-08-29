@@ -1,5 +1,5 @@
 .hd { padding: 24rpx 0 28rpx; }
-.hd .title { font-size: 76rpx; line-height: 1; }
+.hd .title { font-size: 50rpx; line-height: 1; }
 .hd .sub { font-size: 26rpx; color: var(--ink-faint); margin-top: 10rpx; }
 
 .sec-k {

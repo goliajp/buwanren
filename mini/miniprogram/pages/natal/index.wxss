@@ -1,6 +1,6 @@
 .hd { padding: 16rpx 0 16rpx; }
 .hd .eyebrow { margin-bottom: 20rpx; }
-.hd .title { font-size: 128rpx; line-height: 1; margin: 8rpx 0 16rpx; }
+.hd .title { font-size: 56rpx; line-height: 1; margin: 8rpx 0 16rpx; }
 .hd .subtitle { color: var(--ink-mid); }
 
 /* summary basic */
@@ -25,7 +25,7 @@
   color: var(--ink);
 }
 .basic-v.serif {
-  font-family: "Songti SC", serif;
+  font-weight: 600;
   font-size: 40rpx;
   font-weight: 500;
 }
@@ -34,14 +34,14 @@
 .stamp-card {
   background: var(--paper-panel);
   border: 3rpx solid var(--stamp);
-  border-radius: 8rpx;
+  border-radius: 16rpx;
   padding: 32rpx 32rpx 28rpx;
   margin: 20rpx 0 16rpx;
   text-align: center;
   position: relative;
 }
 .stamp-label {
-  font-family: "Songti SC", serif;
+  font-weight: 600;
   font-size: 28rpx;
   font-weight: 500;
   color: var(--stamp);
@@ -49,7 +49,7 @@
   margin-bottom: 12rpx;
 }
 .stamp-value {
-  font-family: "Songti SC", serif;
+  font-weight: 600;
   font-size: 220rpx;
   font-weight: 500;
   line-height: 1;
@@ -77,12 +77,12 @@
   flex-wrap: wrap;
 }
 .chip {
-  font-family: "Songti SC", serif;
+  font-weight: 600;
   font-size: 44rpx;
   font-weight: 500;
   padding: 12rpx 28rpx;
   border: 1rpx solid var(--stone-line);
-  border-radius: 4rpx;
+  border-radius: 16rpx;
   min-width: 88rpx;
   text-align: center;
   line-height: 1.1;
@@ -142,7 +142,7 @@
 .seg-item {
   padding: 12rpx 28rpx;
   border: 1rpx solid var(--stone-line);
-  border-radius: 4rpx;
+  border-radius: 16rpx;
   font-size: 26rpx;
   color: var(--ink-mid);
   letter-spacing: 0.14em;
@@ -154,14 +154,14 @@
 }
 
 /* 取不到时说一句,别渲成「你还没建」—— 那会诱使人再建一条 */
-.err { padding: 24rpx 0; color: #9a3b3b; font-size: 26rpx; line-height: 1.7; }
+.err { padding: 24rpx 0; color: var(--peach); font-size: 26rpx; line-height: 1.7; }
 
 /* 这些生辰 —— 只有两份以上才出现 */
 .archive { border-top: 1rpx solid var(--stone-line); margin-top: 32rpx; padding-top: 24rpx; }
 .archive-k { font-size: 24rpx; color: var(--stone-label); margin-bottom: 16rpx; }
 .arch { display: flex; align-items: baseline; padding: 18rpx 0;
         border-bottom: 1rpx solid var(--stone-line); }
-.arch-label { font-family: "Songti SC", serif; font-size: 30rpx; color: var(--ink); flex: 1; }
+.arch-label { font-weight: 600; font-size: 30rpx; color: var(--ink); flex: 1; }
 .arch-when { font-size: 22rpx; color: var(--stone-label); margin-right: 20rpx; }
 .arch-now { font-size: 22rpx; color: var(--ink); }
 .arch-act { font-size: 24rpx; color: var(--stone-label); margin-left: 20rpx; }

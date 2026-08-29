@@ -1,13 +1,13 @@
 .hd { padding: 24rpx 0 32rpx; }
 .hd .eyebrow { margin-bottom: 20rpx; }
-.hd .title { font-size: 128rpx; line-height: 1; margin: 8rpx 0 16rpx; }
+.hd .title { font-size: 56rpx; line-height: 1; margin: 8rpx 0 16rpx; }
 .loading, .err { padding: 80rpx 0; text-align: center; color: var(--stone-label); }
 .err-msg { margin-bottom: 28rpx; }
-.count { font-family: "Songti SC", serif; font-size: 44rpx; color: var(--ink); margin-bottom: 28rpx; }
+.count { font-weight: 600; font-size: 44rpx; color: var(--ink); margin-bottom: 28rpx; }
 .badge { border-top: 1rpx solid var(--stone-line); padding: 26rpx 0; opacity: 0.45; }
 .badge.got { opacity: 1; }
 .badge-top { display: flex; justify-content: space-between; align-items: baseline; }
-.badge-name { font-family: "Songti SC", serif; font-size: 34rpx; color: var(--ink); }
+.badge-name { font-weight: 600; font-size: 34rpx; color: var(--ink); }
 .badge-pt { font-size: 22rpx; color: var(--stone-label); }
 .badge-desc { font-size: 26rpx; color: var(--stone-label); margin-top: 10rpx; line-height: 1.6; }
 .badge-when { font-size: 22rpx; color: var(--stone-label); margin-top: 10rpx; }
@@ -18,5 +18,50 @@
 .grid { display: flex; flex-wrap: wrap; gap: 16rpx; margin-top: 24rpx; }
 .grid .badge { width: calc((100% - 32rpx) / 3); box-sizing: border-box; padding: 16rpx 12rpx; margin: 0; }
 .grid .badge-name { font-size: 24rpx; font-weight: 600; line-height: 1.35; }
-.grid .badge-desc { font-size: 20rpx; color: #767676; margin-top: 8rpx; line-height: 1.4; }
+.grid .badge-desc { font-size: 20rpx; color: var(--ink-faint); margin-top: 8rpx; line-height: 1.4; }
 .grid .badge-when { font-size: 18rpx; color: #999; margin-top: 8rpx; }
+
+
+/* ── 0830:徽章要有徽章的样子 ──────────────────────────────────
+   原先是三列纯文字 + 一条顶线,读起来像一张规格表。
+   徽章是【收集品】,收集品要有形状:一个圆牌 + 名字 + 怎么得。
+   得到的亮着,没得到的是灰的空圈 —— 一眼看得出还差几个。 */
+.grid { display: flex; flex-wrap: wrap; gap: 16rpx; }
+.badge {
+  width: calc((100% - 32rpx) / 3);
+  box-sizing: border-box;
+  background: var(--paper-panel);
+  border-radius: var(--r-card);
+  box-shadow: var(--sh-card);
+  padding: 22rpx 14rpx 18rpx;
+  text-align: center;
+  border-top: none;
+}
+.badge-art {
+  width: 92rpx; height: 92rpx; margin: 0 auto 14rpx;
+  border-radius: 999rpx;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 36rpx; font-weight: 700;
+  /* 没得到的:虚线空圈,像个【待填的位子】—— 实心灰块看着像坏了 */
+  background: transparent;
+  border: 2rpx dashed var(--stone-line);
+  color: var(--stone-line);
+}
+/* 得到了的:琥珀实心 + 一圈光。没得到的:空的灰圈 */
+.badge.got .badge-art {
+  border: none;
+  background: linear-gradient(150deg, #FFB463, var(--amber));
+  color: #fff;
+  box-shadow: 0 4rpx 14rpx rgba(232,121,26,.32);
+}
+.badge-n { font-size: 25rpx; font-weight: 600; color: var(--ink); }
+.badge.got .badge-n { color: var(--ink); }
+.badge-d { font-size: 20rpx; color: var(--ink-faint); margin-top: 6rpx; line-height: 1.5; }
+.badge-s { font-size: 19rpx; color: var(--stone-label); margin-top: 8rpx; }
+
+.page { display: flex; flex-direction: column; }
+.cta { margin-top: auto; padding-top: 40rpx; }
+.cta .btn { width: 100%; box-sizing: border-box; }
+/* 「0 / 6」那个数是这一屏的主角之一 —— 它是进度 */
+.count { font-size: 40rpx; font-weight: 700; color: var(--ink); margin-bottom: 20rpx;
+         font-variant-numeric: tabular-nums; }

@@ -1,5 +1,5 @@
 .hd { padding: 24rpx 0 20rpx; }
-.hd .title { font-size: 68rpx; line-height: 1.15; }
+.hd .title { font-size: 46rpx; line-height: 1.15; }
 .hd .sub { font-size: 24rpx; color: var(--ink-faint); margin-top: 12rpx; letter-spacing: 0.06em; }
 
 .say { padding: 24rpx 0 8rpx; font-size: 30rpx; color: var(--ink); line-height: 1.8; }
@@ -8,7 +8,7 @@
 
 .recipe {
   padding: 12rpx 0 24rpx;
-  font-family: "Songti SC", serif;
+  font-weight: 600;
   font-size: 32rpx;
   color: var(--ink-mid);
   letter-spacing: 0.28em;
