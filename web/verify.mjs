@@ -20,7 +20,7 @@
  *   bun web/verify.mjs --shots=<目录>      顺便留截图
  */
 import { chromium } from 'playwright'
-import { mkdirSync, readFileSync, readdirSync, existsSync } from 'fs'
+import { mkdirSync, readFileSync, readdirSync, existsSync, writeFileSync, appendFileSync } from 'fs'
 import { join } from 'path'
 
 const arg = (k, d) => (process.argv.find((a) => a.startsWith('--' + k + '=')) || '=' + d).split('=').slice(1).join('=')
@@ -101,10 +101,22 @@ const FAKE = {
 
 let failed = 0
 let ran = 0
+/* 失败【立刻落盘】。
+   这一支跑几百个断言、几十秒，中途浏览器要是被拖垮（机器负载高时会），
+   进程直接抛异常退出 —— 而 gates.sh 只留最后六行输出，
+   于是「有一条断言失败了」这件事有，「是哪一条」却拿不到。
+   2026-08-30 就卡在这儿:知道假服务端档挂了一条，三次重跑都没跑到那一步。
+
+   写文件是【追加】的:崩在第几条，前面失败过的就都还在。 */
+const 失败册 = process.env.VERIFY_FAILLOG || '/tmp/verify-failures.txt'
+try { writeFileSync(失败册, '') } catch { /* 写不了就算了，控制台照旧 */ }
 const ok = (cond, what, extra) => {
   ran++
   console.log((cond ? '  ✓ ' : '  ✗ ') + what + (extra ? '　' + extra : ''))
-  if (!cond) failed++
+  if (!cond) {
+    failed++
+    try { appendFileSync(失败册, `✗ ${what}${extra ? '　' + extra : ''}\n`) } catch { /* 同上 */ }
+  }
   return cond
 }
 
@@ -2200,7 +2212,8 @@ console.log('\n── 一屏放得下吗（iPhone SE · 内容区 597）──')
     { 页: 'pages/orders/index', 名: '一单都没有',
       切: () => globalThis.__router.current().setData({
         loading: false, err: '', total: 0, items: [], page: [], pageCount: 0 }),
-      凭据: '还没买过什么',
+      // 0830:这一屏的空状态从「还没买过什么」（一句陈述）改成了「钱包还是满的呢」
+      凭据: '钱包还是满的',
       为什么: 'M2 的空状态：不说「没有订单」，说东西长在人身上、去村里看看' },
     { 页: 'pages/subs/index', 名: '一个都没订',
       切: () => globalThis.__router.current().setData({ loading: false, err: '', items: [] }),
