@@ -1,5 +1,9 @@
 <view class="page">
-  <view class="loading" wx:if="{{loading}}">取着……</view>
+  <view class="sk-rows" wx:if="{{loading}}">
+    <view class="sk-card"><view class="sk-body">
+      <view class="sk sk-line mid"></view><view class="sk sk-line long"></view>
+    </view></view>
+  </view>
 
   <view class="err" wx:elif="{{err}}">
     <view class="err-msg">{{err}}</view>
@@ -33,7 +37,7 @@
     </view>
 
     <view class="row col">
-      <text class="row-k">留句话给他</text>
+      <text class="row-k">留句话</text>
       <input class="msg" value="{{message}}" placeholder="不写也行" bindinput="onMessage"/>
     </view>
 

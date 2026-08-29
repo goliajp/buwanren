@@ -1,8 +1,69 @@
-/* 全屏一件事：上面是他，下面是两条都往前的路。 */
-.page { display: flex; flex-direction: column; min-height: 100vh; padding: 0 40rpx 64rpx; box-sizing: border-box; }
-.stage { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 40vh; }
-.glyph { font-size: 96rpx; font-weight: 700; letter-spacing: 8rpx; }
+/* 全屏一件事：上面是他，下面是两条都往前的路。
+
+   0830:整条链上唯一一次「实物变成人」。原先只是一次页面跳转 ——
+   最高光的一刻被当成了一次导航。现在它有 1.2 秒的戏。
+
+   动的只有 transform 与 opacity —— 动 width/top 会触发重排、必掉帧。 */
+.page {
+  display: flex; flex-direction: column; min-height: 100vh;
+  padding: 0 40rpx 64rpx; box-sizing: border-box;
+  background: radial-gradient(circle at 50% 38%, #FFF3E0 0%, var(--paper) 62%);
+}
+
+.stage { flex: 1; display: flex; align-items: center; justify-content: center;
+         min-height: 40vh; position: relative; }
+
+/* 头像圆牌:从 0.4 弹到 1，带一点超调 —— 那点超调就是「弹」的来源 */
+.glyph {
+  position: relative; z-index: 2;
+  width: 200rpx; height: 200rpx; border-radius: 999rpx;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 86rpx; font-weight: 700; color: #8A5A1E;
+  background: linear-gradient(150deg, var(--amber-lite), #FFC489);
+  box-shadow: 0 0 0 16rpx rgba(255,154,60,.14), 0 12rpx 40rpx rgba(232,121,26,.34);
+}
+.is-new .glyph { animation: pop .62s cubic-bezier(.34,1.56,.64,1) both; }
+@keyframes pop {
+  0%   { transform: scale(.4); opacity: 0 }
+  100% { transform: scale(1);  opacity: 1 }
+}
+
+/* 两圈光晕先后扩散出去。它们是「炸开」那一下 —— 不是装饰，
+   是让这一刻有个【体积】:光从中心推出去，人才像是被送出来的 */
+.halo {
+  position: absolute; z-index: 1;
+  width: 200rpx; height: 200rpx; border-radius: 999rpx;
+  border: 3rpx solid rgba(255,154,60,.5);
+  animation: halo 1s ease-out both;
+}
+.halo-2 { animation-delay: .16s; }
+@keyframes halo {
+  0%   { transform: scale(.6); opacity: .9 }
+  100% { transform: scale(2.6); opacity: 0 }
+}
+
 .body { margin-bottom: 48rpx; }
 .line1 { font-size: 44rpx; font-weight: 700; }
 .line2 { font-size: 28rpx; color: var(--ink-faint); margin-top: 16rpx; line-height: 1.6; }
+/* 文字比头像晚一拍进来 —— 先看见人，再听见事 */
+.is-new .line1 { animation: rise .5s cubic-bezier(.22,1,.36,1) .42s both; }
+.is-new .line2 { animation: rise .5s cubic-bezier(.22,1,.36,1) .54s both; }
+.is-new .tally { animation: rise .5s cubic-bezier(.22,1,.36,1) .66s both; }
+.is-new .acts  { animation: rise .5s cubic-bezier(.22,1,.36,1) .78s both; }
+@keyframes rise {
+  0%   { transform: translateY(16rpx); opacity: 0 }
+  100% { transform: translateY(0);     opacity: 1 }
+}
+
+/* 收集进度。条本身还要再慢慢长一截 —— 那一截就是「多了一位」 */
+.tally { display: flex; align-items: center; gap: 16rpx; margin-top: 30rpx; }
+.tally-track { flex: 1; height: 18rpx; border-radius: 999rpx; background: var(--paper-inset);
+               overflow: hidden; box-shadow: inset 0 1rpx 3rpx rgba(43,38,32,.08); }
+.tally-fill { height: 100%; border-radius: 999rpx;
+              background: linear-gradient(90deg, var(--moss), #62C795);
+              transition: width .9s cubic-bezier(.22,1,.36,1); }
+.tally-n { flex: none; font-size: 26rpx; font-weight: 700; color: var(--moss);
+           font-variant-numeric: tabular-nums; }
+
 .acts { display: flex; gap: 20rpx; }
+.acts .btn { flex: 1; }

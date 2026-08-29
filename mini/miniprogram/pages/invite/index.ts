@@ -20,6 +20,7 @@ import { villageApi } from '../../services/village'
 import { natalApi } from '../../services/natal'
 import type { ApiError } from '../../services/api'
 import type { VillagerCard } from '../../types/village'
+import { 轻 } from '../../utils/feel'
 
 /** 一页五位。设计（product-v1.html 10.3）：横向翻页代替竖向滚动 ——
  *  她不是在比价，是在挑人，一次看五个正好。 */
@@ -146,6 +147,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
   },
 
   onTap(e: WechatMiniprogram.BaseEvent) {
+    轻()
     const id = (e.currentTarget.dataset as { id?: string }).id
     const 那位 = this.data.items.find((x) => x.id === id)
     /* 没上架的点不动。**不是点了再说「买不了」** —— 那是先答应再反悔；

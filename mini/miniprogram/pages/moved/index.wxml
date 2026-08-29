@@ -1,18 +1,33 @@
-<!-- 没有顶栏、没有 tab。此刻给任何导航都是打断 -->
-<view class="page">
+<!-- 没有顶栏、没有 tab。此刻给任何导航都是打断。
+
+     0830:这是整条链上【唯一一次「实物变成人」】—— 也是收货扫码率的落点，
+     而扫码率决定 LTV。在这之前它只是一次普通的页面跳转加一段文字。
+     现在它是一段一秒二的戏:光点炸开 → 名字浮起 → 收集数往上跳一格。
+     每一段都靠 CSS 动画,不占引擎、不掉帧。 -->
+<view class="page {{isNew ? 'is-new' : ''}}">
   <view class="stage">
-    <view class="glyph">{{name}}</view>
+    <!-- 光晕:从中心扩散出去的一圈,只在「真的第一次」那一下放 -->
+    <view class="halo" wx:if="{{isNew}}"></view>
+    <view class="halo halo-2" wx:if="{{isNew}}"></view>
+    <view class="glyph">{{face}}</view>
   </view>
 
   <view class="body">
     <view class="line1" wx:if="{{isNew}}">{{name}}搬进来了</view>
     <view class="line1" wx:else>{{name}}早就在了</view>
-    <view class="line2" wx:if="{{isNew}}">他从御守里走出来，住进了村里那一格</view>
-    <view class="line2" wx:else>这枚御守你已经扫过 —— 他一直在</view>
+    <view class="line2" wx:if="{{isNew}}">从御守里走出来，住进了村里那一格</view>
+    <view class="line2" wx:else>这枚御守你已经扫过 —— 一直都在</view>
+
+    <!-- 收集进度往上跳一格。数字是这一刻最实在的奖励:
+         「多了一位」这件事,看数字比看文字快 -->
+    <view class="tally" wx:if="{{total > 0}}">
+      <view class="tally-track"><view class="tally-fill" style="width:{{lived * 100 / total}}%"></view></view>
+      <text class="tally-n">{{lived}} / {{total}}</text>
+    </view>
   </view>
 
   <view class="acts">
-    <button class="btn" bindtap="goVillager">去看看他</button>
+    <button class="btn" bindtap="goVillager">去看看</button>
     <button class="btn ghost" bindtap="goVillage">回村里</button>
   </view>
 </view>

@@ -13,7 +13,15 @@
     <view class="hr"></view>
   </view>
 
-  <view class="loading" wx:if="{{loading}}">取着……</view>
+  <view class="sk-rows" wx:if="{{loading}}">
+    <view class="sk-card" wx:for="{{[1,2,3,4,5]}}" wx:key="*this">
+      <view class="sk sk-face"></view>
+      <view class="sk-body">
+        <view class="sk sk-line short"></view>
+        <view class="sk sk-line mid"></view>
+      </view>
+    </view>
+  </view>
 
   <view class="err" wx:elif="{{err}}">
     <view class="err-msg">{{err}}</view>

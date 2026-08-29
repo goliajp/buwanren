@@ -14,6 +14,7 @@
 import { villageApi } from '../../services/village'
 import type { ApiError } from '../../services/api'
 import { 唤醒, 扫一枚 } from '../../utils/omamori'
+import { 轻 } from '../../utils/feel'
 import { incenseApi } from '../../services/incense'
 import { storage } from '../../services/storage'
 import type { VillagerInVillage } from '../../types/village'
@@ -160,6 +161,7 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
   onSays() {
     const s = this.data.says
     if (!s) return
+    轻()
     wx.navigateTo({ url: `/pages/villager/index?id=${s.villager_id}` })
   },
 
@@ -297,7 +299,7 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
        塞在两行里等于没说。 */
     if (hit.kind === 'villager') {
       const id = hit.who || ''
-      if (id) wx.navigateTo({ url: '/pages/villager/index?id=' + id })
+      if (id) { 轻(); wx.navigateTo({ url: '/pages/villager/index?id=' + id }) }
       return
     }
 
