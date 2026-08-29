@@ -68,8 +68,12 @@ async fn my_village(
     // 连没找回的一起返回。**空屋不消失是世界观,不是待办** ——
     // 前端要能把空屋画出来、点得到、让它说「这间空着,等人」。
     let rows = sqlx::query(
-        "SELECT v.id, v.name, v.title, v.art_key, a.name AS art_name, v.lack, v.rarity \
-         FROM villager v LEFT JOIN art a ON a.key = v.art_key ORDER BY v.id",
+        "SELECT v.id, v.name, v.title, v.art_key, a.name AS art_name, v.lack, v.rarity, \
+                b.direction \
+         FROM villager v \
+         LEFT JOIN art a ON a.key = v.art_key \
+         LEFT JOIN lack_bias b ON b.lack = v.lack \
+         ORDER BY v.id",
     )
     .fetch_all(&st.db)
     .await?;
@@ -106,6 +110,8 @@ async fn my_village(
                 "title": r.get::<Option<String>, _>("title"),
                 "art": r.get::<Option<String>, _>("art_name"),
                 "lack": r.get::<String, _>("lack"),
+                // 头像配色用它 —— 见名册那一处的说明
+                "direction": r.get::<Option<String>, _>("direction"),
                 "rarity": r.get::<Option<String>, _>("rarity"),
                 "at_home": at_home,
                 "sells": sells.get(&id).map(|(pid, name)| json!({
@@ -192,10 +198,12 @@ async fn today_says(
     }
 
     let rows = sqlx::query(
-        r#"SELECT l.villager_id, l.seq, l.text, v.name, v.title, a.name AS art_name
+        r#"SELECT l.villager_id, l.seq, l.text, v.name, v.title, a.name AS art_name,
+                  b.direction
              FROM villager_line l
              JOIN villager v ON v.id = l.villager_id
              LEFT JOIN art a ON a.key = v.art_key
+             LEFT JOIN lack_bias b ON b.lack = v.lack
             WHERE l.villager_id = ANY($1)
             ORDER BY l.villager_id, l.seq"#,
     )
@@ -212,6 +220,7 @@ async fn today_says(
 
     Ok(json!({
         "villager_id": r.get::<String, _>("villager_id"),
+        "direction": r.get::<Option<String>, _>("direction"),
         "name": r.get::<String, _>("name"),
         "title": r.get::<Option<String>, _>("title"),
         "art": r.get::<Option<String>, _>("art_name"),
@@ -307,6 +316,10 @@ async fn all_villagers(
                 // 有就是那件商品的 id；没有就是 null —— 客户端据此写「未上架」
                 "omamori_product_id": pid,
                 "lack": r.get::<String, _>("lack"),
+                /* 他往哪个方向劝你（`lack_bias`）。客户端拿它给头像配色 ——
+                   四十位共用一个琥珀圆牌时，一眼分不出谁是谁，
+                   而这个字段本来就带着语义:同一路人是同一个色。 */
+                "direction": dir,
                 /* 为什么这一位排在前面。**没排过就是 null** ——
                    客户端据此决定说不说那句「跟你补得上」，
                    而不是不管三七二十一都说一遍。 */
