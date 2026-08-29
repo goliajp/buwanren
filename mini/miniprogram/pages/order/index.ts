@@ -34,6 +34,8 @@ Page({
     statusText: '',
     totalText: '',
     paidText: '',
+    /** 已付多少分。0 时不摆「已付」那一行 —— 摆一行 0 是噪音 */
+    paidMinor: 0,
     lines: [] as Array<{ name: string; qty: number; sub: string }>,
     /** 重试要复用同一个键 —— 换了键就是另一次操作，会真的再下一单 */
     payKey: '',
@@ -100,6 +102,7 @@ Page({
           statusText: 状态说法[o.status] || o.status,
           totalText: money(o.amount_total_minor, o.currency),
           paidText: money(o.amount_paid_minor, o.currency),
+          paidMinor: Number(o.amount_paid_minor) || 0,
           lines: d.lines.map((l) => ({
             name: l.sku_name || l.sku_id,
             qty: l.qty,

@@ -38,7 +38,7 @@
       <!-- 「买」不再是下单，是去确认那一屏（R5 · P2）—— 文案跟着改，
            不然按钮说的跟它做的不是一回事 -->
       <button class="btn" bindtap="onBuy" disabled="{{!skuId}}">
-        {{skuId ? '请他来' : '暂时买不了'}}
+        {{skuId ? '请回家' : '暂时买不了'}}
       </button>
       <button class="btn ghost" bindtap="onBack">回去</button>
     </view>

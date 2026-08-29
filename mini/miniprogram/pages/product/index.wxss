@@ -1,13 +1,13 @@
 /* 沿用全局那几个变量与 .page / .hd / .btn，不另起一套 */
 .hd { padding: 24rpx 0 32rpx; }
 .hd .eyebrow { margin-bottom: 20rpx; }
-.hd .title { font-size: 96rpx; line-height: 1.1; margin: 8rpx 0 16rpx; }
+.hd .title { font-size: 56rpx; line-height: 1.1; margin: 8rpx 0 16rpx; }
 
 .loading, .err { padding: 80rpx 0; text-align: center; color: var(--stone-label); }
 .err-msg { margin-bottom: 28rpx; }
 
 .sub {
-  font-family: "Songti SC", serif;
+  font-weight: 600;
   font-size: 30rpx;
   color: var(--stone-label);
   line-height: 1.7;
@@ -16,7 +16,7 @@
 
 .price-row { margin: 8rpx 0 28rpx; }
 .price {
-  font-family: "Songti SC", serif;
+  font-weight: 600;
   font-size: 60rpx;
   color: var(--ink);
 }
@@ -28,7 +28,7 @@
   font-size: 24rpx;
   color: var(--stone-label);
   border: 1rpx solid var(--stone-line);
-  border-radius: 6rpx;
+  border-radius: 16rpx;
   padding: 4rpx 14rpx;
   margin: 0 12rpx 12rpx 0;
 }

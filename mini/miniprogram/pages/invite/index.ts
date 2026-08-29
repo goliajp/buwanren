@@ -28,9 +28,9 @@ const 每页 = 5
 interface IData {
   loading: boolean
   err: string
-  items: Array<{ id: string; name: string; sub: string; onSale: boolean; product: string | null }>
+  items: Array<{ id: string; name: string; sub: string; onSale: boolean; product: string | null; face: string; lack: string }>
   /** 当前这一页的五位。渲染只认它 —— items 全渲会把一屏撑成五万像素 */
-  page: Array<{ id: string; name: string; sub: string; onSale: boolean; product: string | null }>
+  page: Array<{ id: string; name: string; sub: string; onSale: boolean; product: string | null; face: string; lack: string }>
   pageNo: number
   pageCount: number
   /** 「你缺的」那一行。取不到就空着 —— 它是理由，不是门槛 */
@@ -84,6 +84,9 @@ Page<IData, WechatMiniprogram.IAnyObject>({
             sub: [v.title, v.art].filter(Boolean).join(' · '),
             onSale: !!v.omamori_product_id,
             product: v.omamori_product_id,
+            // 头像占位:姓名末字。等 40 张画好换成图片地址,版式不动
+            face: v.name.slice(-1),
+            lack: v.lack || '',
           })),
         })
         this.gotoPage(0)

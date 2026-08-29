@@ -17,7 +17,8 @@
   <block wx:else>
     <!-- 空不是问题，说不清哪儿能有才是 -->
     <view class="empty" wx:if="{{total === 0}}">
-      <view class="empty-t">还没买过什么</view>
+      <view class="empty-art">单</view>
+      <view class="empty-t">钱包还是满的呢</view>
       <view class="empty-sub">东西长在卖它的人身上 —— 先去村里看看谁能来</view>
     </view>
 

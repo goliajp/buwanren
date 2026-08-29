@@ -24,25 +24,25 @@
   <view class="sec-k">这台设备上的账号</view>
   <view class="card" wx:if="{{user}}">
     <view class="prof-row">
-      <text class="prof-k">I D</text>
+      <text class="prof-k">ID</text>
       <text class="prof-v mono">{{user.id}}</text>
     </view>
     <view class="prof-row">
-      <text class="prof-k">平 台</text>
+      <text class="prof-k">平台</text>
       <text class="prof-v">{{user.platform}}</text>
     </view>
     <view class="prof-row">
-      <text class="prof-k">区 域</text>
+      <text class="prof-k">区域</text>
       <text class="prof-v">{{user.region}} · {{user.locale}}</text>
     </view>
     <view class="prof-row">
-      <text class="prof-k">类 型</text>
+      <text class="prof-k">类型</text>
       <text class="prof-v {{user.is_anonymous ? '' : 'ok'}}">
         {{user.is_anonymous ? '匿名' : '实名'}}
       </text>
     </view>
     <view class="prof-row" wx:if="{{activeNatalId}}">
-      <text class="prof-k">本 命</text>
+      <text class="prof-k">本命</text>
       <text class="prof-v mono">{{activeNatalId}}</text>
     </view>
   </view>
