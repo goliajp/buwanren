@@ -35,7 +35,7 @@
 /* 「收到了，去扫开它」（设计册 M3）。扫不出来的那一条跟村子主屏同一套话 */
 .wake-alt { display: flex; align-items: center; gap: 12rpx; margin-top: 20rpx;
             font-size: 24rpx; color: var(--stone-label); }
-.wake-input { flex: 1; background: var(--paper-inset); border: 1rpx solid var(--stone-line-x);
+.wake-input { flex: 1; background: var(--paper-inset); 
               border-radius: 16rpx; padding: 12rpx 18rpx; font-size: 26rpx; color: var(--ink); }
 .wake-go { flex: none; padding: 12rpx 24rpx; border-radius: 16rpx;
            background: var(--ink); color: var(--paper); font-size: 24rpx; }

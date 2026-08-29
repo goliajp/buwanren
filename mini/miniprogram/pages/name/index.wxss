@@ -12,3 +12,36 @@
 .who:first-child { margin-top: 0; }
 .line { font-size: 30rpx; margin-top: 8rpx; line-height: 1.6; }
 .acts { margin-top: 48rpx; display: flex; gap: 20rpx; }
+
+
+/* ── 0830:预览 = 两条对话气泡 ────────────────────────────────
+   原先是灰底方块里两行引号文字 —— 读起来是说明，不是有人在叫你。
+   气泡有尖角、有脸，改一个字就看得见效果。 */
+.preview { background: transparent; padding: 0; }
+.say-row { display: flex; align-items: flex-start; gap: 16rpx; margin-top: 18rpx; }
+.say-face {
+  flex: none; width: 64rpx; height: 64rpx; border-radius: 999rpx;
+  background: linear-gradient(150deg, var(--amber-lite), #FFC489);
+  color: #8A5A1E; font-size: 28rpx; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.say-face.suhe { background: linear-gradient(150deg, var(--moss-lite), #9BD9BA); color: #2E7D5B; }
+.bubble {
+  position: relative;
+  background: var(--paper-panel);
+  border-radius: 20rpx;
+  box-shadow: var(--sh-card);
+  padding: 18rpx 22rpx;
+  font-size: 28rpx;
+  color: var(--ink);
+  line-height: 1.5;
+}
+/* 尖角 —— 气泡之所以是气泡，全在这一小块 */
+.bubble::before {
+  content: '';
+  position: absolute; left: -10rpx; top: 24rpx;
+  width: 0; height: 0;
+  border-top: 10rpx solid transparent;
+  border-bottom: 10rpx solid transparent;
+  border-right: 12rpx solid var(--paper-panel);
+}

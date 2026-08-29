@@ -316,3 +316,19 @@ button.btn.stamp { background: var(--peach); box-shadow: 0 6rpx 0 #E8596B, 0 10r
 .sk-card .sk-body { flex: 1; }
 .sk-card .sk-line + .sk-line { margin-top: 12rpx; }
 .sk-rows { padding-top: 8rpx; }
+
+
+/* ── 输入框（0830 新增全局）──────────────────────────────────
+   原先每一页各写各的，多数是「白底 + 1rpx 深边框」—— 那是网页表单的样子，
+   在暖底上尤其硬。这一版统一成【凹陷】:浅色底、无边框、圆角。
+   凹下去的东西看起来「可以往里写」，框起来的东西看起来「只能读」。 */
+input, textarea, .field-input {
+  background: var(--paper-inset);
+  border: none;
+  border-radius: 18rpx;
+  padding: 20rpx 24rpx;
+  font-size: 28rpx;
+  color: var(--ink);
+  box-sizing: border-box;
+}
+input::placeholder, textarea::placeholder { color: var(--stone-label); }
