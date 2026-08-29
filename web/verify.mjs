@@ -120,7 +120,15 @@ const ok = (cond, what, extra) => {
   return cond
 }
 
-const b = await chromium.launch({ channel: 'chrome' })
+/* 用 Playwright 自带的 chromium，【不要】装机版 Chrome。
+   08-30 实测：`channel: 'chrome'` 拉起来的进程活二三十秒就挨 SIGKILL ——
+   不是崩（没有崩溃报告）、也不是内存（当时空着 67%）。同一台机器同一份页面，
+   自带 chromium 连跑 30 轮 46 秒无事，装机版 22 轮就没。差别只有这一个开关。
+   机器上跑着 GoogleUpdater，而它更新时会清掉所有共用那个 app bundle 的实例。
+   症状很难认：门禁连着报红，而失败账是空的（一条断言都没红），
+   于是「跑不完」跟「动线断了」在总账上长得一模一样。
+   验证工具本来就不该押在用户那份浏览器上 —— 自带的这份就是为可复现装的。 */
+const b = await chromium.launch()
 /* 主页面走【自己的 context】，不用 `browser.newPage()` 的那个临时 context ——
    下面几段冷启动检查各开一个 context 再关掉，而临时 context 会被那几下
    连带清理掉，主流程随后第一个 `open()` 就报「browser has been closed」。
@@ -1028,13 +1036,22 @@ if (API) {
   ok(!香.那句, '没建本命时她不编一句', String(香.那句 || '(空)'))
   ok(香屏.includes('先把生辰填了'), '而是说不知道，并给出口')
 
-  await p.locator('.entry').first().click()
+  /* 选中一档。类名跟 index.wxml 对上 —— 0830 把三档改成了牌（`.pick`），
+     而这里还写着旧的 `.entry`：点不到的选择器不会当场红，它先挂满三十秒再抛，
+     把整趟后面的断言一起带走。所以先确认它真在，再点；
+     不在就报一条说得出名字的红，而不是让整轮停在这儿。 */
+  const 档牌 = p.locator('.pick')
+  if (!ok(await 档牌.count() > 0, '三档点得着（.pick）', `数到 ${await 档牌.count()} 张`)) {
+    console.log('    ← 类名对不上就没法往下点，这一段跳过')
+  } else {
+  await 档牌.first().click()
   await p.waitForFunction(
     () => globalThis.__router.current().__route === 'pages/confirm/index',
     null, { timeout: 15000 },
   ).catch(() => {})
   ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/confirm/index',
      '挑一档点得进确认那一屏', await p.evaluate(() => globalThis.__router.current().__route))
+  }
   await open('pages/incense/index', { id: 'prod-suhe-incense' })
   await p.waitForTimeout(1200)
   await shot('10-一味香')

@@ -78,7 +78,11 @@ const files = part.files.filter(f => !PAGE_ONLY.has(f))
 // 产物是从它派生出来的,不另抄一份会漂移的。66KB,对包体无压力。
 async function bakeCodex() {
   const { chromium } = require('playwright')
-  const b = await chromium.launch({ channel: 'chrome', args: LAUNCH_ARGS })
+  /* 自带的 chromium，不用装机版 Chrome —— 后者在这台机器上跑二三十秒就挨 SIGKILL
+     （08-30 实测，见 docs/FINDING-2026-08-30-chrome-sigkill.md）。
+     `regress.js` 是例外:它的基准哈希绑着浏览器，换一个就得重存，
+     而那份基准记着 12 处已知漂移与存基准时的 commit，比这点稳定性值钱。 */
+  const b = await chromium.launch({ args: LAUNCH_ARGS })
   const p = await b.newPage()
   await p.goto('file://' + path.resolve(PAGE))
   await p.waitForTimeout(3500)
@@ -180,7 +184,7 @@ if (MODE !== 'verify') process.exit(0)
 
 // ── 验证:同一个房间,产物渲一遍 vs 设计页渲一遍,像素必须相同 ──
   const { chromium } = require('playwright')
-  const b = await chromium.launch({ channel: 'chrome', args: LAUNCH_ARGS })
+  const b = await chromium.launch({ args: LAUNCH_ARGS })
 
   // 造一个合成房间。用真房间要连房间脚本一起搬,那是宿主的事;
   // 合成房间同样走完 L0..L7 整条管线,足以证明产物与设计页是同一个引擎。

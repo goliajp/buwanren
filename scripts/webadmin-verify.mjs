@@ -36,7 +36,15 @@ const ok = (cond, name, detail = '') => {
   cond ? passed++ : failed++
 }
 
-const browser = await chromium.launch({ channel: 'chrome' })
+/* 用 Playwright 自带的 chromium，【不要】装机版 Chrome。
+   08-30 实测：`channel: 'chrome'` 拉起来的进程活二三十秒就挨 SIGKILL ——
+   不是崩（没有崩溃报告）、也不是内存（当时空着 67%）。同一台机器同一份页面，
+   自带 chromium 连跑 30 轮 46 秒无事，装机版 22 轮就没。差别只有这一个开关。
+   机器上跑着 GoogleUpdater，而它更新时会清掉所有共用那个 app bundle 的实例。
+   症状很难认：门禁连着报红，而失败账是空的（一条断言都没红），
+   于是「跑不完」跟「动线断了」在总账上长得一模一样。
+   验证工具本来就不该押在用户那份浏览器上 —— 自带的这份就是为可复现装的。 */
+const browser = await chromium.launch()
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
 
 const errs = []
