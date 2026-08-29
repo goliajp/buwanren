@@ -1,7 +1,11 @@
 // 验证:角色资源确实【引用】而非拷贝 POSES —— 运行时新增姿态应立刻可见
 const { chromium } = require('playwright')
 ;(async () => {
-  const b = await chromium.launch({ channel: 'chrome' })
+  /* 自带的 chromium，不用装机版 Chrome —— 后者在这台机器上跑二三十秒就挨 SIGKILL
+     （08-30 实测，见 docs/FINDING-2026-08-30-chrome-sigkill.md）。
+     `regress.js` 是例外:它的基准哈希绑着浏览器，换一个就得重存，
+     而那份基准记着 12 处已知漂移与存基准时的 commit，比这点稳定性值钱。 */
+  const b = await chromium.launch()
   const p = await b.newPage()
   await p.goto('file://' + require('path').resolve(process.argv[2])); await p.waitForTimeout(2800)
   const r = await p.evaluate(() => {

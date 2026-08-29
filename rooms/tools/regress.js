@@ -181,7 +181,19 @@ const emitDiffs = async (b, pairs) => {
 
 
 ;(async () => {
-  const b = await chromium.launch({ channel: 'chrome', args: LAUNCH_ARGS })
+  /* 浏览器按模式挑。
+     `check` / `save` / `diff` 拿存下的基准哈希比，而那批哈希是【绑浏览器的】
+     （同一份 design.html 在不同浏览器上字形与抗锯齿都不同），
+     所以它们必须一直用当初存基准的那一个 —— 装机版 Chrome。
+     `selfcheck` / `compare` 是同一轮里自比，不碰基准，用自带的那份就行。
+
+     分开是有实益的：装机版 Chrome 在这台机器上跑二三十秒就挨 SIGKILL
+     （见 docs/FINDING-2026-08-30-chrome-sigkill.md），而 selfcheck 是
+     `gates.sh` 里唯一一支跑它的门禁 —— 换掉之后这支不再随机红，
+     基准那三支也没丢掉自己的参照物。 */
+  const 自比 = MODE === 'selfcheck' || MODE === 'compare'
+  const b = await chromium.launch(
+    自比 ? { args: LAUNCH_ARGS } : { channel: 'chrome', args: LAUNCH_ARGS })
 
   // ── selfcheck:同一份文件渲两遍,断言逐帧一致。
   //    这是唯一【不绑平台】的硬门禁:它查的是渲染有没有不确定性 ——

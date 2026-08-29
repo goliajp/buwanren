@@ -17,7 +17,11 @@ const [FILE, ID, CID] = [process.argv[2], process.argv[3], process.argv[4] || 't
 if (!FILE || !ID) { console.error('用法: node assetprobe.js <design.html 绝对路径> <素材id> [canvas]'); process.exit(2) }
 
 ;(async () => {
-  const b = await chromium.launch({ channel: 'chrome' })
+  /* 自带的 chromium，不用装机版 Chrome —— 后者在这台机器上跑二三十秒就挨 SIGKILL
+     （08-30 实测，见 docs/FINDING-2026-08-30-chrome-sigkill.md）。
+     `regress.js` 是例外:它的基准哈希绑着浏览器，换一个就得重存，
+     而那份基准记着 12 处已知漂移与存基准时的 commit，比这点稳定性值钱。 */
+  const b = await chromium.launch()
   const p = await b.newPage()
   const errs = []
   p.on('pageerror', e => errs.push(String(e).slice(0, 240)))

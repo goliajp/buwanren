@@ -2346,13 +2346,34 @@ KLRLJJJRqK
     lastT = t; frame++
 
     // ═══ 世界状态:时间 / 天气(供语料库与渲染共用)═══
-    const CYCLE = 2000, dayT = (frame % CYCLE) / CYCLE
+    /* 昼夜跟【真实时刻】走，不再是两千帧一轮（约一百秒一天）。
+
+       原先屏上写着「早上好」而画面是深夜 —— 问候语按你几点，村子按它自己
+       转到哪儿了，两件事各说各的。设计册 0830 §6.1 把「时间在走」定成
+       这一版的第一条主线，而这正是它最该成立的地方:
+       你早上来和晚上来看见的不是同一个村子，那才是回来看看的理由。
+
+       画面不会因此变静:村民照样走动、动物照样叫、萤火虫照样飞 ——
+       变慢的只有光。
+
+       `VILLAGE_CLOCK` 可以覆盖小时数（0–24），给要确定性的场合用。
+       回归那支只钉烘好的静态层（地形与房屋，与时间无关），不受这里影响。 */
+    const 钟 = typeof globalThis.VILLAGE_CLOCK === 'number'
+      ? globalThis.VILLAGE_CLOCK
+      : (() => { const d = new Date(ENGINE_HOST.now()); return d.getHours() + d.getMinutes() / 60 })()
+    /* 作息按人来分，不按十二等分:
+       5:00–6:30 天亮 · 6:30–17:30 白天 · 17:30–19:30 日落 · 19:30–5:00 夜 */
     let dRaw
-    if (dayT < 0.14) dRaw = 1 - dayT / 0.14
-    else if (dayT < 0.5) dRaw = 0
-    else if (dayT < 0.66) dRaw = (dayT - 0.5) / 0.16
+    if (钟 < 5) dRaw = 1
+    else if (钟 < 6.5) dRaw = 1 - (钟 - 5) / 1.5
+    else if (钟 < 17.5) dRaw = 0
+    else if (钟 < 19.5) dRaw = (钟 - 17.5) / 2
     else dRaw = 1
-    curTime = dayT < 0.32 ? 'morn' : dayT < 0.5 ? 'noon' : dayT < 0.66 ? 'dusk' : 'night'
+    // 语料库按时段挑话 —— 也跟着真实时刻，村民才不会在你的早晨道晚安
+    const dayT = 钟 / 24
+    /* 四段跟上面的天色用同一批边界。差一点点都会露馅:
+       凌晨两点若还算 morn，婆婆就在满天星斗下道早安。 */
+    curTime = (钟 < 5 || 钟 >= 19.5) ? 'night' : 钟 < 11 ? 'morn' : 钟 < 17.5 ? 'noon' : 'dusk'
     const rp = (frame % 4200) / 4200
     curRain = (rp > 0.72 && rp < 0.93) ? Math.sin((rp - 0.72) / 0.21 * Math.PI) : 0
     curWx = curRain > 0.25 ? 'rain' : 'clear'
