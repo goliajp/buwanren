@@ -37,7 +37,7 @@
     </view>
 
     <view class="row col">
-      <text class="row-k">留句话给他</text>
+      <text class="row-k">留句话</text>
       <input class="msg" value="{{message}}" placeholder="不写也行" bindinput="onMessage"/>
     </view>
 

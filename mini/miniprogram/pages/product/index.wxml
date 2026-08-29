@@ -42,10 +42,10 @@
       <!-- 「买」不再是下单，是去确认那一屏（R5 · P2）—— 文案跟着改，
            不然按钮说的跟它做的不是一回事 -->
       <button class="btn" bindtap="onBuy" disabled="{{!skuId}}">
-        {{skuId ? '请回家' : '暂时买不了'}}
+        {{skuId ? 买法 : '暂时买不了'}}
       </button>
       <button class="btn ghost" bindtap="onBack">回去</button>
     </view>
-    <view class="foot-hint">下单后在「单」里付款 · 支付要在微信里完成</view>
+    <view class="foot-hint">下单后在「我的」里付款 · 支付要在微信里完成</view>
   </block>
 </view>
