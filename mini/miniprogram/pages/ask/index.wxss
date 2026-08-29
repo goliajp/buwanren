@@ -2,7 +2,7 @@
 
 .hd { padding: 24rpx 0 32rpx; }
 .hd .eyebrow { margin-bottom: 20rpx; }
-.hd .title { font-size: 128rpx; line-height: 1; margin: 8rpx 0 16rpx; }
+.hd .title { font-size: 56rpx; line-height: 1; margin: 8rpx 0 16rpx; }
 
 /* ─── ask time + question 输入(idle 状态罗盘上方)─── */
 
@@ -58,11 +58,11 @@
 
 /* 中心按钮 · 不随 face 旋转 · 96rpx 大 · 深灰径向渐变 · 金色边 */
 .cb-cn {
-  font-family: "Songti SC", "STSong", serif;
+  font-weight: 600;
   font-size: 46rpx;
   font-weight: 500;
   color: var(--paper);
-  letter-spacing: 0.3em;
+  letter-spacing: 0.02em;
   padding-left: 0.3em;
   line-height: 1;
 }
@@ -73,13 +73,13 @@
   text-align: center;
   font-size: 22rpx;
   color: var(--stone-label);
-  letter-spacing: 0.28em;
+  letter-spacing: 0.02em;
   margin: 16rpx 0 20rpx;
 }
 
 .q-echo {
   text-align: center;
-  font-family: "Songti SC", serif;
+  font-weight: 600;
   font-size: 30rpx;
   color: var(--ink-mid);
   line-height: 1.6;
@@ -95,7 +95,7 @@
 
 .gate-title { text-align: center; padding: 12rpx 0 24rpx; }
 .gate-name {
-  font-family: "Songti SC", serif;
+  font-weight: 600;
   font-size: 140rpx;
   font-weight: 500;
   color: var(--ink);
@@ -103,7 +103,7 @@
   letter-spacing: 0.06em;
 }
 .gate-dir {
-  font-family: "Songti SC", serif;
+  font-weight: 600;
   font-size: 60rpx;
   font-weight: 500;
   color: var(--stamp);
@@ -127,11 +127,11 @@
   align-self: stretch;
 }
 .dual-k {
-  font-family: "Songti SC", serif;
+  font-weight: 600;
   font-size: 36rpx;
   font-weight: 500;
   text-align: center;
-  letter-spacing: 0.4em;
+  letter-spacing: 0.02em;
   margin-bottom: 24rpx;
   color: var(--ink);
 }
@@ -145,7 +145,7 @@
   font-size: 28rpx;
   color: var(--ink);
   padding: 8rpx 20rpx;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.02em;
 }
 .suit-chip { color: var(--wx-mu); }
 .avoid-chip { color: var(--stamp); }
@@ -153,7 +153,7 @@
 
 .quote-block { padding: 32rpx 24rpx; }
 .quote-mark {
-  font-family: "Songti SC", serif;
+  font-weight: 600;
   font-size: 40rpx;
   color: var(--stamp);
   opacity: 0.7;
@@ -162,7 +162,7 @@
 .quote-r { text-align: right; }
 .quote-body {
   padding: 12rpx 0;
-  font-family: "Songti SC", serif;
+  font-weight: 600;
   font-size: 34rpx;
   color: var(--ink);
   line-height: 1.75;
@@ -173,7 +173,7 @@
   text-align: right;
   font-size: 22rpx;
   color: var(--ink-faint);
-  letter-spacing: 0.16em;
+  letter-spacing: 0.02em;
   margin-top: 8rpx;
 }
 
@@ -181,7 +181,7 @@
   margin: 24rpx 0 8rpx;
   padding: 24rpx 24rpx;
   background: var(--paper-inset);
-  border-radius: 6rpx;
+  border-radius: 16rpx;
   text-align: center;
   transition: background 0.15s;
 }
@@ -189,7 +189,7 @@
 .rec-k {
   font-size: 20rpx;
   color: var(--stone-label);
-  letter-spacing: 0.32em;
+  letter-spacing: 0.02em;
   margin-bottom: 12rpx;
 }
 .rec-arrow {
@@ -198,7 +198,7 @@
   margin-left: 6rpx;
 }
 .rec-name {
-  font-family: "Songti SC", serif;
+  font-weight: 600;
   font-size: 32rpx;
   color: var(--ink);
   letter-spacing: 0.06em;
@@ -215,7 +215,7 @@
   text-align: center;
   font-size: 20rpx;
   color: var(--stone-label);
-  letter-spacing: 0.24em;
+  letter-spacing: 0.02em;
   padding: 24rpx 0;
 }
 
@@ -236,7 +236,7 @@
 .hist-k {
   color: var(--stone-label);
   font-size: 22rpx;
-  letter-spacing: 0.32em;
+  letter-spacing: 0.02em;
   margin: 24rpx 0 16rpx;
 }
 .hist-list {
@@ -261,7 +261,7 @@
   letter-spacing: 0.04em;
 }
 .hist-gate {
-  font-family: "Songti SC", serif;
+  font-weight: 600;
   font-size: 28rpx;
   color: var(--ink);
   font-weight: 500;
@@ -269,7 +269,7 @@
 .hist-dir {
   font-size: 24rpx;
   color: var(--ink-faint);
-  letter-spacing: 0.2em;
+  letter-spacing: 0.02em;
 }
 .hist-arrow {
   color: var(--stone-label);
@@ -279,7 +279,7 @@
 }
 .hist-q {
   padding-top: 10rpx;
-  font-family: "Songti SC", serif;
+  font-weight: 600;
   font-size: 24rpx;
   color: var(--ink-faint);
   letter-spacing: 0.06em;
@@ -290,8 +290,11 @@
   text-align: center;
   color: var(--ink-mid);
   font-size: 24rpx;
-  letter-spacing: 0.24em;
+  letter-spacing: 0.02em;
   border-bottom: 1rpx solid var(--stone-line-x);
   transition: background 0.15s;
 }
 .hist-more-hover { background: var(--paper-inset); }
+
+/* 空状态要居中,页面得先撑满 */
+.page { display: flex; flex-direction: column; }

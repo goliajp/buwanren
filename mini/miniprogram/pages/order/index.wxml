@@ -34,7 +34,10 @@
 
     <!-- 「已付」只在跟合计对不上时才说（部分退款、还没付）。
          两个数一样时并排写两遍，读的人得比一比才知道没事。 -->
-    <view class="sum" wx:if="{{paidText !== totalText}}">
+    <!-- 「已付」只在【付过一部分、又跟合计对不上】时才说。
+         原先的判据是「跟合计不一样」—— 一分没付时 ¥0.00 ≠ ¥199 也成立,
+         于是待付的单子上多一行「已付 ¥0.00」,那是噪音不是信息 -->
+    <view class="sum" wx:if="{{paidMinor > 0 && paidText !== totalText}}">
       <view class="sum-row"><text class="sum-k">已付</text><text class="sum-v">{{paidText}}</text></view>
     </view>
 

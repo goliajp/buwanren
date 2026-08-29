@@ -37,12 +37,20 @@
         <!-- 两行，不是三行（设计册 V4 线框就是两行）：
              名 + 动作一行，副题一行。一页五位是「不上下滚动」的落点，
              三行的话第五位会把这一屏顶出去 —— 实测超 97px。 -->
-        <view class="item-top">
-          <text class="item-name">{{item.name}}</text>
-          <text class="item-meta" wx:if="{{item.onSale}}">请他来 ›</text>
-          <text class="item-meta off" wx:else>未上架</text>
+        <!-- 脸。四十位原先是四十行文字 —— 一个靠角色立身的产品，
+             最不该没有角色的就是这一屏。没有美术之前用姓名末字，
+             等头像画好换这一处即可。 -->
+        <view class="item-face">{{item.face}}</view>
+        <view class="item-body">
+          <view class="item-top">
+            <text class="item-name">{{item.name}}</text>
+            <text class="item-lack" wx:if="{{item.lack}}">缺 {{item.lack}}</text>
+          </view>
+          <view class="item-sub" wx:if="{{item.sub}}">{{item.sub}}</view>
         </view>
-        <view class="item-sub" wx:if="{{item.sub}}">{{item.sub}}</view>
+        <!-- 「请他来」对婆婆是错的 —— 四十位里男女都有。不带代词 -->
+        <text class="item-go" wx:if="{{item.onSale}}">请回家 ›</text>
+        <text class="item-go off" wx:else>还没来</text>
       </view>
     </view>
 
@@ -54,7 +62,7 @@
     </view>
 
     <view class="foot" wx:if="{{items.length > 0}}">
-      买下之后寄一枚实物到你手上 · 扫开它，他就住进来
+      买下之后寄一枚实物到你手上 · 扫开它，人就住进来
     </view>
 
     <!-- 弹性槽（设计册 V4）：「只看在卖的」。

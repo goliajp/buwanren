@@ -1,6 +1,6 @@
 .hd { padding: 24rpx 0 32rpx; }
 .hd .eyebrow { margin-bottom: 20rpx; }
-.hd .title { font-size: 128rpx; line-height: 1; margin: 8rpx 0 16rpx; }
+.hd .title { font-size: 56rpx; line-height: 1; margin: 8rpx 0 16rpx; }
 
 .cats { margin-bottom: 32rpx; }
 .cat {
@@ -8,7 +8,7 @@
   font-size: 26rpx;
   color: var(--stone-label);
   border: 1rpx solid var(--stone-line);
-  border-radius: 6rpx;
+  border-radius: 16rpx;
   padding: 8rpx 22rpx;
   margin: 0 14rpx 14rpx 0;
 }
@@ -22,7 +22,7 @@
   padding: 28rpx 0;
 }
 .item-hover { background: var(--paper-inset); }
-.item-name { font-family: "Songti SC", serif; font-size: 36rpx; color: var(--ink); }
+.item-name { font-weight: 600; font-size: 36rpx; color: var(--ink); }
 .item-sub { font-size: 26rpx; color: var(--stone-label); margin-top: 10rpx; line-height: 1.6; }
 .item-meta { font-size: 22rpx; color: var(--stone-label); margin-top: 12rpx; }
 .arrow { float: right; }
@@ -37,7 +37,7 @@
 
 /* 订着的：空状态是主设计，出口比列表更重要。 */
 .empty-t { font-size: 30rpx; font-weight: 600; }
-.empty-sub { font-size: 26rpx; color: #767676; margin-top: 12rpx; }
+.empty-sub { font-size: 26rpx; color: var(--ink-faint); margin-top: 12rpx; }
 .offers { margin-top: 44rpx; }
-.offers-k { font-size: 26rpx; color: #767676; margin-bottom: 16rpx; }
-.offers-err { font-size: 26rpx; color: #767676; margin-top: 32rpx; }
+.offers-k { font-size: 26rpx; color: var(--ink-faint); margin-bottom: 16rpx; }
+.offers-err { font-size: 26rpx; color: var(--ink-faint); margin-top: 32rpx; }

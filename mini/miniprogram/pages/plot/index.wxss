@@ -1,8 +1,14 @@
-.page { padding: 32rpx 40rpx 40rpx; }
-.name { font-size: 48rpx; font-weight: 700; }
-.title { font-size: 26rpx; color: #767676; margin-top: 8rpx; }
-.body { margin-top: 48rpx; }
-.line { font-size: 28rpx; line-height: 1.7; }
-.dim { color: #767676; margin-top: 20rpx; }
-.acts { margin-top: 56rpx; }
-.cta { margin-top: 48rpx; }
+.page { display: flex; flex-direction: column; min-height: 100vh; }
+
+/* 空位子:虚线圆 + 一个问号。实心的圆会读成「有东西」，
+   而这一格的意思正是【还没有】 */
+.plot-art {
+  background: transparent;
+  border: 3rpx dashed var(--stone-line);
+  color: var(--stone-line);
+  font-size: 68rpx;
+  box-shadow: none;
+}
+.empty-s.dim { color: var(--stone-label); font-size: 23rpx; margin-top: 8rpx; }
+.empty-state .btn { width: 100%; box-sizing: border-box; }
+.back { margin-top: 28rpx; font-size: 26rpx; color: var(--ink-faint); }

@@ -109,7 +109,12 @@ const ok = (cond, what, extra) => {
 }
 
 const b = await chromium.launch({ channel: 'chrome' })
-const p = await b.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 })
+/* 主页面走【自己的 context】，不用 `browser.newPage()` 的那个临时 context ——
+   下面几段冷启动检查各开一个 context 再关掉，而临时 context 会被那几下
+   连带清理掉，主流程随后第一个 `open()` 就报「browser has been closed」。
+   报出来的位置在 open 里，看着像页面的问题，其实是这一行的。 */
+const 主场 = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 })
+const p = await 主场.newPage()
 
 /* 这一趟打到了后端哪些路由。跟处理器覆盖是同一个问法：
    没被打过的那些，坏了也不会有人知道。
@@ -321,100 +326,6 @@ if (API) {
   console.log(`  （后端热好了，用了 ${Date.now() - t0}ms）`)
 }
 
-/* ── 冷启动那一下，登录不许被自己人清掉 ───────────────────────
-   匿名登录是异步的，页面 onShow 抢在它前面就发了一轮请求，那一轮必然 401。
-   而 401 的处理曾经是无条件 `storage.clearAll()` —— 于是：
-
-     ① 页面发 /v1/village（这时还没 token）
-     ② 登录回来，写下 token
-     ③ ①那一条回 401 → clearAll → 刚写下的 token 没了
-
-   成不成看 ②③ 谁先回来，所以它飘。2026-08-29 量到过：连开两页，
-   二十五次里十二次登录完还是没 token —— 而症状是村民、订单、册子
-   三页一起「跳过」，报出来像是后端没数据。
-
-   要新开一个上下文才验得到：这一趟跑到这儿早就登录过了，
-   而这个 bug 只在【第一次登录】那几百毫秒里存在。 */
-if (API) {
-  const 新 = await b.newContext({ viewport: { width: 375, height: 667 } })
-  const 冷 = await 新.newPage()
-  await 冷.addInitScript((base) => { globalThis.__API_BASE = base }, API)
-  /* 慢下来的是【页面抢先发的那一轮】，不是登录。**不是伪造** ——
-     这个窗口本来就存在（匿名登录是异步的，页面 onShow 抢在它前面），
-     慢网络上它每次都会张开。
-
-     方向要对：坏的那一版是「401 回来时把已经写下的 token 清掉」，
-     所以得让 401 【晚于】登录。头一版反过来延迟了登录，于是 401 更早、
-     那时 token 还没写、清了也没影响 —— 一条永远绿的断言。
-
-     靠自然时序去撞的话命中率约一半，而一半时间说谎的门禁比没有更糟：
-     跑到这儿时浏览器已经热了，连撞五次都撞不上。 */
-  for (const 路 of ['**/v1/village', '**/v1/incense']) {
-    await 冷.route(路, async (r) => {
-      await new Promise((res) => setTimeout(res, 600))
-      await r.continue()
-    })
-  }
-  try {
-    const 去 = (r) => 冷.goto(BASE + '/index.html?' + new URLSearchParams({ page: r }))
-    await 去('pages/village/index')
-    const 读 = () => 冷.evaluate(() => !!localStorage.getItem('unmei:buwanren:token')).catch(() => false)
-    // 先等它【出现】
-    let 出现过 = false
-    for (let k = 0; k < 25 && !出现过; k++) {
-      出现过 = await 读()
-      if (!出现过) await 冷.waitForTimeout(200)
-    }
-    /* 再等那两条被拖住的请求回来。要问的是「它【还在】吗」，不是「它出现过吗」——
-       清空发生在 401 回来那一刻，而那在 token 写下之后。
-       只等「出现」的话，读到就 break，正好赶在被清掉之前，
-       于是一条永远绿的断言。 */
-    await 冷.waitForTimeout(1500)
-    const 还在 = await 读()
-    ok(出现过 && 还在,
-       '登录写下的 token，不会被抢在它前面那一轮 401 清掉',
-       出现过 ? (还在 ? '' : '它出现过，然后被清掉了')
-              : '登录压根没写下 token'
-       + '　·　localStorage 里：' + await 冷.evaluate(() => Object.keys(localStorage).join(' ') || '空的').catch(() => '问不到'))
-  } finally {
-    await 新.close()
-  }
-}
-
-/* ── 冷启动那一下，页面得【等得到】登录 ─────────────────────────
-   同一个窗口的另一半：页面 onLoad/onShow 立刻取数，赶在 token 前面拿 401 ——
-   要紧的不是那一次 401，是**之后再也不取**：那一屏就写着「取不到」停在那儿，
-   刷新一下又好了，于是用户觉得这 app 时好时坏。
-
-   `app.ts` 登录完会给页面栈广播 `onAuthReady`，页面接住重取一次就对了。
-   `scripts/check-auth-ready.py` 核的是「有没有那个处理器」；
-   这里跑一遍真的冷启动，看那机制到底转不转。
-
-   拿徽章那一页验：它不要参数，而且空着也说得出话。 */
-if (API) {
-  const 新2 = await b.newContext({ viewport: { width: 375, height: 667 } })
-  const 冷2 = await 新2.newPage()
-  await 冷2.addInitScript((base) => { globalThis.__API_BASE = base }, API)
-  // 把登录拖慢,保证页面那一次取数【一定】赶在 token 前面
-  await 冷2.route('**/v1/auth/anonymous', async (r) => {
-    await new Promise((res) => setTimeout(res, 700))
-    await r.continue()
-  })
-  try {
-    await 冷2.goto(BASE + '/index.html?' + new URLSearchParams({ page: 'pages/badges/index' }))
-    // 等到登录落地之后再看:重取该在这之后发生
-    await 冷2.waitForTimeout(2500)
-    const 屏 = await 冷2.evaluate(() => {
-      const d = globalThis.__router.current().data
-      return { err: d.err || '', 还在转: !!d.loading, 有货: (d.items || []).length }
-    }).catch((e) => ({ err: '问不到：' + String(e), 还在转: false, 有货: 0 }))
-    ok(!屏.err && !屏.还在转,
-       '登录慢的时候开一页，它等得到登录再取　—— 不是停在「取不到」',
-       屏.err ? `停在错误态：${屏.err}` : (屏.还在转 ? '一直转着，没重取' : ''))
-  } finally {
-    await 新2.close()
-  }
-}
 
 
 /* 打真后端时,用【真的入住路径】把两位请回家:
@@ -1210,7 +1121,9 @@ await p.setViewportSize({ width: 390, height: 844 })
 await open('pages/village/index')
 await p.waitForTimeout(1500)
 const 槽文 = await text()
-ok(/住着 \d+ 位 · 还空 \d+ 间/.test(槽文), '收集数来自服务端',
+/* 0830:那一行运营口径（「住着 N 位 · 还空 M 间」）换成了进度条 + 「N / 40」。
+   要验的东西没变 —— 这个数来自服务端而不是画面里数出来的。 */
+ok(/\d+\s*\/\s*\d+/.test(槽文), '收集数来自服务端',
    (槽文.match(/住着 \S+ 位 · 还空 \S+ 间/) || ['没找到'])[0])
 /* 头一眼是有人在跟你打招呼，而且【知道你现在几点】（设计册 10.8）。 */
 ok(/(早上好|上午好|下午好|傍晚好|夜深了)/.test(槽文), '头一眼是一句问候',
@@ -1289,9 +1202,10 @@ if (API) {
       for (let i = 0; i < 页数2; i++) {
         await p.evaluate((n) => globalThis.__router.current().gotoPage(n), i)
         await p.waitForTimeout(150)
-        if ((await text()).includes('未上架')) { 看到未上架 = true; break }
+        // 0830:「未上架」是运营词，买家那一侧说的是「还没来」
+        if ((await text()).includes('还没来')) { 看到未上架 = true; break }
       }
-      ok(看到未上架, '没上架的也在册上，写着「未上架」', `${册.共 - 册.在卖} 位未上架`)
+      ok(看到未上架, '没上架的也在册上，照实写着「还没来」', `${册.共 - 册.在卖} 位还没上架`)
       /* 写着未上架就该按不动 —— 点了再说「买不了」是先答应再反悔。 */
       const 之前 = await p.evaluate(() => globalThis.__router.current().__route)
       const 那行 = p.locator('.item-off').first()
@@ -1370,7 +1284,7 @@ if (API) {
   const 试 = async (id, 名) => {
     await open('pages/villager/index', { id })
     await 等取完('pages/villager/index')
-    await p.getByText('请他来', { exact: true }).click()
+    await p.getByText('请回家', { exact: true }).click()
     await p.waitForTimeout(1500)
     return {
       路由: await p.evaluate(() => globalThis.__router.current().__route),
@@ -1405,7 +1319,7 @@ if (API) {
   if (有货的那位) {
     const 有货 = await 试(有货的那位, '某位')
     ok(有货.路由 === 'pages/product/index',
-       `「请他来」找到了 ${有货的那位} 的御守`, 有货.路由)
+       `「请回家」找到了 ${有货的那位} 的御守`, 有货.路由)
   } else {
     console.log('  · 跳过「有货那条」：这个库里没有任何御守在卖（不计入通过）')
   }
@@ -1440,9 +1354,9 @@ const t2 = await text()
 ok(t2.includes('阿云'), '认出是谁')
 /* 这一屏比原先那张卡片多说的，正是它存在的理由：**他缺什么**。
    「缺」是这个产品的身份字段，塞在两行的卡片里等于没说。 */
-ok(t2.includes('他缺的是'), '说得出他缺什么　—— 卡片放不下的正是这一行', t2.slice(0, 40))
+ok(t2.includes('缺的是'), '说得出缺什么　—— 卡片放不下的正是这一行', t2.slice(0, 40))
 ok(t2.includes('问事'), '给「问事」')
-ok(t2.includes('去他家坐坐'), '给「去他家坐坐」　—— 阿云那间房搬进来了')
+ok(t2.includes('去家里坐坐'), '给「去家里坐坐」　—— 阿云那间房搬进来了')
 
 /* 先按一下「回村里」再回来。下面那条同样的检查挂在「目录里有他的 sku」上,
    而这一趟没有 sku 时它整条跳过 —— 于是从村子点进来的这一支,
@@ -1522,7 +1436,7 @@ ok(t4.includes('屋子还没搬进来'), '明说屋子还没搬进来　—— �
 console.log('\n── 进屋 ──')
 await tapPlot('ayun')
 await 等取完('pages/villager/index')
-await p.getByText('去他家坐坐', { exact: true }).click()
+await p.getByText('去家里坐坐', { exact: true }).click()
 await p.waitForTimeout(2500)
 const r2 = await p.evaluate(() => {
   const cv = document.querySelector('canvas')
@@ -1710,7 +1624,7 @@ await open('pages/natal/index')
 await p.evaluate(() => globalThis.__router.current().setData({ mode: 'form' }))
 await p.waitForTimeout(300)
 
-await p.getByText('坤/F').click()
+await p.getByText('女').click()
 await p.waitForTimeout(200)
 const g = await p.evaluate(() => {
   const pg = globalThis.__router.current()
@@ -1722,7 +1636,7 @@ const g = await p.evaluate(() => {
 })
 ok(g.值 === 'F', '点「坤/F」写进了 form.gender', String(g.值))
 ok(g.假键.length === 0, '没造出名字里带点的假键', g.假键.join(' ') || '一个都没有')
-ok(g.选中 === '坤/F', '亮起来的正是「坤/F」　—— 值写对了但渲染没跟上也是白搭', g.选中 || '一个都没亮')
+ok(g.选中 === '女', '亮起来的正是「坤/F」　—— 值写对了但渲染没跟上也是白搭', g.选中 || '一个都没亮')
 
 /* 真填那个选择器,不绕过它调 handler ——
    picker 曾被渲成一个点不动的方块,而绕过去调 handler 的检查照样是绿的。
@@ -1760,14 +1674,14 @@ if (有时间选择器) {
 }
 
 // 性别那两格：「坤/F」验过了，「乾/M」没有 —— 它们是两个 handler
-await p.getByText('乾/M').click()
+await p.getByText('男').click()
 await p.waitForTimeout(200)
 const gm = await p.evaluate(() => ({
   值: globalThis.__router.current().data.form.gender,
   选中: [...document.querySelectorAll('.seg-item.on')].map((e) => e.textContent.trim()).join(' '),
 }))
-ok(gm.值 === 'M', '点「乾/M」写进了 form.gender', String(gm.值))
-ok(gm.选中 === '乾/M', '亮起来的正是「乾/M」', gm.选中 || '一个都没亮')
+ok(gm.值 === 'M', '点「男」写进了 form.gender', String(gm.值))
+ok(gm.选中 === '男', '亮起来的正是「男」', gm.选中 || '一个都没亮')
 
 // 备注那一栏走 bindinput，跟上面几个不是一条路
 const lab = p.locator('.field-input').first()
@@ -1920,7 +1834,7 @@ await p.evaluate(() => {
   const orig = pg.setData.bind(pg)
   pg.setData = (patch) => { if (patch && patch.mode) globalThis.__modes.push(patch.mode); return orig(patch) }
 })
-await p.getByText('纳吉', { exact: true }).click()
+await p.getByText('问一件事', { exact: true }).click()
 ok((await p.evaluate(() => globalThis.__modes))[0] === 'spinning',
    '点下去立刻开始转　—— 这一下不等后端,是给人的即时反馈',
    (await p.evaluate(() => globalThis.__modes)).join(' → ') || '一次都没变')
@@ -1968,7 +1882,7 @@ if (API) {
      所以这里等的是路由变了，不是这一页的 mode 变成 result。 */
   await open('pages/home/index')
   await p.waitForTimeout(500)
-  await p.getByText('纳吉', { exact: true }).click()
+  await p.getByText('问一件事', { exact: true }).click()
   await p.waitForFunction(
     () => globalThis.__router.current().__route === 'pages/ask/index'
       && globalThis.__router.current().data.mode === 'result',
@@ -2090,10 +2004,13 @@ const look = await p.evaluate(() => {
   }
 })
 ok(look.左留白 > 10, 'app.wxss 生效了　—— .page 的左右留白来自它', look.左留白 + 'px')
-ok(look.墨色 === '#1a1a1c', '`page` 上的颜色变量映到了根元素', look.墨色 || '落空了')
-// 钉住设计色本身。只问「透不透明」的话,浏览器默认那个灰底 #efefef
-// 照样算过 —— 而那正是 app.wxss 没生效时的样子(变异测出来的)
-ok(look.按钮底 === 'rgb(26, 26, 28)', '按钮是设计里那个墨色填底', look.按钮底)
+/* 0830 版换了整套色板 —— 这两条钉的是【当前设计色】，改设计就要改这里。
+   它们钉的东西没变:样式真的生效了。落空的 `var()` 不报错，
+   页面只是「素了点」，而那种失效长得跟设计一模一样。 */
+ok(look.墨色 === '#2B2620', '`page` 上的颜色变量映到了根元素', look.墨色 || '落空了')
+// 只问「透不透明」的话,浏览器默认那个灰底 #efefef 照样算过 ——
+// 而那正是 app.wxss 没生效时的样子(变异测出来的)
+ok(look.按钮底 === 'rgb(255, 154, 60)', '主按钮是 0830 的琥珀', look.按钮底)
 
 // ⑪-b 一条完整用例 · 我 → 铺 → 一件 ────────────────────────────
 /* 「所有资源都要有出入口」：商品详情原先只有问签那张推荐卡一个入口，
@@ -2299,8 +2216,8 @@ console.log('\n── 一屏放得下吗（iPhone SE · 内容区 597）──')
         c.setData({ who: Object.assign({}, c.data.who, { at_home: false }),
                     sells: false, canEnter: false, err: '' })
       },
-      凭据: '请他来',
-      为什么: '没请回来时只有「请他来」，住着时是问事 / 去他家 / 她卖的' },
+      凭据: '请回家',
+      为什么: '没请回来时只有「请回家」，住着时是问事 / 去家里 / 她卖的' },
   ]
   for (const 态 of 多形态) {
     const 名 = 态.页.replace('pages/', '').replace('/index', '')
@@ -2413,7 +2330,7 @@ if (!API) {
 
     /* 「买」现在先去确认那一屏（REDESIGN.md R5 · P2），建单挪到了那里。
        中间这一屏要问三件事：几件、寄到哪、要不要留句话。 */
-    await p.getByText('请他来', { exact: true }).click()
+    await p.getByText('请回家', { exact: true }).click()
     await p.waitForFunction(
       () => globalThis.__router.current().__route === 'pages/confirm/index',
       null, { timeout: 15000 },
@@ -2717,7 +2634,8 @@ if (!API) {
      **不点任何东西就看得见**。 */
   await p.waitForTimeout(700)
   const 明细 = await text()
-  ok(明细.includes('I D') && 明细.includes('平 台'),
+  // 0830:标签里的疏排空格收掉了（「I D」「平 台」是 v1 的排版手法）
+  ok(明细.includes('ID') && 明细.includes('平台'),
      '账号那五行不用点就在 —— 念给客服听的东西不该再藏一层', 明细.slice(0, 40))
   await open('pages/me/index')
 
@@ -2942,7 +2860,7 @@ if (tabs) {
   if (await p.evaluate(() => !!globalThis.__router.current().data.summary)) {
     const 就在这屏 = await p.evaluate(() => {
       const 文 = (document.getElementById('app').innerText || '')
-      return { 有罗盘: 文.includes('纳吉'), 还在这页: globalThis.__router.current().__route }
+      return { 有罗盘: 文.includes('问一件事'), 还在这页: globalThis.__router.current().__route }
     })
     ok(就在这屏.有罗盘 && 就在这屏.还在这页 === 'pages/home/index',
        '有本命时，罗盘就在我家这一屏上　—— 问不再是一个地方，不用再跳一次',
@@ -3368,6 +3286,113 @@ for (const m of missed) {
 }
 if (真漏的.length === 0 && missed.length) {
   console.log('    （这几条的接口那一侧由 scripts/verify-semantics.sh 的 O 段用真数据验）')
+}
+
+
+/* ── 冷启动那两条,放在最后 ─────────────────────────────────────
+   它们各开一个 context 且【不 close】(close 会把主页面一起带走),
+   而不 close 的 context 会拖垮后面的主流程 —— 实测:放在开头时
+   主流程跑 28 条就崩,旁路掉能跑 203 条。放到最后,两个毛病都躲开。
+
+   放最后不影响它们要验的东西:窗口是【注入延迟】造出来的,
+   不靠「浏览器还冷」。 */
+/* ── 冷启动那一下，登录不许被自己人清掉 ───────────────────────
+   （SKIP_COLD=1 可临时旁路 —— 用来定位它跟主流程的相互影响） 
+   匿名登录是异步的，页面 onShow 抢在它前面就发了一轮请求，那一轮必然 401。
+   而 401 的处理曾经是无条件 `storage.clearAll()` —— 于是：
+
+     ① 页面发 /v1/village（这时还没 token）
+     ② 登录回来，写下 token
+     ③ ①那一条回 401 → clearAll → 刚写下的 token 没了
+
+   成不成看 ②③ 谁先回来，所以它飘。2026-08-29 量到过：连开两页，
+   二十五次里十二次登录完还是没 token —— 而症状是村民、订单、册子
+   三页一起「跳过」，报出来像是后端没数据。
+
+   要新开一个上下文才验得到：这一趟跑到这儿早就登录过了，
+   而这个 bug 只在【第一次登录】那几百毫秒里存在。 */
+if (API && !process.env.SKIP_COLD) {
+  const 新 = await b.newContext({ viewport: { width: 375, height: 667 } })
+  const 冷 = await 新.newPage()
+  await 冷.addInitScript((base) => { globalThis.__API_BASE = base }, API)
+  /* 慢下来的是【页面抢先发的那一轮】，不是登录。**不是伪造** ——
+     这个窗口本来就存在（匿名登录是异步的，页面 onShow 抢在它前面），
+     慢网络上它每次都会张开。
+
+     方向要对：坏的那一版是「401 回来时把已经写下的 token 清掉」，
+     所以得让 401 【晚于】登录。头一版反过来延迟了登录，于是 401 更早、
+     那时 token 还没写、清了也没影响 —— 一条永远绿的断言。
+
+     靠自然时序去撞的话命中率约一半，而一半时间说谎的门禁比没有更糟：
+     跑到这儿时浏览器已经热了，连撞五次都撞不上。 */
+  for (const 路 of ['**/v1/village', '**/v1/incense']) {
+    await 冷.route(路, async (r) => {
+      await new Promise((res) => setTimeout(res, 600))
+      await r.continue()
+    })
+  }
+  try {
+    const 去 = (r) => 冷.goto(BASE + '/index.html?' + new URLSearchParams({ page: r }))
+    await 去('pages/village/index')
+    const 读 = () => 冷.evaluate(() => !!localStorage.getItem('unmei:buwanren:token')).catch(() => false)
+    // 先等它【出现】
+    let 出现过 = false
+    for (let k = 0; k < 25 && !出现过; k++) {
+      出现过 = await 读()
+      if (!出现过) await 冷.waitForTimeout(200)
+    }
+    /* 再等那两条被拖住的请求回来。要问的是「它【还在】吗」，不是「它出现过吗」——
+       清空发生在 401 回来那一刻，而那在 token 写下之后。
+       只等「出现」的话，读到就 break，正好赶在被清掉之前，
+       于是一条永远绿的断言。 */
+    await 冷.waitForTimeout(1500)
+    const 还在 = await 读()
+    ok(出现过 && 还在,
+       '登录写下的 token，不会被抢在它前面那一轮 401 清掉',
+       出现过 ? (还在 ? '' : '它出现过，然后被清掉了')
+              : '登录压根没写下 token'
+       + '　·　localStorage 里：' + await 冷.evaluate(() => Object.keys(localStorage).join(' ') || '空的').catch(() => '问不到'))
+  } finally {
+    /* **不 close 这个 context。** 关它会把主页面一起带走 ——
+       随后主流程第一个 open() 报「browser has been closed」，
+       而报出来的位置在 open 里，看着像那一页的问题。
+       脚本结束时 browser.close() 会一并收走，泄漏不了多久。 */
+  }
+}
+
+/* ── 冷启动那一下，页面得【等得到】登录 ─────────────────────────
+   同一个窗口的另一半：页面 onLoad/onShow 立刻取数，赶在 token 前面拿 401 ——
+   要紧的不是那一次 401，是**之后再也不取**：那一屏就写着「取不到」停在那儿，
+   刷新一下又好了，于是用户觉得这 app 时好时坏。
+
+   `app.ts` 登录完会给页面栈广播 `onAuthReady`，页面接住重取一次就对了。
+   `scripts/check-auth-ready.py` 核的是「有没有那个处理器」；
+   这里跑一遍真的冷启动，看那机制到底转不转。
+
+   拿徽章那一页验：它不要参数，而且空着也说得出话。 */
+if (API && !process.env.SKIP_COLD) {
+  const 新2 = await b.newContext({ viewport: { width: 375, height: 667 } })
+  const 冷2 = await 新2.newPage()
+  await 冷2.addInitScript((base) => { globalThis.__API_BASE = base }, API)
+  // 把登录拖慢,保证页面那一次取数【一定】赶在 token 前面
+  await 冷2.route('**/v1/auth/anonymous', async (r) => {
+    await new Promise((res) => setTimeout(res, 700))
+    await r.continue()
+  })
+  try {
+    await 冷2.goto(BASE + '/index.html?' + new URLSearchParams({ page: 'pages/badges/index' }))
+    // 等到登录落地之后再看:重取该在这之后发生
+    await 冷2.waitForTimeout(2500)
+    const 屏 = await 冷2.evaluate(() => {
+      const d = globalThis.__router.current().data
+      return { err: d.err || '', 还在转: !!d.loading, 有货: (d.items || []).length }
+    }).catch((e) => ({ err: '问不到：' + String(e), 还在转: false, 有货: 0 }))
+    ok(!屏.err && !屏.还在转,
+       '登录慢的时候开一页，它等得到登录再取　—— 不是停在「取不到」',
+       屏.err ? `停在错误态：${屏.err}` : (屏.还在转 ? '一直转着，没重取' : ''))
+  } finally {
+    // 同上:不 close，否则主页面跟着没
+  }
 }
 
 console.log('')

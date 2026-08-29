@@ -1,6 +1,5 @@
 <view class="page">
   <view class="hd">
-    <view class="eyebrow">BUWANREN · ME</view>
     <view class="title">我的</view>
   </view>
 
@@ -37,7 +36,7 @@
     </view>
   </view>
 
-  <view class="say">铺子不在这里 —— 东西长在卖它的人身上</view>
+  <view class="say">想请谁回家，去村子里挑</view>
 
   <!-- 最近一笔。没有的时候不留白，指出「哪儿能有」 -->
   <view class="recent-k">最近一笔</view>

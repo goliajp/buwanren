@@ -110,7 +110,7 @@ interface VillageData {
   codeBusy: boolean
   /** 某位今天说的一句（设计册 V1）。null = 村里还没人，这一块整个不摆。
    *  它会改画布的可用高度 —— 从无到有那天要重算，见 `fitCanvas` */
-  says: null | { villager_id: string; name: string; title: string | null; art: string | null; text: string }
+  says: null | { villager_id: string; name: string; title: string | null; art: string | null; text: string; face: string }
   /** 正在找那一位的御守 —— 找的时候按钮换个字，别让人以为没反应 */
 }
 
@@ -181,7 +181,12 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
         /* 「今天说的一句」跟「该扫了」一样会改可用高度 —— 村里第一个人
            住进来那天它从无到有，画布得跟着让位。只看 toScan 变没变的话，
            那一天整屏会被顶出去 88px。 */
-        const 说的 = v.today_says || null
+        /* 头像的占位:姓名末字。没有美术之前不假装有立绘 ——
+           但「有人在跟你说话」得一眼成立,纯文字做不到。
+           等 40 张头像画好,这一行换成图片地址即可,版式不动。 */
+        const 说的 = v.today_says
+          ? { ...v.today_says, face: v.today_says.name.slice(-1) }
+          : null
         const 变了 = 该扫 !== this.data.toScan || !!说的 !== !!this.data.says
         this.setData({ lived: v.found, total: v.total, err: '', toScan: 该扫, says: 说的 })
         if (变了 && this.data.cssW) { this.fitCanvas(); this.mount() }
@@ -219,12 +224,14 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
        症状是「多一条就超出去几十像素」，而那几十像素正好等于差值。 */
     const 头部 = 70
     const 提示条 = this.data.toScan ? 56 : 0
-    /* 「某位今天说的一句」那四行，实测 104px。跟头部同一个道理：写死，
+    /* 「某位今天说的一句」那一块，实测 90px。跟头部同一个道理：写死，
        **改那一块的版式就要改这个数**。它是条件出现的（空村时没有），
        所以跟提示条一样要参与重算，否则村里第一个人住进来那天，
        多出来的那一块会把整屏顶出去。 */
-    const 说的 = this.data.says ? 104 : 0
-    const 可用 = win.windowHeight - 头部 - 提示条 - 说的
+    const 说的 = this.data.says ? 90 : 0
+    /* 收集进度条常驻,固定 34px。它不是弹性槽 —— 核心反馈不许在矮屏上消失 */
+    const 进度条 = 34
+    const 可用 = win.windowHeight - 头部 - 提示条 - 说的 - 进度条
     const 等比 = Math.round((win.windowWidth * VILLAGE_SIZE.h) / VILLAGE_SIZE.w)
     const cssH = Math.min(等比, Math.max(120, 可用))
     const cssW = Math.round((cssH * VILLAGE_SIZE.w) / VILLAGE_SIZE.h)

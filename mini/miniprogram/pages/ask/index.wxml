@@ -92,9 +92,12 @@
   <!-- 直接开这一页、又没带签进来时，说清楚，并给一条出去的路。
        空状态永远带出口（设计 10.7）。 -->
   <block wx:if="{{!result && mode !== 'spinning'}}">
-    <view class="empty-t">还没有这一卦</view>
-    <view class="empty-sub">卦在我家转 —— 转完就回到这一页</view>
-    <button class="btn" bindtap="goHome">去我家转一下</button>
+    <view class="empty-state">
+      <view class="empty-art">签</view>
+      <view class="empty-t">今天还没问过</view>
+      <view class="empty-s">想清楚一件事，去转一下</view>
+      <button class="btn" bindtap="goHome">去转一下</button>
+    </view>
   </block>
 
 </view>

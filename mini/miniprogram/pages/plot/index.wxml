@@ -1,20 +1,15 @@
 <view class="page">
-  <view class="hd">
-    <view class="name">这间空着</view>
-    <view class="title">等人</view>
-  </view>
-
-  <view class="body">
-    <view class="line">谁会搬进来？还不知道 —— 得先有人愿意来。</view>
-    <!-- 不说是谁的：还没请回来的人，连名字都还不该知道 -->
-    <view class="line dim">这一格的主人还没露面。请回来那天，你才会知道他是谁。</view>
-  </view>
-
-  <view class="acts">
+  <!-- 0830:这一屏是【收集欲的来源】—— 一格空着、不告诉你是谁。
+       原先它是一段贴在顶上的文字，下面三分之二空着。
+       现在居中，给一个虚线的空位子:那个「?」就是这一格的全部内容。 -->
+  <view class="empty-state">
+    <view class="empty-art plot-art">?</view>
+    <view class="empty-t">这间空着</view>
+    <view class="empty-s">谁会搬进来？还不知道</view>
+    <!-- 不说是谁的：还没请回来的人，连名字都还不该知道。
+         也不带代词 —— 四十位里男女都有 -->
+    <view class="empty-s dim">请回来那天，你才会知道</view>
     <button class="btn" bindtap="goInvite">看看谁能来</button>
-  </view>
-
-  <view class="cta">
-    <button class="btn ghost" bindtap="onBack">回村里</button>
+    <view class="back" bindtap="onBack">回村里</view>
   </view>
 </view>

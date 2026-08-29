@@ -11,6 +11,8 @@ export interface Badge {
   code: string
   name: string
   description?: string | null
+  /** 圆牌上那一个字。六枚要一眼分得开，所以它是单独的一列而不是取名字的首字 */
+  glyph?: string | null
   icon_url?: string | null
   points: number
   earned: boolean

@@ -1,6 +1,6 @@
 .hd { padding: 24rpx 0 20rpx; }
 .hd .eyebrow { margin-bottom: 20rpx; }
-.hd .title { font-size: 108rpx; line-height: 1; margin: 8rpx 0 12rpx; }
+.hd .title { font-size: 56rpx; line-height: 1; margin: 8rpx 0 12rpx; }
 
 /* 那一句。设计册 M1 上它单独占一行，是这一屏唯一一句「说话」的地方 */
 .say {
@@ -15,16 +15,16 @@
   padding: 16rpx 4rpx 12rpx;
   font-size: 22rpx;
   color: var(--stone-label);
-  letter-spacing: 0.18em;
+  letter-spacing: 0.02em;
 }
 .recent {
   background: var(--paper-panel);
-  border: 1rpx solid var(--stone-line-x);
-  border-radius: 8rpx;
+  box-shadow: var(--sh-card);
+  border-radius: 16rpx;
   padding: 24rpx 28rpx;
 }
 .recent-title {
-  font-family: "Songti SC", serif;
+  font-weight: 600;
   font-size: 34rpx;
   color: var(--ink);
   margin-bottom: 10rpx;
@@ -42,7 +42,7 @@
 /* 取不到 ≠ 没有。这一档只说一句，不摆出「还没买过」那副样子 */
 .recent.muted { background: transparent; border-style: dashed; opacity: .7; }
 
-.slot-k { font-size: 22rpx; color: var(--stone-label); letter-spacing: 0.24em; }
+.slot-k { font-size: 22rpx; color: var(--stone-label); letter-spacing: 0.02em; }
 .slot-v { flex: 1; margin-left: 20rpx; font-size: 24rpx; color: var(--ink-mid); }
 
 /* .flexslot 全局只有一条「矮屏收起」的规则，没有排版 —— 这一屏自己排。
