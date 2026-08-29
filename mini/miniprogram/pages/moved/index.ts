@@ -18,13 +18,15 @@ interface IData {
   id: string
   /** 圆牌里那个字。没有美术之前用姓名末字 —— 跟村子、名册同一套占位 */
   face: string
+  /** 他劝你的方向 —— 脸的底色按它挑，四处要一样 */
+  direction: string
   /** 收集进度。这一刻最实在的奖励是那个数往上跳一格 */
   lived: number
   total: number
 }
 
 Page<IData, WechatMiniprogram.IAnyObject>({
-  data: { name: '', isNew: true, id: '', face: '', lived: 0, total: 0 },
+  data: { name: '', isNew: true, id: '', face: '', direction: '', lived: 0, total: 0 },
 
   onLoad(q: Record<string, string | undefined>) {
     const name = q.name || '他'
@@ -33,6 +35,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
       face: name.slice(-1),
       isNew: q.n !== '0',
       id: q.id || '',
+      direction: q.dir || '',
     })
     /* 收集数从服务端取 —— 不从上一页带过来。带过来的是【扫之前】那个数，
        而这一屏要显示的正是「多了一位之后」。差一个人，

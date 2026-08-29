@@ -94,6 +94,8 @@ export interface ScanReq extends Record<string, unknown> {
 export interface ScanResult {
   villager_id: string
   villager_name: string | null
+  /** 他劝你的方向（`lack_bias`）—— 「他住进来了」那一屏拿它给脸上色 */
+  direction: string | null
   /** 重复扫不是错误,但界面要说得不一样:
       第一次是「他住进来了」,第二次是「他早就在了」 */
   moved_in: boolean

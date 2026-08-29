@@ -18,8 +18,10 @@
   position: relative; z-index: 2;
   width: 200rpx; height: 200rpx; border-radius: 999rpx;
   display: flex; align-items: center; justify-content: center;
-  font-size: 86rpx; font-weight: 700; color: #8A5A1E;
-  background: linear-gradient(150deg, var(--amber-lite), #FFC489);
+  font-size: 86rpx; font-weight: 700;
+  /* 底色与字色不写在这儿 —— 页面样式在 app.wxss 之后加载，
+     写了就把 `.face-<方向>` 盖掉，而症状是「这个人在这一屏是另一个颜色」。
+     默认色跟其余三处一起摆在 app.wxss 的 `.says-face, .item-face, .face, .glyph` 里。 */
   box-shadow: 0 0 0 16rpx rgba(255,154,60,.14), 0 12rpx 40rpx rgba(232,121,26,.34);
 }
 .is-new .glyph { animation: pop .62s cubic-bezier(.34,1.56,.64,1) both; }
