@@ -37,10 +37,16 @@ interface IData {
   lack: string
   /** 取用神失败与「还没建本命」是两件事，分开说 */
   lackErr: string
+  /** 为什么是这几位 —— 后端给的那条理由。没按用神排过就是空的 */
+  why: string
+  /** 只看在卖的（设计册 V4 弹性槽）。默认关着 —— 四十位都列出来是刻意的 */
+  onlyOnSale: boolean
+  /** 在卖的有几位。0 就不摆那一条：没得挑时给一个筛选是句空话 */
+  saleCount: number
 }
 
 Page<IData, WechatMiniprogram.IAnyObject>({
-  data: { loading: true, err: '', items: [], page: [], pageNo: 0, pageCount: 0, lack: '', lackErr: '' },
+  data: { loading: true, err: '', items: [], page: [], pageNo: 0, pageCount: 0, lack: '', lackErr: '', why: '', onlyOnSale: false, saleCount: 0 },
 
   /* 无条件取，不拿 token 当守卫 —— 跟村主屏一致。
      带守卫的写法在【还没登录】时什么都不做，页面就一直停在「取着……」，
@@ -54,20 +60,25 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     this.load()
   },
 
-  load() {
-    this.loadLack()
+  /* 先问用神，再取名册。
+     两件事并行看着快一点，但那样名册是【没按用神排过】的，而顶上那句
+     「你缺 X，下面这几位跟你补得上」照样会说出来 —— 说了一个还没发生的因果。
+     慢那一个来回，换这一屏说的话是真的。 */
+  async load() {
     this.setData({ loading: true, err: '' })
-    villageApi.all().then(
+    const 用神 = await this.loadLack()
+    villageApi.all(用神).then(
       (list: VillagerCard[]) => {
-        /* 在卖的排前面。**不是把没上架的藏起来** —— 它们照样在册上，
-           只是排在后面：一页五位，前几页是真能请的，翻下去是还没上架的。 */
-        const 排 = [...list].sort((a, b) => {
-          const s = (v: VillagerCard) => (v.omamori_product_id ? 0 : 1)
-          return s(a) - s(b) || a.id.localeCompare(b.id)
-        })
+        /* 顺序由后端定 —— 按用神排要用 `lack_bias` × `yongshen_bias`
+           两张表，那是领域判断，不该在页面里抄一份（抄一份就会漂）。
+           不传用神时它退回原来的规矩：在卖的排前面，再按 id。 */
         this.setData({
           loading: false,
-          items: 排.map((v) => ({
+          /* 顶上那句的理由，用【头一位的】那条 —— 它是主方向那一条。
+             没按用神排过时后端给 null，这一句就不说（设计册 10.8）。 */
+          why: (list[0] && list[0].why) || '',
+          saleCount: list.filter((v) => v.omamori_product_id).length,
+          items: list.map((v) => ({
             id: v.id,
             name: v.name,
             sub: [v.title, v.art].filter(Boolean).join(' · '),
@@ -81,8 +92,18 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     )
   },
 
+  /** 这一趟看得见的那些。开着「只看在卖的」就只剩能请的几位 */
+  看得见() {
+    const { items, onlyOnSale } = this.data
+    return onlyOnSale ? items.filter((x) => x.onSale) : items
+  },
+
+  onToggleOnSale() {
+    this.setData({ onlyOnSale: !this.data.onlyOnSale }, () => this.gotoPage(0))
+  },
+
   gotoPage(n: number) {
-    const { items } = this.data
+    const items = this.看得见()
     const count = Math.max(1, Math.ceil(items.length / 每页))
     const no = Math.min(Math.max(0, n), count - 1)
     this.setData({
@@ -97,15 +118,17 @@ Page<IData, WechatMiniprogram.IAnyObject>({
 
   /* 顶上那句「你缺 X，这几位跟你补得上」。
      没本命就不说这句 —— 不编一个理由出来。 */
-  async loadLack() {
+  /** 返回用神（五行单字）—— 名册要按它排，所以取回来给调用方 */
+  async loadLack(): Promise<string | undefined> {
     const nid = getApp<IAppOption>().globalData.activeNatalId
     if (!nid) {
       this.setData({ lack: '', lackErr: '' })
-      return
+      return undefined
     }
     try {
       const s = await natalApi.summary(nid)
       this.setData({ lack: s.primary_yongshen, lackErr: '' })
+      return s.primary_yongshen || undefined
     } catch (e) {
       const err = e as ApiError
       if (err.status === 404 || err.status === 403) {
@@ -114,6 +137,8 @@ Page<IData, WechatMiniprogram.IAnyObject>({
         // 取不到用神不该让整页失败 —— 挑人这件事不依赖它
         this.setData({ lack: '', lackErr: '一时取不到你缺的那一样' })
       }
+      // 取不到用神就不按它排 —— 名册照原来的规矩来，那句话也就不说
+      return undefined
     }
   },
 

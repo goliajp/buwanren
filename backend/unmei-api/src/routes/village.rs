@@ -219,13 +219,48 @@ async fn today_says(
     }))
 }
 
-async fn all_villagers(State(st): State<AppState>) -> Result<Json<J>, ApiError> {
+#[derive(serde::Deserialize)]
+struct 名册参数 {
+    /// 按谁的用神排。传五行单字（木火土金水）；不传就按原来的规矩排
+    #[serde(default)]
+    r#for: Option<String>,
+}
+
+async fn all_villagers(
+    State(st): State<AppState>,
+    axum::extract::Query(q): axum::extract::Query<名册参数>,
+) -> Result<Json<J>, ApiError> {
     let rows = sqlx::query(
-        "SELECT v.id, v.name, v.title, a.name AS art_name, v.rarity \
-         FROM villager v LEFT JOIN art a ON a.key = v.art_key ORDER BY v.id",
+        "SELECT v.id, v.name, v.title, a.name AS art_name, v.rarity, v.lack, b.direction \
+         FROM villager v \
+         LEFT JOIN art a ON a.key = v.art_key \
+         LEFT JOIN lack_bias b ON b.lack = v.lack \
+         ORDER BY v.id",
     )
     .fetch_all(&st.db)
     .await?;
+
+    /* 「你缺 X，下面这几位跟你补得上」—— 这句话得【真的】排过才说得出口。
+       在这之前它是假的:那一页顶上写着它,而排序只按「在卖的排前面、
+       然后按 id」,跟用神一点关系都没有（设计册 10.8:不下没有来源的断言）。
+
+       两头本来就接得上:
+         `lack_bias`      村民缺什么 → 他反过来劝你哪个方向
+         `yongshen_bias`  你的用神   → 你需要哪个方向
+       中间那张表 2026-08-30 才补上。 */
+    let 想要的: std::collections::HashMap<String, (i16, String)> = match q.r#for.as_deref() {
+        Some(w) if !w.is_empty() => sqlx::query(
+            "SELECT direction, rank, note FROM yongshen_bias WHERE wuxing = $1",
+        )
+        .bind(w)
+        .fetch_all(&st.db)
+        .await?
+        .iter()
+        .map(|r| (r.get::<String, _>("direction"),
+                  (r.get::<i16, _>("rank"), r.get::<String, _>("note"))))
+        .collect(),
+        _ => Default::default(),
+    };
 
     /* 哪一位的御守【真的在卖】。设计册 10.8 那条：
        「没上架的也列出来，写『未上架』—— 四十位里只有四位在卖，
@@ -248,12 +283,22 @@ async fn all_villagers(State(st): State<AppState>) -> Result<Json<J>, ApiError> 
     .map(|r| (r.get::<String, _>("villager_id"), r.get::<String, _>("product_id")))
     .collect();
 
-    Ok(Json(json!(rows
+    let mut out: Vec<(i16, u8, String, J)> = rows
         .iter()
         .map(|r| {
             let id: String = r.get("id");
             let pid = 在卖.get(&id).cloned();
-            json!({
+            let dir: Option<String> = r.get("direction");
+            // 主(1) 次(2) 其余(9)。没传用神时全是 9，排序就退回原来的规矩
+            let (名次, 为什么) = dir
+                .as_ref()
+                .and_then(|d| 想要的.get(d))
+                .map(|(n, note)| (*n, Some(note.clone())))
+                .unwrap_or((9, None));
+            (名次,
+             if pid.is_some() { 0 } else { 1 },   // 在卖的排前面（原来的规矩）
+             id.clone(),
+             json!({
                 "id": id,
                 "name": r.get::<String, _>("name"),
                 "title": r.get::<Option<String>, _>("title"),
@@ -261,9 +306,18 @@ async fn all_villagers(State(st): State<AppState>) -> Result<Json<J>, ApiError> 
                 "rarity": r.get::<Option<String>, _>("rarity"),
                 // 有就是那件商品的 id；没有就是 null —— 客户端据此写「未上架」
                 "omamori_product_id": pid,
-            })
+                "lack": r.get::<String, _>("lack"),
+                /* 为什么这一位排在前面。**没排过就是 null** ——
+                   客户端据此决定说不说那句「跟你补得上」，
+                   而不是不管三七二十一都说一遍。 */
+                "why": 为什么,
+             }))
         })
-        .collect::<Vec<_>>())))
+        .collect();
+    // 主 → 次 → 在卖 → id。每一层都定死,不留「看行序」的余地
+    out.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)).then(a.2.cmp(&b.2)));
+
+    Ok(Json(json!(out.into_iter().map(|(_, _, _, v)| v).collect::<Vec<_>>())))
 }
 
 // ─── 问签 ────────────────────────────────────────────────────────

@@ -242,6 +242,7 @@ fi
 if ! pg_isready -h localhost -p 6032 >/dev/null 2>&1; then
   skip "枚举跟库里的 CHECK 对得上吗" "Postgres（:6032）没起，跳过 —— 这一项【没验】"
   skip "在售的东西给得出吗" "同上"
+  skip "每个用神都指得着人吗" "同上"
 else
   gate "枚举跟库里的 CHECK 对得上吗" . env \
     PSQL_URL='postgres://unmei:unmei_dev_pwd@localhost:6032/unmei' \
@@ -252,6 +253,11 @@ else
   gate "在售的东西给得出吗" . env \
     PSQL_URL='postgres://unmei:unmei_dev_pwd@localhost:6032/unmei' \
     python3 scripts/check-listed-deliverable.py
+  # 「你缺 X，下面这几位跟你补得上」那句话的依据。写错一个方向名这条链就断,
+  # 而断了【不报错】—— 匹配不到人,排序悄悄退回原样,那句话跟着变成假话。
+  gate "每个用神都指得着人吗" . env \
+    PSQL_URL='postgres://unmei:unmei_dev_pwd@localhost:6032/unmei' \
+    python3 scripts/check-yongshen-bias.py
 fi
 # ── 下面这几支 2026-08-25 之前【只在 CI 的 backend.yml 里跑】 ─────────
 # 删 CI 那天差点跟着一起没了。「只在 CI 里跑过」的东西最容易这样消失:
