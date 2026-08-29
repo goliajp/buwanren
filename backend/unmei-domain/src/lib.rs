@@ -193,6 +193,9 @@ pub struct BadgePublic {
     pub code: String,
     pub name: String,
     pub description: Option<String>,
+    /// 圆牌上那一个字。原先取名字的首字，而「一个月」和「一百次」都取到「一」——
+    /// 六枚里两枚长得一样。一个字是设计资产，不该由名字碰巧决定
+    pub glyph: Option<String>,
     pub icon_url: Option<String>,
     pub points: i32,
     pub earned: bool,

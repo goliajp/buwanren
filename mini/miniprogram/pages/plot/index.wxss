@@ -1,8 +1,8 @@
 .page { padding: 32rpx 40rpx 40rpx; }
 .name { font-size: 48rpx; font-weight: 700; }
-.title { font-size: 26rpx; color: #767676; margin-top: 8rpx; }
+.title { font-size: 26rpx; color: var(--ink-faint); margin-top: 8rpx; }
 .body { margin-top: 48rpx; }
 .line { font-size: 28rpx; line-height: 1.7; }
-.dim { color: #767676; margin-top: 20rpx; }
+.dim { color: var(--ink-faint); margin-top: 20rpx; }
 .acts { margin-top: 56rpx; }
 .cta { margin-top: 48rpx; }

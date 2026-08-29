@@ -1,38 +1,73 @@
 /*
- * 不完人 · 全局样式
- * 铁墨 + 冷灰纸 + 朱砂章 · 五行五色
- * palette 见 README · Songti/PingFang/SF Mono 系统栈,不加载外部字体
+ * 不完人 · 全局样式 · 0830 版
+ *
+ * 换掉了整套「宣纸 + 墨 + 石碑 + 朱印」。那四样加起来在说
+ * 「我很古老、我很神秘」，而这个产品要说的是「有人在等你回来」。
+ * 参照:星露谷物语 / 旅行青蛙 / 动物森友会 —— 暖、圆、有生气。
+ * 设计依据见 .claude/design/product-0830.html
+ *
+ * 变量名暂时沿用旧名(--paper/--ink/...)以免一次动全部页面;
+ * 值全部换过。改名列在 0830 落地清单 A 批的后半。
  */
 
 page {
-  --paper:         #f0ede7;
-  --paper-inset:   #e8e5df;
-  --paper-panel:   #ffffff;
-  --ink:           #1a1a1c;
-  --ink-mid:       #4c4d52;
-  --ink-faint:     #85858c;
-  --stone-line:   #d8d5cf;
-  --stone-line-x: #e5e2dc;
-  --stone-label:  #a29e97;
-  --stamp:        #a83428;
+  /* 底与面 —— 从「旧纸」换成「被灯照着的白」:明度 92 带灰 → 99 带暖 */
+  --paper:         #FFFCF6;
+  --paper-inset:   #F6F0E6;
+  --paper-panel:   #FFFFFF;
+  /* 字 —— 暖黑而非纯黑。纯黑压在暖底上会发脏、显硬 */
+  --ink:           #2B2620;
+  --ink-mid:       #6B6259;
+  --ink-faint:     #A69C90;
+  --stone-line:   #E4DACA;
+  --stone-line-x: #EFE7DA;
+  --stone-label:  #A69C90;
 
-  --wx-mu:        #4d7a56;
-  --wx-huo:       #b8593a;
-  --wx-tu:        #a48260;
-  --wx-jin:       #7a7c85;
-  --wx-shui:      #446080;
+  /* 主色:琥珀。这个产品的核心情绪是「有人在等你回来」,
+     最准的意象是黄昏的灯 —— 紫是这一品类的通用配色,用它等于自认是那一类 */
+  --amber:        #FF9A3C;
+  --amber-deep:   #E8791A;
+  --amber-lite:   #FFE7CC;
+  /* 副色:苔绿 = 村子、住进来了、已完成 */
+  --moss:         #3FAE7A;
+  --moss-lite:    #DFF3E8;
+  /* 甜色:桃粉 = 喜欢、心动、二次元的那点甜 */
+  --peach:        #FF7A8A;
+  --peach-lite:   #FFE4E7;
+  /* 旧名保留:朱印那一处改指琥珀,免得留下一个没人用的红 */
+  --stamp:        #FF9A3C;
+
+  /* 五行提亮。旧的五个压得太暗,木和金在小字号下几乎同色 */
+  --wx-mu:        #57C97E;
+  --wx-huo:       #FF7A5C;
+  --wx-tu:        #E8A33D;
+  --wx-jin:       #8FA4C4;
+  --wx-shui:      #4FA8E8;
+  /* 药丸标签用的浅底/深字 —— 五行不再当文字色,改当标签(对比度稳、色盲友好) */
+  --wx-mu-bg:#E6F7EC;   --wx-mu-fg:#2E8B57;
+  --wx-huo-bg:#FFEDE8;  --wx-huo-fg:#D8543A;
+  --wx-tu-bg:#FDF2DC;   --wx-tu-fg:#B57A15;
+  --wx-jin-bg:#EDF1F8;  --wx-jin-fg:#5C7091;
+  --wx-shui-bg:#E4F2FD; --wx-shui-fg:#2C7FBE;
+
+  /* 圆与影 —— 从「表格」到「东西」 */
+  --r-card: 24rpx;
+  --r-btn:  28rpx;
+  --sh-card: 0 1rpx 4rpx rgba(43,38,32,.05), 0 10rpx 28rpx rgba(43,38,32,.06);
 
   background: var(--paper);
   color: var(--ink);
   font-family: "PingFang SC", "Hiragino Sans GB", "Helvetica Neue", "Helvetica", sans-serif;
   font-size: 28rpx;
-  line-height: 1.55;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
 }
 
+/* 宋体砍了 —— 它是这一版里「古风」最强的单一信号。
+   干支本来就是行话,再套一层古体等于双重门槛。
+   要强调就加字重,不换字族。 */
 .serif {
-  font-family: "Songti SC", "STSong", "SimSun", serif;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 0.02em;
 }
 
@@ -42,22 +77,22 @@ page {
 }
 
 /* label · 微字 uppercase */
+/* 字距从 0.32em 收到 0.1em:大字距是「高冷排版」的标志,
+   而这一版要亲和 */
 .eyebrow {
-  font-family: "Helvetica Neue", "Helvetica", sans-serif;
-  font-size: 20rpx;
-  font-weight: 500;
+  font-size: 21rpx;
+  font-weight: 600;
   color: var(--stone-label);
-  letter-spacing: 0.32em;
-  text-transform: uppercase;
+  letter-spacing: 0.1em;
 }
 
+/* 更小、更重。又大又细不如小一号加粗耐看 */
 .title {
-  font-family: "Songti SC", "STSong", serif;
-  font-size: 52rpx;
-  font-weight: 500;
+  font-size: 46rpx;
+  font-weight: 700;
   color: var(--ink);
-  line-height: 1.1;
-  letter-spacing: 0.02em;
+  line-height: 1.18;
+  letter-spacing: -0.01em;
 }
 
 .subtitle {
@@ -72,37 +107,70 @@ page {
   margin: 24rpx 0;
 }
 
+/* 卡片:圆角 24rpx + 双层暖阴影,不用边框。
+   边框是文档的语言,阴影是物件的语言 */
 .card {
   background: var(--paper-panel);
-  border: 1rpx solid var(--stone-line-x);
-  border-radius: 8rpx;
-  padding: 24rpx 28rpx;
+  border-radius: var(--r-card);
+  padding: 26rpx 28rpx;
+  box-shadow: var(--sh-card);
 }
 
+/* 主按钮:琥珀 + 底部 6rpx 实心深色。
+   那 6rpx 不是阴影,是【厚度】—— 按下去整个按钮下沉、厚度消失,
+   这是游戏按钮的经典做法,也是「有手感」最便宜的一处。 */
 button.btn {
-  background: var(--ink);
-  color: var(--paper);
+  background: var(--amber);
+  color: #fff;
   border: none;
-  border-radius: 4rpx;
-  font-size: 28rpx;
-  letter-spacing: 0.16em;
-  padding: 20rpx 60rpx;
+  border-radius: var(--r-btn);
+  font-size: 30rpx;
+  letter-spacing: 0.02em;
+  padding: 22rpx 56rpx;
   line-height: 1.4;
-  font-weight: 400;
+  font-weight: 600;
+  box-shadow: 0 6rpx 0 var(--amber-deep), 0 10rpx 24rpx rgba(232,121,26,.26);
+  transition: transform .12s cubic-bezier(.34,1.56,.64,1), box-shadow .12s;
 }
 button.btn::after { border: none; }
-button.btn[disabled] { opacity: 0.5; }
+button.btn[disabled] { opacity: 0.45; box-shadow: none; }
+/* 按下去:下沉 6rpx,厚度归零 —— 松手时那条回弹曲线带一点超调 */
+button.btn.btn-hover:not([disabled]) {
+  transform: translateY(6rpx);
+  box-shadow: 0 0 0 var(--amber-deep), 0 4rpx 10rpx rgba(232,121,26,.2);
+}
 
 button.btn.ghost {
-  background: transparent;
-  color: var(--ink-mid);
-  border: 1rpx solid var(--stone-line);
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 4rpx 0 var(--stone-line-x), 0 6rpx 16rpx rgba(43,38,32,.06);
+}
+button.btn.ghost.btn-hover:not([disabled]) {
+  transform: translateY(4rpx);
+  box-shadow: 0 0 0 var(--stone-line-x), 0 3rpx 8rpx rgba(43,38,32,.05);
 }
 
-button.btn.stamp {
-  background: var(--stamp);
-  color: var(--paper);
+button.btn.stamp { background: var(--peach); box-shadow: 0 6rpx 0 #E8596B, 0 10rpx 24rpx rgba(232,89,107,.24); }
+
+/* ── 五行药丸 ──────────────────────────────────────────────
+   五行是【内容标签】,第一要务是一眼分得开。
+   旧做法是拿五行色当文字色 —— 对比度随背景漂,小字号下木和金几乎同色。
+   改成浅底深字的药丸:对比度稳、色盲友好(形状+文字仍可读),
+   而且它把「辛亥」这种行话包装成了看得懂的物件,像游戏里的属性徽章。 */
+.pill {
+  display: inline-block;
+  padding: 4rpx 16rpx;
+  border-radius: 999rpx;
+  font-size: 23rpx;
+  font-weight: 600;
+  line-height: 1.5;
 }
+.pill.mu   { background: var(--wx-mu-bg);   color: var(--wx-mu-fg);   }
+.pill.huo  { background: var(--wx-huo-bg);  color: var(--wx-huo-fg);  }
+.pill.tu   { background: var(--wx-tu-bg);   color: var(--wx-tu-fg);   }
+.pill.jin  { background: var(--wx-jin-bg);  color: var(--wx-jin-fg);  }
+.pill.shui { background: var(--wx-shui-bg); color: var(--wx-shui-fg); }
+.pill.plain{ background: var(--paper-inset); color: var(--ink-mid);   }
 
 /* 五行前景色 · 用 class wx-{五行拼音} 挂大字/chip */
 .wx-mu   { color: var(--wx-mu);   }
@@ -131,14 +199,25 @@ button.btn.stamp {
 
    高度按【触点】定，不按文字定：88rpx = 44px，是能稳稳点中的下限。
    值那一栏可长可短，行高不许跟着变。 */
-.entries { border-top: 1rpx solid var(--stone-line-x); }
+/* 0830:从「一条条横线」改成【圆角分组卡片】。
+   横线是文档的语言 —— 一屏全是横线,读起来像一张表而不是一个 app。
+   卡片一包,行与行之间的分隔线只留在卡片内部,四角圆起来,
+   整块浮在暖底上。这是 iOS 设置那一类的做法,但底色和圆角按这一版的调子。 */
+.entries {
+  background: var(--paper-panel);
+  border-radius: var(--r-card);
+  box-shadow: var(--sh-card);
+  overflow: hidden;
+}
 .entry {
   display: flex;
   align-items: center;
-  min-height: 88rpx;
-  padding: 0 4rpx;
+  min-height: 96rpx;
+  padding: 0 26rpx;
   border-bottom: 1rpx solid var(--stone-line-x);
 }
+/* 最后一行不要分隔线 —— 卡片的下边缘已经在那儿了 */
+.entry:last-child { border-bottom: none; }
 .entry-hover { background: var(--paper-inset); }
 .entry-k {
   flex: none;
@@ -159,8 +238,8 @@ button.btn.stamp {
 .entry-arrow {
   flex: none;
   margin-left: 14rpx;
-  font-size: 30rpx;
-  color: var(--stone-label);
+  font-size: 28rpx;
+  color: var(--stone-line);
 }
 /* 没有下一屏可去的那种：值不是「提示」而是事实，所以颜色跟正文一档，
    也不该有箭头 —— 有箭头而点不动，比没有箭头更糟 */
@@ -183,3 +262,31 @@ button.btn.stamp {
 @media (max-height: 699px) {
   .flexslot { display: none; }
 }
+
+
+/* ── 空状态（0830 新增）──────────────────────────────────────
+   空屏是最容易被记住的地方,也是这一版之前最潦草的地方:
+   一句灰字贴在顶上,下面四分之三全空。
+
+   三件事:①【居中】,不要挤在顶上 ② 一个图形,让它不像出错
+   ③ 一条出路。设计册 10.7 说的「空状态要指得出去处」在这儿落地。 */
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40rpx 40rpx 80rpx;
+}
+.empty-art {
+  width: 168rpx; height: 168rpx; border-radius: 999rpx;
+  background: linear-gradient(155deg, var(--amber-lite) 0%, #FFF6EA 100%);
+  box-shadow: 0 8rpx 24rpx rgba(232,121,26,.12);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 64rpx; color: var(--amber-deep); font-weight: 700;
+  margin-bottom: 30rpx;
+}
+.empty-t { font-size: 33rpx; font-weight: 600; color: var(--ink); }
+.empty-s { font-size: 25rpx; color: var(--ink-faint); margin-top: 12rpx; line-height: 1.7; max-width: 460rpx; }
+.empty-state .btn { margin-top: 36rpx; }

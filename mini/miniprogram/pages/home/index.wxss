@@ -5,7 +5,7 @@
 
 .hd { padding: 24rpx 0 32rpx; }
 .hd .eyebrow { margin-bottom: 20rpx; }
-.hd .title { font-size: 128rpx; line-height: 1; margin: 8rpx 0 16rpx; }
+.hd .title { font-size: 56rpx; line-height: 1; margin: 8rpx 0 16rpx; }
 .hd .subtitle { color: var(--ink-mid); }
 
 .delta {
@@ -20,7 +20,7 @@
   color: var(--ink-mid);
 }
 .delta-line.dim { color: var(--ink-faint); }
-.delta-line text { font-family: "Songti SC", serif; font-weight: 500; }
+.delta-line text { font-weight: 600; font-weight: 500; }
 
 .delta-role {
   font-size: 24rpx;
@@ -34,7 +34,7 @@
   position: relative;
 }
 .quote-mark {
-  font-family: "Songti SC", serif;
+  font-weight: 600;
   font-size: 48rpx;
   color: var(--stamp);
   opacity: 0.7;
@@ -50,11 +50,11 @@
 }
 
 .foot-hint {
-  padding: 60rpx 0 24rpx;
+  padding: 40rpx 0 20rpx;
   text-align: center;
-  font-size: 22rpx;
-  color: var(--stone-label);
-  letter-spacing: 0.24em;
+  font-size: 25rpx;
+  color: var(--ink-faint);
+  letter-spacing: 0.01em;
 }
 
 /* empty · 无本命 */
@@ -63,7 +63,7 @@
   text-align: center;
 }
 .empty-t {
-  font-family: "Songti SC", serif;
+  font-weight: 600;
   font-size: 80rpx;
   font-weight: 500;
   color: var(--ink);
@@ -82,21 +82,23 @@
 }
 
 /* 取不到时说一句,别渲成「你还没建」—— 那是另一件事 */
-.err { padding: 24rpx 0; color: #9a3b3b; font-size: 26rpx; line-height: 1.7; }
+.err { padding: 24rpx 0; color: var(--peach); font-size: 26rpx; line-height: 1.7; }
 
 /* 没本命时「转一下」不是消失，是灰着 —— 空状态要看得见出口。 */
-.btn-off { opacity: .42; }
+/* `.btn-off`（opacity .42）删了：一颗【能按】的按钮长得像禁用的，
+   而这一颗是这一屏唯一的出路。它本来也从没生效过 ——
+   `button.btn` 的特异性盖着它。 */
 .today-block { margin-top: 20rpx; }
-.today-k { font-size: 26rpx; color: #767676; margin-bottom: 14rpx; }
+.today-k { font-size: 26rpx; color: var(--ink-faint); margin-bottom: 14rpx; }
 
 /* 弹性槽：近几次。矮屏它落在折线之下、看不见；长屏才出现（设计 10.1）。 */
 .recent { margin-top: 36rpx; }
-.recent-k { font-size: 24rpx; color: #767676; margin-bottom: 12rpx; }
+.recent-k { font-size: 24rpx; color: var(--ink-faint); margin-bottom: 12rpx; }
 .recent-row { display: flex; justify-content: space-between; padding: 14rpx 0;
-              border-bottom: 1rpx solid #f0f0f0; }
-.recent-d { font-size: 24rpx; color: #767676; }
+              border-bottom: 1rpx solid var(--paper-inset); }
+.recent-d { font-size: 24rpx; color: var(--ink-faint); }
 .recent-v { font-size: 26rpx; }
-.recent-err { font-size: 24rpx; color: #767676; margin-top: 28rpx; }
+.recent-err { font-size: 24rpx; color: var(--ink-faint); margin-top: 28rpx; }
 
 /* 引文压扁一层：原先是三个块（左引号 / 正文 / 右引号），
    在最矮的机器上光它就占掉 100px 出头。 */
@@ -136,7 +138,7 @@
   width: 0; height: 0;
   border-left: 18rpx solid transparent;
   border-right: 18rpx solid transparent;
-  border-top: 32rpx solid #c9a962;
+  border-top: 32rpx solid var(--wx-tu);
   z-index: 4;
   filter: drop-shadow(0 2rpx 4rpx rgba(40, 30, 12, 0.24));
 }
@@ -170,22 +172,22 @@
 }
 .ring-1 {
   top: 0; left: 0; right: 0; bottom: 0;
-  border: 2rpx solid rgba(201, 169, 98, 0.5);
+  border: 2rpx solid rgba(255,154,60,.42);
   background: radial-gradient(circle at 50% 50%,
     rgba(201, 169, 98, 0) 78%,
     rgba(201, 169, 98, 0.14) 100%);
 }
 .ring-2 {
   top: 40rpx; left: 40rpx; right: 40rpx; bottom: 40rpx;
-  border: 1rpx dashed rgba(201, 169, 98, 0.55);
+  border: 1rpx dashed rgba(255,154,60,.34);
 }
 .ring-3 {
   top: 60rpx; left: 60rpx; right: 60rpx; bottom: 60rpx;
-  border: 1rpx solid rgba(44, 44, 44, 0.4);
+  border: 1rpx solid rgba(43,38,32,.14);
 }
 .ring-4 {
   top: 160rpx; left: 160rpx; right: 160rpx; bottom: 160rpx;
-  border: 1rpx solid rgba(44, 44, 44, 0.3);
+  border: 1rpx solid rgba(43,38,32,.10);
 }
 .bagua {
   position: absolute;
@@ -199,7 +201,7 @@
   z-index: 2;
 }
 .bagua .bg-t {
-  font-family: "Songti SC", "STSong", "SimSun", serif;
+  font-weight: 600;
   font-size: 60rpx;
   font-weight: 500;
   color: var(--ink);
@@ -231,11 +233,14 @@
   margin: -100rpx 0 0 -100rpx;
   padding: 0;
   border-radius: 50%;
-  background: radial-gradient(circle at 50% 30%, #5a5a5a 0%, #2a2a2a 100%);
-  border: 6rpx solid rgba(201, 169, 98, 0.42);
+  /* 从深灰球换成琥珀。它是这一屏唯一可按的东西 ——
+     原先是整屏最暗的一块，看着像个仪表而不是「点我」 */
+  background: radial-gradient(circle at 50% 28%, #FFB463 0%, var(--amber) 52%, var(--amber-deep) 100%);
+  border: none;
   box-shadow:
-    0 6rpx 24rpx rgba(40, 30, 12, 0.28),
-    0 1rpx 0 rgba(255, 255, 255, 0.06) inset;
+    0 8rpx 0 var(--amber-deep),
+    0 14rpx 30rpx rgba(232,121,26,.34),
+    0 2rpx 0 rgba(255,255,255,.4) inset;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -244,7 +249,9 @@
 }
 .compass-btn::after { border: none; }
 .compass-btn-hover {
-  transform: translate(0, 0) scale(0.94);
+  transform: translate(0, 4rpx) scale(0.97);
+  box-shadow: 0 2rpx 0 var(--amber-deep), 0 6rpx 14rpx rgba(232,121,26,.3),
+              0 2rpx 0 rgba(255,255,255,.4) inset;
 }
 .compass-btn-lit {
   border-color: rgba(201, 169, 98, 0.78);
@@ -252,12 +259,21 @@
     0 6rpx 32rpx rgba(201, 169, 98, 0.32),
     0 1rpx 0 rgba(255, 255, 255, 0.1) inset;
 }
+/* 原先是等宽字体 + 0.24em 字距 + uppercase —— 三样加起来像终端输出。
+   这是一句对人说的话，就按人话排 */
 .compass-hint {
-  padding: 32rpx 0 8rpx;
-  font-family: "SF Mono", "Menlo", monospace;
-  font-size: 22rpx;
-  color: var(--stone-label);
-  letter-spacing: 0.24em;
+  padding: 28rpx 0 8rpx;
+  font-size: 25rpx;
+  color: var(--ink-faint);
+  letter-spacing: 0.01em;
   text-align: center;
-  text-transform: uppercase;
+}
+
+/* 中心那句「问一件事」。原先没有自己的规则，靠 button 的默认色 ——
+   球换成琥珀之后它必须是白的，否则读不出来 */
+.compass-btn .cb-cn {
+  color: #fff;
+  font-size: 30rpx;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }

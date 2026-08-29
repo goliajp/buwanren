@@ -1,17 +1,17 @@
 .hd { padding: 24rpx 0 32rpx; }
 .hd .eyebrow { margin-bottom: 20rpx; }
-.hd .title { font-size: 110rpx; line-height: 1; margin: 8rpx 0 16rpx; }
+.hd .title { font-size: 56rpx; line-height: 1; margin: 8rpx 0 16rpx; }
 .loading, .err { padding: 80rpx 0; text-align: center; color: var(--stone-label); }
 .err-msg { margin-bottom: 28rpx; }
 .line { display: flex; justify-content: space-between; align-items: baseline;
         border-top: 1rpx solid var(--stone-line); padding: 24rpx 0; }
-.line-name { font-family: "Songti SC", serif; font-size: 32rpx; color: var(--ink); flex: 1; }
+.line-name { font-weight: 600; font-size: 32rpx; color: var(--ink); flex: 1; }
 .line-qty { font-size: 26rpx; color: var(--stone-label); margin: 0 20rpx; }
 .line-sub { font-size: 30rpx; color: var(--ink); }
 .sum { border-top: 1rpx solid var(--stone-line); padding-top: 24rpx; margin-top: 8rpx; }
 .sum-row { display: flex; justify-content: space-between; padding: 8rpx 0; }
 .sum-k { font-size: 26rpx; color: var(--stone-label); }
-.sum-v { font-family: "Songti SC", serif; font-size: 34rpx; color: var(--ink); }
+.sum-v { font-weight: 600; font-size: 34rpx; color: var(--ink); }
 .note { margin: 28rpx 0; font-size: 26rpx; color: var(--stone-label); }
 .cta { display: flex; gap: 20rpx; margin-top: 40rpx; }
 .cta .btn { flex: 1; }
@@ -20,10 +20,10 @@
 /* 寄出的那些 —— 买了实物（御守）才有；纯报告的单子这一块整个不出现 */
 .ship { border-top: 1rpx solid var(--stone-line); margin-top: 32rpx; padding-top: 24rpx; }
 .ship-k { font-size: 24rpx; color: var(--stone-label); margin-bottom: 16rpx; }
-.pkg { border: 1rpx solid var(--stone-line); border-radius: 6rpx; padding: 22rpx; margin-bottom: 18rpx; }
+.pkg { border: 1rpx solid var(--stone-line); border-radius: 16rpx; padding: 22rpx; margin-bottom: 18rpx; }
 .pkg-hover { background: var(--paper-inset); }
 .pkg-top { display: flex; justify-content: space-between; align-items: baseline; }
-.pkg-status { font-family: "Songti SC", serif; font-size: 32rpx; color: var(--ink); }
+.pkg-status { font-weight: 600; font-size: 32rpx; color: var(--ink); }
 .pkg-arrow { font-size: 24rpx; color: var(--stone-label); }
 .pkg-no { font-size: 22rpx; color: var(--stone-label); margin-top: 10rpx; }
 .trace { display: flex; margin-top: 18rpx; font-size: 24rpx; color: var(--stone-label); }
@@ -36,10 +36,10 @@
 .wake-alt { display: flex; align-items: center; gap: 12rpx; margin-top: 20rpx;
             font-size: 24rpx; color: var(--stone-label); }
 .wake-input { flex: 1; background: var(--paper-inset); border: 1rpx solid var(--stone-line-x);
-              border-radius: 6rpx; padding: 12rpx 18rpx; font-size: 26rpx; color: var(--ink); }
-.wake-go { flex: none; padding: 12rpx 24rpx; border-radius: 6rpx;
+              border-radius: 16rpx; padding: 12rpx 18rpx; font-size: 26rpx; color: var(--ink); }
+.wake-go { flex: none; padding: 12rpx 24rpx; border-radius: 16rpx;
            background: var(--ink); color: var(--paper); font-size: 24rpx; }
-.wake-err { margin-top: 12rpx; font-size: 24rpx; color: #9a3b3b; line-height: 1.6; }
+.wake-err { margin-top: 12rpx; font-size: 24rpx; color: var(--peach); line-height: 1.6; }
 .slot-done { margin-top: 24rpx; padding-top: 18rpx; border-top: 1rpx solid var(--stone-line-x);
              font-size: 22rpx; color: var(--stone-label); line-height: 1.7; }
 
@@ -47,7 +47,7 @@
 .trace-more { padding: 10rpx 0 0; font-size: 22rpx; color: var(--stone-label); }
 
 /* 标题 = 买的那个东西；状态与金额并到副行（设计册 M3） */
-.hd .title { font-size: 60rpx; line-height: 1.2; }
+.hd .title { font-size: 46rpx; line-height: 1.2; }
 .hd .sub { margin-top: 10rpx; font-size: 24rpx; color: var(--ink-faint); letter-spacing: 0.04em; }
 
 /* 这一屏是二级页，底下没有 tab 条 —— 全局那 96rpx 是给 tab 让的位，
@@ -64,3 +64,16 @@
 /* 册子那条主按钮。跟「去扫开它」一样排在退款前面 ——
    买家点进这一屏最想做的事是把买的东西拿到手 */
 .cta-read { padding-bottom: 8rpx; }
+
+
+/* ── 0830 ─────────────────────────────────────────────────────
+   按钮原先并排在内容底下飘着,而这一屏下面三分之二是空的 ——
+   一屏的主动作应该【贴底】,拇指够得到的地方。 */
+.page { display: flex; flex-direction: column; }
+.cta { margin-top: auto; }
+/* 主按钮全宽,次要的两颗并排在它下面。三颗一样大 = 没有主次 */
+.cta .btn { flex: none; width: 100%; box-sizing: border-box; }
+.cta { flex-wrap: wrap; }
+.cta .btn.ghost { width: calc(50% - 10rpx); }
+.cta-read { padding-bottom: 8rpx; }
+.cta-read .btn { width: 100%; }

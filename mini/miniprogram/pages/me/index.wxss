@@ -1,6 +1,6 @@
 .hd { padding: 24rpx 0 20rpx; }
 .hd .eyebrow { margin-bottom: 20rpx; }
-.hd .title { font-size: 108rpx; line-height: 1; margin: 8rpx 0 12rpx; }
+.hd .title { font-size: 56rpx; line-height: 1; margin: 8rpx 0 12rpx; }
 
 /* 那一句。设计册 M1 上它单独占一行，是这一屏唯一一句「说话」的地方 */
 .say {
@@ -19,12 +19,12 @@
 }
 .recent {
   background: var(--paper-panel);
-  border: 1rpx solid var(--stone-line-x);
-  border-radius: 8rpx;
+  box-shadow: var(--sh-card);
+  border-radius: 16rpx;
   padding: 24rpx 28rpx;
 }
 .recent-title {
-  font-family: "Songti SC", serif;
+  font-weight: 600;
   font-size: 34rpx;
   color: var(--ink);
   margin-bottom: 10rpx;

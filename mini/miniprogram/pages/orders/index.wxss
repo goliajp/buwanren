@@ -1,12 +1,12 @@
 .hd { padding: 24rpx 0 0; }
-.hd .title { font-size: 76rpx; line-height: 1; }
+.hd .title { font-size: 50rpx; line-height: 1; }
 .hd .sub { font-size: 24rpx; color: var(--ink-faint); margin-top: 12rpx; }
 
 .loading, .err { padding: 60rpx 0; color: var(--ink-faint); font-size: 26rpx; }
 .err-msg { margin-bottom: 24rpx; }
 
 .empty { padding: 48rpx 0 32rpx; }
-.empty-t { font-family: "Songti SC", serif; font-size: 34rpx; color: var(--ink); }
+.empty-t { font-weight: 600; font-size: 34rpx; color: var(--ink); }
 .empty-sub { font-size: 24rpx; color: var(--ink-faint); margin-top: 12rpx; line-height: 1.7; }
 
 .item {
@@ -17,7 +17,7 @@
 .item-top { display: flex; align-items: baseline; }
 .item-name {
   flex: 1;
-  font-family: "Songti SC", serif;
+  font-weight: 600;
   font-size: 32rpx;
   color: var(--ink);
   overflow: hidden;
