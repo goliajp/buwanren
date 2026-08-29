@@ -73,7 +73,26 @@
       return Promise.resolve(r)
     },
     setNavigationBarTitle(o) { document.title = (o && o.title) || '' },
-    vibrateShort() { if (navigator.vibrate) navigator.vibrate(15) },
+    /* 三档强度。真机上 `type` 走的是系统的 Taptic 引擎，力度与质感是
+       系统给的；浏览器只有一个「震多久」，所以这里用时长近似:
+       light 12ms / medium 22ms / heavy 38ms。
+
+       **差别写在这里**（镜像铁律 3）:网页版能验「该震的时候震了没有」，
+       验不了「震得对不对」—— 后者只有真机能看。
+       桌面浏览器没有 `navigator.vibrate`，那一档整个静默 —— 也如实。 */
+    vibrateShort(o) {
+      const 时长 = { light: 12, medium: 22, heavy: 38 }[(o && o.type) || 'light'] || 12
+      if (navigator.vibrate) navigator.vibrate(时长)
+      globalThis.__vibes = (globalThis.__vibes || []).concat((o && o.type) || 'light')
+      if (o && o.success) o.success({ errMsg: 'vibrateShort:ok' })
+      if (o && o.complete) o.complete({ errMsg: 'vibrateShort:ok' })
+    },
+    vibrateLong(o) {
+      if (navigator.vibrate) navigator.vibrate(400)
+      globalThis.__vibes = (globalThis.__vibes || []).concat('long')
+      if (o && o.success) o.success({ errMsg: 'vibrateLong:ok' })
+      if (o && o.complete) o.complete({ errMsg: 'vibrateLong:ok' })
+    },
     /* scrollTop 或 selector 二选一(真机两种都收)。
        selector 那种在浏览器里用 scrollIntoView 实现 ——
        与真机的差别:真机把目标滚到【视口顶部】,这里用的是 'nearest',

@@ -50,7 +50,7 @@
 .manual-k { font-size: 24rpx; color: var(--ink-faint); margin-bottom: 12rpx; }
 .manual-row { display: flex; align-items: center; gap: 16rpx; }
 .manual-input {
-  flex: 1; background: var(--paper); border: 1rpx solid var(--stone-line-x);
+  flex: 1; background: var(--paper); 
   border-radius: 16rpx; padding: 14rpx 20rpx; font-size: 26rpx; color: var(--ink);
 }
 .manual-go {

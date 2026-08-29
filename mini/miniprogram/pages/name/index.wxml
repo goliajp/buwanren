@@ -13,11 +13,18 @@
   <!-- 名字不是账户字段，是别人怎么称呼你 —— 所以要看得见叫起来什么样 -->
   <view class="hr"></view>
   <view class="preview-k">叫起来是这样</view>
+  <!-- 0830:这是【村民在叫你】—— 灰底方块把它读成了一段说明。
+       做成对话气泡 + 一张脸，跟村子主屏那一块同一套语言:
+       名字改一个字，你立刻看得见有人这么叫你 -->
   <view class="preview">
-    <view class="who">婆婆</view>
-    <view class="line">「{{draft || nickname}}，别急，慢慢来」</view>
-    <view class="who">苏合</view>
-    <view class="line">「{{draft || nickname}}，这一味给你留着」</view>
+    <view class="say-row">
+      <view class="say-face">婆</view>
+      <view class="bubble">{{draft || nickname}}，别急，慢慢来</view>
+    </view>
+    <view class="say-row">
+      <view class="say-face suhe">苏</view>
+      <view class="bubble">{{draft || nickname}}，这一味给你留着</view>
+    </view>
   </view>
 
   <view class="acts">

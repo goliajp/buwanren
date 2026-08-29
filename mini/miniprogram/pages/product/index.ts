@@ -35,6 +35,7 @@ Page({
     price: '',
     /** 履约方式 —— 御守是寄实物，报告是算出来的。文案按它分 */
     fulfillment: '',
+    买法: '就要这个',
     tags: [] as string[],
     skus: [] as Sku[],
     /** 能买的那个 sku（有价的第一个）。没有价就买不了，如实显示 */
@@ -80,6 +81,13 @@ Page({
           price: sku ? money(sku.current_price_minor, sku.current_currency) : '',
           skuId: sku ? sku.id : '',
           fulfillment: d.product.fulfillment_kind,
+          /* 主按钮说什么，看卖的是什么。
+             「请回家」是【御守】的话 —— 御守里封着一个人。
+             一支香、一份报告不是人，对它们说「请回家」是把上一版
+             统一代词时的改动套过了头（2026-08-30 从截图上看见的）。 */
+          买法: d.product.fulfillment_kind === 'residency' ? '请回家'
+              : d.product.category === 'report' ? '就要这份'
+              : '就要这个',
           tags: d.product.tags || [],
           skus: d.skus,
         })
