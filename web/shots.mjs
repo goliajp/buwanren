@@ -9,6 +9,9 @@ import { chromium } from 'playwright'
 import { mkdirSync, readFileSync } from 'fs'
 import { join } from 'path'
 import { execFileSync, execFile, spawn } from 'child_process'
+import { fileURLToPath } from 'url'
+import { dirname, resolve } from 'path'
+const 根 = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 const arg = (k, d) => (process.argv.find((a) => a.startsWith(`--${k}=`)) || `=${d}`).split('=').slice(1).join('=')
 const API = arg('api', '')
@@ -31,11 +34,14 @@ const 空口 = () => {
 let 服务 = null
 let BASE = arg('base', '')
 if (!BASE) {
-  await new Promise((r, j) => execFile('bun', ['web/build.mjs'], { cwd: process.cwd() }, (e) => (e ? j(e) : r())))
-    .catch(() => { throw new Error('组装失败 —— 先 bun web/build.mjs 看错在哪') })
+  /* 仓库根按【这个文件在哪】算，不按调用方的工作目录 ——
+     从 rooms/ 跑的时候 cwd 是 rooms，`web/build.mjs` 根本不在那儿。
+     错也原样抛出去：包一句「组装失败」而把真因吞掉，等于把线索删了。 */
+  await new Promise((r, j) => execFile('bun', ['web/build.mjs'], { cwd: 根 },
+    (e, so, se) => (e ? j(new Error('组装失败：\n' + (se || so || e.message))) : r())))
   const 口 = 空口()
   服务 = spawn('python3', ['-m', 'http.server', String(口), '--directory', 'web/dist'],
-    { stdio: 'ignore', detached: false })
+    { stdio: 'ignore', detached: false, cwd: 根 })
   BASE = `http://127.0.0.1:${口}`
   for (let i = 0; i < 40; i++) {
     try { if ((await fetch(BASE + '/index.html')).ok) break } catch {}
@@ -135,7 +141,10 @@ const 屏 = [
   ['settings', 'pages/settings/index'],
   ['plot', 'pages/plot/index', { id: '7' }],
   ['villager', 'pages/villager/index', { id: 'popo' }],
-  ['moved', 'pages/moved/index', { name: '婆婆', id: 'popo', n: '1' }],
+  /* `dir` 跟真链一样带上 —— 扫开御守那一下 `唤醒()` 就是这么传的。
+     不带的话截出来的脸是默认琥珀，而真机上是他自己的颜色:
+     照片跟产品对不上，比没照片更误导。 */
+  ['moved', 'pages/moved/index', { name: '婆婆', id: 'popo', n: '1', dir: 'near' }],
   ...(册 ? [['report', 'pages/report/index', { id: 册 }]] : []),
   ['confirm', 'pages/confirm/index', { id: 'prod-suhe-incense' }],
   ['product', 'pages/product/index', { id: 'prod-suhe-incense' }],

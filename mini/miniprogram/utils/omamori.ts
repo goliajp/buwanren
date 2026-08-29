@@ -23,6 +23,8 @@ export function 唤醒(carrier: 'qr' | 'nfc', credential: string): Promise<唤�
         'name=' + encodeURIComponent(s.villager_name || '他'),
         'n=' + (s.moved_in ? '1' : '0'),
         'id=' + encodeURIComponent(s.villager_id || ''),
+        // 方向随扫码一起带过去 —— 那一屏不必再要一次，脸也就不会先橙后粉
+        'dir=' + encodeURIComponent(s.direction || ''),
       ].join('&')
       /* 【实物变成人】那一刻 —— 整条链上唯一一次。给最重的那一档,
          而且落在跳转【之前】:震在手上、屏幕随即换掉，两件事要挨着 */

@@ -19,13 +19,14 @@
    气泡有尖角、有脸，改一个字就看得见效果。 */
 .preview { background: transparent; padding: 0; }
 .say-row { display: flex; align-items: flex-start; gap: 16rpx; margin-top: 18rpx; }
+/* 底色与字色由 `.face-<方向>`（app.wxss）给。这里自调过一版 ——
+   于是婆婆在这一屏是琥珀、苏合是绿，而她们在别处都是粉的。
+   页面样式在 app.wxss 之后加载，写了就盖掉，症状是「这一屏的人换了个颜色」。 */
 .say-face {
   flex: none; width: 64rpx; height: 64rpx; border-radius: 999rpx;
-  background: linear-gradient(150deg, var(--amber-lite), #FFC489);
-  color: #8A5A1E; font-size: 28rpx; font-weight: 700;
+  font-size: 28rpx; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
 }
-.say-face.suhe { background: linear-gradient(150deg, var(--moss-lite), #9BD9BA); color: #2E7D5B; }
 .bubble {
   position: relative;
   background: var(--paper-panel);

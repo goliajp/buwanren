@@ -70,10 +70,18 @@
    按钮原先并排在内容底下飘着,而这一屏下面三分之二是空的 ——
    一屏的主动作应该【贴底】,拇指够得到的地方。 */
 .page { display: flex; flex-direction: column; }
+/* 只有【最靠上】那一组顶开剩余高度，后面的紧跟着它 ——
+   原先每一组都是 auto，于是空白在几组之间对半分:
+   一颗按钮、三百五十像素的空、又一颗按钮。
+   `~` 选的是「前面还有一组 .cta 的那些」，也就是除第一组之外的全部;
+   两个类名的权重压得过上面那一条。 */
 .cta { margin-top: auto; }
+.cta ~ .cta { margin-top: 24rpx; }
 /* 主按钮全宽,次要的两颗并排在它下面。三颗一样大 = 没有主次 */
 .cta .btn { flex: none; width: 100%; box-sizing: border-box; }
 .cta { flex-wrap: wrap; }
 .cta .btn.ghost { width: calc(50% - 10rpx); }
 .cta-read { padding-bottom: 8rpx; }
-.cta-read .btn { width: 100%; }
+/* 写成 `.cta.cta-read`（三个类）才压得过上面的 `.cta .btn.ghost` ——
+   否则这一颗降成次要之后会缩成半宽、孤零零占着左半边，像没排完。 */
+.cta.cta-read .btn { width: 100%; }
