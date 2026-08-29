@@ -18,7 +18,22 @@ if not CSS.exists():
     print(f'✗ 找不到 {CSS.relative_to(ROOT)}')
     sys.exit(1)
 
-defined = set(re.findall(r'^\s*(--[a-z0-9-]+)\s*:', CSS.read_text(encoding='utf-8'), re.M))
+共用的 = set(re.findall(r'^\s*(--[a-z0-9-]+)\s*:', CSS.read_text(encoding='utf-8'), re.M))
+
+
+def 这份定义了(src):
+    """一份文档【自己 <style> 里】定义的变量也算数。
+
+    0830 版带着自己的产品色板（那份文档本身就是新视觉的展示），
+    定义在它自己的 style 块里 —— 只认 doc.css 的话，这些会被报成
+    「悄悄失效」，而它们明明生效着。检查面不够宽就会把对的说成错的，
+    那跟漏掉错的一样坏:两种都让人不再信这一支。
+    """
+    块 = re.findall(r'<style[^>]*>(.*?)</style>', src, re.S)
+    # 【不要求行首】—— 一行里写好几个变量是常见写法（0830 的色板就是），
+    # 只认行首的话它们从第二个起全被当成没定义。
+    # 前面不能是「(」，那样才不会把 `var(--x)` 里的名字算成定义。
+    return set(re.findall(r'(?<!\()(--[a-z0-9-]+)\s*:', '\n'.join(块)))
 docs = sorted(DESIGN.glob('*.html'))
 if not docs:
     print('✗ .claude/design/ 下没有 html —— 这道检查够不着它要管的东西')
@@ -27,6 +42,7 @@ if not docs:
 bad = 0
 for d in docs:
     src = d.read_text(encoding='utf-8')
+    defined = 共用的 | 这份定义了(src)
     # 同一个标签写两个 class：HTML 只认第一个，第二个整个丢掉。
     # 实际后果是「这行字本来该是红的，一直是灰的」—— 不报错、不留白，只是颜色不对。
     dup = re.findall(r'<\w+[^>]*?\sclass="[^"]*"[^>]*?\sclass="[^"]*"[^>]*?>', src)
@@ -66,6 +82,6 @@ for d in docs:
             print(f'✗ {d.name}　{name} 用了 {n} 次，doc.css 里没定义')
             bad += n
 
-print(f'{"✗" if bad else "✓"} 扫 {len(docs)} 份文档 · doc.css 定义 {len(defined)} 个变量 · '
-      f'悄悄失效的地方 {bad} 处')
+print(f'{"✗" if bad else "✓"} 扫 {len(docs)} 份文档 · 共用变量 {len(共用的)} 个'
+      f'（各文档自己 <style> 里定义的另算）· 悄悄失效的地方 {bad} 处')
 sys.exit(1 if bad else 0)
