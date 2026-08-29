@@ -355,7 +355,7 @@ input::placeholder, textarea::placeholder { color: var(--stone-label); }
    页面样式排在 app.wxss 之后，在那儿写 background 会把下面七条方向色
    全部盖掉，症状是四十个人共用一个颜色（看着就像方向色没做）。
    四柱那条色带踩过同一个坑。 */
-.says-face, .item-face, .face {
+.says-face, .item-face, .face, .glyph {
   background: linear-gradient(150deg, var(--amber-lite), #FFC489);
   color: #8A5A1E;
 }

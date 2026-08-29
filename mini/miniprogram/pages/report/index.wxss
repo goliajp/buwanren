@@ -60,9 +60,13 @@
    而它要说的是「你偏在哪一行」。
    **不设默认底色**:页面样式排在 app.wxss 之后，写了就会把 wx-*-bg 盖掉。 */
 .bar-fill { height: 100%; border-radius: 999rpx; }
-/* 最高那根加一圈光 —— 答案不该要人自己比一遍 */
+/* 最高那根标出来 —— 答案不该要人自己比一遍。
+   原先只有条上一圈 2rpx 白环:在浅底上几乎看不见，也就等于没标。
+   改为连行首的五行字与右边的数一起加重 —— 那两处是黑字对灰字，一眼分得出。 */
 .bar-top { box-shadow: 0 0 0 2rpx rgba(255,255,255,.9), 0 2rpx 8rpx rgba(43,38,32,.18); }
+.bar-k-top { color: var(--ink); font-weight: 700; }
 .bar-v { width: 56rpx; text-align: right; font-size: 22rpx; color: var(--stone-label); }
+.bar-v-top { color: var(--ink); font-weight: 700; }
 
 .rows { margin-top: 24rpx; }
 .row {

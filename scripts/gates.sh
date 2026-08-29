@@ -3,6 +3,11 @@
 #
 # 为什么要有这支：
 #
+# ★ 它跑着的时候【不要改这个文件】。bash 是按字节偏移往下读脚本的,
+#   中途插几行就让它从半个词接着读 —— 报出来是「line 338: unexpected EOF」,
+#   而那一行完全正常。2026-08-30 踩到:一轮 55 支全绿的门禁，
+#   最后的总账被这个假语法错顶掉了,看着像门禁自己坏了。
+#
 # 门禁的清单以前只是 `.claude/CLAUDE.md` 里的一行散文（「build --check /
 # regress check / portlint / ...」）。散文会过时——后来加的 check-punct、
 # check-punct-ui、check-api-shape、check-plots、check-relations、
@@ -170,6 +175,17 @@ gate "bind 的处理器都真有吗" . python3 scripts/check-wxml-handlers.py
 # 「屏上写着傍晚好而村子已经点起灯」,或者问候语加了一档、验证脚本的白名单没加 ——
 # 后者只在一天里的某几个钟头红,而只在某几个钟头出现的红最容易被当成噪音放过。
 gate "昼夜的边界三处对得上吗" . python3 scripts/check-clock-bands.py
+# 一个人的头像色摊在四屏(名册 / 村主屏 / 他的主页 / 扫开那一屏)。
+# 少接一处,他在那一屏就是另一个颜色 —— 而颜色是翻四十个人时最快的线索,
+# 一处不准整条线索就不能信。页面里写 background 也会盖掉它,症状一模一样。
+gate "一个人的颜色四处一样吗" . python3 scripts/check-face-color.py
+# 真机上每页都有一条原生导航栏,而镜像不画它 —— 截图上看不见,只能靠这一支。
+# 0830 之后页面自己画了大标题,导航栏再写一遍页面名就是同一个词出现两次;
+# 空着更糟:那条栏还在,只是没有字。
+gate "导航栏标题统一吗" . python3 scripts/check-nav-title.py
+# 「八月三十 · 周日」是说给人听的,「2026-08-30」是给系统读的。
+# 三屏各拼了一份,其中两屏还是并排的 tab —— 切过去一种写法,切回来另一种。
+gate "日期只有一种说法吗" . python3 scripts/check-day-words.py
 # 镜像自己会先组装。动线要真跑一遍浏览器,几十秒
 gate "web verify · 动线"  . bash web/run-verify.sh
 

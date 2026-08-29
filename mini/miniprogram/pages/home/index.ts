@@ -4,6 +4,7 @@ import { storage } from '../../services/storage'
 import type { NatalSummary } from '../../types/natal'
 import type { ApiError } from '../../services/api'
 import { 一句 } from '../../utils/say'
+import { 今天几号 } from '../../utils/day'
 
 /* ── 以下从 `pages/ask` 搬来（REDESIGN.md：起卦归我家）───────── */
 /** 摇手机检测阈值 · |x|+|y|+|z| */
@@ -42,7 +43,6 @@ const YS_PINYIN: Record<string, string> = {
   木: 'mu', 火: 'huo', 土: 'tu', 金: 'jin', 水: 'shui',
 }
 
-const WEEK_CN = ['日', '一', '二', '三', '四', '五', '六']
 
 type SummaryView = NatalSummary & {
   primary_pinyin: string
@@ -57,7 +57,8 @@ interface IData {
   /** 罗盘的状态。转完就跳去「今天」那一页看结果，所以这里没有 result */
   mode: Mode
   rot: number
-  today: { iso: string; weekday: string; remark: string }
+  /** 「八月三十 · 周日」—— 说给人听的写法，见 utils/day */
+  today: string
   summary: SummaryView | null
   avoidPinyin: string[]
   err: string
@@ -68,7 +69,7 @@ interface IData {
 
 Page<IData, WechatMiniprogram.IAnyObject>({
   data: {
-    today: { iso: '', weekday: '', remark: '' },
+    today: '',
     summary: null,
     avoidPinyin: [],
     err: '',
@@ -114,13 +115,11 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     this.refreshSummary()
   },
 
+  /* 跟村主屏说同一句话：「八月三十 · 周日」。
+     这里原先拼的是 `2026-08-30`，而它跟村子是并排的两个 tab ——
+     同一天，切过去是一种写法，切回来是另一种。 */
   setToday() {
-    const d = new Date()
-    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    const weekday = `周${WEEK_CN[d.getDay()]}`
-    this.setData({
-      today: { iso, weekday, remark: '一日之相' },
-    })
+    this.setData({ today: 今天几号(new Date()) })
   },
 
   async refreshSummary() {
