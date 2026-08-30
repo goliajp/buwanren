@@ -111,9 +111,26 @@ for f in 文件:
     # D 不是死路
     # 出口 = 任何一下能离开这一屏的点击。`goXxx` 一律算（它们都是跳转），
     # tab 屏的出口是底栏，翻页屏至少翻得动
-    出口 = (re.search(r'bindtap="(onBack|go[A-Z]\w*)"', s)
-            or 屏 in TAB屏
-            or re.search(r'onPrev|onNext', s))
+    # 翻页【不】算出口 —— 翻完还在这一屏。这条曾经在这儿,
+    # 于是名册靠「有上一页/下一页」放行了很久,而它的 `onBack`
+    # 从没绑到 wxml 上、一次都没运行过。判据本身错的时候,
+    # 红不出来长得跟「这一屏没问题」一模一样。
+    #
+    # 现在按【真的会跳走】来判:wxml 上绑的处理器,回到同页 ts 里
+    # 看它体内有没有 navigateTo / switchTab / navigateBack / reLaunch。
+    # 靠命名习惯(goXxx)判会漏掉叫别的名字的跳转,也会把叫 goXxx
+    # 但其实不跳的算进来。
+    跳 = ('navigateTo', 'switchTab', 'navigateBack', 'reLaunch', 'redirectTo')
+    ts = (页 / 屏 / 'index.ts')
+    源 = ts.read_text(encoding='utf-8') if ts.exists() else ''
+    出口 = 屏 in TAB屏
+    for 名 in set(re.findall(r'bind(?:tap|catchtap)="(\w+)"', s)):
+        # 取这个处理器的函数体:从 `名(` 起到下一个顶层 `},` 为止 ——
+        # 小程序页面对象里每个方法都是这个形状
+        m = re.search(r'\n  (?:async )?' + re.escape(名) + r'\s*\(.*?\n  \},', 源, re.S)
+        if m and any(k in m.group(0) for k in 跳):
+            出口 = True
+            break
     if not 出口:
         错.append(f'{屏} 找不到出口 —— 进来了出不去')
 
