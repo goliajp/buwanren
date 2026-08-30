@@ -18,7 +18,7 @@
 .loading, .err-msg { font-size: 28rpx; color: var(--ink-faint); }
 
 
-/* ── 0830:角色的主页要有脸 ──────────────────────────────── */
+/* ── 0830：角色的主页要有脸 ──────────────────────────────── */
 .page { display: flex; flex-direction: column; }
 /* 居中的角色卡。左对齐时头像和标签挤在顶上，底下空六百像素 ——
    而这一屏本来就是「一个人」，居中更像一张卡而不是一条记录。 */
@@ -41,7 +41,7 @@
 
 /* 属性 = 一排标签。三行横线表格把三个短词读成了三条记录 */
 .tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 12rpx; margin-top: 26rpx; }
-/* `:not(.tag-lack)` 是必须的:页面样式在 app.wxss 之后加载，
+/* `:not(.tag-lack)` 是必须的：页面样式在 app.wxss 之后加载，
    而 `.tag` 与 `.lack-<方向>` 权重相同 —— 不排除的话这里的灰底
    会把方向色盖掉，看着就像方向色根本没做（今天踩过三次的那个坑）。 */
 .tag {
@@ -50,7 +50,7 @@
 }
 .tag:not(.tag-lack) { background: var(--paper-inset); color: var(--ink-mid); }
 /* 「缺」是身份字段 —— 它排最前，也最重。
-   底色由 `.lack-<方向>`（app.wxss）给，跟头像同一个色:
+   底色由 `.lack-<方向>`（app.wxss）给，跟头像同一个色：
    同一件事在一张卡上不该用两种颜色说两遍。这里不写 background —— */
 .tag-lack { font-weight: 700; }
 /* 写成 `.tag.tag-home` 而不是 `.tag-home`：上面那条 `:not()` 把权重
@@ -59,7 +59,7 @@
 .tag.tag-home { background: var(--moss-lite); color: #2E8B57; }
 
 .acts { margin-top: auto; display: flex; flex-wrap: wrap; gap: 16rpx; padding-top: 40rpx; }
-/* 主按钮独占一行 —— 它是这一屏要你做的那件事;两颗次要的并排。
+/* 主按钮独占一行 —— 它是这一屏要你做的那件事；两颗次要的并排。
    次要按钮的左右内边距要收 —— 用主按钮那个 56rpx 的话，
    两颗一行放不下，会各占一行、还各自左对齐 */
 .acts .btn { flex: 1; min-width: 0; box-sizing: border-box; }
@@ -73,3 +73,20 @@
 .reading.daily .reading-v { font-size: 30rpx; margin-top: 8rpx; line-height: 1.6; }
 .reading.daily .reading-v.dim { color: var(--ink-mid); font-weight: 400; }
 .reading-hint { margin-top: 10rpx; font-size: 22rpx; color: var(--stone-label); }
+
+/* ── 请他回家之后 ─────────────────────────────────────────
+   「还没请来」那一支原先屏上只有四个标签，中间三百多像素空着 ——
+   而这正是决定要花九十九块的地方。 */
+.gets { margin-top: 40rpx; }
+.gets-k { font-size: 25rpx; color: var(--ink-faint); margin-bottom: 22rpx; }
+.gets-row { display: flex; align-items: flex-start; gap: 18rpx; margin-bottom: 24rpx; }
+.gets-row:last-child { margin-bottom: 0; }
+.gets-n {
+  flex: none; width: 40rpx; height: 40rpx; margin-top: 2rpx;
+  border-radius: 999rpx; background: var(--amber-lite);
+  color: var(--amber-deep); font-size: 23rpx; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+}
+.gets-b { flex: 1; min-width: 0; }
+.gets-t { font-size: 28rpx; font-weight: 600; color: var(--ink); line-height: 1.45; }
+.gets-s { font-size: 23rpx; color: var(--ink-faint); margin-top: 5rpx; line-height: 1.5; }
