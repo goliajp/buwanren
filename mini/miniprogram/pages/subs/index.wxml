@@ -29,6 +29,9 @@
            一句「下面是哪儿能有」跟着一片空白 —— 设计册 10.7 说空状态要
            指出去处，指向空白比不指更糟。 -->
       <view class="empty">
+        <!-- 圆牌跟「我买过的」那一屏同一套 —— 同一组入口里，
+             一屏有插画一屏没有，读起来像后者没做完 -->
+        <view class="empty-art">订</view>
         <view class="empty-t">还没有订着的</view>
         <view class="empty-sub" wx:if="{{offers.length > 0}}">空着不是问题 —— 下面是哪儿能有</view>
         <view class="empty-sub" wx:elif="{{!offersErr}}">村里现在没有可以订的东西 · 等有了会摆在这儿</view>
@@ -47,4 +50,11 @@
       <view class="offers-err" wx:elif="{{offersErr}}">{{offersErr}}</view>
     </block>
   </block>
+
+  <!-- 「回去」。`onBack` 一直在，只是没有一颗按钮按得到它 ——
+       同一组入口里「我得到的」有这一颗，这一屏没有。
+       真机上那条原生导航栏带返回箭头，所以它不是死路，但两屏该一样。 -->
+  <view class="cta">
+    <button class="btn ghost" bindtap="onBack">回去</button>
+  </view>
 </view>
