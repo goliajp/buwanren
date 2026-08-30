@@ -6,14 +6,20 @@
 
        并成一行还腾出了地方：轨迹要能排到八条（10.3），
        而八条轨迹加上原先那三块，这一屏装不下（实测超 157px）。 -->
-  <view class="hd">
+  <!-- 御守那一单摆上他的脸。标题已经说了「丹增的御守」，
+       但这一屏此前【一张脸都没有】—— 而从商品页到确认屏都有他。
+       买了别的（香、报告）就没有这一格，照旧只有标题。 -->
+  <view class="hd {{who ? 'hd-who' : ''}}">
+    <view class="who-face face-{{who.direction}}" wx:if="{{who}}">{{who.face}}</view>
+    <view class="hd-body">
     <view class="title">{{headline || '　'}}</view>
     <!-- 取不到时不显示这一行：三个字段都空的话它会渲成「· 下单 ·」，
          一串没有意义的分隔符。标题区照常在（不许整屏换错误页），
          但不该在那儿摆一句假话。 -->
     <view class="sub" wx:if="{{statusText}}">{{totalText}} · {{whenText}}下单 · {{statusText}}</view>
-    <view class="hr"></view>
+    </view>
   </view>
+  <view class="hr"></view>
 
   <view class="sk-rows" wx:if="{{loading}}">
     <view class="sk-card"><view class="sk-body">
@@ -112,7 +118,12 @@
     </view>
 
     <view class="cta">
-      <button wx:if="{{status === 'unpaid'}}" class="btn" bindtap="onPay" disabled="{{paying}}">
+      <!-- 「去支付」跟上面那颗「收到了，去扫开它」**结构上互斥**。
+           后端修过 `to_scan` 之后（待付的单子不再说「收到了」），
+           数据上两颗已经不会同时为真 —— 但那是数据在保证，不是结构在保证，
+           而下一个改 `to_scan` 的人不会知道这一屏押着它。
+           `!toScan` 写在这儿，两颗就永远只出现一颗。 -->
+      <button wx:if="{{status === 'unpaid' && !toScan}}" class="btn" bindtap="onPay" disabled="{{paying}}">
         {{paying ? '发起中……' : '去支付'}}
       </button>
       <button wx:if="{{status === 'unpaid'}}" class="btn ghost" bindtap="onCancel">不要了</button>
