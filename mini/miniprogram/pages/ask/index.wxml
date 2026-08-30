@@ -19,7 +19,7 @@
       ← 之前问的 · {{result.time_label}}
     </view>
 
-    <view class="result-time mono" wx:if="{{mode === 'result'}}">
+    <view class="result-time mono enter" style="animation-delay:0ms" wx:if="{{mode === 'result'}}">
       {{result.time_label}}
     </view>
 
@@ -31,13 +31,17 @@
          原先带走的是「生门 · 东北」:大字是门名，人话缩在下面当注解，
          而门名与方位是专业细节 —— 按 §1.5.2「说人话」，它们不该占主位。
          现在反过来:话在上、大字号;门名与方位退到屏底当注脚。 -->
-    <view class="verdict" wx:if="{{result.gate_explain}}">
+    <!-- 【答案要落下来，不能拍上去】。转了三秒的盘，换来的东西原先是
+         整屏瞬间出现的 —— 期待被浪费掉。逐帧拍才看得出来：50ms 那一帧
+         就已经全部到位（标尺 §1.5.35「两帧一样 = 这一下没发生什么」）。
+         现在按阅读顺序一层层落：时刻 → 那句话 → 两列 → 收尾。 -->
+    <view class="verdict enter" style="animation-delay:90ms" wx:if="{{result.gate_explain}}">
       {{result.gate_explain}}
     </view>
 
     <view class="hr"></view>
 
-    <view class="dual">
+    <view class="dual enter" style="animation-delay:230ms">
       <view class="dual-col">
         <view class="dual-k suit-k">今天适合</view>
         <view class="dual-chips">
@@ -57,7 +61,7 @@
 
     <view class="hr"></view>
 
-    <view class="quote-block" wx:if="{{result.quote && result.quote.text}}">
+    <view class="quote-block enter" style="animation-delay:380ms" wx:if="{{result.quote && result.quote.text}}">
       <view class="quote-mark">「</view>
       <view class="quote-body serif">{{result.quote.text}}</view>
       <view class="quote-mark quote-r">」</view>
