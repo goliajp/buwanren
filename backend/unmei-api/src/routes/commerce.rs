@@ -302,6 +302,21 @@ async fn get_my_order(
     let o = sqlx::query("SELECT * FROM order_record WHERE id=$1 AND user_id=$2")
         .bind(&id).bind(&c.sub).fetch_optional(&st.db).await.map_err(map_db)?
         .ok_or_else(|| ApiError::not_found("order"))?;
+    /* 御守是一个人 —— 这一单的行上要说得出是谁。
+       快照名是「御守 · 单枚」，于是从商品页的「丹增 · 下山的武僧」
+       走到结账屏，人就不见了，买家读到的是「我在买一件货」。
+       名字取【现在库里的】而不是快照:村民改名是极少的事，
+       而认不出是谁的代价，比名字晚一天更新大得多。 */
+    let 行上的人: std::collections::HashMap<String, String> = sqlx::query(
+        r#"SELECT ol.id AS line_id, v.name
+             FROM order_line ol
+             JOIN sku k ON k.id = ol.sku_id
+             JOIN villager v ON v.id = k.villager_id
+            WHERE ol.order_id = $1"#,
+    ).bind(&id).fetch_all(&st.db).await.map_err(map_db)?
+     .into_iter()
+     .map(|r| (r.get::<String, _>("line_id"), r.get::<String, _>("name")))
+     .collect();
     let lines = sqlx::query("SELECT * FROM order_line WHERE order_id=$1 ORDER BY line_no")
         .bind(&id).fetch_all(&st.db).await.map_err(map_db)?;
     let payments = sqlx::query(
@@ -342,6 +357,11 @@ async fn get_my_order(
                     .and_then(|n| n.as_str())
                     .map(|s| s.to_string());
                 if let Some(n) = name { o.insert("sku_name".into(), J::String(n)); }
+                // 这一行封着谁。不是御守就没有这一栏 —— 页面据此决定说不说
+                if let Some(who) = o.get("id").and_then(|v| v.as_str())
+                    .and_then(|lid| 行上的人.get(lid)).cloned() {
+                    o.insert("villager_name".into(), J::String(who));
+                }
             }
             l
         }).collect::<Vec<_>>(),
