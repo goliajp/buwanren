@@ -199,7 +199,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
       this.loadRecent()
     } catch (_e) {
       this.setData({ mode: 'idle' })
-      wx.showToast({ title: '起卦失败，再试一次', icon: 'none' })
+      wx.showToast({ title: '没转成，再试一次', icon: 'none' })
     }
   },
 

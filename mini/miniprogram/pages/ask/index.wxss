@@ -15,47 +15,14 @@
 
 /* 8 卦符号 · 外圈 · Songti · 8 方位 · 距 face 中心 ~210rpx */
 
-/* 8 卦方位 · 从南顺时针 45° 一 · r=210rpx */
-/* 南(0°/上)· sin·cos 用小数;translate 到位 */
-.bagua-0 { transform: translate(0, -210rpx); }
-.bagua-1 { transform: translate(148rpx, -148rpx); }  /* 西南 */
-.bagua-2 { transform: translate(210rpx, 0); }        /* 西 */
-.bagua-3 { transform: translate(148rpx, 148rpx); }   /* 西北 */
-.bagua-4 { transform: translate(0, 210rpx); }        /* 北 */
-.bagua-5 { transform: translate(-148rpx, 148rpx); }  /* 东北 */
-.bagua-6 { transform: translate(-210rpx, 0); }       /* 东 */
-.bagua-7 { transform: translate(-148rpx, -148rpx); } /* 东南 */
-
-/* 8 方位小字 · 内圈 · mono · r=178rpx */
-.dir-0 { transform: translate(0, -178rpx); }
-.dir-1 { transform: translate(126rpx, -126rpx); }
-.dir-2 { transform: translate(178rpx, 0); }
-.dir-3 { transform: translate(126rpx, 126rpx); }
-.dir-4 { transform: translate(0, 178rpx); }
-.dir-5 { transform: translate(-126rpx, 126rpx); }
-.dir-6 { transform: translate(-178rpx, 0); }
-.dir-7 { transform: translate(-126rpx, -126rpx); }
-
-/* 8 金点 · 中圈 · r=142rpx */
-.dot {
-  position: absolute;
-  top: 50%; left: 50%;
-  width: 10rpx;
-  height: 10rpx;
-  margin: -5rpx 0 0 -5rpx;
-  border-radius: 50%;
-  background: rgba(201, 169, 98, 0.7);
-  z-index: 2;
-}
-.dot-0 { transform: translate(0, -142rpx); }
-.dot-1 { transform: translate(100rpx, -100rpx); }
-.dot-2 { transform: translate(142rpx, 0); }
-.dot-3 { transform: translate(100rpx, 100rpx); }
-.dot-4 { transform: translate(0, 142rpx); }
-.dot-5 { transform: translate(-100rpx, 100rpx); }
-.dot-6 { transform: translate(-142rpx, 0); }
-.dot-7 { transform: translate(-100rpx, -100rpx); }
-
+/* 罗盘的定位规则搬去 `pages/home` 了 —— 罗盘本身在 REDESIGN 时
+   从这一屏搬到了「我家」，而这二十四条 `.bagua-*` / `.dir-*` / `.dot-*`
+   留在了原处。小程序的页面样式只对本页生效，所以真机上
+   **「我家」的盘面从来就是空的**：十六个标签和八个金点全叠在圆心、
+   被中间那颗按钮盖住，按下去转三秒也看不出在转。
+   镜像把各页 CSS 合在一起，旧规则反倒跨页生效了 ——
+   于是这个毛病在网页版上也看不出来（它用的是写死像素的老半径，
+   0830 把盘改成随屏之后，标记被推到盘外，同样看不见）。 */
 /* 中心按钮 · 不随 face 旋转 · 96rpx 大 · 深灰径向渐变 · 金色边 */
 .cb-cn {
   font-weight: 600;
