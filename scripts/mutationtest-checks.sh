@@ -33,6 +33,8 @@ FILES=(
   # 尺子那一支的变异对象:唯一出口(onBack)与标题
   # 尺子那一支的「单出口」变异对象
   mini/miniprogram/pages/name/index.ts
+  # 指代那一支的变异对象
+  mini/miniprogram/pages/home/index.wxml
   # 金额那一支的变异对象
   mini/miniprogram/pages/product/index.ts
   backend/unmei-api/src/ai_compose.rs
@@ -401,6 +403,15 @@ mutate "bind 到一个不存在的处理器" check-wxml-handlers \
   "edit('mini/miniprogram/pages/ask/index.wxml', 'bindtap=\"goHome\">再问一次', 'bindtap=\"reset\">再问一次')"
 
 echo
+echo "── check-no-deixis（屏上不拿指代当名字）──"
+# 「那一份」曾是这个付费产品在屏上的全部说法。指代要有上下文才成立，
+# 而第一次看见它的人没有上下文（2026-08-31 用户指出）。
+mutate "屏上又拿「那一份」当名字" check-no-deixis \
+  "edit('mini/miniprogram/pages/home/index.wxml', '看你的说明书 ›', '看完整的那一份 ›')"
+keep "带上下文的指代不算" check-no-deixis \
+  "edit('mini/miniprogram/pages/home/index.wxml', '看你的说明书 ›', '在用的那一份生辰 ›')"
+
+echo
 echo "── check-money-fmt（金额只有一支格式化）──"
 # 商品屏抄过一份 `money()`，于是同一个 9900 在两屏上写法不同
 # （「¥99.00」与「¥99」），而改 utils 那一份只动得了后者。
@@ -587,7 +598,7 @@ echo "── 对照：没变异的源码，下面每一支都必须全绿 ──
 for c in check-api-shape check-plots check-relations check-punct-ui check-routes \
          check-bodies check-reachable-pages check-error-leak \
          check-page-imports check-wxml-handlers check-design-css check-wireframe-fill \
-         check-screen-ruler check-money-fmt \
+         check-screen-ruler check-money-fmt check-no-deixis \
          check-punct check-art-leaf check-admin-roles "export-cast --check"; do
   # 读文档的那三支:文档不在就跳过 —— 够不着的检查不该打分
   case "$c" in
