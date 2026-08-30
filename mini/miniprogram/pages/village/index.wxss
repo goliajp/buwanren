@@ -84,35 +84,10 @@
    **改这一块的高度就要改 index.ts 里 `fitCanvas` 的那个常量** ——
    画布按可用高度铺，它俩对不上时画布不会让位，
    症状是「多一块就超出去几十像素」，而那几十像素正好等于差值。 */
-.says {
-  /* align-self 不能省:`.wrap` 是 align-items:center，
-     不写的话卡片按内容宽收缩，看起来像一段居中的引文 —— 正是要改掉的那个毛病 */
-  align-self: stretch;
-  margin: 0 24rpx 12rpx;
-  padding: 20rpx 22rpx;
-  background: var(--paper-panel);
-  border-radius: var(--r-card);
-  box-shadow: var(--sh-card);
-  display: flex;
-  gap: 20rpx;
-  align-items: flex-start;
-  transition: transform .12s cubic-bezier(.34,1.56,.64,1);
-}
-.says-hover { transform: scale(.985); }
-.says-face {
-  flex: none;
-  width: 84rpx; height: 84rpx; border-radius: 999rpx;
-  font-size: 38rpx; font-weight: 700;
-  display: flex; align-items: center; justify-content: center;
-}
-.says-body { flex: 1; min-width: 0; }
-.says-who { font-size: 23rpx; color: var(--ink-faint); }
-.says-text { font-size: 33rpx; font-weight: 600; color: var(--ink); line-height: 1.5; margin-top: 4rpx; }
-/* 身份与「去看看」并成一行 —— 省下的那一行全给画布。
-   村子是这一屏的场景，它每多 40rpx 都值 */
-.says-foot { display: flex; align-items: baseline; margin-top: 10rpx; }
-.says-id { font-size: 21rpx; color: var(--stone-label); }
-.says-go { margin-left: auto; font-size: 24rpx; color: var(--amber-deep); font-weight: 600; }
+/* 卡的样式在 app.wxss（四处共用）。这里只留村主屏独有的两条:
+   左右边距（这一屏的 `.wrap` 是 align-items:center，卡要撑满）与
+   开场白那一格的文字色。 */
+.says { margin: 0 24rpx 12rpx; }
 
 /* 收集进度 —— 从「住着 9 位 · 还空 31 间」那种运营口径改成图鉴条。
    星露谷式:一眼看得出「我集了多少」，不用读数字。

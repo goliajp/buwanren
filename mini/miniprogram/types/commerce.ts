@@ -48,6 +48,14 @@ export interface ProductDetail {
     gallery_json: unknown[]
   }
   skus: Sku[]
+  /** 御守封着的那个人（绑在 sku 上）。不是御守的商品是 null */
+  villager: null | {
+    id: string
+    name: string
+    title: string | null
+    art: string | null
+    direction: string | null
+  }
 }
 
 // ─── 订单 ────────────────────────────────────────────────────

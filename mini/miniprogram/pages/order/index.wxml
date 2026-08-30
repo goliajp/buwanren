@@ -107,7 +107,7 @@
          等于让买家自己猜先按哪个。 -->
     <view class="cta cta-read" wx:if="{{report}}">
       <button class="btn {{status === 'unpaid' ? 'ghost' : ''}}" bindtap="onRead">
-        {{report.status === 'ready' ? '读你的那一册' : '这一册还差你的生辰'}}
+        {{report.status === 'ready' ? '读你的那一份' : '这一份还差你的出生时间'}}
       </button>
     </view>
 

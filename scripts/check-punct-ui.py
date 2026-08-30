@@ -55,6 +55,8 @@ ROOMSRC = ROOT / 'rooms/src'
 # 这不是理论问题 —— 2026-08-18 我先按普通文本改了一遍，把 SQL 的括号换成
 # 全角，Postgres 当场 42601，七条测试全红。
 BACKEND = ROOT / 'backend'
+# 迁移里的文案。种子扫了、迁移没扫 —— 而改版时新文案多半写在迁移里
+MIGRATIONS = ROOT / 'backend/migrations'
 
 CJK = r'一-龥'
 BAD = re.compile(rf'[{CJK}][,?!;:]|[,?!;:][{CJK}]')
@@ -165,10 +167,69 @@ def jsx_text(src):
     return out
 
 
+def _有人提到(文: str, 这一份: pathlib.Path, 更晚: bool) -> bool:
+    """别的迁移里有没有提到这一串字的某一段。
+
+    取【五字滑窗】而不是固定前缀:改文案的那一版写 `LIKE '%当下问事起卦%'`，
+    它含的是原句中间的一段，固定取前八个字就对不上 —— 而对不上时
+    这一支会把一条已经改掉的旧文案继续报红，人只好去豁免它，
+    豁免一开口子就再也关不上了。
+    """
+    文 = 文.strip().strip('%')
+    if len(文) < 5:
+        return False
+    窗 = {文[i:i + 5] for i in range(len(文) - 4)}
+    for f in sorted(MIGRATIONS.glob('*.sql')):
+        if (f.name <= 这一份.name) if 更晚 else (f.name >= 这一份.name):
+            continue
+        文本 = f.read_text(encoding='utf-8')
+        if any(w in 文本 for w in 窗):
+            return True
+    return False
+
+
+def 被后面覆盖过(文: str, 这一份: pathlib.Path) -> bool:
+    """这条旧文案有没有被【后面某一版迁移】改掉。
+
+    历史迁移不能编辑:sqlx 校验的是文件内容的哈希，动一个字，
+    所有现存库启动时就对不上。可也不能因此一律豁免 ——
+    那等于说「写进迁移里的文案永远不用管」。
+
+    所以要证据:后面某一版迁移里出现了这条旧文案的一段（多半在
+    `WHERE ... LIKE '%…%'` 里），就说明它已经被换掉了，放行;
+    找不到就照旧报红。判据落在【文件里看得见的东西】上，不查库 ——
+    这一支在没有 Postgres 的机器上也要能跑。
+    """
+    return _有人提到(文, 这一份, 更晚=True)
+
+
+def 引用了旧文案(文: str, 这一份: pathlib.Path) -> bool:
+    """这串字是不是在【引用】更早的旧文案（`LIKE '%…%'` 或 `replace()` 的第一参）。
+
+    改旧文案的迁移必须把旧句子原样写进 WHERE 里才找得到它，
+    于是那半角标点是【必须保留的】—— 改「好」了就匹配不上，这一版等于没跑。
+    判据同样落在文件上:这一段在更早的某一版里出现过，就是引用。
+    """
+    return _有人提到(文, 这一份, 更晚=False)
+
+
+def 是注释语句(行: str) -> bool:
+    """`COMMENT ON ... IS '…'` 是【写给开发者的】列注释，跟代码注释同类。
+
+    这一支明确豁免注释（见 check-punct.py 里「源码注释暂不扫」那句），
+    而 SQL 的注释恰好长得像字符串字面量 —— 不排掉就会把
+    「首次请求的 HTTP 状态码;0 = 正在处理中」这种也算成产品文案。
+    """
+    return 'COMMENT ON' in 行.upper()
+
+
 def sql_strings(src):
     """SQL 里的字符串字面量。`''` 是转义的单引号,不是结束。
-    行注释里的不算文案。"""
+    行注释里的不算文案;`COMMENT ON` 那种列注释也不算（见 `是注释语句`）。"""
     src = re.sub(r'--[^\n]*', '', src)
+    # 按【语句】切，不按行 —— `COMMENT ON COLUMN x IS` 与那串字常常跨行，
+    # 按行判会把 IS 后面那一行当成普通文案（真踩到过）
+    src = ';'.join('' if 是注释语句(句) else 句 for 句 in src.split(';'))
     out, i, n = [], 0, len(src)
     while i < n:
         if src[i] != "'":
@@ -190,7 +251,12 @@ def scan():
     hits, seen = [], 0
     files = (list(UI.rglob('*.wxml')) + list(UI.rglob('*.ts'))
              + list(ADMIN.rglob('*.ts')) + list(ADMIN.rglob('*.tsx'))
-             + list(SEED.glob('*.sql')))
+             + list(SEED.glob('*.sql'))
+             # 迁移里也有【面向用户的文案】。种子那一片 2026-08-18 就收进来了，
+             # 而 migrations 一直没收 —— 2026-08-30 我把门解、宜忌、收尾句
+             # 全改写进迁移，八个半角冒号一路走到屏幕上，这一支报的还是绿。
+             # 判据跟种子那一片一样:只看单引号里的字面量，SQL 语法不碰。
+             + list(MIGRATIONS.glob('*.sql')))
     files += sorted(ROOMSRC.rglob('*.js'))
     files += [f for f in BACKEND.rglob('*.rs') if 'target/' not in str(f)]
     for d in TOOLS:
@@ -214,7 +280,11 @@ def scan():
             parts = ts_strings(src) + jsx_text(src)
         else:
             parts = ts_strings(src)
+        是迁移 = f.parent == MIGRATIONS
         for t in parts:
+            # 历史迁移里的旧文案:后面有版本改掉了它就放行（见 `被后面覆盖过`）
+            if 是迁移 and (被后面覆盖过(t, f) or 引用了旧文案(t, f)):
+                continue
             for m in BAD.finditer(t):
                 hits.append((f.relative_to(ROOT), t.strip()[:56], m.group()))
             for m in PAREN.finditer(t):

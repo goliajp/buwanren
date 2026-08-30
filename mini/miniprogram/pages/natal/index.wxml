@@ -4,20 +4,18 @@
   <view wx:if="{{err}}" class="err">{{err}}</view>
 
   <block wx:if="{{mode === 'summary'}}">
-    <view class="hd">
-      <view class="title">命</view>
-    </view>
-
-    <view class="hr"></view>
-
-    <view class="basic">
-      <view class="basic-row">
-        <text class="basic-k">日主</text>
-        <text class="basic-v serif">{{summary.day_master}}</text>
-      </view>
-      <view class="basic-row">
-        <text class="basic-k">身势</text>
-        <text class="basic-v">{{summary.strength_level}}</text>
+    <!-- 这一屏是刚填完出生时间的人看到的【第一个结果】，也是整条链上最贵那一步
+         的回报。原先它是:标题一个「命」字，底下「日主 辛金」「身势 偏弱」——
+         一屏古书，而看的人多半不懂这几个词，也不知道接下来该干什么。
+         现在:先说结论（你缺什么、该往哪儿使劲），术语收到底下当注脚。 -->
+    <view class="says intro">
+      <view class="says-face intro-face">村</view>
+      <view class="says-body">
+        <view class="says-who">村子说</view>
+        <view class="says-text">算好了</view>
+        <view class="says-foot">
+          <text class="says-id">下面这些，后面每一句话都从这儿来</text>
+        </view>
       </view>
     </view>
 
@@ -27,31 +25,27 @@
       <view class="stamp-value wx-{{summary.primary_pinyin}}">
         {{summary.primary_yongshen}}
       </view>
-      <view class="stamp-sub">
-        主用神 · {{summary.primary_role}}
-        <text wx:if="{{summary.secondary_yongshen}}">
-          · 副 {{summary.secondary_yongshen}}
-        </text>
-      </view>
+      <view class="stamp-sub">你缺的是<text class="stamp-em">{{summary.primary_yongshen}}</text><text wx:if="{{summary.secondary_yongshen}}">，其次是 {{summary.secondary_yongshen}}</text></view>
     </view>
 
-    <!-- 过 · 应避 chips -->
-    <view class="over" wx:if="{{summary.avoid_wuxing.length > 0}}">
-      <view class="over-k">过 · 应避</view>
-      <view class="chips">
-        <text wx:for="{{summary.avoid_wuxing}}" wx:key="*this"
-              class="chip wx-{{avoidPinyin[index]}}">
-          {{item}}
-        </text>
-      </view>
-    </view>
+    <!-- 那一句原先在弹性槽里，矮屏收起 —— 而它是这一屏唯一一句人话。
+         现在它是主体:结论之后紧跟着「所以你该怎么办」。 -->
+    <view class="sohow" wx:if="{{summary.friendly_hint}}">{{summary.friendly_hint}}</view>
+
+    <!-- 这里原先是「过 · 应避」两个五行字块。上面那句人话已经说了
+         「热闹和人情已经够多了」，底下再列一次「火 木」= 同一件事说两遍
+         （标尺 §1.5.5 第 4 条），而且后一遍还是术语。
+         五行退到「那一份」的专业细节里去 —— 这一屏留人话。 -->
 
     <!-- 那一句进弹性槽：这一页上它是唯一「删掉仍然成立」的一块。
          盘面（日主 · 身势 · 缺 · 过）与免责那行都不能少。 -->
-    <view class="hint flexslot">{{summary.friendly_hint}}</view>
+    <!-- 术语收到这儿当注脚 —— 懂的人要看，不懂的人不必先撞上它 -->
+    <view class="jargon flexslot">
+      日主 {{summary.day_master}} · {{summary.strength_level}}<text wx:if="{{summary.primary_role}}"> · {{summary.primary_role}}</text>
+    </view>
 
     <view class="archive" wx:if="{{archive.length > 1}}">
-      <view class="archive-k">这些生辰</view>
+      <view class="archive-k">填过的这几份</view>
       <view wx:for="{{archive}}" wx:key="id" class="arch {{item.id === natal.id ? 'arch-on' : ''}}">
         <text class="arch-label">{{item.label || '没写名'}}</text>
         <text class="arch-when">{{item.year}}·{{item.month}}·{{item.day}}</text>
@@ -65,8 +59,11 @@
 
     <view class="note" wx:if="{{archNote}}">{{archNote}}</view>
 
+    <!-- 算完之后要有下一步。原先只有「再填一份」——
+         最贵的一步做完了，然后没有下文，而这一屏正是把结果接回村子的地方。 -->
     <view class="cta">
-      <button class="btn ghost" bindtap="rebuild">重建生辰</button>
+      <button class="btn" bindtap="goInvite">看看谁跟你补得上</button>
+      <button class="btn ghost" bindtap="rebuild">再填一份</button>
     </view>
 
     <view class="foot-hint">仅供研究与娱乐 · 不构成人生建议</view>
@@ -75,28 +72,35 @@
   <!-- form 模式 -->
   <!-- 同上:取不到本命时不给建本命的表单,否则一次网络抖动就多一条重复记录 -->
   <block wx:elif="{{!err}}">
-    <view class="hd">
-      <view class="title">你的生辰</view>
-      <!-- 原先写的是「先立底盘 · 五行以数为形」。那是行话，
-           它回答不了填的人真正在问的那句「填了会怎样」。 -->
-      <view class="subtitle">填一次，以后都用它。也可以留几份，随时换</view>
+    <!-- 标尺 §1.5.2「沉浸感」:这一屏原先是一张冷表单 —— 屏上没有一张脸、
+         没有一句谁说的话、没有一处景，而它是整条链上最贵的一步。
+         设定不许没请回家的人说话，所以这里由【村子】问 ——
+         请到人之后，日常那几屏才换成住着的那位说。
+         这一格跟村主屏那张卡同构:同一个壳、同一个位置感。 -->
+    <view class="says intro">
+      <view class="says-face intro-face">村</view>
+      <view class="says-body">
+        <view class="says-who">村子问你</view>
+        <view class="says-text">你是哪天出生的？</view>
+        <view class="says-foot">
+          <text class="says-id">填一次，以后都用它 —— 也可以留几份，随时换</text>
+        </view>
+      </view>
     </view>
-
-    <view class="hr"></view>
 
     <view class="form">
       <view class="field">
-        <text class="field-k">出生日</text>
+        <text class="field-k">哪一天</text>
         <picker mode="date" value="{{form.date}}"
                 start="1900-01-01" end="2050-12-31" bindchange="onDate">
-          <view class="field-v mono">{{form.date}}</view>
+          <view class="field-v mono {{填了.date ? '' : 'unset'}}">{{填了.date ? form.date : '点一下填'}}</view>
         </picker>
       </view>
 
       <view class="field">
-        <text class="field-k">出生时</text>
+        <text class="field-k">几点</text>
         <picker mode="time" value="{{form.time}}" bindchange="onTime">
-          <view class="field-v mono">{{form.time}}</view>
+          <view class="field-v mono {{填了.time ? '' : 'unset'}}">{{填了.time ? form.time : '点一下填'}}</view>
         </picker>
       </view>
 
@@ -105,14 +109,17 @@
         <view class="seg">
           <!-- 原先是「乾/M」「坤/F」—— 拿卦名当性别选项，把一个最普通的
                表单字段变成了术数考试，而它也不准确。排盘那一侧照旧收 M/F -->
-          <view class="seg-item {{form.gender === 'M' ? 'on' : ''}}" bindtap="setMale">男</view>
-          <view class="seg-item {{form.gender === 'F' ? 'on' : ''}}" bindtap="setFemale">女</view>
+          <!-- 没选过时两边都不高亮 —— 预选一个等于替他答了 -->
+          <view class="seg-item {{填了.gender && form.gender === 'M' ? 'on' : ''}}" bindtap="setMale">男</view>
+          <view class="seg-item {{填了.gender && form.gender === 'F' ? 'on' : ''}}" bindtap="setFemale">女</view>
         </view>
       </view>
 
       <view class="field">
-        <text class="field-k">备注</text>
-        <input class="field-input" placeholder="默认" value="{{form.label}}" bindinput="onLabel"/>
+        <!-- 「备注」是表单话。这一栏的用处是【留几份时分得清谁是谁】，
+             所以直接说那件事，占位也给个真例子。 -->
+        <text class="field-k">给它起个名</text>
+        <input class="field-input" placeholder="比如 我自己" value="{{form.label}}" bindinput="onLabel"/>
       </view>
     </view>
 

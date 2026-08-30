@@ -37,6 +37,8 @@ Page({
     /** 履约方式 —— 御守是寄实物，报告是算出来的。文案按它分 */
     fulfillment: '',
     买法: '就要这个',
+    /** 御守封着的那个人。不是御守的商品是 null —— 页面据此决定说不说他 */
+    villager: null as null | { id: string; name: string; title: string | null; art: string | null; direction: string; face: string },
     tags: [] as string[],
     skus: [] as Sku[],
     /** 能买的那个 sku（有价的第一个）。没有价就买不了，如实显示 */
@@ -86,9 +88,14 @@ Page({
              「请回家」是【御守】的话 —— 御守里封着一个人。
              一支香、一份报告不是人，对它们说「请回家」是把上一版
              统一代词时的改动套过了头（2026-08-30 从截图上看见的）。 */
-          买法: d.product.fulfillment_kind === 'residency' ? '请回家'
+          买法: d.product.fulfillment_kind === 'residency'
+                ? (d.villager ? `请${d.villager.name}回家` : '请回家')
               : d.product.category === 'report' ? '就要这份'
               : '就要这个',
+          /* 御守绑着一个人。脸的那个字取姓名末字 —— 跟别处四处一样（门禁盯着） */
+          villager: d.villager
+            ? { ...d.villager, face: d.villager.name.slice(-1), direction: d.villager.direction || '' }
+            : null,
           tags: d.product.tags || [],
           skus: d.skus,
         })

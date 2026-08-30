@@ -60,3 +60,15 @@
 }
 
 .note { margin: 20rpx 0; font-size: 26rpx; color: var(--stone-label); }
+
+/* 0830 标尺 §1.5.3：御守是一个人，所以这一屏的第一眼是他，不是「一件商品」。
+   底色由 `.face-<方向>`（app.wxss）给 —— 这里不写 background（门禁盯着）。 */
+.hd.who { display: flex; align-items: center; gap: 24rpx; }
+.who-face {
+  flex: none; width: 112rpx; height: 112rpx; border-radius: 999rpx;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 50rpx; font-weight: 700;
+  box-shadow: 0 0 0 10rpx rgba(255,154,60,.10), 0 8rpx 22rpx rgba(232,121,26,.20);
+}
+.who-body { flex: 1; min-width: 0; }
+.who-sub { margin-top: 6rpx; font-size: 25rpx; color: var(--ink-faint); }
