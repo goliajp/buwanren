@@ -514,9 +514,24 @@ python3 -c "
 import pathlib
 p = pathlib.Path('mini/miniprogram/pages/plot/index.wxml')
 s = p.read_text(encoding='utf-8')
-assert s.count('这间空着') == 1
-p.write_text(s.replace('这间空着', '这间没人'), encoding='utf-8')
-"
+# 锚点必须落在【真正渲染出来】的那一串上。原先锚的是「这间空着」——
+# 而 0830 之后那句变成了 `{{在哪儿 || '这间'}}空着`，页面上没有这个连写,
+# 反倒是【注释里】有一处。于是变异改的是注释,渲染毫无变化,
+# 报出来是「动线没抓到」,看着像动线退化。
+# （`edit()` 上面那段注释里 2026-08-18 记的就是这个坑,又踩了一次。）
+锚 = chr(123)*2 + '在哪儿 || ' + chr(39) + '这间' + chr(39) + chr(125)*2 + '空着'
+assert s.count(锚) == 1, '锚点不是恰好一处 —— 页面结构变了'
+p.write_text(s.replace(锚, 锚[:-2] + '没人'), encoding='utf-8')
+" || {
+  # **植入失败也要报红**。原先这里不看 python 的退出码,于是 assert 挂掉时
+  # 变异根本没进去,而下面的 run-verify 照常全通 —— 报出来是
+  # 「动线没抓到」,看着像动线退化,实际是这条变异自己坏了。
+  # 上面 mutate() 早就有这道检查,只有这一条是手写的,漏了。
+  printf '  ✗ %-30s 变异没植进去（页面结构变了？）\n' "空屋那一句被改掉"
+  fail=$((fail+1))
+  restore
+  false
+}
 if bash web/run-verify.sh >/dev/null 2>&1; then
   printf '  ✗ %-30s 动线没抓到 —— 页面改了它却照样全通\n' "空屋那一句被改掉"; fail=$((fail+1))
 else
