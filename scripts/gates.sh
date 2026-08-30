@@ -212,6 +212,7 @@ gate "屏上说的是人话吗" . python3 scripts/check-plain-words.py
 # 一屏一件事 / 不是死路。此前每一轮都是我看着截图说「这屏成立」——
 # 那是印象不是自查。落成代码之后头一次跑就抓出两处真的
 #（一单那屏没有他的脸、两颗主按钮结构上能同时出现）。
+gate "村民台词合规格"        . python3 scripts/check-villager-lines.py
 gate "屏上不拿指代当名字"     . python3 scripts/check-no-deixis.py
 gate "金额只有一支格式化"     . python3 scripts/check-money-fmt.py
 gate "22 屏对得上尺子吗" . python3 scripts/check-screen-ruler.py
