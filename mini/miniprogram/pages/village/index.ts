@@ -1,14 +1,14 @@
 /* 主屏 · 村 —— 路线图第 10 步的前端半边。
  *
- * 画面全部来自 rooms/,这一页一笔都不画。它只做宿主那几件事:
- *   ① 取 <canvas type="2d"> 的 node,连同贴图路径交给 mountVillage
- *   ② 把 bindtap 的坐标换算好交给引擎的 VILLAGE_HIT —— 判定在引擎里,
- *      不在这里重写一份(写两份迟早会漂,漂出来的症状是「看得见的点不到」)
+ * 画面全部来自 rooms/，这一页一笔都不画。它只做宿主那几件事：
+ *   ① 取 <canvas type="2d"> 的 node，连同贴图路径交给 mountVillage
+ *   ② 把 bindtap 的坐标换算好交给引擎的 VILLAGE_HIT —— 判定在引擎里，
+ *      不在这里重写一份(写两份迟早会漂，漂出来的症状是「看得见的点不到」)
  *   ③ 副标题与收集数写进 data
  *
- * 【现在能点到的范围有限,如实写着】4 个房门节点 + 12 位村民。
- * 路线图要的是 40 户、空屋也要能点且会说「这间空着,等人」——
- * 那需要一张 40 格的宅基表,村子里还没有。差的是数据不是这一页。
+ * 【现在能点到的范围有限，如实写着】4 个房门节点 + 12 位村民。
+ * 路线图要的是 40 户、空屋也要能点且会说「这间空着，等人」——
+ * 那需要一张 40 格的宅基表，村子里还没有。差的是数据不是这一页。
  */
 
 import { villageApi } from '../../services/village'
@@ -20,7 +20,7 @@ import type { VillagerInVillage } from '../../types/village'
 import { 今天几号 } from '../../utils/day'
 import { 一句 } from '../../utils/say'
 
-// 三支生成物,靠副作用挂到 globalThis 上。顺序不能换。
+// 三支生成物，靠副作用挂到 globalThis 上。顺序不能换。
 require('../../engine/engine.js')
 require('../../engine/host.js')
 require('../../engine/plots.js')
@@ -30,7 +30,7 @@ require('../../engine/village.js')
 const TILES = '/engine/assets/tilemap_packed.png'
 
 interface Hit {
-  /** villager = 走动的那位村民本人;plot = 一格宅基(房子) */
+  /** villager = 走动的那位村民本人；plot = 一格宅基(房子) */
   kind: 'villager' | 'plot'
   who?: string
   at: string
@@ -51,12 +51,12 @@ declare const VILLAGE_SET_HOME: (ids: string[]) => void
 declare const VILLAGE_PLOTS: Plot[]
 declare const VILLAGE_SIZE: { w: number; h: number }
 
-// 走动的那几位在画面上的贴图名 → 中文名。宅基那一路的名字来自服务端,
+// 走动的那几位在画面上的贴图名 → 中文名。宅基那一路的名字来自服务端，
 /* ROOM_INDEX 与 hasRoom 搬到 `pages/villager` 去了 —— 判断「进不进得了屋」
    的地方跟着「进屋」那颗按钮走。 */
 
-// 各页各叫各的名字:这些页面文件没有 import / export,
-// tsc 把它们当脚本、作用域是合并的,两处都叫 IData 会互相污染
+// 各页各叫各的名字：这些页面文件没有 import / export,
+// tsc 把它们当脚本、作用域是合并的，两处都叫 IData 会互相污染
 /* 问候语与日期（设计册 V1 / 10.8）。
    **按你现在几点说话** —— 引擎那句「清晨」说的是画面里的昼夜循环，
    村子的天几分钟转一轮，跟你几点没关系。
@@ -115,12 +115,12 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
   atHome: {} as Record<string, boolean>,
   nameOf: {} as Record<string, string>,
 
-  /* 匿名登录是 app.ts 在 onLaunch 里【异步】做的,而这一页 onShow 立刻就取村子——
-     冷启动时会抢在 token 之前,拿到 401。app.ts 的 broadcast('onAuthReady')
-     就是为这件事准备的,今 / 命 / 我三页都接了,这一页漏了。
+  /* 匿名登录是 app.ts 在 onLaunch 里【异步】做的，而这一页 onShow 立刻就取村子——
+     冷启动时会抢在 token 之前，拿到 401。app.ts 的 broadcast('onAuthReady')
+     就是为这件事准备的，今 / 命 / 我三页都接了，这一页漏了。
 
-     症状:第一次打开显示「取不到村子」,而且此后再也不重取。
-     本机拿假服务端验不出来 —— 假服务端不认 token,怎么都给 200。
+     症状：第一次打开显示「取不到村子」，而且此后再也不重取。
+     本机拿假服务端验不出来 —— 假服务端不认 token，怎么都给 200。
      是把移动网页版接上【真后端】跑那一遍才露出来的。 */
   onAuthReady() {
     this.刷问候()
@@ -175,15 +175,15 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
 
   reload() {
     // 收集数与「谁请回家了」都以服务端为准。引擎那边的 VILLAGE_CENSUS 只报
-    // 画面里画了几户,那是另一件事,两个数不该混用。
+    // 画面里画了几户，那是另一件事，两个数不该混用。
     villageApi.mine().then(
       (v) => {
         const m: Record<string, boolean> = {}
         v.villagers.forEach((x: VillagerInVillage) => { m[x.id] = x.at_home })
         this.atHome = m
-        // 告诉引擎谁住着 —— 门口挂灯还是挂空白门牌,由这一句决定
+        // 告诉引擎谁住着 —— 门口挂灯还是挂空白门牌，由这一句决定
         VILLAGE_SET_HOME(v.villagers.filter((x) => x.at_home).map((x) => x.id))
-        // 名字也从服务端拿,页面不再抄一份
+        // 名字也从服务端拿，页面不再抄一份
         v.villagers.forEach((x: VillagerInVillage) => { this.nameOf[x.id] = x.name })
         /* 「该扫了」那一条出现或消失，画布的可用高度就变了 —— 得重算一次，
            否则那一条把整屏顶出去（村子这一屏本来就是刚好放得下的）。 */
@@ -191,15 +191,15 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
         /* 「今天说的一句」跟「该扫了」一样会改可用高度 —— 村里第一个人
            住进来那天它从无到有，画布得跟着让位。只看 toScan 变没变的话，
            那一天整屏会被顶出去 88px。 */
-        /* 头像的占位:姓名末字。没有美术之前不假装有立绘 ——
-           但「有人在跟你说话」得一眼成立,纯文字做不到。
-           等 40 张头像画好,这一行换成图片地址即可,版式不动。 */
+        /* 头像的占位：姓名末字。没有美术之前不假装有立绘 ——
+           但「有人在跟你说话」得一眼成立，纯文字做不到。
+           等 40 张头像画好，这一行换成图片地址即可，版式不动。 */
         const 说的 = v.today_says
           ? { ...v.today_says, face: v.today_says.name.slice(-1) }
           : null
         /* 「有没有那一格」才是判据 —— 说话卡与开场白二选一，都占 90px。
            只比 `says` 的有无，会漏掉「第一位住进来那天开场白让位给说话卡」
-           这一种:两块都在，高度没变，不必重算;而 0→1 那一下 lived 也变了。 */
+           这一种：两块都在，高度没变，不必重算；而 0→1 那一下 lived 也变了。 */
         const 有那格 = (x: { says: unknown; lived: number }) => !!x.says || !x.lived
         const 变了 = 该扫 !== this.data.toScan
           || 有那格({ says: 说的, lived: v.found }) !== 有那格(this.data)
@@ -245,15 +245,20 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
        多出来的那一块会把整屏顶出去。 */
     /* 村里一个人都没有时，这一格装的是【开场白】（见 index.wxml 的 `.intro`）——
        两块占的高度一样，所以这里要一起算。只看 `says` 的话，
-       第一次打开的人会被顶掉屏底的收集进度条:那正是这段注释警告的
+       第一次打开的人会被顶掉屏底的收集进度条：那正是这段注释警告的
        「改那一块的版式就要改这个数」，而我加开场白时差点又漏一次。
 
        数写成【具名常量】而不是塞在三元里 —— 动线那一支要把它从源码里读出来，
-       跟实测高度对一遍;写成表达式它就读成了 NaN，而 NaN 的比较永远为假，
+       跟实测高度对一遍；写成表达式它就读成了 NaN，而 NaN 的比较永远为假，
        于是那条断言从「钉住这个数」退化成「每次都红」。 */
-    const 说话那格高 = 90
+    /* 按【两行】留。这一格的高度看那句话有多长：一行 90，两行 115 ——
+       而写死 90 的时候，长一点的签文会把画布算大 25px，整屏跟着超。
+       2026-08-31 撞到一次（实测 115 / 写死 90，村主屏超 22px），
+       重跑又是 90 —— 因为那一趟的签文恰好短。这种「看内容而定」的红
+       会在不该红的时候绿，所以按最坏情况留：短内容时画布小一点点，无害。 */
+    const 说话那格高 = 115
     const 说的 = (this.data.says || !this.data.lived) ? 说话那格高 : 0
-    /* 收集进度条常驻,固定 34px。它不是弹性槽 —— 核心反馈不许在矮屏上消失 */
+    /* 收集进度条常驻，固定 34px。它不是弹性槽 —— 核心反馈不许在矮屏上消失 */
     const 进度条 = 34
     const 可用 = win.windowHeight - 头部 - 提示条 - 说的 - 进度条
     const 等比 = Math.round((win.windowWidth * VILLAGE_SIZE.h) / VILLAGE_SIZE.w)
@@ -267,9 +272,9 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
       this.setData({ err: '村子脚本没加载出来 —— 跑过 npm run build:engine 吗？' })
       return
     }
-    // 画布铺满屏宽,按村子自己的宽高比。像素尺寸是村子说了算(mountVillage 里设),
-    // 这里只决定它在屏幕上占多大 —— 两者分开,村子才在所有机型上是同一幅画。
-    // 宽高比也从 VILLAGE_SIZE 读:村子扩过一次地,写死的比例会把画面压扁。
+    // 画布铺满屏宽，按村子自己的宽高比。像素尺寸是村子说了算(mountVillage 里设),
+    // 这里只决定它在屏幕上占多大 —— 两者分开，村子才在所有机型上是同一幅画。
+    // 宽高比也从 VILLAGE_SIZE 读：村子扩过一次地，写死的比例会把画面压扁。
     this.fitCanvas()
     this.mount()
   },
@@ -311,7 +316,7 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
      只滚一下，不改版式：版式是设计上的事，不该顺手动。 */
 
   onTap(e: WechatMiniprogram.TouchEvent) {
-    // detail.x / y 是相对元素的逻辑像素;画布是 704 宽,差一个比例
+    // detail.x / y 是相对元素的逻辑像素；画布是 704 宽，差一个比例
     const k = 704 / this.data.cssW
     const hit = VILLAGE_HIT(e.detail.x * k, e.detail.y * k)
     if (!hit) return          // 点在空地上：什么都不做
@@ -377,7 +382,7 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
   },
 
   onUnload() {
-    // 不停的话,这一帧接一帧会一直排下去,离开这一页也还在烧电
+    // 不停的话，这一帧接一帧会一直排下去，离开这一页也还在烧电
     if (this.handle) this.handle.stop()
     if (this.闹钟) { clearTimeout(this.闹钟); this.闹钟 = 0 }
   },

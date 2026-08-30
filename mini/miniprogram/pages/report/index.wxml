@@ -2,7 +2,7 @@
   <!-- 标题是这一册算的是谁，不是「八字深度报告」——
        买家知道自己买了什么，他想确认的是「这算的是我吗」 -->
   <view class="hd">
-    <view class="title">{{whose || '你的那一份'}}</view>
+    <view class="title">{{whose || '你的说明书'}}</view>
     <view class="sub" wx:if="{{birthLine}}">{{birthLine}}</view>
     <view class="hr"></view>
   </view>
@@ -22,7 +22,7 @@
        这不是错误页 —— 是这一单真实的状态，所以照样有说明、有出路 -->
   <block wx:elif="{{status === 'awaiting_natal'}}">
     <view class="wait">
-      <view class="wait-line">这一份还差你的出生时间</view>
+      <view class="wait-line">这份说明书还差你的出生时间</view>
       <view class="wait-note">
         年月日和几点几分 —— 排出来的盘才是你的。
         填好这一份就出，不用再等
