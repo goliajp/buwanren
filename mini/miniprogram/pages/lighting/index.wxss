@@ -21,7 +21,7 @@
 }
 
 /* 一支香：细杆 + 顶上一点火。
-   杆比头一版长了一半 —— 210rpx 的香落在屏幕中间偏下,顶上空着 480px 全黑,
+   杆比头一版长了一半 —— 210rpx 的香落在屏幕中间偏下，顶上空着 480px 全黑，
    而这一屏的主角就是它。 */
 .stick {
   position: relative;
@@ -42,7 +42,7 @@
   box-shadow: 0 0 18rpx 6rpx rgba(232, 148, 74, 0.55);
   animation: 点上 .5s cubic-bezier(.22,1,.36,1), breathe 2.6s ease-in-out .5s infinite;
 }
-/* 火星是【长出来】的,不是直接就在那儿 */
+/* 火星是【长出来】的，不是直接就在那儿 */
 @keyframes 点上 {
   0%   { transform: scale(0); opacity: 0 }
   60%  { transform: scale(1.9); opacity: 1 }
@@ -53,7 +53,7 @@
   50%      { opacity: 1;   box-shadow: 0 0 22rpx 8rpx rgba(232,148,74,.65); }
 }
 
-/* 窜火:点着的那一下。一圈光从香头炸开再收掉 —— 这一屏最贵的那一下
+/* 窜火：点着的那一下。一圈光从香头炸开再收掉 —— 这一屏最贵的那一下
    (每周只有这一次)原先在屏上什么都没发生。 */
 .flare {
   position: absolute; top: 0; left: 2rpx;
@@ -70,7 +70,7 @@
 
 /* 烟。三缕错开，慢慢往上散 */
 /* 烟。三缕错开，慢慢往上散。
-   头一版只有一个几乎看不见的灰点(3rpx / 透明度 .5) —— 截图上找不到它,
+   头一版只有一个几乎看不见的灰点(3rpx / 透明度 .5) —— 截图上找不到它，
    而截图上看不见的东西就是没做（尺子 §1.5.35）。 */
 .smoke {
   position: absolute;
@@ -91,7 +91,7 @@
 }
 
 .body { flex: none; text-align: center; padding-top: 8rpx; }
-/* 跟别处一样带 `title` —— 21 屏都用这个名字,只有这一屏叫 t1,
+/* 跟别处一样带 `title` —— 21 屏都用这个名字，只有这一屏叫 t1,
    于是「有没有标题」那支门禁看不见它(这一屏还因此整个被豁免过)。
    深色屏上要盖掉全局的 `color: var(--ink)`(那是给纸色底用的)。 */
 .t1 { font-weight: 600; font-size: 44rpx; letter-spacing: 0.1em; color: var(--stone-line-x); }
@@ -105,8 +105,8 @@
 .acts .btn.lit { background: var(--amber-deep); color: #fff; border: none; }
 .acts .btn.lit[disabled] { background: #55483a; color: var(--stone-label); opacity: 1; }
 
-/* 点上之后:没有按钮。一颗灰掉的大按钮会把屏上最重的一块地方
-   留给一个按不动的东西,而此刻该被看的是那支香。 */
+/* 点上之后：没有按钮。一颗灰掉的大按钮会把屏上最重的一块地方
+   留给一个按不动的东西，而此刻该被看的是那支香。 */
 .done {
   text-align: center; font-size: 28rpx; color: #C9A97E;
   letter-spacing: .08em; padding: 24rpx 0 4rpx;

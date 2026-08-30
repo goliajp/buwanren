@@ -26,15 +26,15 @@ import pathlib
 
 # tab 屏的出口是底栏，不在页面里 —— 它们不需要自己的「回去」
 TAB屏 = {'village', 'home', 'me'}
-# 引擎屏:整屏是画面，标题与按钮都在引擎里画。
-# **判据是 wxml 里真有 <canvas>** —— 名单是手写的,而 lighting 曾经写在
-# 这里面(理由「整屏是引擎画面」),它其实一个 canvas 都没有,整屏是 CSS 画的。
-# 于是这一屏四条一条都没验过,而它是全 app 沉浸感最重的一屏。
+# 引擎屏：整屏是画面，标题与按钮都在引擎里画。
+# **判据是 wxml 里真有 <canvas>** —— 名单是手写的，而 lighting 曾经写在
+# 这里面(理由「整屏是引擎画面」)，它其实一个 canvas 都没有，整屏是 CSS 画的。
+# 于是这一屏四条一条都没验过，而它是全 app 沉浸感最重的一屏。
 引擎屏 = {'room', 'lighting'}
 引擎屏 = {屏 for 屏 in 引擎屏
         if '<canvas' in (页 / 屏 / 'index.wxml').read_text(encoding='utf-8')}
-# 账户类 + 你自己的文档:列表、表单、那一份。没有人在场是合理的 ——
-# 「那一份」是【你的】盘，村民不参与;硬摆一张脸反而假
+# 账户类 + 你自己的文档：列表、表单、那一份。没有人在场是合理的 ——
+# 「那一份」是【你的】盘，村民不参与；硬摆一张脸反而假
 #（设计册 §1.5.2 末尾写明这一条）
 账户屏 = {'me', 'settings', 'bind', 'name', 'report', 'orders', 'subs'}
 
@@ -46,7 +46,7 @@ TAB屏 = {'village', 'home', 'me'}
     r'<canvas',              # 一处景
     r'class="[^"]*-art"',    # 空状态与徽章那种圆牌 —— 也是村子的物件
     r'class="[^"]*-face"',   # 商品 / 确认 / 我家那几处的圆牌
-    r'class="[^"]*yard"',    # 苏合的院子 —— 一处景,只是用 CSS 画的不是 canvas
+    r'class="[^"]*yard"',    # 苏合的院子 —— 一处景，只是用 CSS 画的不是 canvas
 ]
 
 错, 记 = [], []
@@ -70,7 +70,7 @@ for f in 文件:
     # B 我在哪儿
     # 标题的几种写法都算 —— `title` / 说话卡的大字 / 入住那屏的 `line1` /
     # 空状态的 `empty-t` / 确认屏那张卡的 `card-name`。
-    # **tab 屏不判**:底栏上就写着它叫什么，页面里再写一遍是同一个词出现两次
+    # **tab 屏不判**：底栏上就写着它叫什么，页面里再写一遍是同一个词出现两次
     # （「我家」正是刻意去掉大标题的，而它吃掉的是罗盘要的空间）。
     if 屏 not in TAB屏 and not re.search(
             r'class="[^"]*\b(title|says-text|line1|empty-t|card-name)\b', s):
@@ -117,21 +117,21 @@ for f in 文件:
     # D 不是死路
     # 出口 = 任何一下能离开这一屏的点击。`goXxx` 一律算（它们都是跳转），
     # tab 屏的出口是底栏，翻页屏至少翻得动
-    # 翻页【不】算出口 —— 翻完还在这一屏。这条曾经在这儿,
-    # 于是名册靠「有上一页/下一页」放行了很久,而它的 `onBack`
-    # 从没绑到 wxml 上、一次都没运行过。判据本身错的时候,
+    # 翻页【不】算出口 —— 翻完还在这一屏。这条曾经在这儿，
+    # 于是名册靠「有上一页/下一页」放行了很久，而它的 `onBack`
+    # 从没绑到 wxml 上、一次都没运行过。判据本身错的时候，
     # 红不出来长得跟「这一屏没问题」一模一样。
     #
-    # 现在按【真的会跳走】来判:wxml 上绑的处理器,回到同页 ts 里
+    # 现在按【真的会跳走】来判：wxml 上绑的处理器，回到同页 ts 里
     # 看它体内有没有 navigateTo / switchTab / navigateBack / reLaunch。
-    # 靠命名习惯(goXxx)判会漏掉叫别的名字的跳转,也会把叫 goXxx
+    # 靠命名习惯(goXxx)判会漏掉叫别的名字的跳转，也会把叫 goXxx
     # 但其实不跳的算进来。
     跳 = ('navigateTo', 'switchTab', 'navigateBack', 'reLaunch', 'redirectTo')
     ts = (页 / 屏 / 'index.ts')
     源 = ts.read_text(encoding='utf-8') if ts.exists() else ''
     出口 = 屏 in TAB屏
     for 名 in set(re.findall(r'bind(?:tap|catchtap)="(\w+)"', s)):
-        # 取这个处理器的函数体:从 `名(` 起到下一个顶层 `},` 为止 ——
+        # 取这个处理器的函数体：从 `名(` 起到下一个顶层 `},` 为止 ——
         # 小程序页面对象里每个方法都是这个形状
         m = re.search(r'\n  (?:async )?' + re.escape(名) + r'\s*\(.*?\n  \},', 源, re.S)
         if m and any(k in m.group(0) for k in 跳):

@@ -114,7 +114,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
       (r) => {
         this.setData({ busy: false, iLit: true, count: r.lit_count, 刚点着: true })
         /* 窜火只烧那一下 —— 留着的话下次 setData 会把它重放一遍。
-           0.9s 是动画本身的长度,多给一点让它烧完。 */
+           0.9s 是动画本身的长度，多给一点让它烧完。 */
         setTimeout(() => this.setData({ 刚点着: false }), 1100)
       },
       () => {
@@ -124,8 +124,8 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     )
   },
 
-  /* 点上之后的出口。二十五分钟不是非坐满不可 —— 但也不催,
-     所以它是一行很淡的字,不是一颗按钮。 */
+  /* 点上之后的出口。二十五分钟不是非坐满不可 —— 但也不催，
+     所以它是一行很淡的字，不是一颗按钮。 */
   onLeave() { 退出去() },
 
   /** 「我没有香」通到苏合那儿 —— 不推销，只放这一个出口 */
