@@ -30,6 +30,9 @@ FILES=(
   # `roomz` 被永久烙进了源码，下一条变异在「干净」源码上就报红。
   # **凡是被 mutate 改到的文件，都必须在这张名单里。**
   mini/miniprogram/pages/villager/index.ts
+  # 尺子那一支的变异对象:唯一出口(onBack)与标题
+  mini/miniprogram/pages/badges/index.ts
+  mini/miniprogram/pages/badges/index.wxml
   mini/miniprogram/app.json
   scripts/orphan-routes.json
   backend/unmei-api/src/auth.rs
@@ -135,6 +138,16 @@ def edit(path, old, new, n=1):
     if c != 1:
         sys.exit(f'变异植不进去（源码里有 {c} 处，要恰好 1 处）: {old[:60]}')
     p.write_text(s.replace(old, new, n), encoding='utf-8')
+
+def sub(path, pat, new):
+    # 正则版的 edit。掏空一个【函数体】要用它 —— 函数体不是字面量,
+    # 但仍然按 edit 的规矩来:必须恰好命中一处,否则说不准种到了哪儿。
+    import re
+    p = pathlib.Path(path); s = p.read_text(encoding='utf-8')
+    ms = list(re.finditer(pat, s, re.S))
+    if len(ms) != 1:
+        sys.exit(f'变异植不进去（正则命中 {len(ms)} 处，要恰好 1 处）: {pat[:60]}')
+    p.write_text(s[:ms[0].start()] + new + s[ms[0].end():], encoding='utf-8')
 exec(sys.argv[1])
 PY
   then
@@ -169,6 +182,16 @@ def edit(path, old, new, n=1):
     if c != 1:
         sys.exit(f'变异植不进去（源码里有 {c} 处，要恰好 1 处）: {old[:60]}')
     p.write_text(s.replace(old, new, n), encoding='utf-8')
+
+def sub(path, pat, new):
+    # 正则版的 edit。掏空一个【函数体】要用它 —— 函数体不是字面量,
+    # 但仍然按 edit 的规矩来:必须恰好命中一处,否则说不准种到了哪儿。
+    import re
+    p = pathlib.Path(path); s = p.read_text(encoding='utf-8')
+    ms = list(re.finditer(pat, s, re.S))
+    if len(ms) != 1:
+        sys.exit(f'变异植不进去（正则命中 {len(ms)} 处，要恰好 1 处）: {pat[:60]}')
+    p.write_text(s[:ms[0].start()] + new + s[ms[0].end():], encoding='utf-8')
 exec(sys.argv[1])
 EOFPY
   then
@@ -373,6 +396,18 @@ mutate "bind 到一个不存在的处理器" check-wxml-handlers \
   "edit('mini/miniprogram/pages/ask/index.wxml', 'bindtap=\"goHome\">再问一次', 'bindtap=\"reset\">再问一次')"
 
 echo
+echo "── check-screen-ruler（每一屏对得上尺子吗）──"
+# 出口那一条是【判据本身】错过一次的地方:它曾把「有上一页/下一页」
+# 算成出口 —— 而翻页翻完还在这一屏。名册靠那个假出口放行了很久,
+# 它的 `onBack` 定义了却从没绑到 wxml 上,一次都没运行过。
+# 现在按「绑上的处理器体内真有没有跳转」判,所以变异要掏空【函数体】,
+# 光改名字是抓不到的 —— 那正是旧判据的毛病。
+mutate "唯一的出口空有其名（函数体里不跳了）" check-screen-ruler \
+  "sub('mini/miniprogram/pages/badges/index.ts', r'\n  onBack\(\).*?\n  \},', '\n  onBack() {\n    // 变异:掏空\n  },')"
+mutate "一屏连标题都没有" check-screen-ruler \
+  "edit('mini/miniprogram/pages/badges/index.wxml', 'class=\"title\"', 'class=\"tiitle\"')"
+
+echo
 echo "── check-design-css（设计文档里的 var 真定义过吗）──"
 if [ -f .claude/design/product-v1.html ]; then
   mutate "SVG 里用了一个没定义的颜色变量" check-design-css \
@@ -518,6 +553,7 @@ echo "── 对照：没变异的源码，下面每一支都必须全绿 ──
 for c in check-api-shape check-plots check-relations check-punct-ui check-routes \
          check-bodies check-reachable-pages check-error-leak \
          check-page-imports check-wxml-handlers check-design-css check-wireframe-fill \
+         check-screen-ruler \
          check-punct check-art-leaf check-admin-roles "export-cast --check"; do
   # 读文档的那三支:文档不在就跳过 —— 够不着的检查不该打分
   case "$c" in
