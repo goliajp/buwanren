@@ -31,6 +31,9 @@ FILES=(
   # **凡是被 mutate 改到的文件，都必须在这张名单里。**
   mini/miniprogram/pages/villager/index.ts
   # 尺子那一支的变异对象:唯一出口(onBack)与标题
+  # 金额那一支的变异对象
+  mini/miniprogram/pages/product/index.ts
+  backend/unmei-api/src/ai_compose.rs
   mini/miniprogram/pages/badges/index.ts
   mini/miniprogram/pages/badges/index.wxml
   mini/miniprogram/app.json
@@ -396,6 +399,15 @@ mutate "bind 到一个不存在的处理器" check-wxml-handlers \
   "edit('mini/miniprogram/pages/ask/index.wxml', 'bindtap=\"goHome\">再问一次', 'bindtap=\"reset\">再问一次')"
 
 echo
+echo "── check-money-fmt（金额只有一支格式化）──"
+# 商品屏抄过一份 `money()`，于是同一个 9900 在两屏上写法不同
+# （「¥99.00」与「¥99」），而改 utils 那一份只动得了后者。
+mutate "某一页又抄了一份金额格式" check-money-fmt \
+  "edit('mini/miniprogram/pages/product/index.ts', '  return 钱(minor, currency)', \"  return '¥' + Math.floor(minor / 100) + '.' + String(minor % 100)\")"
+mutate "前后端对整数金额说法分家" check-money-fmt \
+  "edit('backend/unmei-api/src/ai_compose.rs', 'if frac == 0 {', 'if false {')"
+
+echo
 echo "── check-screen-ruler（每一屏对得上尺子吗）──"
 # 出口那一条是【判据本身】错过一次的地方:它曾把「有上一页/下一页」
 # 算成出口 —— 而翻页翻完还在这一屏。名册靠那个假出口放行了很久,
@@ -568,7 +580,7 @@ echo "── 对照：没变异的源码，下面每一支都必须全绿 ──
 for c in check-api-shape check-plots check-relations check-punct-ui check-routes \
          check-bodies check-reachable-pages check-error-leak \
          check-page-imports check-wxml-handlers check-design-css check-wireframe-fill \
-         check-screen-ruler \
+         check-screen-ruler check-money-fmt \
          check-punct check-art-leaf check-admin-roles "export-cast --check"; do
   # 读文档的那三支:文档不在就跳过 —— 够不着的检查不该打分
   case "$c" in
