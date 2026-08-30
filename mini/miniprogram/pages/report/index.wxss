@@ -73,7 +73,10 @@
   display: flex; align-items: baseline;
   padding: 13rpx 0; border-bottom: 1rpx solid var(--stone-line-x);
 }
-.row-k { width: 110rpx; font-size: 24rpx; color: var(--stone-label); }
+/* 键那一列原先写死 110rpx —— 结论页的「已经够多的」有五个字，
+   在那个宽度里折成两行，读起来像两条。宽度按内容走，不折行。 */
+.row-k { flex: none; font-size: 24rpx; color: var(--stone-label); white-space: nowrap;
+         min-width: 110rpx; margin-right: 20rpx; }
 .row-v { flex: 1; font-size: 28rpx; color: var(--ink); }
 /* 大运里的当前那格 —— 十格干支谁都排得出，「你在这一格」才是要看的 */
 .row-now .row-v { font-weight: 600; }
@@ -100,10 +103,13 @@
 .tabs {
   display: flex; margin-top: auto; padding-top: 20rpx;
   border-top: 1rpx solid var(--stone-line-x);
+  overflow-x: auto; white-space: nowrap;
 }
+/* 七页之后一行挤不下 —— 让它横向滚，别把每一格压成两个字。
+   `flex: none` + 内边距:页签宽度按名字走，长的那几个（「说在前面」）不被压扁。 */
 .tab {
-  flex: 1; text-align: center; font-size: 22rpx;
-  color: var(--stone-label); padding: 8rpx 0;
+  flex: none; text-align: center; font-size: 22rpx;
+  color: var(--stone-label); padding: 8rpx 16rpx;
 }
 .tab-on { color: var(--ink); border-bottom: 2rpx solid var(--ink); }
 
