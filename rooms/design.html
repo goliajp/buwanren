@@ -8100,6 +8100,7 @@ KLRLJJJRqK
     }
     mainG.drawImage(bg, 0, 0)
     drawPlotMarks(mainG, t)
+    drawPing(mainG, t)
     for (const c2 of clouds) {
       const cs = c2.s * 2
       // 变色:白 → 粉霞 → 金霞 缓慢循环(每朵相位不同)
@@ -8547,6 +8548,42 @@ KLRLJJJRqK
   globalThis.VILLAGE_SET_HOME = function (ids) {
     for (const k in HOME) delete HOME[k]
     for (const id of ids || []) HOME[id] = true
+  }
+
+  /* ── 戳一下 ──────────────────────────────────────────────
+     村子占了主屏大半，而它此前【点哪儿都没有反应】：点中人或屋子会开一屏，
+     点空地什么都不发生 —— 于是屏上最大的那块东西看起来像一张图。
+     人不会去点一张图。
+
+     所以每一下都给回应：手指落处荡开一圈涟漪。点中了圈更亮、更大 ——
+     那一下之后页面会换屏，涟漪补的是跳转前那一百毫秒的空白。
+
+     尺寸与浓度是【实拍调出来的】：头一版半径到 34、透明度 0.28，
+     在 704 宽的画布上缩进屏幕里几乎看不见 —— 截图上找不到它，就等于没做。 */
+  let pings = []
+  globalThis.VILLAGE_PING = function (x, y, 中了) {
+    pings.push({ x, y, t0: ENGINE_HOST.now(), 中了: !!中了 })
+    if (pings.length > 6) pings.shift()
+  }
+
+  function drawPing(g2, t) {
+    if (!pings.length) return
+    const 活着 = []
+    for (const q of pings) {
+      const age = (t - q.t0) / 560
+      if (age >= 1) continue
+      活着.push(q)
+      const r = 16 + age * (q.中了 ? 78 : 58)
+      const a = (1 - age) * (q.中了 ? 0.95 : 0.62)
+      g2.strokeStyle = 'rgba(255,255,255,' + a + ')'
+      g2.lineWidth = q.中了 ? 5 : 4
+      g2.beginPath(); g2.arc(q.x, q.y, r, 0, Math.PI * 2); g2.stroke()
+      // 里面再套一圈暖橙 —— 白圈落在浅色屋顶上会糊掉，两层保证哪儿都看得见
+      g2.strokeStyle = 'rgba(255,154,60,' + (a * 0.85) + ')'
+      g2.lineWidth = q.中了 ? 3 : 2
+      g2.beginPath(); g2.arc(q.x, q.y, r * 0.66, 0, Math.PI * 2); g2.stroke()
+    }
+    pings = 活着
   }
 
   function drawPlotMarks(g2, t) {
