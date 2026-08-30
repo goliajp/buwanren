@@ -34,7 +34,7 @@ if not 共用.exists():
 # 抽成共用的那次改动被一次 `git checkout` 撤掉了，而这一支当时只盯前两种，
 # 于是它一直用着自己那一份，跟别处说着不同的日期。
 # 判据：页面里不许再定义这几个名字，用 utils/day 的。
-自己抄 = re.compile(r'^\s*(?:const|function)\s+(今天几号|那一天|汉日|汉数)\b', re.M)
+自己抄 = re.compile(r'^\s*(?:const|function)\s+(今天几号|那一天|那天几点|汉日|汉数)\b', re.M)
 文件 = sorted(页.glob('*/index.ts'))
 if not 文件:
     print('✗ 一个页面都没找到 —— 够不着就不算验过')
