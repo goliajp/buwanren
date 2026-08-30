@@ -189,42 +189,6 @@
   top: 160rpx; left: 160rpx; right: 160rpx; bottom: 160rpx;
   border: 1rpx solid rgba(43,38,32,.10);
 }
-.bagua {
-  position: absolute;
-  top: 50%; left: 50%;
-  width: 60rpx;
-  height: 60rpx;
-  margin: -30rpx 0 0 -30rpx;   /* center anchor */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2;
-}
-.bagua .bg-t {
-  font-weight: 600;
-  font-size: 60rpx;
-  font-weight: 500;
-  color: var(--ink);
-  line-height: 1;
-  letter-spacing: 0;
-}
-.dir {
-  position: absolute;
-  top: 50%; left: 50%;
-  width: 60rpx;
-  height: 30rpx;
-  margin: -15rpx 0 0 -30rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2;
-}
-.dir text {
-  font-family: "SF Mono", "Menlo", monospace;
-  font-size: 20rpx;
-  color: var(--stone-subtle, #78716c);
-  letter-spacing: 0.06em;
-}
 .compass-btn {
   position: absolute;
   top: 50%; left: 50%;
@@ -287,3 +251,42 @@
   font-size: 25rpx; color: #2E7D5B; font-weight: 600;
 }
 .tovillage-go { color: #2E8B57; }
+
+/* ── 盘面上的标记摆到圆周上 ────────────────────────────────
+   `.bagua-0`…`.dir-7`、`.dot-*` 这二十四条定位规则**一条都没写过**：
+   wxml 里一直在渲这些节点，样式里也给了尺寸与颜色，唯独没给位置 ——
+   于是十六个标签和八个金点全叠在圆心，被中间那颗按钮整个盖住。
+   盘上什么都没有，所以按下去转了三秒也看不出在转，
+   而那是这个产品每天都要用的那一下。
+   （从逐帧截图上看出来的：按下 400ms 与 1.6s 两帧一模一样。）
+
+   位置用【百分比】而不是像素:盘的直径随屏走（见上面 `aspect-ratio` 那一段），
+   写死像素的话矮屏上标签会压到环上。
+   0 号在正上方（指针位置），顺时针每 45° 一个 ——
+   跟 index.ts 里 `DIRECTION_ANGLE` 那张表同一套角度，
+   两处对不上的话，转完停的位置会跟屏上写的方位差一格。 */
+/* 盘上唯一的标记:一圈刻度。八个一样大的点转起来看不出快慢，
+   所以第一个（正上方、指针底下那个）做成实心大点 —— 它是「转到哪儿了」的锚。
+   转完之后指针指着它，也就指着后端给的那个方向:一眼看得出「停在这儿」。 */
+.dot {
+  position: absolute;
+  width: 12rpx; height: 12rpx;
+  margin: -6rpx 0 0 -6rpx;
+  border-radius: 999rpx;
+  background: rgba(255,154,60,.34);
+  z-index: 2;
+}
+.dot-0 {
+  width: 22rpx; height: 22rpx; margin: -11rpx 0 0 -11rpx;
+  background: var(--amber);
+  box-shadow: 0 0 0 6rpx rgba(255,154,60,.16);
+}
+
+.dot-0 { left: 50.00%; top: 13.00%; }
+.dot-1 { left: 76.16%; top: 23.84%; }
+.dot-2 { left: 87.00%; top: 50.00%; }
+.dot-3 { left: 76.16%; top: 76.16%; }
+.dot-4 { left: 50.00%; top: 87.00%; }
+.dot-5 { left: 23.84%; top: 76.16%; }
+.dot-6 { left: 13.00%; top: 50.00%; }
+.dot-7 { left: 23.84%; top: 23.84%; }
