@@ -39,10 +39,9 @@
 
     <!-- 那一句进弹性槽：这一页上它是唯一「删掉仍然成立」的一块。
          盘面（日主 · 身势 · 缺 · 过）与免责那行都不能少。 -->
-    <!-- 术语收到这儿当注脚 —— 懂的人要看，不懂的人不必先撞上它 -->
-    <view class="jargon flexslot">
-      日主 {{summary.day_master}} · {{summary.strength_level}}<text wx:if="{{summary.primary_role}}"> · {{summary.primary_role}}</text>
-    </view>
+    <!-- 这儿原先摆着「日主 辛 · 偏弱 · 印星」当注脚。按 2026-08-30 定的规则，
+         专业细节的家是【那一份】（付费的完整分析），日常这几屏一个都不留 ——
+         缩成小字不算数，屏上有就是有。 -->
 
     <view class="archive" wx:if="{{archive.length > 1}}">
       <view class="archive-k">填过的这几份</view>
