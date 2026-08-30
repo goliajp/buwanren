@@ -33,6 +33,9 @@ interface IData {
   contact: Contact | null
   /** 选地址失败时那一行字。真机独有的能力，在网页上会抛 */
   addrNote: string
+  /** 寄到哪填了没 —— 「去付」长什么样看它。
+   *  这是【实物】：没有地址的订单寄不出去，而订单那一屏也没有补填的地方。 */
+  有地址: boolean
   buying: boolean
   note: string
   buyKey: string
