@@ -265,6 +265,10 @@ Page<IData, WechatMiniprogram.IAnyObject>({
   },
 
   /* 「命」不再是 tab —— 一次性建档不该占常驻导航，它现在是我家的二级页。 */
+  /* 「我家」通往村子的那条路。这一屏算出「你缺土」，
+     而那件事的用处就是照它挑人 —— 不给这条路，结论就停在原地。 */
+  goInvite() { wx.navigateTo({ url: '/pages/invite/index' }) },
+
   goNatal() {
     wx.navigateTo({ url: '/pages/natal/index' })
   },
