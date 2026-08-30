@@ -411,7 +411,12 @@ if (MODE !== 'verify') process.exit(0)
             // 「声明了可点」跟「点得到」是两件事,房间那边吃过这个亏。
             const cen = globalThis.VILLAGE_CENSUS()
             let hitSelf = 0
-            for (const v of globalThis.VILLAGE_VILLAGERS_FOR_TEST || []) {
+            // 现在是【函数】——「在场」会随「请回家」变，模块顶层算好的
+            // 那一份从第二秒起就是旧的（台下的四位本来就点不到）。
+            const 名单 = typeof globalThis.VILLAGE_VILLAGERS_FOR_TEST === 'function'
+              ? globalThis.VILLAGE_VILLAGERS_FOR_TEST()
+              : (globalThis.VILLAGE_VILLAGERS_FOR_TEST || [])
+            for (const v of 名单) {
               const h = globalThis.VILLAGE_HIT(v.x, v.y)
               if (h && h.kind === 'villager' && h.at === v.at) hitSelf++
             }
@@ -539,9 +544,13 @@ if (MODE !== 'verify') process.exit(0)
     // 而「声明了可点」与「点得到」是两件事,房间那边吃过这个亏(附着件曾 1/7 可达)。
     const V = (B2.__vil) || {}
     const cen = V.census || {}
-    if (!(cen.村民 > 0 && V.hitSelf === cen.村民)) {
+    /* 比的是【此刻在场】的人数，不是全量 —— 四十位里的请回家之后才在场，
+       台下那几位本来就点不到。拿全量比会报「12 位只点到 8 位」，
+       看着像命中判定坏了，而它好好的。 */
+    const 应点到 = cen.在场 != null ? cen.在场 : cen.村民
+    if (!(应点到 > 0 && V.hitSelf === 应点到)) {
       console.log('\n✗ 村子点不准')
-      console.log(`   ${cen.村民 || 0} 位村民,按他自己的位置点,点到自己的只有 ${V.hitSelf || 0} 位`)
+      console.log(`   在场 ${应点到 || 0} 位,按他自己的位置点,点到自己的只有 ${V.hitSelf || 0} 位`)
       process.exit(1)
     }
     if (!(V.plots > 0 && V.plotSelf === V.plots)) {
