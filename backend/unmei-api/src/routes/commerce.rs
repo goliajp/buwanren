@@ -307,15 +307,17 @@ async fn get_my_order(
        走到结账屏，人就不见了，买家读到的是「我在买一件货」。
        名字取【现在库里的】而不是快照:村民改名是极少的事，
        而认不出是谁的代价，比名字晚一天更新大得多。 */
-    let 行上的人: std::collections::HashMap<String, String> = sqlx::query(
-        r#"SELECT ol.id AS line_id, v.name
+    let 行上的人: std::collections::HashMap<String, (String, Option<String>)> = sqlx::query(
+        r#"SELECT ol.id AS line_id, v.name, b.direction
              FROM order_line ol
              JOIN sku k ON k.id = ol.sku_id
              JOIN villager v ON v.id = k.villager_id
+             LEFT JOIN lack_bias b ON b.lack = v.lack
             WHERE ol.order_id = $1"#,
     ).bind(&id).fetch_all(&st.db).await.map_err(map_db)?
      .into_iter()
-     .map(|r| (r.get::<String, _>("line_id"), r.get::<String, _>("name")))
+     .map(|r| (r.get::<String, _>("line_id"),
+               (r.get::<String, _>("name"), r.get::<Option<String>, _>("direction"))))
      .collect();
     let lines = sqlx::query("SELECT * FROM order_line WHERE order_id=$1 ORDER BY line_no")
         .bind(&id).fetch_all(&st.db).await.map_err(map_db)?;
@@ -365,7 +367,11 @@ async fn get_my_order(
                 let who = o.get("id").and_then(|v| v.as_str())
                     .and_then(|lid| 行上的人.get(lid)).cloned();
                 o.insert("villager_name".into(),
-                         who.map_or(J::Null, J::String));
+                         who.as_ref().map_or(J::Null, |(n, _)| J::String(n.clone())));
+                /* 方向也给 —— 一单那一屏要拿它给脸配色。
+                   不给的话页面只能自己引用自己的旧值，那是取不到就摆错色。 */
+                o.insert("villager_direction".into(),
+                         who.and_then(|(_, d)| d).map_or(J::Null, J::String));
             }
             l
         }).collect::<Vec<_>>(),
