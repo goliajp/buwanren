@@ -102,7 +102,7 @@
   margin-bottom: 24rpx;
   color: var(--ink);
 }
-.suit-k { color: var(--wx-mu); }
+.suit-k { color: var(--wx-mu-fg); }
 .avoid-k { color: var(--stamp); }
 .dual-chips {
   display: flex; flex-direction: column;
@@ -114,7 +114,7 @@
   padding: 8rpx 20rpx;
   letter-spacing: 0.02em;
 }
-.suit-chip { color: var(--wx-mu); }
+.suit-chip { color: var(--wx-mu-fg); }
 .avoid-chip { color: var(--stamp); }
 .dual-empty { color: var(--stone-label); font-size: 24rpx; }
 
