@@ -36,29 +36,15 @@
 }
 
 /* 谁能来：比铺少一层分类栏，多一句「为什么是这几位」。 */
-.stuck {
-  display: flex; align-items: center; justify-content: space-between; gap: 12rpx;
-  margin-top: 14rpx; padding: 14rpx 18rpx;
-  background: var(--amber-lite); border-radius: var(--r-card);
-  font-size: 24rpx; color: #8A4A12; font-weight: 600;
-}
-.stuck-go { font-size: 26rpx; color: var(--amber-deep); }
 .why { font-size: 26rpx; color: var(--ink-faint); margin-top: 12rpx; line-height: 1.5; }
 .foot { font-size: 24rpx; color: var(--ink-faint); margin-top: 28rpx; line-height: 1.6; }
 .empty-t { font-size: 30rpx; font-weight: 600; }
 .empty-sub { font-size: 26rpx; color: var(--ink-faint); margin-top: 12rpx; }
 
-/* 翻页条：一屏放不下就翻页，不往下滚（设计 10.3）。 */
-.pager { display: flex; align-items: center; justify-content: space-between; margin-top: 28rpx; }
-.pg { font-size: 26rpx; color: var(--ink); padding: 12rpx 8rpx; }
-.pg-off { opacity: .3; }
-.pg-n { font-size: 24rpx; color: var(--ink-faint); }
-
 /* 收掉最后那 32px：头部 eyebrow 与页脚各让一点。
    一屏差 32px 不是「差不多」—— 差 1px 也要滚，滚了就没有提示。 */
 .hd .eyebrow { display: none; }
 .foot { margin-top: 16rpx; font-size: 22rpx; }
-.pager { margin-top: 16rpx; }
 .item { padding-top: 18rpx; padding-bottom: 18rpx; }
 
 /* 没上架的：在册上，但按不动（设计册 10.8「照实说，不拿别人顶上」） */
@@ -69,15 +55,6 @@
 .item-top { display: flex; align-items: baseline; }
 .item-top .item-name { flex: 1; }
 .item-top .item-meta { flex: none; margin-left: 20rpx; }
-
-/* 「只看在卖的」（设计册 V4 弹性槽）。矮屏收起 ——
-   它是省事的路子，不是这一屏的主干：主干是四十位都在册上。 */
-.onsale {
-  margin-top: 20rpx; padding-top: 16rpx;
-  border-top: 1rpx solid var(--stone-line-x);
-  font-size: 24rpx; color: var(--ink-mid);
-}
-.onsale-hover { opacity: 0.6; }
 
 
 /* ── 0830:一行 → 一张卡（名册就是图鉴，图鉴要有脸）────────────── */
@@ -119,3 +96,80 @@
 /* 还没来的那几位压暗 —— 这一条要盖住方向色，所以写在页面里是对的 */
 .item-off .item-lack { background: var(--paper-inset) !important; color: var(--stone-label) !important; }
 .item-off .item-face { background: var(--paper-inset); color: var(--stone-label); }
+
+/* ── 还没来的那些：在册上，但不占地方 ─────────────────────────
+   默认收成一行,点开才摊。原先它们跟能请的平级混排、五位一页,
+   在卖的只有四位 —— 往后七页全是灰的,翻页翻不出东西来。 */
+.soon-line {
+  display: flex; align-items: center; gap: 14rpx;
+  margin-top: 26rpx; padding: 20rpx 22rpx;
+  background: var(--paper-inset);
+  border-radius: var(--r-card);
+  font-size: 25rpx; color: var(--ink-mid);
+}
+/* 摊开之后它退回一条细横杠 —— 那时它只是个开关,不再是预告 */
+.soon-line.open {
+  background: none; padding: 16rpx 0; justify-content: center;
+  border-top: 1rpx solid var(--stone-line-x); border-radius: 0;
+}
+.soon-txt { flex: 1; }
+.soon-line.open .soon-txt { flex: none; }
+/* 三张脸叠着 —— 一堆人站在门外的样子,不是三个并排的头像 */
+.soon-peek { flex: none; display: flex; align-items: center; }
+.peek-face {
+  position: relative;
+  width: 52rpx; height: 52rpx; border-radius: 999rpx;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24rpx;
+  border: 3rpx solid var(--paper-inset);
+  filter: saturate(.45);
+}
+.soon-hover { opacity: .55; }
+/* 箭头转过来 —— 收起/展开是同一个东西的两面,不该是两个图标 */
+.soon-caret {
+  color: var(--stone-label);
+  transform: rotate(90deg);
+  transition: transform .22s cubic-bezier(.22,1,.36,1);
+}
+.soon-caret.up { transform: rotate(-90deg); }
+
+.soon-list { display: flex; flex-direction: column; }
+.soon-item {
+  display: flex; align-items: center; gap: 14rpx;
+  padding: 13rpx 4rpx;
+  border-bottom: 1rpx solid var(--stone-line-x);
+}
+.soon-item:last-child { border-bottom: none; }
+/* 窄行的脸也留着 —— 名册是图鉴,没有脸就退回四十行文字。
+   只是小一号、压暗:他还没来 */
+.soon-face {
+  flex: none; width: 44rpx; height: 44rpx; border-radius: 999rpx;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22rpx; background: var(--paper-inset); color: var(--stone-label);
+}
+.soon-name { flex: none; font-size: 27rpx; color: var(--ink-mid); }
+.soon-sub {
+  flex: 1; min-width: 0; font-size: 22rpx; color: var(--ink-faint);
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+.soon-lack { flex: none; font-size: 20rpx; color: var(--stone-label); }
+
+/* ── 按下「请回家」之后会发生什么 ────────────────────────────
+   第一次来的人不知道这是实物、要寄、要扫。原先只有一行小灰字。 */
+.how {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-top: 30rpx; padding-top: 26rpx;
+  border-top: 1rpx solid var(--stone-line-x);
+}
+.how-step { flex: 1; text-align: center; }
+.how-n {
+  width: 40rpx; height: 40rpx; margin: 0 auto 12rpx;
+  border-radius: 999rpx; background: var(--amber-lite);
+  color: var(--amber-deep); font-size: 23rpx; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+}
+.how-t { font-size: 25rpx; font-weight: 600; color: var(--ink-mid); }
+.how-s { font-size: 21rpx; color: var(--ink-faint); margin-top: 6rpx; line-height: 1.5; }
+.how-arrow { flex: none; padding-top: 6rpx; font-size: 30rpx; color: var(--ink-faint); opacity: .5; }
+
+.back { margin-top: 30rpx; text-align: center; font-size: 26rpx; color: var(--ink-faint); }
