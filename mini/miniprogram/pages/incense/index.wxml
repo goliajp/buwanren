@@ -16,8 +16,8 @@
     <view class="bubble">
       <block wx:if="{{line}}">{{line}}</block>
       <block wx:else>
-        你缺什么，我还不知道 —— 先把生辰填了，我才配得准
-        <text class="say-go" bindtap="goNatal">去填生辰 ›</text>
+        你缺什么，我还不知道 —— 先把出生时间填了，我才配得准
+        <text class="say-go" bindtap="goNatal">去填出生时间 ›</text>
       </block>
     </view>
   </view>

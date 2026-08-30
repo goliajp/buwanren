@@ -16,7 +16,7 @@
   <block wx:if="{{(mode === 'result' || mode === 'history-detail') && result}}">
 
     <view class="hist-chip" wx:if="{{mode === 'history-detail'}}" bindtap="closeHist">
-      ← 近签 · {{result.time_label}}
+      ← 之前问的 · {{result.time_label}}
     </view>
 
     <view class="result-time mono" wx:if="{{mode === 'result'}}">
@@ -27,12 +27,11 @@
       <text class="q-mark">「</text>{{result.question}}<text class="q-mark">」</text>
     </view>
 
-    <view class="gate-title">
-      <text class="gate-name">{{result.gate}}</text>
-      <text class="gate-dir">{{result.direction}}</text>
-    </view>
-
-    <view class="gate-explain" wx:if="{{result.gate_explain}}">
+    <!-- 【这一屏要让人带走的是一句能落到今天的话】（标尺 §1.5.3）。
+         原先带走的是「生门 · 东北」:大字是门名，人话缩在下面当注解，
+         而门名与方位是专业细节 —— 按 §1.5.2「说人话」，它们不该占主位。
+         现在反过来:话在上、大字号;门名与方位退到屏底当注脚。 -->
+    <view class="verdict" wx:if="{{result.gate_explain}}">
       {{result.gate_explain}}
     </view>
 
@@ -40,7 +39,7 @@
 
     <view class="dual">
       <view class="dual-col">
-        <view class="dual-k suit-k">宜</view>
+        <view class="dual-k suit-k">今天适合</view>
         <view class="dual-chips">
           <text wx:for="{{result.suit}}" wx:key="*this" class="dual-chip suit-chip">{{item}}</text>
           <text wx:if="{{result.suit.length === 0}}" class="dual-empty">—</text>
@@ -48,7 +47,7 @@
       </view>
       <view class="dual-sep"></view>
       <view class="dual-col">
-        <view class="dual-k avoid-k">避</view>
+        <view class="dual-k avoid-k">今天先别</view>
         <view class="dual-chips">
           <text wx:for="{{result.avoid}}" wx:key="*this" class="dual-chip avoid-chip">{{item}}</text>
           <text wx:if="{{result.avoid.length === 0}}" class="dual-empty">—</text>
@@ -70,7 +69,7 @@
           hover-class="recommend-hover"
           hover-stay-time="100"
           bindtap="onRecommend">
-      <view class="rec-k">另荐 <text class="rec-arrow">›</text></view>
+      <view class="rec-k">也可以问问他 <text class="rec-arrow">›</text></view>
       <view class="rec-name">{{result.recommend.name}}</view>
       <view class="rec-sub" wx:if="{{result.recommend.sub_title}}">{{result.recommend.sub_title}}</view>
     </view>
@@ -82,7 +81,10 @@
       <button wx:else class="btn ghost" bindtap="closeHist">返回</button>
     </view>
 
-    <view class="foot-hint">不下吉凶 · 只作参考 · 仅供研究与娱乐</view>
+    <!-- 门名与方位是专业细节，按标尺 §1.5.2 只允许留在这种注脚位置 -->
+    <view class="foot-hint">
+      <text class="gate-note" wx:if="{{result.gate}}">奇门 · {{result.gate}}<text wx:if="{{result.direction}}"> · {{result.direction}}</text> · </text>当个参考 · 仅供研究与娱乐
+    </view>
   </block>
 
   <!-- 历史那一块搬到我家的弹性槽里了（REDESIGN.md · 近几次）。
@@ -93,7 +95,7 @@
        空状态永远带出口（设计 10.7）。 -->
   <block wx:if="{{!result && mode !== 'spinning'}}">
     <view class="empty-state">
-      <view class="empty-art">签</view>
+      <view class="empty-art">问</view>
       <view class="empty-t">今天还没问过</view>
       <view class="empty-s">想清楚一件事，去转一下</view>
       <button class="btn" bindtap="goHome">去转一下</button>

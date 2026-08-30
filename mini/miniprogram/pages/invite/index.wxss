@@ -36,6 +36,13 @@
 }
 
 /* 谁能来：比铺少一层分类栏，多一句「为什么是这几位」。 */
+.stuck {
+  display: flex; align-items: center; justify-content: space-between; gap: 12rpx;
+  margin-top: 14rpx; padding: 14rpx 18rpx;
+  background: var(--amber-lite); border-radius: var(--r-card);
+  font-size: 24rpx; color: #8A4A12; font-weight: 600;
+}
+.stuck-go { font-size: 26rpx; color: var(--amber-deep); }
 .why { font-size: 26rpx; color: var(--ink-faint); margin-top: 12rpx; line-height: 1.5; }
 .foot { font-size: 24rpx; color: var(--ink-faint); margin-top: 28rpx; line-height: 1.6; }
 .empty-t { font-size: 30rpx; font-weight: 600; }

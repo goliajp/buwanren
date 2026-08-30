@@ -112,8 +112,12 @@
       // 不解析的话整页渲不出来,而那一页的别的部分本来是可以验的;
       // 悄悄接成空操作又会让人以为这一步验过了。所以:渲得出来,点了明说。
       if (k.startsWith('bind') && !(k in EVENTS)) NATIVE_ONLY[k] = true
-      if (k.startsWith('catch')) {
-        throw new Error('WXML: catch 系事件还没实现(' + k + ')')
+      // `catch*` 跟 `bind*` 是同一批事件,差别只有一条:处理完【不再往上冒泡】。
+      // 真机上它用来把内层按钮的点击从外层卡片手里截住 ——
+      // 不接的话，点内层按钮会连外层一起触发,那是两条动线同时跑。
+      if (k.startsWith('catch') && !(('bind' + k.slice(5)) in EVENTS)) {
+        throw new Error('WXML: catch 系里这一个还没实现(' + k + ') —— '
+          + '去 web/runtime/wxml.js 的 EVENTS 把它加上')
       }
       out[k] = m[2]
     }
@@ -213,6 +217,14 @@
     for (const k in a) {
       if (k.startsWith('wx:')) continue
       if (k in EVENTS) { v.events[EVENTS[k]] = a[k]; continue }
+      // catchtap → click，并记下「这一个要截住冒泡」
+      if (k.startsWith('catch') && ('bind' + k.slice(5)) in EVENTS) {
+        const type = EVENTS['bind' + k.slice(5)]
+        v.events[type] = a[k]
+        v.catches = v.catches || {}
+        v.catches[type] = true
+        continue
+      }
       if (k in NATIVE_ONLY) { v.attrs['data-native-only'] = k; continue }
       const val = interp(a[k], scope)
       v.attrs[k] = val === true ? '' : (val === false || val == null ? null : String(val))
@@ -314,7 +326,13 @@
         el.__off = []
         for (const type in v.events) {
           const name = v.events[type]
-          const fn = (ev) => on(name, ev, el)
+          const 截住 = v.catches && v.catches[type]
+          const fn = (ev) => {
+            // catch* 的语义:自己处理完就不再往上传。
+            // 少这一句的话，点开场白里的按钮会连外层那张卡的 bindtap 一起走。
+            if (截住) ev.stopPropagation()
+            on(name, ev, el)
+          }
           el.addEventListener(type, fn)
           el.__off.push(() => el.removeEventListener(type, fn))
         }
