@@ -15,6 +15,16 @@
 .cat-on { color: var(--ink); border-color: var(--ink); }
 
 .loading, .err, .empty { padding: 80rpx 0; text-align: center; color: var(--stone-label); }
+/* 圆牌居中 —— `.empty-art` 的底色与字号在 app.wxss，这里只管摆放 */
+.empty { display: flex; flex-direction: column; align-items: center; }
+
+/* 「回去」贴底。`.page` 得是纵向 flex，`margin-top: auto` 才顶得开。
+   高度【不要】在这儿写 —— app.wxss 已经给了 `min-height: 100vh`，
+   这里再写一个 100% 会把它盖掉（页面样式排在后面），
+   而 100% 的父级没有高度，于是按钮跟在内容后面、底下空五百像素。 */
+.page { display: flex; flex-direction: column; }
+.cta { margin-top: auto; padding-top: 40rpx; }
+.cta .btn { width: 100%; box-sizing: border-box; }
 .err-msg { margin-bottom: 28rpx; }
 
 .item {
