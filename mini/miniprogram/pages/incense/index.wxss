@@ -32,7 +32,7 @@
 
 
 /* ── 0830 ────────────────────────────────────────────────────
-   她说话就该有脸;三档是要你选一个，不是一张目录。 */
+   她说话就该有脸；三档是要你选一个，不是一张目录。 */
 .say-row { display: flex; align-items: flex-start; gap: 16rpx; margin-top: 22rpx; }
 /* 底色与字色由 `.face-<方向>`（app.wxss）给 —— 这里自调过一版绿，
    而苏合的 `lack_bias.direction` 是 near，她在名册与村子里都是粉的。 */
@@ -73,3 +73,7 @@
           font-variant-numeric: tabular-nums; }
 .acts { margin-top: auto; }
 .acts .btn { width: 100%; box-sizing: border-box; }
+
+/* 点一档直接进确认屏 —— 卡片得说出这件事。
+   三张牌并排摆着看不出能按，而这一屏是卖香的地方。 */
+.pick-go { margin-top: 12rpx; font-size: 21rpx; font-weight: 600; color: var(--amber-deep); }

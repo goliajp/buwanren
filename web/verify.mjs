@@ -642,6 +642,37 @@ if (API) {
      '「他住进来了」那一屏上按「去看看」，真的到得了他那一页',
      await p.evaluate(() => globalThis.__router.current().__route))
 
+  /* 【还没请来】那一支：这是决定要花九十九块的地方，而它原先屏上
+     只有四个标签，中间三百多像素空着（标尺 §1.5.4 第二问）。
+     挑一位这一趟没请回家的看。 */
+  {
+    const 谁 = sql1("SELECT id FROM villager WHERE id NOT IN (SELECT villager_id FROM villager_residency"
+                    + " WHERE villager_id IS NOT NULL) ORDER BY id LIMIT 1")
+    if (谁) {
+      await open('pages/villager/index', { id: 谁 })
+      await p.waitForFunction(() => globalThis.__router.current().data.loading === false,
+                              null, { timeout: 15000 }).catch(() => {})
+      const 没请 = await p.evaluate(() => {
+        const d = globalThis.__router.current().data
+        return { 住着: !!(d.who && d.who.at_home), 文: (document.querySelector('#app') || {}).innerText || '' }
+      })
+      if (!没请.住着) {
+        ok(/回家之后/.test(没请.文) && /住进村里那一间/.test(没请.文),
+           '还没请来的那一屏说得出「请他回家之后会怎样」　—— 不是四个标签加一片空白',
+           没请.文.replace(/\n/g, ' ').slice(0, 60))
+        /* 稀有度（「常」「稀」「珍」）是运营的分档 —— 屏上摆一个「常」字，
+           读的人只会当成错别字。 */
+        const 档 = sql1(`SELECT rarity FROM villager WHERE id='${谁}'`)
+        ok(!档 || !new RegExp(`^\\s*${档}\\s*$`, 'm').test(没请.文),
+           '屏上不摆稀有度　—— 那是运营的分档，不是给买的人看的词', String(档))
+      } else {
+        ok(false, '验得到「还没请来」那一支', `${谁} 已经住下了`)
+      }
+    } else {
+      ok(false, '验得到「还没请来」那一支', '库里每一位都住下了')
+    }
+  }
+
   /* ── 「该扫了」（设计册 E2）──────────────────────────────────
      **这一条只在「有单已签收、还没扫」时出现**：常驻的提示会被无视，
      只在该出现时出现的才被点。收货扫码率是整条链上最敏感的一个数 ——
