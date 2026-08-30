@@ -26,7 +26,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.prof-v.ok { color: var(--wx-mu); }
+.prof-v.ok { color: var(--wx-mu-fg); }
 .prof-v.mono {
   font-family: "SF Mono", "Menlo", monospace;
   font-size: 20rpx;
