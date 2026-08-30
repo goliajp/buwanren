@@ -56,13 +56,19 @@
 
     <view class="sum-k">算下来</view>
     <view class="row"><text class="row-k">{{p.product.name}} × {{qty}}</text><text class="row-v">{{totalText}}</text></view>
-    <view class="row"><text class="row-k">运费</text><text class="row-v">另算 · 以订单为准</text></view>
+    <!-- 【不列运费】。后端算总价是 `let total = subtotal`，压根没有运费这回事，
+         而「另算 · 以订单为准」把结账屏上最不能含糊的那个数变成了约数：
+         写着「一共 ¥99」，下面又说还有一笔说不准的。包邮就直说包邮。 -->
+    <view class="row"><text class="row-k">运费</text><text class="row-v">包邮</text></view>
 
     <view class="note" wx:if="{{note}}">{{note}}</view>
 
     <view class="pay">
       <view class="pay-total">一共 {{totalText}}</view>
-      <button class="btn" bindtap="go" disabled="{{buying}}">{{buying ? '建单中…' : '去付'}}</button>
+      <!-- 没填【寄到哪】时按钮待命。满橙的大按钮长得跟能按一样，
+           而这是实物：没有地址寄不出去。仍然可以按 —— 按了就地说差什么，
+           不是禁掉让人猜为什么按不动（跟填出生时间那一屏一致）。 -->
+      <button class="btn {{有地址 ? '' : 'btn-wait'}}" bindtap="go" disabled="{{buying}}">{{buying ? '建单中…' : '去付'}}</button>
     </view>
     <view class="foot">付完之后就等它到 —— 到了会有人告诉你</view>
   </block>

@@ -274,7 +274,13 @@ fn money_display(minor: i64, currency: &str) -> String {
         return format!("{sym}{minor}");
     }
     let unit = 10_i64.pow(d);
-    format!("{sym}{}.{:0width$}", minor / unit, (minor % unit).abs(), width = d as usize)
+    let frac = (minor % unit).abs();
+    // 整数金额不挂零头 —— `¥99.00` 是记账格式，人不这么说话，而那两个零
+    // 还占着标价上最重的那块地方。前端 `utils/money.ts` 同样的规矩。
+    if frac == 0 {
+        return format!("{sym}{}", minor / unit);
+    }
+    format!("{sym}{}.{:0width$}", minor / unit, frac, width = d as usize)
 }
 
 /// 「下午 1 点」—— 说给人听的时刻。
