@@ -2574,6 +2574,46 @@ if (!API) {
       ).catch(() => {})
     }
 
+    /* 没填【寄到哪】的时候「去付」是按不出单的 —— 这是实物，
+       没有地址寄不出去，而订单那一屏也没有补填的地方。先验这一条。 */
+    {
+      const 有 = await p.evaluate(() => globalThis.__router.current().data.有地址)
+      if (!有) {
+        await p.getByText('去付', { exact: true }).click()
+        await p.waitForTimeout(700)
+        const 拦 = await p.evaluate(() => ({
+          route: globalThis.__router.current().__route,
+          note: globalThis.__router.current().data.note || '',
+        }))
+        ok(拦.route === 'pages/confirm/index' && /寄到哪/.test(拦.note),
+           '没填【寄到哪】就按「去付」，它拦住并说清差什么　—— 实物没地址寄不出去',
+           `${拦.route} · ${拦.note.slice(0, 24)}`)
+        ok(await p.evaluate(() => !!document.querySelector('button.btn-wait')),
+           '而且那颗按钮本来就没满橙　—— 它此刻按不出单')
+      } else {
+        ok(false, '验得到「没填寄到哪」那一支', '进来时地址已经有了')
+      }
+    }
+
+    /* 地址簿只有真机有（`wx.chooseAddress`，垫片会抛）。
+       所以这里【显式桩掉那一跳】—— 跟扫御守那一步同一个做法：
+       夹具写在明处，验的仍是这一屏自己的逻辑（拿到地址之后按钮亮起、
+       建单带着 contact 走）。 */
+    await p.evaluate(() => {
+      globalThis.__wxStub('chooseAddress', () => Promise.resolve({
+        userName: '镜像', telNumber: '13000000000',
+        provinceName: '浙江省', cityName: '杭州市', countyName: '西湖区',
+        detailInfo: '某条路 1 号',
+      }))
+    })
+    await p.getByText('还没填', { exact: false }).first().click()
+    await p.waitForFunction(() => globalThis.__router.current().data.有地址 === true,
+                            null, { timeout: 8000 }).catch(() => {})
+    ok(await p.evaluate(() => globalThis.__router.current().data.有地址) === true,
+       '选完地址，这一屏记下了它')
+    ok(await p.evaluate(() => !document.querySelector('button.btn-wait')),
+       '有了地址，「去付」才亮起来')
+
     await p.getByText('去付', { exact: true }).click()
     await p.waitForFunction(
       () => globalThis.__router.current().__route === 'pages/order/index',
