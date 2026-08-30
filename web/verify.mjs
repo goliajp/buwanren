@@ -55,7 +55,7 @@ const FAKE = {
       omamori_product_id: null },
     { id: 'aman', name: '阿曼', title: '画沙的人', art: '沙占', rarity: '珍',
       omamori_product_id: null },
-    { id: 'suhe', name: '苏合', title: '香药娘子', art: '八字', rarity: '珍',
+    { id: 'suhe', name: '苏合', title: '调香的', art: '八字', rarity: '珍',
       omamori_product_id: null },
   ],
   /* 订着的。空数组是「一个都没订」的真实回答（真后端给 []），不是 404 ——
