@@ -33,6 +33,9 @@ interface IData {
   contact: Contact | null
   /** 选地址失败时那一行字。真机独有的能力，在网页上会抛 */
   addrNote: string
+  /** 寄到哪填了没 —— 「去付」长什么样看它。
+   *  这是【实物】：没有地址的订单寄不出去，而订单那一屏也没有补填的地方。 */
+  有地址: boolean
   buying: boolean
   note: string
   buyKey: string
@@ -44,6 +47,10 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     skuId: '', unit: 0, cur: 'CNY', unitText: '', totalText: '', face: '',
     qty: 1, message: '',
     contact: null, addrNote: '', buying: false, note: '', buyKey: '',
+    /* 寄到哪填了没 —— 「去付」长什么样看它。
+       这是【实物】：没有地址的订单寄不出去，而订单那一屏也没有补填的地方。
+       满橙的大按钮长得跟能按一样，跟填出生时间那一屏是同一个病。 */
+    有地址: false,
   },
 
   onLoad(q: Record<string, string | undefined>) {
@@ -117,6 +124,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     pending.then(
       (a) => this.setData({
         addrNote: '',
+        有地址: true,
         contact: {
           name: a.userName,
           phone: a.telNumber,
@@ -131,6 +139,13 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     const { p, qty, buying, buyKey, contact, message } = this.data
     if (buying || !p) return
     if (!this.data.skuId) { this.setData({ note: '这一件挑不出价，买不了' }); return }
+    /* 【寄到哪】是必须的:这是实物,没有地址就寄不出去 ——
+       而订单那一屏也没有补填的地方,一单落下去就成了悬案。
+       原先这里一个字都不问,「去付」照样满橙。 */
+    if (!(contact && contact.address)) {
+      this.setData({ note: '还差【寄到哪】—— 上面点一下选个地址，御守要寄到你手上' })
+      return
+    }
     this.setData({ buying: true, note: '' })
     const c: Record<string, unknown> = { ...(contact || {}) }
     if (message.trim()) c.message = message.trim()

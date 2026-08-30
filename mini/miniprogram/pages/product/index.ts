@@ -12,17 +12,16 @@ import { storage } from '../../services/storage'
 import type { ApiError } from '../../services/api'
 import type { ProductDetail, Sku } from '../../types/commerce'
 import { 一句 } from '../../utils/say'
+/* 价格用【共用的那支】。这一屏原先自己抄了一份 `money()`，
+   于是同一个 9900 在商品屏上是「¥99.00」、在确认屏上是「¥99」——
+   改了 utils 那一份只动了后者，两屏当场说两种话。
+   抄一份的代价不是多十行，是它会漂。 */
+import { money as 钱 } from '../../utils/money'
 
-/** 分 → 一句能显示的价格。规则跟后端 `ai_compose::money_display` 一致 */
+/** 分 → 一句能显示的价格。取不到价就空着，不写一个 0 出来 */
 function money(minor: number | null | undefined, currency: string | null | undefined): string {
   if (minor === null || minor === undefined || !currency) return ''
-  const d = currency === 'JPY' ? 0 : 2
-  const sym: Record<string, string> = {
-    CNY: '¥', JPY: '¥', USD: '$', EUR: '€', TWD: 'NT$', HKD: 'HK$', GBP: '£', SGD: 'S$',
-  }
-  const s = sym[currency] || currency + ' '
-  if (d === 0) return s + minor
-  return s + Math.floor(minor / 100) + '.' + String(minor % 100).padStart(2, '0')
+  return 钱(minor, currency)
 }
 
 Page({

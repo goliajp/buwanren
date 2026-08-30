@@ -2,11 +2,11 @@
   <!-- 御守是【一个人】。这一屏是决定掏不掏钱的地方，而它原先的标题是
        「一件 / 御守」—— 刚点的明明是「丹增 · 请回家」，落地却是一件匿名商品，
        连说明里都只能写「这位不完人」。标尺 §1.5.3 第一问「我在哪儿」答不上。
-       现在:是谁买谁，脸和名字在最上面;不是御守的商品（香、报告）照旧。 -->
+       现在：是谁买谁，脸和名字在最上面；不是御守的商品（香、报告）照旧。 -->
   <view class="hd who" wx:if="{{villager}}">
     <view class="who-face face-{{villager.direction}}">{{villager.face}}</view>
     <view class="who-body">
-      <!-- 不带代词:四十位里男女都有，写死一个「他」轮到婆婆那天就是错的
+      <!-- 不带代词：四十位里男女都有，写死一个「他」轮到婆婆那天就是错的
            （0830 的代词清扫定过这条，而这一行是后加的，差点又犯一次） -->
       <view class="eyebrow">请回家</view>
       <view class="title">{{villager.name}}</view>
@@ -44,8 +44,32 @@
 
     <view class="desc" wx:if="{{desc}}">{{desc}}</view>
 
-    <view class="ship" wx:if="{{fulfillment === 'residency' && villager}}">
-      寄一枚御守到你手上 · 扫开它，{{villager.name}}就住进你的村子 —— 从那天起他每天跟你说一句，也能替你看一件事
+    <!-- 【你会收到什么】。这是花这笔钱的决策屏，而它原先只有一行小灰字
+         把三件事挤在一起（一枚实物 / 扫开住进来 / 从此每天一句），
+         底下半屏空着。摊开三条 —— 买之前该知道的就这三件。 -->
+    <view class="gets" wx:if="{{fulfillment === 'residency' && villager}}">
+      <view class="gets-k">你会收到</view>
+      <view class="gets-row">
+        <view class="gets-n">1</view>
+        <view class="gets-b">
+          <view class="gets-t">一枚御守</view>
+          <view class="gets-s">实物，寄到你手上</view>
+        </view>
+      </view>
+      <view class="gets-row">
+        <view class="gets-n">2</view>
+        <view class="gets-b">
+          <view class="gets-t">扫开它，{{villager.name}}住进你的村子</view>
+          <view class="gets-s">四十间屋子里的那一间，从此有人</view>
+        </view>
+      </view>
+      <view class="gets-row">
+        <view class="gets-n">3</view>
+        <view class="gets-b">
+          <view class="gets-t">每天跟你说一句</view>
+          <view class="gets-s">也能替你看一件事</view>
+        </view>
+      </view>
     </view>
     <view class="ship" wx:elif="{{fulfillment === 'residency'}}">
       寄一枚御守到你手上 · 扫开它，人就住进你的村子
