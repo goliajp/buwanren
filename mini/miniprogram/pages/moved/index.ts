@@ -20,13 +20,15 @@ interface IData {
   face: string
   /** 他劝你的方向 —— 脸的底色按它挑，四处要一样 */
   direction: string
+  /** 收集数跳过那一格了没 —— 跳的一刻数字弹一下 */
+  跳过了: boolean
   /** 收集进度。这一刻最实在的奖励是那个数往上跳一格 */
   lived: number
   total: number
 }
 
 Page<IData, WechatMiniprogram.IAnyObject>({
-  data: { name: '', isNew: true, id: '', face: '', direction: '', lived: 0, total: 0 },
+  data: { name: '', isNew: true, id: '', face: '', direction: '', lived: 0, total: 0, 跳过了: false },
 
   onLoad(q: Record<string, string | undefined>) {
     const name = q.name || '他'
@@ -52,9 +54,26 @@ Page<IData, WechatMiniprogram.IAnyObject>({
 
   取进度() {
     villageApi.mine().then(
-      (v) => this.setData({ lived: v.found, total: v.total }),
+      (v) => this.数字跳一格(v.found, v.total),
       () => { /* 取不到就不摆那一条 —— 空着比摆一个错的数好 */ },
     )
+  },
+
+  /* 收集数【跳一格】给人看。
+     这一屏的注释一直写着「收集进度往上跳一格 —— 数字是这一刻最实在的奖励」，
+     而代码是一次 setData 把终值放上去:数字直接就是新的了，没有「多了一位」那一下。
+     刚扫开御守的人要的正是那一下。
+
+     所以先落到【前一个数】，下一帧再走到新值 —— 进度条有 CSS 过渡，
+     数字用一个短计时自己爬。爬完就停，不留计时器（离开这一页要停掉）。 */
+  跳着: 0,
+
+  数字跳一格(到: number, 总: number) {
+    const 从 = Math.max(0, 到 - 1)
+    this.setData({ lived: 从, total: 总 })
+    if (从 === 到) return
+    // 一格就一格 —— 460ms 走完，跟头像弹入那一下错开，不抢
+    setTimeout(() => this.setData({ lived: 到, 跳过了: true }), 460)
   },
 
   goVillager() {
