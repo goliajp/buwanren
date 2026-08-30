@@ -17,6 +17,7 @@ import { 轻 } from '../../utils/feel'
 import { incenseApi } from '../../services/incense'
 import { storage } from '../../services/storage'
 import type { VillagerInVillage } from '../../types/village'
+import { 今天几号 } from '../../utils/day'
 import { 一句 } from '../../utils/say'
 
 // 三支生成物,靠副作用挂到 globalThis 上。顺序不能换。
@@ -73,22 +74,6 @@ const 档 = ['夜深了', '早上好', '上午好', '下午好', '傍晚好', '�
 function 问候(h: number): string {
   const i = 边界.findIndex((b) => h < b)
   return i === -1 ? 档[档.length - 1] : 档[i]
-}
-
-/* 「八月二十 · 周四」。中文数字照设计册写 ——
-   「8/28」是给系统读的，「八月二十八」是说给人听的。 */
-const 汉数 = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十']
-function 汉日(n: number): string {
-  if (n <= 10) return 汉数[n]
-  if (n < 20) return '十' + 汉数[n - 10]
-  if (n === 20) return '二十'
-  if (n < 30) return '二十' + 汉数[n - 20]
-  if (n === 30) return '三十'
-  return '三十' + 汉数[n - 30]
-}
-function 今天几号(d: Date): string {
-  const 周 = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()]
-  return `${汉日(d.getMonth() + 1)}月${汉日(d.getDate())} · 周${周}`
 }
 
 interface VillageData {
