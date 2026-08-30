@@ -1825,16 +1825,66 @@ if (API && MINGLI) {
   /* 「会得到这些」（设计册 10.8 点名的一条）：填生辰是这条链上最贵的一步，
      先说清换回什么，才有人愿意填。
 
-     **这四行不是文案，是四件真做得到的事** —— 所以这里不只验它写着，
+     **这几行不是文案，是几件真做得到的事** —— 所以这里不只验它写着，
      还要验它没有把做不到的事写上去：
-       · 你缺的 / 伤你的  → 算完就在这一屏上（下面那几条断言正是它们）
-       · 每天那一句      → 「谁能来」顶上那句「你缺 X，这几位跟你补得上」
-       · 苏合配的香      → 她那一屏按你缺的说的那句话
-     哪天某一条不成立了，这一行就得删；先答应做不到的事，比不答应更伤。 */
+       · 你缺的     → 算完就在这一屏上（下面那几条断言正是它）
+       · 每天那一句 → 「谁能来」顶上那句「你缺 X，这几位跟你补得上」
+       · 苏合配的香 → 她那一屏按你缺的说的那句话
+     哪天某一条不成立了，这一行就得删；先答应做不到的事，比不答应更伤。
+
+     「伤你的 两个字」就是这么删掉的：结果屏上那两个五行字块撤了
+     （人话里已经说过同一件事，再列一次是同一件事说两遍），
+     而预告还在答应它 —— 所以这里连它【不在】也一并钉住。 */
   const 会得到 = await text()
   ok(会得到.includes('会得到这些'), '算之前先说清换回什么')
-  for (const 一行 of ['你缺的', '伤你的', '每天那一句', '苏合配的香']) {
+  for (const 一行 of ['你缺的', '每天那一句', '苏合配的香']) {
     ok(会得到.includes(一行), `「会得到这些」里写着「${一行}」`, 一行)
+  }
+  ok(!会得到.includes('伤你的'),
+     '不再答应「伤你的」　—— 结果屏上早就不给它了')
+
+  /* 三样没填齐时按一下。这一条钉住两件事：
+       · 表单【留在原地】—— 原先这句写进 `err`，而表单整块挂在
+         `wx:elif="{{!err}}"` 上，于是按一下整屏只剩一行粉字，
+         连回去填的地方都没有（逐帧拍才看见：那一帧是张空白页）
+       · 差哪几样就地指出来 */
+  {
+    /* 走到这里时前面的动线可能已经填过 —— 那就先清空。
+       这是【夹具】，跟删签一样写在明处：要验的是「没填齐时按下去会怎样」,
+       而不是「这一趟碰巧有没有填过」。 */
+    await p.evaluate(() => {
+      const c = globalThis.__router.current()
+      c.setData({ 填了: { date: false, time: false, gender: false },
+                  齐了: false, 缺提示: '', 缺了: { date: false, time: false, gender: false } })
+    })
+    await p.waitForTimeout(250)
+    const 空 = await p.evaluate(() => {
+      const c = globalThis.__router.current()
+      return { 齐了: c.data.齐了, 填了: c.data.填了 }
+    })
+    if (!空.齐了) {
+      await p.getByText('算一算', { exact: true }).click()
+      await p.waitForTimeout(500)
+      const 按后 = await text()
+      ok(按后.includes('还差'), '没填齐时按下去，说得出还差什么', (按后.match(/还差[^—]*/) || [''])[0])
+      ok(按后.includes('你是哪天出生的'), '而且表单还在　—— 不是整屏只剩一句话')
+      ok(await p.evaluate(() => document.querySelectorAll('.field-miss').length > 0),
+         '差的那几栏自己指出来　—— 不必回去数哪一栏是哪一栏')
+      ok(await p.evaluate(() =>
+           !!document.querySelector('button.btn-wait')),
+         '三样没齐时那颗按钮不满橙　—— 它此刻按不出结果')
+    } else {
+      ok(false, '验得到「没填齐」那一支', '进来时三样已经齐了')
+    }
+    // 填齐它
+    await p.evaluate(() => {
+      const c = globalThis.__router.current()
+      c.setData({ form: { ...c.data.form, date: '1995-06-15', time: '14:30', gender: 'M' },
+                  填了: { date: true, time: true, gender: true }, 齐了: true, 缺提示: '' })
+    })
+    await p.waitForTimeout(300)
+    ok(await p.evaluate(() => !document.querySelector('button.btn-wait')),
+       '填齐之后按钮才亮起来')
   }
 
   await p.getByText('算一算', { exact: true }).click()
@@ -1845,6 +1895,16 @@ if (API && MINGLI) {
     return { mode: d.mode, id: d.natal && d.natal.id, ys: d.summary && d.summary.primary_yongshen }
   })
   ok(n.mode === 'summary', '生成完就换到本命那一屏', n.mode)
+  /* 屏幕从表单变成结果，那本身就是回执 —— 不再弹一个黑框宣布「已生成」。
+     逐帧拍看见的：那个黑框正压在结果中间那句人话上。 */
+  ok(!(await text()).includes('已生成'),
+     '不再弹「已生成」　—— 屏上已经变了，同一件事不说两遍')
+  /* 章跟着五行走。原先边框恒为橙色，而「金」那个大字是冷灰蓝 ——
+     两套颜色在同一张卡上打架。 */
+  ok(await p.evaluate(() => {
+    const el = document.querySelector('.stamp-card')
+    return !!el && /stamp-(mu|huo|tu|jin|shui)/.test(el.className)
+  }), '那一枚章跟着你缺的那一行走　—— 每个人的结果各有其色')
   ok(!!n.id, '这一份本命有了自己的编号　—— 后端真存下了', n.id || '没有')
   ok(!!n.ys, '排出了用神', n.ys || '空的')
   await shot('06-natal')
@@ -1866,7 +1926,10 @@ if (API && MINGLI) {
      而在这之前它只会劝你去建本命。这一段以前没验:那一页开得起来就算过。 */
   await open('pages/home/index')
   const 今 = await text()
-  ok(今.includes('主用神'), '今日页出现了「主用神」那一行　—— 对照有内容了', 今.slice(0, 46))
+  /* 「主用神」是术语，0830 已经从日常几屏上清掉了(专业细节只留在「那一份」)。
+     今日页现在说的是「你缺的是「金」」—— 断言要跟着说新的话，
+     而不是继续钉一个已经不该出现的词。 */
+  ok(/你缺的是「.」/.test(今), '今日页说得出你缺的是什么　—— 对照有内容了', 今.slice(0, 46))
   ok(!今.includes('先输入生辰'), '不再劝你去建本命　—— 你刚建过')
 
 
@@ -2622,11 +2685,15 @@ if (!API) {
     const 建之前 = await p.evaluate(() => globalThis.__router.current().data.archive.length)
     await p.getByText('算一算', { exact: true }).click()
     await p.waitForTimeout(800)
+    /* 读的是 `缺提示` 不是 `err`：校验错误搬了家 ——
+       `err` 会把表单整块顶掉（`wx:elif="{{!err}}"`），而「你回去填」
+       这件事必须留着表单。 */
     const 拦住 = await p.evaluate(() => {
       const d = globalThis.__router.current().data
-      return { err: d.err || '', mode: d.mode, n: d.archive.length }
+      return { err: d.缺提示 || '', mode: d.mode, n: d.archive.length,
+               表单还在: (document.querySelector('#app') || {}).innerText.includes('你是哪天出生的') }
     })
-    ok(拦住.mode === 'form' && /还差/.test(拦住.err) && 拦住.n === 建之前,
+    ok(拦住.mode === 'form' && /还差/.test(拦住.err) && 拦住.n === 建之前 && 拦住.表单还在,
        '一样都没填就按「算一算」，它拦住并说清差哪几样　—— 不许替人答',
        `mode=${拦住.mode} err=「${拦住.err.slice(0, 30)}」 档案 ${建之前} → ${拦住.n}`)
     /* 上面那一条把页面留在【表单】上（它验的就是「拦住了」）。
@@ -3012,12 +3079,15 @@ if (tabs) {
 
   await open('pages/home/index')
   /* 通往生辰那一页的入口在两个状态下是两颗不同的东西：
-     还没建过 → 「填出生时间」；建过了 → 「展开看盘 ›」。
+     还没建过 → 「填出生时间」；建过了 → 「看完整的那一份 ›」。
      守的是同一条性质:命不再是 tab 之后的新路,从我家一下就到。
      原先只点「填出生时间」,而**有本命那一支只在接上排盘服务时才走得到**,
      于是它一直没红过。 */
   const 有盘 = await p.evaluate(() => !!globalThis.__router.current().data.summary)
-  const 入口 = 有盘 ? p.getByText('展开看盘', { exact: false }).first()
+  /* 文案从页面上读，不写死 —— 这条断言此前钉着「展开看盘」,
+     而那个说法早就改成了「看完整的那一份」；它只在接上排盘服务时才执行，
+     所以钉着一个不存在的东西活了很久。 */
+  const 入口 = 有盘 ? p.locator('.delta-role').first()
                     : p.getByText('填出生时间', { exact: true })
   await 入口.click()
   await p.waitForTimeout(400)

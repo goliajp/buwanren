@@ -5,10 +5,10 @@
 
   <block wx:if="{{mode === 'summary'}}">
     <!-- 这一屏是刚填完出生时间的人看到的【第一个结果】，也是整条链上最贵那一步
-         的回报。原先它是:标题一个「命」字，底下「日主 辛金」「身势 偏弱」——
+         的回报。原先它是：标题一个「命」字，底下「日主 辛金」「身势 偏弱」——
          一屏古书，而看的人多半不懂这几个词，也不知道接下来该干什么。
-         现在:先说结论（你缺什么、该往哪儿使劲），术语收到底下当注脚。 -->
-    <view class="says intro">
+         现在：先说结论（你缺什么、该往哪儿使劲），术语收到底下当注脚。 -->
+    <view class="says intro enter" style="animation-delay:0ms">
       <view class="says-face intro-face">村</view>
       <view class="says-body">
         <view class="says-who">村子说</view>
@@ -20,7 +20,7 @@
     </view>
 
     <!-- 缺 · 朱砂章大字卡 -->
-    <view class="stamp-card">
+    <view class="stamp-card stamp-{{summary.primary_pinyin}} enter" style="animation-delay:110ms">
       <view class="stamp-label">缺</view>
       <view class="stamp-value wx-{{summary.primary_pinyin}}">
         {{summary.primary_yongshen}}
@@ -29,8 +29,8 @@
     </view>
 
     <!-- 那一句原先在弹性槽里，矮屏收起 —— 而它是这一屏唯一一句人话。
-         现在它是主体:结论之后紧跟着「所以你该怎么办」。 -->
-    <view class="sohow" wx:if="{{summary.friendly_hint}}">{{summary.friendly_hint}}</view>
+         现在它是主体：结论之后紧跟着「所以你该怎么办」。 -->
+    <view class="sohow enter" style="animation-delay:260ms" wx:if="{{summary.friendly_hint}}">{{summary.friendly_hint}}</view>
 
     <!-- 这里原先是「过 · 应避」两个五行字块。上面那句人话已经说了
          「热闹和人情已经够多了」，底下再列一次「火 木」= 同一件事说两遍
@@ -60,7 +60,7 @@
 
     <!-- 算完之后要有下一步。原先只有「再填一份」——
          最贵的一步做完了，然后没有下文，而这一屏正是把结果接回村子的地方。 -->
-    <view class="cta">
+    <view class="cta enter" style="animation-delay:400ms">
       <button class="btn" bindtap="goInvite">看看谁跟你补得上</button>
       <button class="btn ghost" bindtap="rebuild">再填一份</button>
     </view>
@@ -69,13 +69,13 @@
   </block>
 
   <!-- form 模式 -->
-  <!-- 同上:取不到本命时不给建本命的表单,否则一次网络抖动就多一条重复记录 -->
+  <!-- 同上：取不到本命时不给建本命的表单，否则一次网络抖动就多一条重复记录 -->
   <block wx:elif="{{!err}}">
-    <!-- 标尺 §1.5.2「沉浸感」:这一屏原先是一张冷表单 —— 屏上没有一张脸、
+    <!-- 标尺 §1.5.2「沉浸感」：这一屏原先是一张冷表单 —— 屏上没有一张脸、
          没有一句谁说的话、没有一处景，而它是整条链上最贵的一步。
          设定不许没请回家的人说话，所以这里由【村子】问 ——
          请到人之后，日常那几屏才换成住着的那位说。
-         这一格跟村主屏那张卡同构:同一个壳、同一个位置感。 -->
+         这一格跟村主屏那张卡同构：同一个壳、同一个位置感。 -->
     <view class="says intro">
       <view class="says-face intro-face">村</view>
       <view class="says-body">
@@ -88,7 +88,7 @@
     </view>
 
     <view class="form">
-      <view class="field">
+      <view class="field {{缺了.date ? 'field-miss' : ''}}">
         <text class="field-k">哪一天</text>
         <picker mode="date" value="{{form.date}}"
                 start="1900-01-01" end="2050-12-31" bindchange="onDate">
@@ -96,14 +96,14 @@
         </picker>
       </view>
 
-      <view class="field">
+      <view class="field {{缺了.time ? 'field-miss' : ''}}">
         <text class="field-k">几点</text>
         <picker mode="time" value="{{form.time}}" bindchange="onTime">
           <view class="field-v mono {{填了.time ? '' : 'unset'}}">{{填了.time ? form.time : '点一下填'}}</view>
         </picker>
       </view>
 
-      <view class="field">
+      <view class="field {{缺了.gender ? 'field-miss' : ''}}">
         <text class="field-k">性别</text>
         <view class="seg">
           <!-- 原先是「乾/M」「坤/F」—— 拿卦名当性别选项，把一个最普通的
@@ -123,22 +123,31 @@
     </view>
 
     <view class="cta">
-      <button class="btn" bindtap="submit" disabled="{{submitting}}">
+      <!-- 三样没齐时按钮【不满橙】。满橙的大按钮长得跟能按一样，
+           而此刻按下去只会得到一句「还差……」——「需要的东西在，
+           不需要的东西不在」的反面。仍然可以按：按了就地指出差哪几样，
+           而不是把它禁掉让人猜为什么按不动。 -->
+      <button class="btn {{齐了 ? '' : 'btn-wait'}}" bindtap="submit" disabled="{{submitting}}">
         {{submitting ? '算着…' : '算一算'}}
       </button>
+      <!-- 差什么就说什么，【表单留在原地】。原先这句写进 `err`,
+           而表单整块挂在 `wx:elif="{{!err}}"` 上 —— 按一下，
+           整屏只剩这一行粉字，连回去填的地方都没了。 -->
+      <view class="miss" wx:if="{{缺提示}}">{{缺提示}}</view>
     </view>
 
     <!-- 「会得到这些」（设计册 10.8 点名的一条）：
          **填生辰是这条链上最贵的一步** —— 先说清换回什么，才有人愿意填。
 
-         这四行不是文案，是四件真做得到的事：缺什么与过什么算出来就在这一屏上，
+         这三行不是文案，是三件真做得到的事：缺什么算出来就在这一屏上，
          「每天那一句」是村里按你缺的挑人（「谁能来」那一页顶上那句），
          「苏合配的香」是她按你缺的那一味配（她那一屏上那句话）。
-         哪天某一条不成立了，这一行就得删 —— 先答应做不到的事，比不答应更伤。 -->
+         哪天某一条不成立了，这一行就得删 —— 先答应做不到的事，比不答应更伤。
+         「伤你的 两个字」就是这么删掉的：结果屏上那两个五行字块撤了
+         （人话里已经说过同一件事），而这里还在答应它。 -->
     <view class="gets">
       <view class="gets-k">会得到这些</view>
       <view class="gets-row"><text class="gets-a">你缺的</text><text class="gets-b">一个字</text></view>
-      <view class="gets-row"><text class="gets-a">伤你的</text><text class="gets-b">两个字</text></view>
       <view class="gets-row"><text class="gets-a">每天那一句</text><text class="gets-b">按它来挑人</text></view>
       <view class="gets-row"><text class="gets-a">苏合配的香</text><text class="gets-b">按它来配味</text></view>
     </view>

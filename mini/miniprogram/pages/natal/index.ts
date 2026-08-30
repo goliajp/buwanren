@@ -30,6 +30,13 @@ interface IData {
   }
   /** 谁是【用户真的选过的】。picker 的初始值不算答案，见 data 里的注释 */
   填了: { date: boolean; time: boolean; gender: boolean }
+  /** 三样齐了没 —— 按钮长什么样看它。空表时一颗满橙的大按钮
+   *  长得跟能按一样，而此刻它按不出任何东西 */
+  齐了: boolean
+  /** 还差哪几样。**这跟 `err` 是两件事**：`err` 是「取不到」，
+   *  屏上就不该有表单了；差几样是「你回去填」，表单必须还在 */
+  缺提示: string
+  缺了: { date: boolean; time: boolean; gender: boolean }
 }
 
 Page<IData, WechatMiniprogram.IAnyObject & { pendingReload: boolean; loadDefault(): Promise<void> }>({
@@ -48,7 +55,7 @@ Page<IData, WechatMiniprogram.IAnyObject & { pendingReload: boolean; loadDefault
     /* picker 需要一个初始值才知道该翻到哪儿，但那个值【不是用户的答案】。
        原先它直接显示成 1995-06-15 / 14:30 / 男 —— 谁不改就直接按「算一算」，
        算出来的是别人的命，而且一路无错可报。
-       所以分开两件事:`form` 给 picker 用，`填了` 记谁真的选过。 */
+       所以分开两件事：`form` 给 picker 用，`填了` 记谁真的选过。 */
     form: {
       date: '1995-06-15',
       time: '14:30',
@@ -56,6 +63,9 @@ Page<IData, WechatMiniprogram.IAnyObject & { pendingReload: boolean; loadDefault
       label: '默认',
     },
     填了: { date: false, time: false, gender: false },
+    齐了: false,
+    缺提示: '',
+    缺了: { date: false, time: false, gender: false },
   },
 
   onShow() {
@@ -67,7 +77,7 @@ Page<IData, WechatMiniprogram.IAnyObject & { pendingReload: boolean; loadDefault
   },
 
   async loadDefault() {
-    /* 防重入,但【不丢掉】这一次请求。
+    /* 防重入，但【不丢掉】这一次请求。
 
        冷启动时两件事几乎同时发生：`onShow` 立刻取一次（那时匿名登录还没回来，
        后端给 401），而登录一回来 `onAuthReady` 会再叫一次。
@@ -100,7 +110,7 @@ Page<IData, WechatMiniprogram.IAnyObject & { pendingReload: boolean; loadDefault
             avoidPinyin: (s.avoid_wuxing ?? []).map((w) => YS_PINYIN[w] ?? 'mu'),
           })
         } catch (_es) {
-          // summary 未就绪或异常 · 依然占用这个 natal(is_default),不打回 form
+          // summary 未就绪或异常 · 依然占用这个 natal(is_default)，不打回 form
           app.globalData.activeNatalId = def.id
           storage.setActiveNatalId(def.id)
           this.setData({
@@ -140,21 +150,32 @@ Page<IData, WechatMiniprogram.IAnyObject & { pendingReload: boolean; loadDefault
   goInvite() { wx.navigateTo({ url: '/pages/invite/index' }) },
 
   onDate(e: WechatMiniprogram.CustomEvent<{ value: string }>) {
-    this.setData({ 'form.date': e.detail.value, '填了.date': true })
+    this.setData({ 'form.date': e.detail.value, '填了.date': true, '缺了.date': false })
+    this.重算齐了()
   },
   onTime(e: WechatMiniprogram.CustomEvent<{ value: string }>) {
-    this.setData({ 'form.time': e.detail.value, '填了.time': true })
+    this.setData({ 'form.time': e.detail.value, '填了.time': true, '缺了.time': false })
+    this.重算齐了()
   },
   setMale() {
-    this.setData({ '填了.gender': true })
+    this.setData({ '填了.gender': true, '缺了.gender': false })
+    this.重算齐了()
     this.setData({ 'form.gender': 'M' })
   },
   setFemale() {
-    this.setData({ '填了.gender': true })
+    this.setData({ '填了.gender': true, '缺了.gender': false })
+    this.重算齐了()
     this.setData({ 'form.gender': 'F' })
   },
   onLabel(e: WechatMiniprogram.CustomEvent<{ value: string }>) {
     this.setData({ 'form.label': e.detail.value })
+  },
+
+  /** 三样齐了没。按钮的样子跟着它 —— 空表时一颗满橙的大按钮
+   *  长得跟能按一样，而按下去只会得到一句「还差……」 */
+  重算齐了() {
+    const f = this.data.填了
+    this.setData({ 齐了: f.date && f.time && f.gender })
   },
 
   async submit() {
@@ -167,10 +188,21 @@ Page<IData, WechatMiniprogram.IAnyObject & { pendingReload: boolean; loadDefault
     const 缺 = ([['date', '哪一天'], ['time', '几点'], ['gender', '性别']] as const)
       .filter(([k]) => !this.data.填了[k]).map(([, n]) => n)
     if (缺.length) {
-      this.setData({ err: `还差${缺.join('、')} —— 点一下填上，这三样决定后面所有的话` })
+      /* **不写进 `err`**。表单整块挂在 `wx:elif="{{!err}}"` 上 ——
+         写进去的话，按一下「算一算」整个表单就消失了，屏上只剩一行粉字，
+         连回去填的地方都没有（逐帧拍才看见：那一帧是空白页加一句话）。
+         `err` 是「取不到」，这是「你回去填」，两件事。 */
+      this.setData({
+        缺提示: `还差${缺.join('、')} —— 点一下填上，这三样决定后面所有的话`,
+        缺了: {
+          date: !this.data.填了.date,
+          time: !this.data.填了.time,
+          gender: !this.data.填了.gender,
+        },
+      })
       return
     }
-    this.setData({ submitting: true, err: '' })
+    this.setData({ submitting: true, err: '', 缺提示: '' })
     try {
       const { form } = this.data
       const [y, m, d] = form.date.split('-').map((n) => parseInt(n, 10))
@@ -201,7 +233,9 @@ Page<IData, WechatMiniprogram.IAnyObject & { pendingReload: boolean; loadDefault
         summary: { ...s, primary_pinyin: YS_PINYIN[s.primary_yongshen] ?? 'mu' },
         avoidPinyin: (s.avoid_wuxing ?? []).map((w) => YS_PINYIN[w] ?? 'mu'),
       })
-      wx.showToast({ title: '已生成', icon: 'success' })
+      /* 【不弹 toast】。屏幕已经从一张表单变成了结果 —— 那本身就是回执。
+         再用一个黑框宣布一次「已生成」是同一件事说两遍，而且它正好
+         盖在结果中间（逐帧拍看见的：400ms 那一帧，黑框压着那句人话）。 */
       /* 档案要跟着刷。这里原先只 setData 了当前这一份 —— 于是刚建的那一条
          在「这些生辰」里看不见，直到切一次 tab 才出现。
          失败不打断：新的这一份已经生效了，档案没刷只是少一行。 */

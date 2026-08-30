@@ -155,7 +155,7 @@
   border-color: var(--ink);
 }
 
-/* 取不到时说一句,别渲成「你还没建」—— 那会诱使人再建一条 */
+/* 取不到时说一句，别渲成「你还没建」—— 那会诱使人再建一条 */
 .err { padding: 24rpx 0; color: var(--peach); font-size: 26rpx; line-height: 1.7; }
 
 /* 这些生辰 —— 只有两份以上才出现 */
@@ -186,13 +186,13 @@
    琥珀是这一版说「选中/主动作」的颜色。 */
 .seg-item { border-radius: 999rpx; }
 .seg-item.on { background: var(--amber); color: #fff; border-color: var(--amber); }
-/* 「算一算」是这一屏唯一的动作,给它整行 */
+/* 「算一算」是这一屏唯一的动作，给它整行 */
 .acts .btn, .submit { width: 100%; box-sizing: border-box; }
 
 /* 还没填的那几格 —— 显示的是提示，不是答案，所以要轻、要看得出「等你点」 */
 .field-v.unset { color: var(--ink-faint); font-weight: 400; }
 
-/* 0830 语言清扫:结论在上、该怎么办紧跟着，术语退到注脚 */
+/* 0830 语言清扫：结论在上、该怎么办紧跟着，术语退到注脚 */
 .hd .sub { font-size: 25rpx; color: var(--ink-faint); margin-top: 8rpx; }
 .stamp-em { color: var(--ink); font-weight: 700; margin: 0 4rpx; }
 .sohow {
@@ -203,3 +203,37 @@
 .jargon { margin-top: 18rpx; font-size: 23rpx; color: var(--stone-label); }
 .cta { display: flex; flex-direction: column; gap: 16rpx; margin-top: 32rpx; }
 .cta .btn { width: 100%; box-sizing: border-box; }
+
+/* ── 还差几样：就地说，表单留在原地 ─────────────────────────
+   原先这句走的是 `err`，而表单整块挂在 `wx:elif="{{!err}}"` 上 ——
+   按一下「算一算」，整屏只剩一行粉字，连回去填的地方都没有。 */
+.miss {
+  margin-top: 18rpx; text-align: center;
+  font-size: 24rpx; color: var(--amber-deep); line-height: 1.6;
+  animation: 落 .34s cubic-bezier(.22,1,.36,1) both;
+}
+@keyframes 落 { from { opacity: 0; transform: translateY(8rpx) } to { opacity: 1; transform: none } }
+/* 差的那一栏自己指出来 —— 一句「还差哪一天、几点」要人回去数哪一栏是哪一栏。
+   **左边一道竖线，不铺底色**：三样都缺的时候整片橙，那不是指路是喊叫。 */
+.field-miss { box-shadow: inset 4rpx 0 0 var(--amber); padding-left: 18rpx; }
+.field-miss .field-k { color: var(--amber-deep); font-weight: 600; }
+
+/* 三样没齐时按钮待命 —— 满橙的大按钮长得跟能按一样，
+   而按下去只会得到一句「还差……」。
+   选择器要写成 `button.btn.btn-wait`:app.wxss 里是 `button.btn`
+   （标签 + 类），单个 `.btn-wait` 压不过它 —— 症状是「这条 CSS 像没写」。
+   这个坑在这个仓里踩过不止一次。 */
+button.btn.btn-wait { background: #EADFCD; color: #A08E74; box-shadow: none; }
+
+/* 章跟着五行色走 —— 橙色边框配冷灰蓝的「金」是两套颜色在打架。
+   每个人的结果屏因此各有其色：缺木是绿的章，缺水是蓝的章。 */
+.stamp-mu   { border-color: var(--wx-mu) }
+.stamp-huo  { border-color: var(--wx-huo) }
+.stamp-tu   { border-color: var(--wx-tu) }
+.stamp-jin  { border-color: var(--wx-jin) }
+.stamp-shui { border-color: var(--wx-shui) }
+.stamp-mu   .stamp-label { color: var(--wx-mu-fg) }
+.stamp-huo  .stamp-label { color: var(--wx-huo-fg) }
+.stamp-tu   .stamp-label { color: var(--wx-tu-fg) }
+.stamp-jin  .stamp-label { color: var(--wx-jin-fg) }
+.stamp-shui .stamp-label { color: var(--wx-shui-fg) }
