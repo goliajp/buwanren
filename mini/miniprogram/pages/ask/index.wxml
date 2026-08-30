@@ -81,10 +81,11 @@
       <button wx:else class="btn ghost" bindtap="closeHist">返回</button>
     </view>
 
-    <!-- 门名与方位是专业细节，按标尺 §1.5.2 只允许留在这种注脚位置 -->
-    <view class="foot-hint">
-      <text class="gate-note" wx:if="{{result.gate}}">奇门 · {{result.gate}}<text wx:if="{{result.direction}}"> · {{result.direction}}</text> · </text>当个参考 · 仅供研究与娱乐
-    </view>
+    <!-- 门名与方位【一个都不留】。我先前把它们缩成注脚，以为「小字就不算」——
+         而规则说的是屏上不许有，不是不许大。它们对绝大多数人不构成信息，
+         对想追出处的人也只是一个词;真要给出处，该是一屏说得清怎么算的，
+         不是在页脚丢两个术语。那一屏还没有，所以现在什么都不说。 -->
+    <view class="foot-hint">当个参考 · 仅供研究与娱乐</view>
   </block>
 
   <!-- 历史那一块搬到我家的弹性槽里了（REDESIGN.md · 近几次）。

@@ -37,6 +37,20 @@
       <view class="reading-v">{{say}}</view>
     </view>
 
+    <!-- 还没问的时候。这一屏原先在这儿是空的 —— 她住在你村里，
+         却一句话都没有，而「居民是主角」正是这一版的三条主线之一。
+         她住着就说一句今天的闲话（后端只给住着的人）；
+         没写过台词的人不编 —— 那时就说清「问她」是怎么回事，把空变成邀请。 -->
+    <view class="reading daily" wx:elif="{{who.at_home && who.line}}">
+      <view class="reading-k">{{who.name}}今天说</view>
+      <view class="reading-v">{{who.line}}</view>
+      <view class="reading-hint">想问一件具体的事，按下面那颗 · 一天一次</view>
+    </view>
+    <view class="reading daily" wx:elif="{{who.at_home}}">
+      <view class="reading-v dim">今天还没问过{{who.name}}</view>
+      <view class="reading-hint">一天一次 · 同一天问她，说的是同一句</view>
+    </view>
+
     <view class="acts">
       <block wx:if="{{who.at_home}}">
         <button class="btn" bindtap="onAsk">{{asking ? '问着……' : '问事'}}</button>

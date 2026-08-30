@@ -65,3 +65,11 @@
 .acts .btn { flex: 1; min-width: 0; box-sizing: border-box; }
 .acts .btn:not(.ghost) { flex: none; width: 100%; }
 .acts .btn.ghost { padding-left: 20rpx; padding-right: 20rpx; }
+
+/* 她今天说的那一句（0830「居民是主角」）。跟问签结果同一个壳，
+   位置也同一处 —— 问过之后它让位给真正的那一签。 */
+.reading.daily { margin-top: 28rpx; text-align: center; }
+.reading.daily .reading-k { font-size: 23rpx; color: var(--ink-faint); }
+.reading.daily .reading-v { font-size: 30rpx; margin-top: 8rpx; line-height: 1.6; }
+.reading.daily .reading-v.dim { color: var(--ink-mid); font-weight: 400; }
+.reading-hint { margin-top: 10rpx; font-size: 22rpx; color: var(--stone-label); }

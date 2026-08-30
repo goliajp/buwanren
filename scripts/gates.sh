@@ -186,6 +186,10 @@ gate "导航栏标题统一吗" . python3 scripts/check-nav-title.py
 # 「八月三十 · 周日」是说给人听的,「2026-08-30」是给系统读的。
 # 三屏各拼了一份,其中两屏还是并排的 tab —— 切过去一种写法,切回来另一种。
 gate "日期只有一种说法吗" . python3 scripts/check-day-words.py
+# 2026-08-30 用户定:「完全不允许有任何文言古书的表达,只能是在命理分析中
+# 专业细节中有」。规则不写成代码就会漂 —— 上一版的门解、宜忌、收尾句
+# 全是文言，而三支标点门禁都是绿的:它们只管标点，不管说的是不是人话。
+gate "屏上说的是人话吗" . python3 scripts/check-plain-words.py
 # 镜像自己会先组装。动线要真跑一遍浏览器,几十秒
 gate "web verify · 动线"  . bash web/run-verify.sh
 

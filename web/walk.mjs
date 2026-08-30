@@ -98,6 +98,26 @@ if (await p.getByText('只看现在能请的').count()) {
 }
 await 点('请回家');             await 拍('点一位能请的')
 
+/* 买下去那一段。走到「去付」为止 —— 掏钱只有真机有（垫片会抛），
+   而在那之前的每一步都是网页版验得了的。 */
+/* 点【按钮】而不是眉标。`点()` 用的是子串匹配，写「请」会先命中
+   顶上那行眉标「请回家」—— 于是这一步看着走过了，其实原地没动。 */
+await p.locator('button.btn').filter({ hasText: '回家' }).first().click()
+await p.waitForTimeout(1200); await 拍('确认这一单')
+if (await p.getByText('去付').count()) { await 点('去付'); await p.waitForTimeout(1500); await 拍('一单') }
+
+/* 剩下几屏各来一张 —— 这几屏没有前置状态，直接开。 */
+for (const [名, 路, q] of [
+  ['我得到的', 'pages/badges/index', null],
+  ['订着的', 'pages/subs/index', null],
+  ['我买过的', 'pages/orders/index', null],
+  ['设置', 'pages/settings/index', null],
+  ['绑定微信', 'pages/bind/index', null],
+  ['名字', 'pages/name/index', null],
+  ['一味香', 'pages/incense/index', { id: 'prod-suhe-incense' }],
+  ['空屋', 'pages/plot/index', { plot: 'p12' }],
+]) { await 开(路, q); await 拍(名) }
+
 writeFileSync(join(OUT, '账.json'), JSON.stringify(账, null, 2))
 const 坏 = 账.filter((x) => x.坏)
 console.log(`\n走了 ${n} 步 → ${OUT}` + (坏.length ? `\n⚠ ${坏.length} 步停在错误态：` + 坏.map((x) => x.号).join(' ') : '\n没有一步停在错误态'))
