@@ -909,13 +909,32 @@ if (API) {
        '从单子上点得进那一份',
        await p.evaluate(() => globalThis.__router.current().__route))
 
-    // 二 · 头一页是四柱，而且是【真盘】—— 干支不是占位符
+    /* 二 · 头一页是【结论】,四柱在后面 —— 而且是真盘,干支不是占位符。
+       原先头一页就是四柱:花钱买的那一份,开篇甩给人一张排盘图,
+       一句话都没有。0830 改成先说结论(key: lead),术语页往后排。
+       这三条断言原来钉着「头一页是四柱」,改完之后它们红了三轮 ——
+       红得对:产品变了,断言就该跟着说新的话,而不是删掉。 */
     await p.waitForFunction(() => (globalThis.__router.current().data.tabs || []).length > 0,
                             null, { timeout: 15000 }).catch(() => {})
     const 册 = await p.evaluate(() => globalThis.__router.current().data)
     ok((册.tabs || []).length >= 4, '这一份翻得出好几页', String((册.tabs || []).length))
-    ok(册.page &&册.page.key === 'pillars', '头一页是四柱', 册.page && 册.page.key)
-    const 柱 = (册.page && 册.page.pillars) || []
+    ok(册.page && 册.page.key === 'lead',
+       '头一页是给人看的那句话，不是排盘图', 册.page && 册.page.key)
+    /* 四柱那一页仍要在,且要是真盘 —— 它只是不再打头。
+       翻到它去验,不是假设它排第几。 */
+    /* `tabs` 是 title 的字符串数组,不是对象 —— 头一版这里写 `t.key`,
+       拿到 -1,报出来是「四柱那一页不在了」,而它好端端在第二页。
+       又一次:测量装置坏了,长得跟真失败一模一样。
+       所以按 key 找要问页面自己存的那份 `pages`。 */
+    const 柱页 = await p.evaluate(() =>
+      (globalThis.__router.current().pages || []).findIndex((x) => x.key === 'pillars'))
+    ok(柱页 >= 0, '四柱那一页还在，只是不再打头', String(柱页))
+    let 柱 = []
+    if (柱页 >= 0) {
+      await p.evaluate((i) => globalThis.__router.current().show(i), 柱页)
+      await p.waitForTimeout(200)
+      柱 = await p.evaluate(() => (globalThis.__router.current().data.page || {}).pillars || [])
+    }
     ok(柱.length === 4 && 柱.every((x) => /^[\u4e00-\u9fa5]{2}$/.test(x.ganzhi)),
        '四根柱子都是真干支　—— 不是占位',
        柱.map((x) => x.ganzhi).join(' '))
@@ -1220,7 +1239,7 @@ if (API) {
      没货就出空状态并指出哪儿能有。 */
   const 请 = await p.evaluate(() => {
     const c = globalThis.__router.current()
-    return { n: c.data.items.length, err: c.data.err, loading: c.data.loading }
+    return { n: c.data.能请.length + c.data.没来.length, err: c.data.err, loading: c.data.loading }
   })
   const 请文 = await text()
   ok(!请.loading && !请.err &&
@@ -1231,43 +1250,61 @@ if (API) {
   /* 四十位都在册上，没上架的照实说（设计册 10.8）。
      只列在卖的那几位，读的人会以为世上只有那几位 —— 那是拿别人顶上。
      **不断言「几位在卖」** —— 那是这台机器上的数据；断言的是
-     「册上的人比在卖的多」与「多出来的那些写着未上架、按不动」。 */
+     「册上的人比在卖的多」与「多出来的那些收在『还在路上』里、按不动」。
+
+     0830 改了结构:原先四十位平级混排、五位一页翻,而在卖的只有几位 ——
+     往后整整七页全是灰的「还没来」。现在能请的摆在前面,没来的收成一行,
+     所以这里验的从「翻到有未上架的那一页」变成「摊开看得见他们」。 */
   if (请.n > 0) {
     const 册 = await p.evaluate(() => {
-      const it = globalThis.__router.current().data.items
-      return { 共: it.length, 在卖: it.filter((x) => x.onSale).length }
+      const d = globalThis.__router.current().data
+      return { 共: d.能请.length + d.没来.length, 在卖: d.能请.length, 展开: d.展开 }
     })
     ok(册.共 >= 册.在卖, '册上的人不比在卖的少', `${册.在卖} 在卖 / 共 ${册.共}`)
     if (册.共 > 册.在卖) {
-      /* 翻到有「未上架」的那一页去看。在卖的排在前面，所以往后翻。 */
-      const 页数2 = await p.evaluate(() => globalThis.__router.current().data.pageCount)
-      let 看到未上架 = false
-      for (let i = 0; i < 页数2; i++) {
-        await p.evaluate((n) => globalThis.__router.current().gotoPage(n), i)
-        await p.waitForTimeout(150)
-        // 0830:「未上架」是运营词，买家那一侧说的是「还没来」
-        if ((await text()).includes('还没来')) { 看到未上架 = true; break }
+      /* 收着的时候他们不该占地方 —— 这正是改结构要买的东西。
+         `展开` 在「一位都请不动」时默认是开的,那一支下面单独验。 */
+      if (!册.展开) {
+        ok(await p.evaluate(() => document.querySelectorAll('.soon-item').length) === 0,
+           '收着的时候没来的那些一行都不占 —— 改结构买的就是这个')
+        ok((await text()).includes(`另外 ${册.共 - 册.在卖} 位还在路上`),
+           '没来的那些收成一行，数目照实报', `${册.共 - 册.在卖} 位`)
+        await p.getByText('还在路上', { exact: false }).first().click()
+        await p.waitForTimeout(500)
       }
-      ok(看到未上架, '没上架的也在册上，照实写着「还没来」', `${册.共 - 册.在卖} 位还没上架`)
-      /* 写着未上架就该按不动 —— 点了再说「买不了」是先答应再反悔。 */
+      const 摊开后 = await p.evaluate(() => ({
+        展开: globalThis.__router.current().data.展开,
+        行: document.querySelectorAll('.soon-item').length,
+      }))
+      ok(摊开后.展开 && 摊开后.行 === 册.共 - 册.在卖,
+         '摊开之后没来的那些一位不少 —— 不是把他们永远藏起来',
+         `摊开 ${摊开后.行} 行 / 应有 ${册.共 - 册.在卖}`)
+      // 0830:「未上架」是运营词，买家那一侧说的是「还没来」
+      /* 没来的那些按不动 —— 点了再说「买不了」是先答应再反悔。
+         它们连 bindtap 都没有,所以这一条验的是「真的没接」。 */
       const 之前 = await p.evaluate(() => globalThis.__router.current().__route)
-      const 那行 = p.locator('.item-off').first()
+      const 那行 = p.locator('.soon-item').first()
       if (await 那行.count()) {
         await 那行.click()
         await p.waitForTimeout(700)
         ok(await p.evaluate(() => globalThis.__router.current().__route) === 之前,
-           '未上架那一行按不动　—— 不是点了再说买不了',
+           '还没来的那一行按不动　—— 不是点了再说买不了',
            await p.evaluate(() => globalThis.__router.current().__route))
       }
-      await p.evaluate(() => globalThis.__router.current().gotoPage(0))
-      await p.waitForTimeout(150)
+      /* 收回去 —— 后面几条验的是默认那一屏 */
+      if (!册.展开) {
+        await p.getByText('收起', { exact: false }).first().click()
+        await p.waitForTimeout(400)
+        ok(await p.evaluate(() => globalThis.__router.current().data.展开) === false,
+           '收得回去 —— 摊开与收起是同一个开关的两面')
+      }
     }
   }
 
   /* 空的那一支只有 CI 的种子库才碰得到（本机目录里御守上百件）。
      不改共用的库去造空态 —— 那影响面比预期大（docs/FINDING-2026-08-22-*）。
      直接把 items 清空，验模板确实说得出「哪儿能有」。 */
-  await p.evaluate(() => globalThis.__router.current().setData({ items: [], loading: false, err: '' }))
+  await p.evaluate(() => globalThis.__router.current().setData({ 能请: [], 没来: [], 预告: [], loading: false, err: '' }))
   await p.waitForTimeout(200)
   const 空请 = await text()
   ok(空请.includes('一位也没数到') && 空请.includes('这份名单没取到'),
@@ -1275,21 +1312,23 @@ if (API) {
      空请.slice(0, 44))
   await open('pages/invite/index')
 
-  /* 翻页：一页五位是「不上下滚动」那条约束的落点（设计 10.3），
-     所以它得真的翻得动，不能只是画着两个按钮。 */
-  const 页数 = await p.evaluate(() => globalThis.__router.current().data.pageCount)
-  if (页数 > 1) {
-    const 头一页 = await p.evaluate(() => globalThis.__router.current().data.page.map((x) => x.id).join())
-    await p.getByText('下一页 ›', { exact: true }).click()
-    await p.waitForTimeout(300)
-    const 第二页 = await p.evaluate(() => globalThis.__router.current().data.page.map((x) => x.id).join())
-    ok(第二页 !== 头一页 && await p.evaluate(() => globalThis.__router.current().data.pageNo) === 1,
-       '「谁能来」翻得动 —— 一页五位，横着翻代替往下滚', `第 1 页 → 第 2 页`)
-    await p.getByText('‹ 上一页', { exact: true }).click()
-    await p.waitForTimeout(300)
-    ok(await p.evaluate(() => globalThis.__router.current().data.pageNo) === 0, '翻得回来')
-  } else {
-    console.log(`  · 跳过翻页：这个库里只有 ${页数} 页（不计入通过）`)
+  /* 「一屏放得下」那条约束(设计 10.3)在 0830 的落点从翻页换成了折叠:
+     默认那一屏只摆能请的几位,一屏放得下;没来的收成一行。
+     翻页是旧落点 —— 它把四位能请的摊成八页,后七页全是灰的。
+     摊开/收起两头在上面那段已经验过,这里只钉住【默认态不摊开】——
+     默认就摊开的话，这一屏又会滚，那条约束就白立了。 */
+  await open('pages/invite/index')
+  {
+    const d = await p.evaluate(() => {
+      const x = globalThis.__router.current().data
+      return { 展开: x.展开, 能请: x.能请.length, 没来: x.没来.length }
+    })
+    if (d.能请 > 0) {
+      ok(d.展开 === false, '默认那一屏不摊开 —— 摊开就滚了', `能请 ${d.能请} / 没来 ${d.没来}`)
+    } else {
+      /* 一位都请不动的时候收着才是错的:那是一屏空白。 */
+      ok(d.展开 === true, '一位都请不动时默认摊开 —— 收着的话这一屏是空的')
+    }
   }
 
   /* 两屏的退路。死路是这条链上出现过两次的毛病 ——
@@ -2079,9 +2118,14 @@ if (!API) {
      '从村里进得了「谁能来」', await p.evaluate(() => globalThis.__router.current().__route))
 
   /* 同上：不拿本机的数据量当判据。 */
-  const 全部数 = await p.evaluate(() => globalThis.__router.current().data.items.length)
+  const 全部数 = await p.evaluate(() => {
+    const d = globalThis.__router.current().data
+    return d.能请.length + d.没来.length
+  })
   const 全部文 = await text()
-  ok(全部数 > 0 || 全部文.includes('一位也请不来'),
+  /* 「一位也请不来」是旧文案 —— 页面上写的是「一位也没数到」。
+     这一条是 `||`,有数据时永远短路,于是那半边错了三个月没人知道。 */
+  ok(全部数 > 0 || 全部文.includes('一位也没数到'),
      `「谁能来」两种数据形状都说得对（${全部数 > 0 ? 全部数 + ' 位' : '空状态'}）`,
      String(全部数))
 
@@ -2094,36 +2138,14 @@ if (!API) {
   /* 找第一个【在卖的】,还要知道它排第几 —— 按用神排之后头一位不一定在卖
      （缺金的人头三位都还没上架）,而点一个「未上架」的行本来就该按不动。
      原先这里点的是 `.item` 的第一个,那是在假设「第一位一定在卖」。 */
-  /* 「只看在卖的」（设计册 V4 弹性槽）。按用神排之后头一位不一定在卖 ——
-     缺金的人头三位全是「未上架」，一屏点不动，这一条是他的出路。
-     验两头:按下去只剩能请的，再按一下四十位都回来。 */
-  {
-    const 前 = await p.evaluate(() => ({
-      共: (globalThis.__router.current().data.items || []).length,
-      在卖: globalThis.__router.current().data.saleCount,
-    }))
-    if (前.在卖 > 0 && 前.在卖 < 前.共) {
-      await p.getByText(`只看在卖的（${前.在卖} 位）›`, { exact: true }).click()
-      await p.waitForTimeout(400)
-      const 后 = await p.evaluate(() => {
-        const d = globalThis.__router.current().data
-        return { 这页: (d.page || []).length, 全在卖: (d.page || []).every((x) => x.onSale) }
-      })
-      ok(后.全在卖 && 后.这页 > 0, '「只看在卖的」按下去，剩下的都能请',
-         `这一页 ${后.这页} 位，全在卖：${后.全在卖}`)
-      await p.getByText('看回四十位 ›', { exact: true }).click()
-      await p.waitForTimeout(400)
-      ok(await p.evaluate(() => globalThis.__router.current().data.pageCount) > 1,
-         '再按一下，四十位都回来　—— 不是把没上架的永远藏起来')
-    } else {
-      ok(false, '「只看在卖的」验得到', `在卖 ${前.在卖} / 共 ${前.共} —— 这一趟没法验两头`)
-    }
-  }
+  /* 「只看在卖的」那条弹性槽 0830 撤了 —— 它是为「四十位平级混排八页」
+     打的补丁,而那个结构已经换成「能请的在前、没来的折叠」。
+     它当初要验的「不是把没上架的永远藏起来」,现在由上面折叠那段验。 */
 
   const 头一件 = await p.evaluate(() => {
     const c = globalThis.__router.current()
-    const i = (c.data.page || []).findIndex((x) => x.onSale)
-    const v = i >= 0 ? c.data.page[i] : null
+    const i = (c.data.能请 || []).findIndex((x) => x.onSale)
+    const v = i >= 0 ? c.data.能请[i] : null
     return v ? { name: v.name, product: v.product, 第几: i } : null
   })
   if (!头一件) {
