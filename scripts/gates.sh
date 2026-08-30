@@ -81,7 +81,21 @@ gate() {
   local out
   if ! out=$(cd "$dir" && "$@" 2>&1); then
     printf '  ✗ %-34s\n' "$name"
-    echo "$out" | tail -6 | sed 's/^/       /'
+    # `LC_ALL=C` 让 sed 按【字节流】处理 —— 不然它对中文报
+    # "RE error: illegal byte sequence"，失败摘要就成了乱码:
+    # 门禁挂了却读不懂它在说什么，跟没挂一样糟。
+    # （不用 en_US.UTF-8：那个 locale 不保证这台机器上有。
+    #   `s/^/  /` 只匹配行首，字节流下完全安全。）
+    echo "$out" | tail -6 | LC_ALL=C sed 's/^/       /'
+    # 【整份留下来】。尾部六行常常不是失败的原因 —— cargo test 挂在中间某个
+    # crate 时，尾部只剩最后一个 crate 的「ok」，看着像什么都没错
+    # （2026-08-30 撞上一次：这一支挂了，而屏上打印的是 18 passed / 0 failed，
+    #   重跑又全绿，于是唯一能得出的结论是「偶发」—— 那不是结论，是没证据）。
+    # 变量名只能是 ASCII —— macOS 自带的是 bash 3.2，中文变量名它直接拒绝
+    # （"not a valid identifier"）。这个坑这个仓里踩过不止一次。
+    local keep="${GATES_LOGDIR:-/tmp}/gate-fail-$(echo "$name" | LC_ALL=C tr -c 'a-zA-Z0-9' '-' | cut -c1-40).log"
+    printf '%s\n' "$out" > "$keep"
+    printf '       （整份输出：%s）\n' "$keep"
     fail=$((fail+1)); FAILED+=("$name")
   else
     printf '  ✓ %-34s\n' "$name"
