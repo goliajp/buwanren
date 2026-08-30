@@ -36,10 +36,13 @@
     </view>
   </view>
 
-  <view class="say">想请谁回家，去村子里挑</view>
-
-  <!-- 最近一笔。没有的时候不留白，指出「哪儿能有」 -->
-  <view class="recent-k">最近一笔</view>
+  <!-- 「最近一笔」那一块只在【真有一笔】的时候摆出来。
+       空的时候它原先是屏上最重的东西：一个粗黑虚线框写着「还没买过什么」——
+       而上面菜单里已经写着「我买过的 · 还没有」，再加一句
+       「想请谁回家，去村子里挑」，同一件事在一屏上说了三遍
+       （标尺 §1.5.5 第 4 条），而且最重的位置给了「什么都没有」。
+       现在空的时候只留一行轻提示，指出哪儿能有。 -->
+  <view class="recent-k" wx:if="{{recent}}">最近一笔</view>
   <view class="recent" wx:if="{{recent}}" bindtap="goRecent"
         hover-class="entry-hover" hover-stay-time="100">
     <view class="recent-title">{{recent.title}}</view>
@@ -48,13 +51,10 @@
       <text class="recent-go">看 ›</text>
     </view>
   </view>
-  <view class="recent empty" wx:elif="{{recentEmpty}}" bindtap="goVillage"
+  <view class="nothing" wx:elif="{{recentEmpty}}" bindtap="goVillage"
         hover-class="entry-hover" hover-stay-time="100">
-    <view class="recent-title">还没买过什么</view>
-    <view class="recent-line">
-      <text class="recent-when">东西长在人身上 —— 去村里看看谁能来</text>
-      <text class="recent-go">去 ›</text>
-    </view>
+    <text>东西长在人身上 —— 去村里看看谁能来</text>
+    <text class="nothing-go">去 ›</text>
   </view>
   <view class="recent muted" wx:else>
     <view class="recent-line"><text class="recent-when">{{recentNote || '取着……'}}</text></view>

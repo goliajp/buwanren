@@ -2362,7 +2362,10 @@ console.log('\n── 一屏放得下吗（iPhone SE · 内容区 597）──')
     { 页: 'pages/me/index', 名: '一笔都没买过',
       切: () => globalThis.__router.current().setData({
         recent: null, recentEmpty: true, recentNote: '', orderText: '还没有', nextStop: '' }),
-      凭据: '还没买过什么',
+      /* 0830：空的时候不再摆一个粗虚线框写「还没买过什么」——
+         上面菜单里已经写着「我买过的 · 还没有」，同一件事一屏说三遍，
+         而且最重的位置给了「什么都没有」。现在只留这一行指出哪儿能有。 */
+      凭据: '去村里看看谁能来',
       为什么: '空状态是这一屏的一半 —— 它要指出「哪儿能有」（设计册 10.7）' },
     { 页: 'pages/orders/index', 名: '一单都没有',
       切: () => globalThis.__router.current().setData({
@@ -2861,6 +2864,34 @@ if (!API) {
     return { 全: d.all, 得: d.got, 条: d.items.length }
   })
   ok(徽.全 > 0 && 徽.条 === 徽.全, '徽章列出来了', `${徽.得}/${徽.全}`)
+  /* 还没拿到的那几枚要【点得动】—— 通到能拿到它的地方。
+     原先六枚全灰、一个都点不动，这一屏唯一能做的事是「回去」
+     （标尺 §1.5.4 第二问「我能干什么」答不上）。 */
+  {
+    const 没拿到 = await p.evaluate(() =>
+      (globalThis.__router.current().data.items || []).filter((x) => !x.earned).length)
+    if (没拿到 > 0) {
+      const 有去处 = await p.evaluate(() =>
+        (globalThis.__router.current().data.items || []).filter((x) => !x.earned && x.去).length)
+      ok(有去处 === 没拿到,
+         '还没拿到的每一枚都说得出去哪儿拿　—— 不是一张点不动的清单',
+         `${有去处}/${没拿到}`)
+      const 之前 = await p.evaluate(() => globalThis.__router.current().__route)
+      /* 点【没拿到的】那一枚。拿到过的是纪念不是待办，本来就不跳 ——
+         头一版点 `.badge` 的第一个，而这个库里第一枚恰好已经拿到了，
+         于是断言报「走不到那儿」，看着像功能坏了。 */
+      const 第几 = await p.evaluate(() =>
+        (globalThis.__router.current().data.items || []).findIndex((x) => !x.earned && x.去))
+      await p.locator('.badge').nth(第几).click()
+      await p.waitForTimeout(1200)
+      const 之后 = await p.evaluate(() => globalThis.__router.current().__route)
+      ok(之后 !== 之前, '点一枚没拿到的，真的走得到那儿', `${之前} → ${之后}`)
+      await open('pages/badges/index')
+      await p.waitForTimeout(900)
+    } else {
+      ok(false, '验得到「还没拿到」那一支', '这个库里六枚全拿到了')
+    }
+  }
   await p.getByText('回去', { exact: true }).click()
   await p.waitForTimeout(800)
 
