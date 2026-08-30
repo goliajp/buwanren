@@ -11,6 +11,13 @@
 用法：python3 scripts/check-art-leaf.py [mingli 仓库路径]
       默认 ~/workspace/goliajp/mingli；仓库不在就跳过并说明（不是失败）。
 
+**它读的是旁边那个仓库的【工作区】，不是某个发布版本** —— 所以那边
+有人正在改的时候，它会如实报出那一秒的事实。2026-08-30 撞上一次：
+它报「ziwei 指向不存在的叶」，几分钟后自己就绿了（登记的叶 23 → 24），
+因为 mingli 那边正把 ZiweiEngine 那一行改来改去。
+红得没错，只是那不是本仓的问题 —— 判据是「重跑之前先看一眼
+`git -C ~/workspace/goliajp/mingli status`」，那边不干净就等它安定。
+
 **这一支不进 CI**：它要旁边的 mingli 仓库，而 CI 里没有，跑起来永远是「跳过」——
 一条永远跳过的核对就是一条永远绿的核对，比没有更糟，它会让人以为这件事有人管。
 改动 `backend/seed/art_leaf.sql` 时在本机跑一遍。
