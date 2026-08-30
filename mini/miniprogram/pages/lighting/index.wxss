@@ -20,51 +20,105 @@
   padding-bottom: 24rpx;
 }
 
-/* 一支香：细杆 + 顶上一点火 */
+/* 一支香：细杆 + 顶上一点火。
+   杆比头一版长了一半 —— 210rpx 的香落在屏幕中间偏下,顶上空着 480px 全黑,
+   而这一屏的主角就是它。 */
 .stick {
   position: relative;
-  width: 4rpx;
-  height: 210rpx;
-  background: linear-gradient(to bottom, #6b5a44 0%, #4a3f30 100%);
+  width: 5rpx;
+  height: 330rpx;
+  background: linear-gradient(to bottom, #5a4b38 0%, #40372a 100%);
   border-radius: 16rpx;
+  transition: background .8s ease;
+}
+/* 点着之后杆顶那一截被火烤亮 */
+.stick.on {
+  background: linear-gradient(to bottom, #8a6b45 0%, #4a3f30 34%, #40372a 100%);
 }
 .ember {
-  position: absolute; top: -6rpx; left: -4rpx;
-  width: 12rpx; height: 12rpx; border-radius: 50%;
+  position: absolute; top: -7rpx; left: -5rpx;
+  width: 15rpx; height: 15rpx; border-radius: 50%;
   background: var(--amber);
   box-shadow: 0 0 18rpx 6rpx rgba(232, 148, 74, 0.55);
-  animation: breathe 2.6s ease-in-out infinite;
+  animation: 点上 .5s cubic-bezier(.22,1,.36,1), breathe 2.6s ease-in-out .5s infinite;
+}
+/* 火星是【长出来】的,不是直接就在那儿 */
+@keyframes 点上 {
+  0%   { transform: scale(0); opacity: 0 }
+  60%  { transform: scale(1.9); opacity: 1 }
+  100% { transform: scale(1); opacity: 1 }
 }
 @keyframes breathe {
   0%, 100% { opacity: .75; box-shadow: 0 0 14rpx 4rpx rgba(232,148,74,.45); }
   50%      { opacity: 1;   box-shadow: 0 0 22rpx 8rpx rgba(232,148,74,.65); }
 }
 
+/* 窜火:点着的那一下。一圈光从香头炸开再收掉 —— 这一屏最贵的那一下
+   (每周只有这一次)原先在屏上什么都没发生。 */
+.flare {
+  position: absolute; top: 0; left: 2rpx;
+  width: 4rpx; height: 4rpx; border-radius: 50%;
+  margin: -2rpx 0 0 -2rpx;
+  background: rgba(255, 214, 150, .95);
+  animation: 窜火 .9s cubic-bezier(.16,.8,.3,1) forwards;
+}
+@keyframes 窜火 {
+  0%   { box-shadow: 0 0 0 0 rgba(255,196,120,.95); opacity: 1 }
+  45%  { box-shadow: 0 0 60rpx 30rpx rgba(255,178,92,.42); opacity: .9 }
+  100% { box-shadow: 0 0 120rpx 70rpx rgba(255,160,70,0); opacity: 0 }
+}
+
 /* 烟。三缕错开，慢慢往上散 */
+/* 烟。三缕错开，慢慢往上散。
+   头一版只有一个几乎看不见的灰点(3rpx / 透明度 .5) —— 截图上找不到它,
+   而截图上看不见的东西就是没做（尺子 §1.5.35）。 */
 .smoke {
   position: absolute;
-  bottom: 236rpx;
-  width: 3rpx; height: 3rpx; border-radius: 50%;
-  background: rgba(200, 190, 175, 0.5);
-  animation: rise 7s linear infinite;
+  bottom: 356rpx;
+  width: 7rpx; height: 7rpx; border-radius: 50%;
+  background: rgba(214, 203, 186, 0.62);
+  filter: blur(1rpx);
+  animation: rise 8.5s linear infinite;
 }
 .s1 { animation-delay: 0s; }
 .s2 { animation-delay: 2.3s; }
 .s3 { animation-delay: 4.6s; }
 @keyframes rise {
-  0%   { transform: translate(0, 0) scale(1);   opacity: .55; }
-  50%  { transform: translate(-18rpx, -120rpx) scale(3); opacity: .28; }
-  100% { transform: translate(14rpx, -260rpx) scale(6);  opacity: 0; }
+  0%   { transform: translate(0, 0) scale(.5);          opacity: 0 }
+  12%  { transform: translate(-4rpx, -30rpx) scale(1);  opacity: .62 }
+  50%  { transform: translate(-26rpx, -150rpx) scale(3.4); opacity: .3 }
+  100% { transform: translate(20rpx, -330rpx) scale(7);   opacity: 0 }
 }
 
 .body { flex: none; text-align: center; padding-top: 8rpx; }
-.t1 { font-weight: 600; font-size: 44rpx; letter-spacing: 0.1em; }
+/* 跟别处一样带 `title` —— 21 屏都用这个名字,只有这一屏叫 t1,
+   于是「有没有标题」那支门禁看不见它(这一屏还因此整个被豁免过)。
+   深色屏上要盖掉全局的 `color: var(--ink)`(那是给纸色底用的)。 */
+.t1 { font-weight: 600; font-size: 44rpx; letter-spacing: 0.1em; color: var(--stone-line-x); }
 .t2 { font-size: 26rpx; color: var(--stone-label); margin-top: 16rpx; line-height: 1.8; }
-.meta { margin-top: 36rpx; font-size: 24rpx; color: var(--ink-faint); letter-spacing: 0.06em; }
-.meta-n { margin-right: 20rpx; }
+.meta { margin-top: 34rpx; font-size: 24rpx; color: var(--ink-faint); letter-spacing: 0.06em; }
+/* 两条分行 —— 挤一行读出来是「还有 12 个人在点已烧 03:15」 */
+.meta-n { margin-bottom: 10rpx; }
 .meta-t { font-family: "SF Mono", "Menlo", monospace; }
 
 .acts { flex: none; margin-top: 48rpx; display: flex; flex-direction: column; gap: 20rpx; }
 .acts .btn.lit { background: var(--amber-deep); color: #fff; border: none; }
 .acts .btn.lit[disabled] { background: #55483a; color: var(--stone-label); opacity: 1; }
+
+/* 点上之后:没有按钮。一颗灰掉的大按钮会把屏上最重的一块地方
+   留给一个按不动的东西,而此刻该被看的是那支香。 */
+.done {
+  text-align: center; font-size: 28rpx; color: #C9A97E;
+  letter-spacing: .08em; padding: 24rpx 0 4rpx;
+  animation: 落 .5s cubic-bezier(.22,1,.36,1) both;
+}
+.leave {
+  text-align: center; font-size: 24rpx; color: #6b6055;
+  padding: 12rpx 0;
+  animation: 落 .5s cubic-bezier(.22,1,.36,1) .18s both;
+}
+@keyframes 落 {
+  from { opacity: 0; transform: translateY(10rpx) }
+  to   { opacity: 1; transform: none }
+}
 .acts .btn.ghost { background: transparent; color: var(--stone-label); border: 1rpx solid #4a4136; }

@@ -1111,22 +1111,18 @@ if (API) {
       return !bar || getComputedStyle(bar).display === 'none'
     }), '这一屏没有 tab 条　—— 全屏时刻')
 
-    const 点前 = await p.evaluate(() => globalThis.__router.current().data.count)
-    await p.getByText('我也点了', { exact: true }).click()
-    await p.waitForFunction(() => globalThis.__router.current().data.iLit === true,
-                            null, { timeout: 15000 }).catch(() => {})
-    ok(await p.evaluate(() => globalThis.__router.current().data.iLit) === true,
-       '点得上', String(await p.evaluate(() => globalThis.__router.current().data.count)))
-    const 点后 = await p.evaluate(() => globalThis.__router.current().data.count)
-    ok(点后 === (点前 || 0) + 1, '人数加了一个', `${点前} → ${点后}`)
-    /* 一个人一场只算一次。连点十下不该变成十个人 —— 按钮点完就禁着，
-       而且后端那一侧也拦（主键 + ON CONFLICT）。 */
-    ok(await p.evaluate(() => {
-      const b = [...document.querySelectorAll('button')].find((e) => /你点上了/.test(e.innerText))
-      return !!b && b.disabled
-    }), '点过之后那颗按钮就按不动了')
+    /* 没点的时候那支香【不该在烧】。头一版无论点没点,屏上都有火星和烟,
+       于是「我也点了」按下去画面上什么都没发生 —— 逐帧拍才看出来
+       (100ms 与 1600ms 两帧只有按钮变灰,而按钮是从橙变灰:
+        那一下的回报是【负】的)。尺子 §1.5.35 第三条。 */
+    ok(await p.evaluate(() => !document.querySelector('.ember')),
+       '还没点的时候香是冷的　—— 没点着的香不该冒烟')
+    ok(await p.evaluate(() => document.querySelectorAll('.smoke').length === 0),
+       '还没点的时候没有烟')
 
-    /* 「我没有香」通到苏合那儿 —— 不推销，只放这一个出口。 */
+    /* 「我没有香」通到苏合那儿 —— 不推销，只放这一个出口。
+       **点香【之前】验**:点上之后这颗按钮就不在了(你已经有香了),
+       原先这一段排在点香之后,那时它会点空。 */
     await p.getByText('我没有香', { exact: true }).click()
     await p.waitForFunction(
       () => globalThis.__router.current().__route === 'pages/incense/index',
@@ -1135,7 +1131,35 @@ if (API) {
     ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/incense/index',
        '「我没有香」通到苏合那儿', await p.evaluate(() => globalThis.__router.current().__route))
     await open('pages/lighting/index')
-    await p.waitForTimeout(1200)
+    await p.waitForTimeout(1400)
+
+    const 点前 = await p.evaluate(() => globalThis.__router.current().data.count)
+    await p.getByText('我也点了', { exact: true }).click()
+    /* 窜火只烧那一下(0.9s),所以要【立刻】看 —— 等 iLit 落定再看就晚了。
+       这一条盯的是「这一下屏上真的发生了什么」。 */
+    const 窜过火 = await p.waitForFunction(() => !!document.querySelector('.flare'),
+                                          null, { timeout: 4000 }).then(() => true, () => false)
+    ok(窜过火, '点下去有一下窜火　—— 每周只有这一下，屏上不能什么都不发生')
+    await p.waitForFunction(() => globalThis.__router.current().data.iLit === true,
+                            null, { timeout: 15000 }).catch(() => {})
+    ok(await p.evaluate(() => globalThis.__router.current().data.iLit) === true,
+       '点得上', String(await p.evaluate(() => globalThis.__router.current().data.count)))
+    const 点后 = await p.evaluate(() => globalThis.__router.current().data.count)
+    ok(点后 === (点前 || 0) + 1, '人数加了一个', `${点前} → ${点后}`)
+    ok(await p.evaluate(() => !!document.querySelector('.ember')),
+       '点上之后火星亮着')
+    await p.waitForTimeout(600)
+    ok(await p.evaluate(() => document.querySelectorAll('.smoke').length > 0),
+       '烟也起来了')
+    /* 一个人一场只算一次。连点十下不该变成十个人 ——
+       现在那颗按钮点完就【不在了】(灰掉的大按钮会把屏上最重的一块地方
+       留给一个按不动的东西,而此刻该被看的是那支香),
+       后端那一侧也拦(主键 + ON CONFLICT)。 */
+    ok(await p.evaluate(() =>
+         ![...document.querySelectorAll('button')].some((e) => /我也点了|你点上了/.test(e.innerText))),
+       '点过之后那颗按钮就不在了　—— 再点不出第二个人')
+    ok((await text()).includes('你点上了'), '点上之后屏上说得出这件事已经成了')
+
     await shot('11-同步点香')
   } else {
     /* 那一槽在矮屏上是收起的（弹性槽），所以这一条要在长屏上看。

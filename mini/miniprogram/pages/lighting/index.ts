@@ -21,6 +21,8 @@ interface IData {
   /** 已烧 / 约多久，mm:ss */
   burned: string
   total: string
+  /** 只在点着的那一下为真 —— 窜火那个动画靠它出场 */
+  刚点着: boolean
 }
 
 let 秒表: ReturnType<typeof setInterval> | null = null
@@ -41,7 +43,7 @@ function mmss(秒: number): string {
 }
 
 Page<IData, WechatMiniprogram.IAnyObject>({
-  data: { count: null, iLit: false, busy: false, burned: '00:00', total: '25:00' },
+  data: { count: null, iLit: false, busy: false, burned: '00:00', total: '25:00', 刚点着: false },
 
   起于: 0,
   烧多久: 25 * 60,
@@ -109,13 +111,22 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     if (this.data.iLit || this.data.busy) return
     this.setData({ busy: true })
     incenseApi.lit().then(
-      (r) => this.setData({ busy: false, iLit: true, count: r.lit_count }),
+      (r) => {
+        this.setData({ busy: false, iLit: true, count: r.lit_count, 刚点着: true })
+        /* 窜火只烧那一下 —— 留着的话下次 setData 会把它重放一遍。
+           0.9s 是动画本身的长度,多给一点让它烧完。 */
+        setTimeout(() => this.setData({ 刚点着: false }), 1100)
+      },
       () => {
         this.setData({ busy: false })
         wx.showToast({ title: '没点上，再试一次', icon: 'none' })
       },
     )
   },
+
+  /* 点上之后的出口。二十五分钟不是非坐满不可 —— 但也不催,
+     所以它是一行很淡的字,不是一颗按钮。 */
+  onLeave() { 退出去() },
 
   /** 「我没有香」通到苏合那儿 —— 不推销，只放这一个出口 */
   goIncense() {
