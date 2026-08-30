@@ -199,13 +199,22 @@ fn 排页(c: &J, version: Option<&str>, 今: chrono::NaiveDate) -> Vec<J> {
         }));
     }
 
-    // 四 · 格局。带 source —— 「凭什么是这个格」比「是什么格」重要
+    /* 四 · 格局。带出处 —— 「凭什么是这个格」比「是什么格」重要。
+       但那句出处（「月令本气透干 月柱」）正是下面两行拼起来的:
+       「月令 甲（本气）」+「透干 月柱」。三行摆在一起，同一件事说了两遍，
+       而且拼起来那句是机器串，读的人得先把它拆开才看得懂。
+       所以【拆得开就只给拆开的】，拆不开（没有月令、或没透干）才留原句。 */
     if let Some(p) = c.get("pattern") {
-        let mut rows = vec![
-            json!({"k": "取自", "v": 串(p.get("source"))}),
-            json!({"k": "月令", "v": format!("{}（{}）", 串(p.get("qi_stem")), 串(p.get("qi_kind")))}),
-        ];
-        if p.get("revealed").and_then(|v| v.as_bool()).unwrap_or(false) {
+        let 透了 = p.get("revealed").and_then(|v| v.as_bool()).unwrap_or(false);
+        let 月令 = 串(p.get("qi_stem"));
+        let mut rows = vec![];
+        if 月令.is_empty() || !透了 {
+            rows.push(json!({"k": "取自", "v": 串(p.get("source"))}));
+        }
+        if !月令.is_empty() {
+            rows.push(json!({"k": "月令", "v": format!("{}（{}）", 月令, 串(p.get("qi_kind")))}));
+        }
+        if 透了 {
             rows.push(json!({"k": "透干", "v": 串(p.get("revealed_in"))}));
         }
         pages.push(json!({
@@ -282,6 +291,43 @@ mod tests {
         assert_eq!(实龄((1998, 12, 5), 日(2026, 12, 4)), 27);
         // 生日在年初的:两种算法同值 —— 本机那份样本正是这一种,所以它测不出问题
         assert_eq!(实龄((1998, 3, 5), 日(2026, 8, 29)), 28);
+    }
+
+    /// 格局那一页:那句出处正是下面两行拼起来的,拆得开就不摆原句。
+    #[test]
+    fn 格局拆得开就不摆那句原话() {
+        let 拆 = |p: J| -> Vec<String> {
+            let c = json!({ "input": { "year": 1998, "month": 3, "day": 5 }, "pattern": p });
+            排页(&c, None, 日(2026, 8, 30))
+                .into_iter()
+                .find(|x| x["key"] == "pattern")
+                .map(|x| x["rows"].as_array().unwrap().iter()
+                        .map(|r| 串(r.get("k"))).collect())
+                .unwrap_or_default()
+        };
+
+        // 月令有、也透干了 —— 两行说得清，原句就不再摆一遍
+        assert_eq!(
+            拆(json!({"name": "正财格", "source": "月令本气透干 月柱",
+                      "qi_stem": "甲", "qi_kind": "本气",
+                      "revealed": true, "revealed_in": "月柱"})),
+            vec!["月令", "透干"],
+            "拆得开的时候还摆着「取自」= 同一件事说了两遍",
+        );
+
+        // 没透干 —— 只剩一行，拆不全，那就留原句
+        assert!(
+            拆(json!({"name": "偏印格", "source": "月令藏干取用",
+                      "qi_stem": "甲", "qi_kind": "本气", "revealed": false}))
+                .contains(&"取自".to_string()),
+            "拆不全的时候把出处也丢了 = 读的人不知道凭什么是这个格",
+        );
+
+        // 连月令都没有 —— 只有原句可给
+        assert_eq!(
+            拆(json!({"name": "从财格", "source": "全局从财", "revealed": false})),
+            vec!["取自"],
+        );
     }
 
     fn 盘(生月日: (i64, i64)) -> J {
