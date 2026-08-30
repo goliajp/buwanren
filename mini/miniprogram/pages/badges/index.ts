@@ -9,6 +9,14 @@ import { storage } from '../../services/storage'
 import type { ApiError } from '../../services/api'
 import type { Badge } from '../../types/mine'
 import { 一句 } from '../../utils/say'
+import { 汉日 } from '../../utils/day'
+
+/** 「八月三十」。徽章上的日期是纪念，不是台账 —— 台账才用数字。 */
+function 那天(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
+  if (!m) return ''
+  return `${汉日(Number(m[2]))}月${汉日(Number(m[3]))}`
+}
 
 Page({
   data: {
@@ -36,7 +44,11 @@ Page({
         items: list.map((b) => ({
           ...b,
           // 只留到日，时分秒对「哪天得的」没有意义
-          earned_at: b.earned_at ? b.earned_at.slice(0, 10) : null,
+          /* 拿到那天说人话：「八月三十」而不是「2026-08-30」。
+             这是一枚纪念，不是台账上的一行 —— 台账（下单、寄出）才用数字。
+             `check-day-words` 那一支只盯「页面自己拼日期」，
+             而这里是把服务端的串切一刀，它够不着。 */
+          earned_at: b.earned_at ? 那天(b.earned_at) : null,
         })),
         got: list.filter((b) => b.earned).length,
         all: list.length,

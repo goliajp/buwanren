@@ -24,7 +24,12 @@ if not 共用.exists():
     print('✗ 找不到 utils/day.ts —— 这支门禁够不着要验的东西，不算通过')
     sys.exit(1)
 
-自己拼 = re.compile(r'getFullYear\(\)')
+# 两种写法都算「自己造日期」：
+#   · `getFullYear()` 拼一个 —— 头一版只盯这个
+#   · 把服务端的 ISO 串切一刀（`.slice(0, 10)`）—— 徽章那一屏就是这么
+#     把「2026-08-30」摆到纪念日上的，而全产品别处说的是「八月三十」。
+#     后者门禁够不着，是从截图上看见的。
+自己拼 = re.compile(r'getFullYear\(\)|\.slice\(0,\s*10\)')
 文件 = sorted(页.glob('*/index.ts'))
 if not 文件:
     print('✗ 一个页面都没找到 —— 够不着就不算验过')
@@ -33,8 +38,8 @@ if not 文件:
 for f in 文件:
     for n, 行 in enumerate(f.read_text(encoding='utf-8').splitlines(), 1):
         if 自己拼.search(行):
-            错.append(f'{f.parent.name}/index.ts:{n} 自己拼了一份日期 —— '
-                      f'用 utils/day 的 `今天几号()`，不然这一屏会用另一种写法说同一天')
+            错.append(f'{f.parent.name}/index.ts:{n} 自己造了一份日期 —— '
+                      f'用 utils/day 里的写法，不然这一屏会用另一种说法讲同一天')
 
 if 错:
     print('\n'.join('✗ ' + e for e in 错))
