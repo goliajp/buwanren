@@ -88,6 +88,8 @@ export interface OrderLine {
   line_no: number
   sku_id: string
   sku_name?: string | null
+  /** 这一行封着谁（御守才有）。快照名是「御守 · 单枚」，认不出人 */
+  villager_name?: string | null
   qty: number
   unit_price_minor: number
   line_subtotal_minor: number

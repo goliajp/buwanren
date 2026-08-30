@@ -26,6 +26,8 @@ interface IData {
   cur: string
   unitText: string
   totalText: string
+  /** 御守封着的那位，脸上那个字（姓名末字）。不是御守就是空 */
+  face: string
   qty: number
   message: string
   contact: Contact | null
@@ -39,7 +41,7 @@ interface IData {
 Page<IData, WechatMiniprogram.IAnyObject>({
   data: {
     id: '', loading: true, err: '', p: null,
-    skuId: '', unit: 0, cur: 'CNY', unitText: '', totalText: '',
+    skuId: '', unit: 0, cur: 'CNY', unitText: '', totalText: '', face: '',
     qty: 1, message: '',
     contact: null, addrNote: '', buying: false, note: '', buyKey: '',
   },
@@ -75,6 +77,8 @@ Page<IData, WechatMiniprogram.IAnyObject>({
           skuId: sku ? sku.id : '',
           unit, cur,
           unitText: sku ? money(unit, cur) : '',
+          // 脸上那个字取姓名末字 —— 跟别处几处一样（门禁 check-face-color 盯着）
+          face: p.villager ? p.villager.name.slice(-1) : '',
           totalText: sku ? money(unit * this.data.qty, cur) : '',
         })
       },
