@@ -114,12 +114,80 @@ fn 实龄(生: (i64, i64, i64), 今: chrono::NaiveDate) -> i64 {
     今.year() as i64 - y - if ((今.month() as i64), (今.day() as i64)) < (m, d) { 1 } else { 0 }
 }
 
+/// 结论那一页上的那句话。跟填完出生时间那一屏用同一套说法
+/// （`natal::build_friendly_hint`）—— 两处说同一件事却用两种措辞，
+/// 读的人会以为是两回事。这里按五行直接给，不绕排盘那一层。
+fn 人话(缺: &str, 够多: &str) -> String {
+    let 使劲 = match 缺 {
+        "木" => "多往外走走，把想做的事真的动起来",
+        "火" => "多往热闹的地方去，跟人待在一起",
+        "土" => "把手上的事一件件做扎实，别贪多",
+        "金" => "该收的收、该断的断，别拖着",
+        "水" => "给自己留出安静的时间，想清楚再动",
+        _ => "顺着自己的节奏来",
+    };
+    let 头一个 = 够多.chars().next().map(|c| c.to_string()).unwrap_or_default();
+    let 够了 = match 头一个.as_str() {
+        "木" => "新的计划已经够多了，先把旧的收个尾",
+        "火" => "热闹和人情已经够多了，不必再往里添",
+        "土" => "稳的东西已经够多了，别再往下压",
+        "金" => "已经够克制了，不用再逼自己一把",
+        "水" => "想得已经够多了，剩下的交给做",
+        _ => "",
+    };
+    if 够了.is_empty() { format!("{使劲}。") } else { format!("{使劲}。{够了}。") }
+}
+
 fn 排页(c: &J, version: Option<&str>, 今: chrono::NaiveDate) -> Vec<J> {
     /* 「mingli-v0.1 排盘」—— 前半截是仓库名加版本号,那是写给我看的,
        而这一册是买家花钱读的东西。留住溯源(每一句都能追到怎么算出来的)是对的,
        但要说成人话:先说它是什么,再把型号缀在后面,像仪器落款。 */
     let 出处 = format!("排盘引擎 · {}", version.unwrap_or("mingli"));
     let mut pages = vec![];
+
+    /* 零 · 结论。**这一页排在最前，而且它是唯一一页不用懂术数也读得完的**。
+       原先六页是「四柱 → 日主 → 用神 → 格局 → 大运 → 三宫」——
+       从最技术的开头，到最技术的结尾，中间没有一页说结论。
+       花钱买下它的人翻开第一眼是一张排盘表，读完六页带走的是「我看了一堆表」。
+
+       0830 标尺定的是【先给结论，再给术语】。所以这一页只说三件事：
+       你缺什么 · 该往哪儿使劲 · 现在走到哪一步;
+       后面五页原样保留，它们是这三句话的依据。
+       数据全部来自已有的盘，一个新字段都不造。 */
+    if let Some(y) = c.get("yongshen") {
+        let 缺 = 串(y.get("primary_wuxing"));
+        let 够多 = y.get("avoid_wuxing").and_then(|a| a.as_array())
+            .map(|a| a.iter().filter_map(|x| x.as_str()).collect::<Vec<_>>().join("、"))
+            .unwrap_or_default();
+        // 现在走到第几步 —— 跟大运那一页用同一套实龄口径，两页说的得是同一件事
+        let 取 = |k: &str| c.get("input").and_then(|i| i.get(k)).and_then(|v| v.as_i64());
+        let 这一步 = c.get("dayun").and_then(|d| d.get("pillars")).and_then(|p| p.as_array())
+            .and_then(|d| {
+                let age = match (取("year"), 取("month"), 取("day")) {
+                    (Some(y), Some(m), Some(dd)) => 实龄((y, m, dd), 今),
+                    _ => return None,
+                };
+                let i = d.iter().rposition(|p|
+                    p.get("start_age").and_then(|v| v.as_i64()).map(|a| a <= age).unwrap_or(false))?;
+                let 起 = d[i].get("start_age").and_then(|v| v.as_i64())?;
+                Some(format!("{} 岁起这十年（{}）", 起, 串(d[i].get("ganzhi"))))
+            });
+
+        let mut rows = vec![json!({"k": "你缺的", "v": 缺})];
+        if !够多.is_empty() {
+            rows.push(json!({"k": "已经够多的", "v": 够多}));
+        }
+        if let Some(步) = 这一步 {
+            rows.push(json!({"k": "现在走到", "v": 步}));
+        }
+        pages.push(json!({
+            "key": "lead", "title": "说在前面",
+            "note": "这一页不用懂术数也读得完 —— 后面五页是它怎么算出来的",
+            "rows": rows,
+            "quote": 人话(&缺, &够多),
+            "source": 出处,
+        }));
+    }
 
     // 一 · 四柱。这册的门面，客户端专门画
     let 柱 = ["year", "month", "day", "hour"];
@@ -291,6 +359,39 @@ mod tests {
         assert_eq!(实龄((1998, 12, 5), 日(2026, 12, 4)), 27);
         // 生日在年初的:两种算法同值 —— 本机那份样本正是这一种,所以它测不出问题
         assert_eq!(实龄((1998, 3, 5), 日(2026, 8, 29)), 28);
+    }
+
+    /// 结论排在最前，而且它一个术语都不带。
+    ///
+    /// 原先六页从「四柱」开头 —— 花钱买下的人翻开第一眼是一张排盘表。
+    /// 0830 标尺定的是先给结论再给术语，所以第一页只说
+    /// 「你缺什么 / 已经够多的 / 现在走到哪一步」加一句人话。
+    #[test]
+    fn 结论排在最前且不带术语() {
+        let c = json!({
+            "input": { "year": 1998, "month": 3, "day": 5 },
+            "yongshen": { "primary_wuxing": "土", "primary_role": "印星",
+                          "secondary_wuxing": "金", "secondary_role": "比劫",
+                          "avoid_wuxing": ["火", "木"], "method": "扶抑",
+                          "reasoning": "日主辛偏弱" },
+            "dayun": { "forward": false, "pillars": [
+                { "ganzhi": "癸丑", "start_age": 10 },
+                { "ganzhi": "壬子", "start_age": 20 },
+            ]},
+        });
+        let pages = 排页(&c, None, 日(2026, 8, 30));
+        assert_eq!(pages[0]["key"], "lead", "结论不在第一页 = 买家翻开第一眼还是排盘表");
+
+        let 页文 = pages[0].to_string();
+        for 术语 in ["日主", "用神", "格局", "藏干", "纳音", "印星", "比劫"] {
+            assert!(!页文.contains(术语),
+                    "结论页上出现了术语「{术语}」—— 这一页要不用懂术数也读得完");
+        }
+        // 三件事都得说到：缺什么、够多的、走到哪一步
+        assert!(页文.contains("你缺的") && 页文.contains("已经够多的")
+                && 页文.contains("现在走到"), "结论页少了三件事之一：{页文}");
+        // 而且要有那句人话 —— 只给三个字的结论等于还是没说人话
+        assert!(页文.contains("把手上的事一件件做扎实"), "结论页没有那句人话：{页文}");
     }
 
     /// 格局那一页:那句出处正是下面两行拼起来的,拆得开就不摆原句。

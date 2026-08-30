@@ -190,6 +190,11 @@ gate "日期只有一种说法吗" . python3 scripts/check-day-words.py
 # 专业细节中有」。规则不写成代码就会漂 —— 上一版的门解、宜忌、收尾句
 # 全是文言，而三支标点门禁都是绿的:它们只管标点，不管说的是不是人话。
 gate "屏上说的是人话吗" . python3 scripts/check-plain-words.py
+# 0830 标尺（设计册 §1.5）里能机械判的那四条:沉浸 / 我在哪儿 /
+# 一屏一件事 / 不是死路。此前每一轮都是我看着截图说「这屏成立」——
+# 那是印象不是自查。落成代码之后头一次跑就抓出两处真的
+#（一单那屏没有他的脸、两颗主按钮结构上能同时出现）。
+gate "22 屏对得上尺子吗" . python3 scripts/check-screen-ruler.py
 # 镜像自己会先组装。动线要真跑一遍浏览器,几十秒
 gate "web verify · 动线"  . bash web/run-verify.sh
 

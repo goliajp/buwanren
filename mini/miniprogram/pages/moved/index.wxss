@@ -69,3 +69,13 @@
 
 .acts { display: flex; gap: 20rpx; }
 .acts .btn { flex: 1; }
+
+/* 数字跳那一下。进度条本来就有 0.9 秒的过渡，而数字是瞬变的 ——
+   两者不同步时，条在走、数已经到了，那一格的「多了一位」就没被看见。
+   弹一下把眼睛拉到数字上，跟头像弹入错开 460ms，不抢。 */
+.tally-pop { animation: 跳一格 .5s cubic-bezier(.34,1.56,.64,1); }
+@keyframes 跳一格 {
+  0%   { transform: scale(1);    }
+  40%  { transform: scale(1.34); }
+  100% { transform: scale(1);    }
+}

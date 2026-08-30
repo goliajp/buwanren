@@ -2015,13 +2015,13 @@ if (API) {
   }
 } else {
   /* 假服务端没有 /v1/naji/spin,给的是 404 —— 于是这里走的是【失败那条路】。
-     那条路也该验:落回 idle、弹「起卦失败」,而不是卡在转圈上转到天荒地老。 */
+     那条路也该验:落回 idle、弹「没转成」,而不是卡在转圈上转到天荒地老。 */
   await p.waitForFunction(() => globalThis.__router.current().data.mode !== 'spinning', null,
                           { timeout: 8000 })
   ok(await p.evaluate(() => globalThis.__router.current().data.mode) === 'idle',
      '后端不给卦时落回原样,不卡在转圈上')
-  ok(await p.evaluate(() => document.getElementById('wx-toast').textContent).then((t) => t.includes('起卦失败')),
-     '并且说了一声「起卦失败」', await p.evaluate(() => document.getElementById('wx-toast').textContent))
+  ok(await p.evaluate(() => document.getElementById('wx-toast').textContent).then((t) => t.includes('没转成')),
+     '并且说了一声「没转成」', await p.evaluate(() => document.getElementById('wx-toast').textContent))
 }
 
 // ⑪ 版式对不对 ─────────────────────────────────────────────────
