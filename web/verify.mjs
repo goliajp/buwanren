@@ -901,16 +901,18 @@ if (API) {
     await p.waitForFunction(() => !!globalThis.__router.current().data.report,
                             null, { timeout: 15000 }).catch(() => {})
     const 单上 = await text()
-    ok(单上.includes('读你的那一份'), '买了报告的单子上，主按钮是「读你的那一份」')
-    await p.getByText('读你的那一份', { exact: true }).click()
+    /* 这个产品有名字:【你的说明书】。原先屏上叫它「那一份」——
+       一个指代，第一次看见它的人没有上下文（2026-08-31 用户指出）。 */
+    ok(单上.includes('读你的说明书'), '买了说明书的单子上，主按钮是「读你的说明书」')
+    await p.getByText('读你的说明书', { exact: true }).click()
     await p.waitForFunction(() => globalThis.__router.current().__route === 'pages/report/index',
                             null, { timeout: 15000 }).catch(() => {})
     ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/report/index',
-       '从单子上点得进那一份',
+       '从单子上点得进你的说明书',
        await p.evaluate(() => globalThis.__router.current().__route))
 
     /* 二 · 头一页是【结论】,四柱在后面 —— 而且是真盘,干支不是占位符。
-       原先头一页就是四柱：花钱买的那一份，开篇甩给人一张排盘图，
+       原先头一页就是四柱：花钱买的说明书，开篇甩给人一张排盘图，
        一句话都没有。0830 改成先说结论（key: lead），术语页往后排。
        这三条断言原来钉着「头一页是四柱」，改完之后它们红了三轮 ——
        红得对：产品变了，断言就该跟着说新的话，而不是删掉。 */
@@ -993,7 +995,7 @@ if (API) {
     await p.waitForFunction(() => globalThis.__router.current().data.status === 'awaiting_natal',
                             null, { timeout: 15000 }).catch(() => {})
     const 等屏 = await text()
-    ok(等屏.includes('这一份还差你的出生时间'), '还没出的那一份，开出来说的是还差什么')
+    ok(等屏.includes('这份说明书还差你的出生时间'), '还没出的那一份，开出来说的是还差什么')
     ok(!等屏.includes('取不到') && !等屏.includes('出错'),
        '它不是一张错误页　—— 是这一单真实的状态')
     await shot('21-还差生辰')
@@ -1540,8 +1542,13 @@ await shot('03-reading')
   } else {
     const 写死的 = Number((readFileSync('mini/miniprogram/pages/village/index.ts', 'utf8')
       .match(/const 说话那格高 = (\d+)/) || [])[1])
-    ok(写死的 > 0 && Math.abs(实高 - 写死的) <= 2,
-       'fitCanvas 里写死的那个数，跟「今天说的一句」实际占的一样高',
+    /* 这个常量的语义是「为那一格【留够】多少」，不是「它正好多高」——
+       那一格一行 90、两行 115，看签文有多长。写死一个数再要求相等，
+       就成了「内容短的时候绿、长的时候红」的断言（2026-08-31 撞到:
+       实测 115 / 写死 90，村主屏超 22px，重跑又绿，因为签文换了）。
+       留够就行，多留一点只是画布小一点点。 */
+    ok(写死的 > 0 && 写死的 >= 实高,
+       'fitCanvas 那个数给「今天说的一句」留够了高度',
        `代码里 ${写死的}，实测 ${实高}`)
   }
 }
