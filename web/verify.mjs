@@ -428,6 +428,37 @@ async function 量一屏(route, params) {
   return { ...m, 溢出: m.内容 - m.视口 }
 }
 
+/* 【没请回来的人不该在你的村子里走动】。
+   卡片上写着「四十间屋子，还都空着 · 0/40」，而画面里阿云、桃桃、婆婆、
+   丹增在溜达、还冒着台词气泡 —— 新用户第一眼看见的是一个已经很热闹的村子，
+   那「请人回家」的动机就没了。这也正是「还没请回来的人连名字都不该知道」
+   那条设定，而这儿是从正门破的。
+   路人（villm）不受此限：村子的生气归他们。 */
+if (API) {
+  await open('pages/village/index')
+  await p.waitForTimeout(2600)
+  const 场 = await p.evaluate(() => {
+    const c = globalThis.VILLAGE_CENSUS ? globalThis.VILLAGE_CENSUS() : null
+    const 名单 = globalThis.VILLAGE_VILLAGERS_FOR_TEST || []
+    return { 住着: c && c.住着, 在场: 名单.length, 卡: globalThis.__router.current().data.found }
+  })
+  /* 问引擎「此刻谁在场」，不去屏上找台词气泡 ——
+     气泡是间歇冒的，碰不上就成了一条永远绿的断言。 */
+  const 台上 = await p.evaluate(() =>
+    globalThis.VILLAGE_CAST_ON_STAGE ? globalThis.VILLAGE_CAST_ON_STAGE() : null)
+  if (台上 === null) {
+    ok(false, '引擎说得出此刻谁在场', '没有 VILLAGE_CAST_ON_STAGE')
+  } else if (场.住着 === 0) {
+    ok(台上.length === 0,
+       '一个人都没请回来时，四十位里的谁都不在村里走动　—— 卡上写着「还都空着」',
+       `住着=${场.住着} · 台上=${JSON.stringify(台上)}`)
+  } else {
+    ok(台上.length === 场.住着,
+       '在村里走动的，正好是请回来的那几位',
+       `住着=${场.住着} · 台上=${JSON.stringify(台上)}`)
+  }
+}
+
 console.log(`\n── ${routes.length} 页都开得起来吗 ──`)
 console.log('  （照 app.json 读的，不是另列的一份）')
 /* 顺带一条通用的:渲出来的文字里不该有模板残片。
