@@ -103,8 +103,12 @@
 
       </view>
 
-      <!-- 中心按钮 · 不随 face 旋转 -->
-      <button class="compass-btn"
+      <!-- 中心按钮 · 不随 face 旋转。
+           【还没填出生时间的时候它让位】：那时屏上写着「转出来的还不算你的」，
+           底下还有一颗满橙的「填出生时间」—— 两颗一样重的按钮摆在一屏上，
+           人不知道该按哪颗（标尺 §1.5.4 第二问）。而此刻该做的那件事是填，
+           不是转一个不算数的。仍然点得动 —— 只是不再抢主色。 -->
+      <button class="compass-btn {{summary ? '' : 'compass-btn-quiet'}}"
               hover-class="compass-btn-hover"
               hover-stay-time="80"
               bindtap="doSpin">
