@@ -18,6 +18,9 @@ export interface VillagerInVillage {
   rarity: string | null
   /** 请回家了没。**空屋不消失是世界观**,所以没请回来的也在这张表里 */
   at_home: boolean
+  /** 他今天说的那一句。**只有住着的人才有** —— 没请回家的不说话，
+   *  那是这个产品的付费理由。没写过台词的人是 null，页面不编。 */
+  line: string | null
   /** 他卖着什么（设计册 10.8：东西长在卖它的人身上）。没有就是 null。
    *  **不含御守** —— 那不是「他卖的」，是「里面封着他」，而且它有自己的入口。 */
   sells: { product_id: string; name: string } | null

@@ -99,6 +99,38 @@ async fn my_village(
                   (r.get::<String, _>("product_id"), r.get::<String, _>("name"))))
         .collect();
 
+    /* 【住着的那位，在他自己那一屏也该说话】。
+       「居民是主角」是这一版三条主线之一，而村民那一屏此前只有一张脸和几个标签 ——
+       她住在你村里，却一句话都没有。
+
+       守设定:只给【住着的】人。没请回家的不说话，那是这个产品的付费理由。
+       没台词的给 null —— 四十位里眼下只有四位有词（16 条），
+       编一句出来比空着糟得多，而空着正好把内容缺口摆在明面上。
+
+       挑法跟村主屏那一句同一个纯函数（`挑一句`）：同一个人同一天逐字相同，
+       那是设定不是缓存。 */
+    let 今日词: std::collections::HashMap<String, String> = if home.is_empty() {
+        Default::default()
+    } else {
+        let 词 = sqlx::query(
+            "SELECT villager_id, seq, text FROM villager_line               WHERE villager_id = ANY($1) ORDER BY villager_id, seq",
+        ).bind(&home).fetch_all(&st.db).await?;
+        let mut 按人: std::collections::HashMap<String, Vec<String>> = Default::default();
+        for r in &词 {
+            按人.entry(r.get::<String, _>("villager_id")).or_default()
+                .push(r.get::<String, _>("text"));
+        }
+        let day = today_shanghai().to_string();
+        按人.into_iter().filter_map(|(vid, 句)| {
+            if 句.is_empty() { return None; }
+            // 每人各挑各的:种子里带上他的 id，两个人同一天不会挑到同一序号
+            let 候选: Vec<(&str, usize)> = 句.iter().enumerate()
+                .map(|(i, _)| (vid.as_str(), i)).collect();
+            let i = 挑一句(&候选, &format!("{}/{}", c.sub, vid), &day);
+            Some((vid, 句[i].clone()))
+        }).collect()
+    };
+
     let all: Vec<J> = rows
         .iter()
         .map(|r| {
@@ -114,6 +146,9 @@ async fn my_village(
                 "direction": r.get::<Option<String>, _>("direction"),
                 "rarity": r.get::<Option<String>, _>("rarity"),
                 "at_home": at_home,
+                /* 他今天说的那一句。**只有住着的人才有** —— 没请回家的不说话。
+                   没写过台词的人是 null，页面据此决定说不说，不编。 */
+                "line": if at_home { 今日词.get(&id).cloned() } else { None },
                 "sells": sells.get(&id).map(|(pid, name)| json!({
                     "product_id": pid, "name": name,
                 })),
