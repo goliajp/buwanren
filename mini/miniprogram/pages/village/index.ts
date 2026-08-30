@@ -174,6 +174,12 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
 
   goTonight() { wx.navigateTo({ url: '/pages/lighting/index' }) },
 
+  /* 开场白上的两条路。村里一个人都没有时，这一格是屏上唯一说得出
+     「你能干什么」的地方 —— 一条不花钱就能走（翻名册），
+     一条把后面所有排序都变准（填生辰）。 */
+  goInvite() { 轻(); wx.navigateTo({ url: '/pages/invite/index' }) },
+  goNatal() { 轻(); wx.navigateTo({ url: '/pages/natal/index' }) },
+
   /** 说话那位的那一页。她已经住着，所以点进去是她本人，不是空屋 */
   onSays() {
     const s = this.data.says
@@ -206,7 +212,12 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
         const 说的 = v.today_says
           ? { ...v.today_says, face: v.today_says.name.slice(-1) }
           : null
-        const 变了 = 该扫 !== this.data.toScan || !!说的 !== !!this.data.says
+        /* 「有没有那一格」才是判据 —— 说话卡与开场白二选一，都占 90px。
+           只比 `says` 的有无，会漏掉「第一位住进来那天开场白让位给说话卡」
+           这一种:两块都在，高度没变，不必重算;而 0→1 那一下 lived 也变了。 */
+        const 有那格 = (x: { says: unknown; lived: number }) => !!x.says || !x.lived
+        const 变了 = 该扫 !== this.data.toScan
+          || 有那格({ says: 说的, lived: v.found }) !== 有那格(this.data)
         this.setData({ lived: v.found, total: v.total, err: '', toScan: 该扫, says: 说的 })
         if (变了 && this.data.cssW) { this.fitCanvas(); this.mount() }
       },
@@ -247,7 +258,16 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
        **改那一块的版式就要改这个数**。它是条件出现的（空村时没有），
        所以跟提示条一样要参与重算，否则村里第一个人住进来那天，
        多出来的那一块会把整屏顶出去。 */
-    const 说的 = this.data.says ? 90 : 0
+    /* 村里一个人都没有时，这一格装的是【开场白】（见 index.wxml 的 `.intro`）——
+       两块占的高度一样，所以这里要一起算。只看 `says` 的话，
+       第一次打开的人会被顶掉屏底的收集进度条:那正是这段注释警告的
+       「改那一块的版式就要改这个数」，而我加开场白时差点又漏一次。
+
+       数写成【具名常量】而不是塞在三元里 —— 动线那一支要把它从源码里读出来，
+       跟实测高度对一遍;写成表达式它就读成了 NaN，而 NaN 的比较永远为假，
+       于是那条断言从「钉住这个数」退化成「每次都红」。 */
+    const 说话那格高 = 90
+    const 说的 = (this.data.says || !this.data.lived) ? 说话那格高 : 0
     /* 收集进度条常驻,固定 34px。它不是弹性槽 —— 核心反馈不许在矮屏上消失 */
     const 进度条 = 34
     const 可用 = win.windowHeight - 头部 - 提示条 - 说的 - 进度条

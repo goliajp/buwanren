@@ -9,7 +9,23 @@
     <view class="why" wx:if="{{lack && why}}">你缺「{{lack}}」·{{why}}</view>
     <view class="why" wx:elif="{{lack}}">你缺「{{lack}}」</view>
     <view class="why" wx:elif="{{lackErr}}">{{lackErr}}</view>
-    <view class="why" wx:else>先填生辰，这里就能按你缺的排</view>
+    <!-- 药丸写着「缺 亲人」，贴在【他】那一侧 —— 第一次看的人会读成
+         「这个人缺勤」，而它说的是他补【你】哪一样。所以这里要点一句。
+         **并在同一行里说**:另起一行会把第五张卡挤到分页栏底下，
+         而这一屏的设计目标是一屏放得下（门禁「22/22 页放得下」盯着它）。
+         填过生辰之后这句会换成「你缺 X · 这几位跟你补得上」，那时它自明。 -->
+    <view class="why" wx:else>填了出生时间就按你缺的排 · 右边两个字是他补你哪一样</view>
+    <!-- 这一页一个都请不动时的出路。**不进弹性槽** ——
+         弹性槽在矮屏上会被收起，而它恰好是这一屏卡住时唯一能按的东西。 -->
+    <view class="stuck" wx:if="{{这页请不动 || onlyOnSale}}" bindtap="onToggleOnSale"
+          hover-class="entry-hover" hover-stay-time="100">
+      <!-- 来回都走这一条。只给「切过去」不给「切回来」的话，
+           人会困在四位的视图里 —— 而「看回四十位」原本也在弹性槽里，
+           矮屏一样收起。同一个坑的对称的另一半。 -->
+      <text wx:if="{{onlyOnSale}}">只看现在能请的（{{saleCount}} 位）· 看回四十位</text>
+      <text wx:else>这一页的几位都还没上架 · 只看现在能请的（{{saleCount}} 位）</text>
+      <text class="stuck-go">›</text>
+    </view>
     <view class="hr"></view>
   </view>
 
@@ -32,7 +48,7 @@
     <!-- 空不是问题，说不清哪儿能有才是 -->
     <view class="empty" wx:if="{{items.length === 0}}">
       <view class="empty-t">一位也没数到</view>
-      <view class="empty-sub">名册取不到 —— 待会儿再看看</view>
+      <view class="empty-sub">这份名单没取到 —— 待会儿再看看</view>
     </view>
 
     <!-- 四十位都列出来，在卖的能点、没上架的照实说（设计册 10.8）。
@@ -70,7 +86,9 @@
       <view class="pg {{pageNo + 1 >= pageCount ? 'pg-off' : ''}}" bindtap="onNext">下一页 ›</view>
     </view>
 
-    <view class="foot" wx:if="{{items.length > 0}}">
+    <!-- 卡住那一条出现时这句让位:两条都是注解，而卡住时前者是他唯一按得动的东西，
+         两条并存会把第五张卡挤到分页栏底下（这一屏的目标是一屏放得下）。 -->
+    <view class="foot" wx:if="{{items.length > 0 && !这页请不动 && !onlyOnSale}}">
       买下之后寄一枚实物到你手上 · 扫开它，人就住进来
     </view>
 

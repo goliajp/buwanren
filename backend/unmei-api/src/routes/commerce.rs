@@ -148,9 +148,33 @@ async fn get_product(
            ORDER BY s.created_at"#,
     ).bind(&id).bind(&q.region).bind(&q.platform)
      .fetch_all(&st.db).await.map_err(map_db)?;
+    /* 御守是【一个人】。这一屏是决定掏不掏钱的地方，而原先它只说
+       「御守 · ¥99 · 买下之后寄一枚实物御守给你，扫开它，这位不完人就住进你的村子」——
+       没有名字、没有脸，连指代都只能写「这位不完人」。
+       他刚点的是「丹增 · 请回家」，落地却是一件匿名的商品。
+       村民绑在 sku 上（`sku.villager_id`），所以这里顺着 sku 把人取出来。
+       不是御守的商品（香、报告）取不到，就是 null —— 页面据此决定说不说。 */
+    let 是谁 = sqlx::query(
+        r#"SELECT v.id, v.name, v.title, a.name AS art_name, b.direction
+             FROM sku s
+             JOIN villager v ON v.id = s.villager_id
+             LEFT JOIN art a ON a.key = v.art_key
+             LEFT JOIN lack_bias b ON b.lack = v.lack
+            WHERE s.product_id = $1 AND s.villager_id IS NOT NULL
+            ORDER BY s.created_at LIMIT 1"#,
+    ).bind(&id).fetch_optional(&st.db).await.map_err(map_db)?
+     .map(|r| json!({
+        "id": r.get::<String, _>("id"),
+        "name": r.get::<String, _>("name"),
+        "title": r.get::<Option<String>, _>("title"),
+        "art": r.get::<Option<String>, _>("art_name"),
+        "direction": r.get::<Option<String>, _>("direction"),
+     }));
+
     Ok(Json(json!({
         "product": map_rows(vec![p]).into_iter().next().unwrap_or(J::Null),
         "skus": map_rows(skus),
+        "villager": 是谁,
     })))
 }
 

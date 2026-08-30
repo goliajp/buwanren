@@ -28,6 +28,8 @@ interface IData {
     gender: 'M' | 'F'
     label: string
   }
+  /** 谁是【用户真的选过的】。picker 的初始值不算答案，见 data 里的注释 */
+  填了: { date: boolean; time: boolean; gender: boolean }
 }
 
 Page<IData, WechatMiniprogram.IAnyObject & { pendingReload: boolean; loadDefault(): Promise<void> }>({
@@ -43,12 +45,17 @@ Page<IData, WechatMiniprogram.IAnyObject & { pendingReload: boolean; loadDefault
     avoidPinyin: [],
     archive: [],
     archNote: '',
+    /* picker 需要一个初始值才知道该翻到哪儿，但那个值【不是用户的答案】。
+       原先它直接显示成 1995-06-15 / 14:30 / 男 —— 谁不改就直接按「算一算」，
+       算出来的是别人的命，而且一路无错可报。
+       所以分开两件事:`form` 给 picker 用，`填了` 记谁真的选过。 */
     form: {
       date: '1995-06-15',
       time: '14:30',
       gender: 'M',
       label: '默认',
     },
+    填了: { date: false, time: false, gender: false },
   },
 
   onShow() {
@@ -128,16 +135,22 @@ Page<IData, WechatMiniprogram.IAnyObject & { pendingReload: boolean; loadDefault
     }
   },
 
+  /* 算完之后的下一步。这一屏原先只有「再填一份」——
+     最贵的那一步做完了却没有出口，而这个结果的用处正是「照它挑人」。 */
+  goInvite() { wx.navigateTo({ url: '/pages/invite/index' }) },
+
   onDate(e: WechatMiniprogram.CustomEvent<{ value: string }>) {
-    this.setData({ 'form.date': e.detail.value })
+    this.setData({ 'form.date': e.detail.value, '填了.date': true })
   },
   onTime(e: WechatMiniprogram.CustomEvent<{ value: string }>) {
-    this.setData({ 'form.time': e.detail.value })
+    this.setData({ 'form.time': e.detail.value, '填了.time': true })
   },
   setMale() {
+    this.setData({ '填了.gender': true })
     this.setData({ 'form.gender': 'M' })
   },
   setFemale() {
+    this.setData({ '填了.gender': true })
     this.setData({ 'form.gender': 'F' })
   },
   onLabel(e: WechatMiniprogram.CustomEvent<{ value: string }>) {
@@ -146,7 +159,18 @@ Page<IData, WechatMiniprogram.IAnyObject & { pendingReload: boolean; loadDefault
 
   async submit() {
     if (this.data.submitting) return
-    this.setData({ submitting: true })
+    /* 三样都得是【他自己选的】。picker 的初始值只是它翻到哪儿，不是答案 ——
+       不拦的话，谁没改就直接按下来，算出的是别人的命，而且一路都不报错。
+       后面所有的排序、用神、每天那一句都压在这三个数上。 */
+    // 名字跟屏上的字段名一字不差 —— 报错里说「出生日」而屏上写「哪一天」，
+    // 人得先在两个词之间对一次才知道说的是哪一栏
+    const 缺 = ([['date', '哪一天'], ['time', '几点'], ['gender', '性别']] as const)
+      .filter(([k]) => !this.data.填了[k]).map(([, n]) => n)
+    if (缺.length) {
+      this.setData({ err: `还差${缺.join('、')} —— 点一下填上，这三样决定后面所有的话` })
+      return
+    }
+    this.setData({ submitting: true, err: '' })
     try {
       const { form } = this.data
       const [y, m, d] = form.date.split('-').map((n) => parseInt(n, 10))

@@ -35,6 +35,8 @@ interface IData {
   page: Array<{ id: string; name: string; sub: string; onSale: boolean; product: string | null; face: string; lack: string; direction: string }>
   pageNo: number
   pageCount: number
+  /** 这一页一位都请不动（全还没上架），而别处有在卖的 —— 那就得给条出路 */
+  这页请不动: boolean
   /** 「你缺的」那一行。取不到就空着 —— 它是理由，不是门槛 */
   lack: string
   /** 取用神失败与「还没建本命」是两件事，分开说 */
@@ -48,7 +50,7 @@ interface IData {
 }
 
 Page<IData, WechatMiniprogram.IAnyObject>({
-  data: { loading: true, err: '', items: [], page: [], pageNo: 0, pageCount: 0, lack: '', lackErr: '', why: '', onlyOnSale: false, saleCount: 0 },
+  data: { loading: true, err: '', items: [], page: [], pageNo: 0, pageCount: 0, lack: '', lackErr: '', why: '', onlyOnSale: false, saleCount: 0, 这页请不动: false },
 
   /* 无条件取，不拿 token 当守卫 —— 跟村主屏一致。
      带守卫的写法在【还没登录】时什么都不做，页面就一直停在「取着……」，
@@ -113,10 +115,21 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     const items = this.看得见()
     const count = Math.max(1, Math.ceil(items.length / 每页))
     const no = Math.min(Math.max(0, n), count - 1)
+    const 这一页 = items.slice(no * 每页, no * 每页 + 每页)
+    /* 这一页一个都请不动的时候要说一声。
+       排序本身是诚实的（先按你缺的方向排，同方向里在卖的靠前），
+       但「跟你最补得上的那几位恰好都还没上架」是真会发生的:
+       填完生辰回到这儿，第一页五位全是灰的「还没来」，一个点不动。
+       出口其实一直有（「只看在卖的」），可它在弹性槽里 ——
+       而矮屏（iPhone SE 就是）正是把弹性槽收起来的那一档，
+       于是唯一能救这一屏的控件在参考机型上看不见。
+       这一条不进弹性槽，且只在真的卡住时出现。 */
     this.setData({
       pageNo: no,
       pageCount: items.length ? count : 0,
-      page: items.slice(no * 每页, no * 每页 + 每页),
+      page: 这一页,
+      这页请不动: 这一页.length > 0 && !这一页.some((x: { onSale: boolean }) => x.onSale)
+        && !this.data.onlyOnSale && this.data.saleCount > 0,
     })
   },
 

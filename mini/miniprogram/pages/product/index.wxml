@@ -1,9 +1,21 @@
 <view class="page">
-  <view class="hd">
+  <!-- 御守是【一个人】。这一屏是决定掏不掏钱的地方，而它原先的标题是
+       「一件 / 御守」—— 刚点的明明是「丹增 · 请回家」，落地却是一件匿名商品，
+       连说明里都只能写「这位不完人」。标尺 §1.5.3 第一问「我在哪儿」答不上。
+       现在:是谁买谁，脸和名字在最上面;不是御守的商品（香、报告）照旧。 -->
+  <view class="hd who" wx:if="{{villager}}">
+    <view class="who-face face-{{villager.direction}}">{{villager.face}}</view>
+    <view class="who-body">
+      <view class="eyebrow">请他回家</view>
+      <view class="title">{{villager.name}}</view>
+      <view class="who-sub" wx:if="{{villager.title}}">{{villager.title}}<text wx:if="{{villager.art}}"> · {{villager.art}}</text></view>
+    </view>
+  </view>
+  <view class="hd" wx:else>
     <view class="eyebrow">一件</view>
     <view class="title">{{name || '　'}}</view>
-    <view class="hr"></view>
   </view>
+  <view class="hr"></view>
 
   <view class="sk-rows" wx:if="{{loading}}">
     <view class="sk-card"><view class="sk-body">
@@ -30,8 +42,11 @@
 
     <view class="desc" wx:if="{{desc}}">{{desc}}</view>
 
-    <view class="ship" wx:if="{{fulfillment === 'residency'}}">
-      买下之后寄一枚实物御守给你，扫开它，这位不完人就住进你的村子
+    <view class="ship" wx:if="{{fulfillment === 'residency' && villager}}">
+      寄一枚御守到你手上 · 扫开它，{{villager.name}}就住进你的村子 —— 从那天起他每天跟你说一句，也能替你看一件事
+    </view>
+    <view class="ship" wx:elif="{{fulfillment === 'residency'}}">
+      寄一枚御守到你手上 · 扫开它，人就住进你的村子
     </view>
     <view class="ship" wx:elif="{{fulfillment === 'shipping'}}">实物，会寄给你</view>
     <view class="ship" wx:elif="{{fulfillment === 'async_compute'}}">下单后算，算完在这里看</view>

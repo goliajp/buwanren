@@ -392,3 +392,36 @@ input::placeholder, textarea::placeholder { color: var(--stone-label); }
 .lack-let_go { background: #FCECEF; color: #7A3448; }
 .lack-near   { background: #FFF0E6; color: #8A3F28; }
 .lack-ask    { background: #FEF5E2; color: #7A5A1A; }
+
+/* ── 「有人在说话」那张卡（0830 标尺 §1.5.2 沉浸感）──────────────
+   村主屏的「他今天说」、首屏的开场白、填出生时间与算完那两屏的旁白
+   —— 四处同一张卡、同一个位置感。摊在各页各写一份必然走散，
+   而走散的样子是「同一件东西在不同屏上长得不一样」，正好毁掉沉浸感。
+
+   底色由 `.face-<方向>` 给（住着的那位用他自己的颜色）；
+   村子自己说话时用 `.intro-face` 的绿 —— 那是「地方」的颜色，不是某个人的。 */
+.says {
+  align-self: stretch;
+  margin: 0 0 12rpx;
+  padding: 20rpx 22rpx;
+  background: var(--paper-panel);
+  border-radius: var(--r-card);
+  box-shadow: var(--sh-card);
+  display: flex; gap: 18rpx; align-items: flex-start;
+}
+.says-hover { transform: scale(.985); }
+.says-face {
+  flex: none;
+  width: 84rpx; height: 84rpx; border-radius: 999rpx;
+  font-size: 38rpx; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.says-body { flex: 1; min-width: 0; }
+.says-who { font-size: 23rpx; color: var(--ink-faint); }
+.says-text { font-size: 33rpx; font-weight: 600; color: var(--ink); line-height: 1.5; margin-top: 4rpx; }
+.says-foot { display: flex; align-items: baseline; margin-top: 10rpx; }
+.says-id { font-size: 21rpx; color: var(--stone-label); }
+.says-go { margin-left: auto; font-size: 24rpx; color: var(--amber-deep); font-weight: 600; }
+/* 村子自己说话时的脸 —— 绿是「这个地方」的颜色，跟四十个人的七色分得开 */
+.intro-face { background: linear-gradient(150deg, var(--moss-lite), #9BD9BA); color: #2E7D5B; }
+.intro-alt { color: var(--amber-deep); font-weight: 600; }

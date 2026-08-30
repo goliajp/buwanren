@@ -298,3 +298,13 @@
 
 /* 空状态要居中,页面得先撑满 */
 .page { display: flex; flex-direction: column; }
+
+/* 0830 标尺 §1.5.3：这一屏要让人带走的是【一句能落到今天的话】。
+   原先大字是门名（生门），人话缩成小注 —— 主次反了。 */
+.verdict {
+  margin-top: 28rpx; padding: 30rpx 28rpx;
+  background: var(--paper-panel); border-radius: var(--r-card);
+  box-shadow: var(--sh-card);
+  font-size: 33rpx; line-height: 1.75; color: var(--ink); font-weight: 600;
+}
+.gate-note { color: var(--stone-label); }

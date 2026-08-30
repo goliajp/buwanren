@@ -901,19 +901,19 @@ if (API) {
     await p.waitForFunction(() => !!globalThis.__router.current().data.report,
                             null, { timeout: 15000 }).catch(() => {})
     const 单上 = await text()
-    ok(单上.includes('读你的那一册'), '买了报告的单子上，主按钮是「读你的那一册」')
-    await p.getByText('读你的那一册', { exact: true }).click()
+    ok(单上.includes('读你的那一份'), '买了报告的单子上，主按钮是「读你的那一份」')
+    await p.getByText('读你的那一份', { exact: true }).click()
     await p.waitForFunction(() => globalThis.__router.current().__route === 'pages/report/index',
                             null, { timeout: 15000 }).catch(() => {})
     ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/report/index',
-       '从单子上点得进那一册',
+       '从单子上点得进那一份',
        await p.evaluate(() => globalThis.__router.current().__route))
 
     // 二 · 头一页是四柱，而且是【真盘】—— 干支不是占位符
     await p.waitForFunction(() => (globalThis.__router.current().data.tabs || []).length > 0,
                             null, { timeout: 15000 }).catch(() => {})
     const 册 = await p.evaluate(() => globalThis.__router.current().data)
-    ok((册.tabs || []).length >= 4, '这一册翻得出好几页', String((册.tabs || []).length))
+    ok((册.tabs || []).length >= 4, '这一份翻得出好几页', String((册.tabs || []).length))
     ok(册.page &&册.page.key === 'pillars', '头一页是四柱', 册.page && 册.page.key)
     const 柱 = (册.page && 册.page.pillars) || []
     ok(柱.length === 4 && 柱.every((x) => /^[\u4e00-\u9fa5]{2}$/.test(x.ganzhi)),
@@ -968,22 +968,22 @@ if (API) {
     await open('pages/order/index', { id: 册们.awaiting_natal.order })
     await p.waitForFunction(() => !!globalThis.__router.current().data.report,
                             null, { timeout: 15000 }).catch(() => {})
-    ok((await text()).includes('还差你的生辰'),
+    ok((await text()).includes('还差你的出生时间'),
        '册子没出的单子上说得出还差什么　—— 不显示成「已完成」')
     await open('pages/report/index', { id: 册们.awaiting_natal.report })
     await p.waitForFunction(() => globalThis.__router.current().data.status === 'awaiting_natal',
                             null, { timeout: 15000 }).catch(() => {})
     const 等屏 = await text()
-    ok(等屏.includes('这一册还差你的生辰'), '还没出的那一册，开出来说的是还差什么')
+    ok(等屏.includes('这一份还差你的出生时间'), '还没出的那一份，开出来说的是还差什么')
     ok(!等屏.includes('取不到') && !等屏.includes('出错'),
        '它不是一张错误页　—— 是这一单真实的状态')
     await shot('21-还差生辰')
     // 出路要真走得通:说了「去填」就得真的到得了填生辰那一屏
-    await p.getByText('去填生辰', { exact: true }).click()
+    await p.getByText('去填出生时间', { exact: true }).click()
     await p.waitForFunction(() => globalThis.__router.current().__route === 'pages/natal/index',
                             null, { timeout: 15000 }).catch(() => {})
     ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/natal/index',
-       '「去填生辰」真的到得了填生辰那一屏',
+       '「去填出生时间」真的到得了填生辰那一屏',
        await p.evaluate(() => globalThis.__router.current().__route))
   }
   // 收拾现场:上面停在填生辰那一屏,而下一段的 moveIn 要从村子那一屏起手。
@@ -1034,7 +1034,7 @@ if (API) {
   /* 她那一句要按【你缺什么】来。这一趟没建本命，所以她该说不知道，
      **而不是编一句** —— 说错了比不说更伤。 */
   ok(!香.那句, '没建本命时她不编一句', String(香.那句 || '(空)'))
-  ok(香屏.includes('先把生辰填了'), '而是说不知道，并给出口')
+  ok(香屏.includes('先把出生时间填了'), '而是说不知道，并给出口')
 
   /* 选中一档。类名跟 index.wxml 对上 —— 0830 把三档改成了牌（`.pick`），
      而这里还写着旧的 `.entry`：点不到的选择器不会当场红，它先挂满三十秒再抛，
@@ -1267,7 +1267,7 @@ if (API) {
   await p.evaluate(() => globalThis.__router.current().setData({ items: [], loading: false, err: '' }))
   await p.waitForTimeout(200)
   const 空请 = await text()
-  ok(空请.includes('一位也没数到') && 空请.includes('名册取不到'),
+  ok(空请.includes('一位也没数到') && 空请.includes('这份名单没取到'),
      '「谁能来」空的时候也说得出下一步 —— CI 的种子库就是这一支',
      空请.slice(0, 44))
   await open('pages/invite/index')
@@ -1460,7 +1460,7 @@ await shot('03-reading')
     console.log('  · 「今天说的一句」这一趟没出现（村里还没人）—— 这一条【没验】')
   } else {
     const 写死的 = Number((readFileSync('mini/miniprogram/pages/village/index.ts', 'utf8')
-      .match(/const 说的 = this\.data\.says \? (\d+) : 0/) || [])[1])
+      .match(/const 说话那格高 = (\d+)/) || [])[1])
     ok(写死的 > 0 && Math.abs(实高 - 写死的) <= 2,
        'fitCanvas 里写死的那个数，跟「今天说的一句」实际占的一样高',
        `代码里 ${写死的}，实测 ${实高}`)
@@ -1830,8 +1830,8 @@ await p.waitForTimeout(300)
 /* exact 是必须的：旁边那句提示里也含这几个字，
    不加就同时命中两个，然后失败信息写着「按钮不在」—— 它明明在。
    2026-08-23：空态从两块合成一块（两块原先在说同一件事），
-   按钮文案随之从「输入生辰」改成「先填生辰」。 */
-const 去建 = p.getByText('先填生辰', { exact: true })
+   按钮文案随之从「输入生辰」改成「填出生时间」（0830 语言清扫）。 */
+const 去建 = p.getByText('填出生时间', { exact: true })
 if (await 去建.count() === 1) {
   await 去建.click()
   await p.waitForFunction(
@@ -1839,25 +1839,25 @@ if (await 去建.count() === 1) {
     null, { timeout: 15000 },
   ).catch(() => {})
   ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/natal/index',
-     '空的我家上按「先填生辰」，去的是填生辰那一页',
+     '空的我家上按「填出生时间」，去的是填出生时间那一页',
      await p.evaluate(() => globalThis.__router.current().__route))
 } else {
-  ok(false, '空的我家上按「先填生辰」，去的是填生辰那一页',
+  ok(false, '空的我家上按「填出生时间」，去的是填出生时间那一页',
      `按钮不在（找到 ${await 去建.count()} 个）`)
 }
 
-/* 「重建生辰」——只在【已经有本命】的时候在，所以放在建完之后。
+/* 「再填一份」——只在【已经有本命】的时候在，所以放在建完之后。
    它把这一页切回表单，而这条路径从没被走过（切表单一直是 setData 塞的）。 */
 await open('pages/natal/index')
 await p.waitForTimeout(400)
-if (await p.getByText('重建生辰').count() === 1) {
-  await p.getByText('重建生辰').click()
+if (await p.getByText('再填一份').count() === 1) {
+  await p.getByText('再填一份').click()
   await p.waitForTimeout(300)
   ok(await p.evaluate(() => globalThis.__router.current().data.mode) === 'form',
-     '按「重建生辰」回到填生辰那一屏',
+     '按「再填一份」回到填出生时间那一屏',
      await p.evaluate(() => globalThis.__router.current().data.mode))
 } else {
-  console.log('  · 跳过：这一轮没有本命，「重建生辰」不出现（不计入通过）')
+  console.log('  · 跳过：这一轮没有本命，「再填一份」不出现（不计入通过）')
 }
 
 console.log('\n── 起卦（点罗盘中心，不是摇手机）──')
@@ -2203,8 +2203,8 @@ console.log('\n── 一屏放得下吗（iPhone SE · 内容区 597）──')
   const 多形态 = [
     { 页: 'pages/home/index', 名: '还没建本命',
       切: () => globalThis.__router.current().setData({ summary: null, err: '' }),
-      凭据: '先填生辰',
-      为什么: '罗盘灰着、压一句「先填生辰」加一个出口 —— 冷启动第一眼就是它' },
+      凭据: '填出生时间',
+      为什么: '罗盘灰着、压一句「填出生时间」加一个出口 —— 冷启动第一眼就是它' },
     { 页: 'pages/natal/index', 名: '填生辰',
       切: () => globalThis.__router.current().setData({ mode: 'form', err: '' }),
       凭据: '会得到这些',
@@ -2251,7 +2251,7 @@ console.log('\n── 一屏放得下吗（iPhone SE · 内容区 597）──')
       为什么: '10.7 说得最直白：M5 的空状态【就是这一屏的主设计】' },
     { 页: 'pages/incense/index', 名: '还没建本命',
       切: () => globalThis.__router.current().setData({ line: '' }),
-      凭据: '先把生辰填了',
+      凭据: '先把出生时间填了',
       为什么: '她不知道你缺什么时说的那一句，比配错一味重要' },
     { 页: 'pages/villager/index', 名: '还没请回来',
       切: () => {
@@ -2538,9 +2538,17 @@ if (!API) {
   if (原有 < 1) {
     console.log('  · 跳过档案那一段：这个用户还没有本命（不计入通过）')
   } else {
-    // 再建一份：重建生辰 → 生成
-    await p.getByText('重建生辰', { exact: true }).click()
+    /* 再建一份：按「再填一份」→ 三样都填 → 算一算。
+       **三样是必须真填的** —— 表单原先预填 1995-06-15 / 14:30 / 男，
+       谁不改就直接按下去，算出来的是别人的命而且一路不报错（0830 修掉）。
+       这一段原先正是靠那份预填过的:它按完「再填一份」直接点「算一算」，
+       也就是说它验的是「不填也能建」，而那正是要修掉的行为。 */
+    await p.getByText('再填一份', { exact: true }).click()
     await p.waitForTimeout(400)
+    await p.locator('input[type=date]').first().fill('1990-07-12')
+    await p.locator('input[type=time]').first().fill('09:15')
+    await p.getByText('女', { exact: true }).first().click()
+    await p.waitForTimeout(200)
     await p.getByText('算一算', { exact: true }).click()
     /* 建本命要打排盘服务，慢；固定等几秒会时灵时不灵。轮询到档案变长为止，
        等不到就把页面自己那一行错误读出来 —— 「没变长」和「报错了」不是一回事。 */
@@ -2555,6 +2563,29 @@ if (!API) {
       return d.err || d.archNote || `mode=${d.mode} submitting=${d.submitting}`
     })
     ok(现有 > 原有, '再建一份，档案里多了一条', `${原有} → ${现有} · ${页错}`)
+
+    /* 三样没填全就不许建。原先表单预填了日期、时刻与性别 ——
+       谁不改就直接按「算一算」，算出来的是别人的命，一路不报错。
+       这一条验的是【不填不给建】，而且报错要说清差哪几样。 */
+    await open('pages/natal/index')
+    await p.getByText('再填一份', { exact: true }).click()
+    await p.waitForTimeout(300)
+    const 建之前 = await p.evaluate(() => globalThis.__router.current().data.archive.length)
+    await p.getByText('算一算', { exact: true }).click()
+    await p.waitForTimeout(800)
+    const 拦住 = await p.evaluate(() => {
+      const d = globalThis.__router.current().data
+      return { err: d.err || '', mode: d.mode, n: d.archive.length }
+    })
+    ok(拦住.mode === 'form' && /还差/.test(拦住.err) && 拦住.n === 建之前,
+       '一样都没填就按「算一算」，它拦住并说清差哪几样　—— 不许替人答',
+       `mode=${拦住.mode} err=「${拦住.err.slice(0, 30)}」 档案 ${建之前} → ${拦住.n}`)
+    /* 上面那一条把页面留在【表单】上（它验的就是「拦住了」）。
+       后面几条要在档案列表上点「换成它」，那只在 summary 模式下才有 ——
+       所以这里退回去。不退的话下一条会挂在「找不到换成它」上，
+       而那句失败信息指的是一个不存在的毛病。 */
+    await open('pages/natal/index')
+    await 等取完('pages/natal/index')
     if (现有 > 1) {
       const 在用 = await p.evaluate(() => globalThis.__router.current().data.natal.id)
       /* 顺带钉住垫片的一件事：`wx:if` / `wx:else` 只该渲一支。
@@ -2920,29 +2951,29 @@ if (tabs) {
        `${就在这屏.还在这页} · ${就在这屏.有罗盘 ? '罗盘在' : '没找到罗盘'}`)
   } else {
     /* 没本命时验空态那一支：它也得走得通，而且走的是另一条路。 */
-    await p.getByText('先填生辰', { exact: true }).click()
+    await p.getByText('填出生时间', { exact: true }).click()
     await p.waitForFunction(
       () => globalThis.__router.current().__route === 'pages/natal/index',
       null, { timeout: 15000 },
     ).catch(() => {})
     ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/natal/index',
-       '我家空态那颗「先填生辰」是真出口　—— 不是一颗灰着点不动的按钮',
+       '我家空态那颗「填出生时间」是真出口　—— 不是一颗灰着点不动的按钮',
        await p.evaluate(() => globalThis.__router.current().__route))
   }
 
   await open('pages/home/index')
   /* 通往生辰那一页的入口在两个状态下是两颗不同的东西：
-     还没建过 → 「先填生辰」；建过了 → 「展开看盘 ›」。
+     还没建过 → 「填出生时间」；建过了 → 「展开看盘 ›」。
      守的是同一条性质:命不再是 tab 之后的新路,从我家一下就到。
-     原先只点「先填生辰」,而**有本命那一支只在接上排盘服务时才走得到**,
+     原先只点「填出生时间」,而**有本命那一支只在接上排盘服务时才走得到**,
      于是它一直没红过。 */
   const 有盘 = await p.evaluate(() => !!globalThis.__router.current().data.summary)
   const 入口 = 有盘 ? p.getByText('展开看盘', { exact: false }).first()
-                    : p.getByText('先填生辰', { exact: true })
+                    : p.getByText('填出生时间', { exact: true })
   await 入口.click()
   await p.waitForTimeout(400)
   ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/natal/index',
-     `我家「${有盘 ? '展开看盘' : '先填生辰'}」进得去生辰　—— 命不再是 tab 之后的新路`,
+     `我家「${有盘 ? '展开看盘' : '填出生时间'}」进得去生辰　—— 命不再是 tab 之后的新路`,
      await p.evaluate(() => globalThis.__router.current().__route))
   // 反过来那一半:不在 tab 上的页,底下不该有这条。少了这一条的话,
   // 「tab 条永远显示」这种垫片退化也能全绿。

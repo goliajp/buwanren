@@ -188,3 +188,18 @@
 .seg-item.on { background: var(--amber); color: #fff; border-color: var(--amber); }
 /* 「算一算」是这一屏唯一的动作,给它整行 */
 .acts .btn, .submit { width: 100%; box-sizing: border-box; }
+
+/* 还没填的那几格 —— 显示的是提示，不是答案，所以要轻、要看得出「等你点」 */
+.field-v.unset { color: var(--ink-faint); font-weight: 400; }
+
+/* 0830 语言清扫:结论在上、该怎么办紧跟着，术语退到注脚 */
+.hd .sub { font-size: 25rpx; color: var(--ink-faint); margin-top: 8rpx; }
+.stamp-em { color: var(--ink); font-weight: 700; margin: 0 4rpx; }
+.sohow {
+  margin-top: 20rpx; padding: 20rpx 22rpx;
+  background: var(--paper-inset); border-radius: var(--r-card);
+  font-size: 27rpx; line-height: 1.75; color: var(--ink);
+}
+.jargon { margin-top: 18rpx; font-size: 23rpx; color: var(--stone-label); }
+.cta { display: flex; flex-direction: column; gap: 16rpx; margin-top: 32rpx; }
+.cta .btn { width: 100%; box-sizing: border-box; }
