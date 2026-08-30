@@ -307,4 +307,3 @@
   box-shadow: var(--sh-card);
   font-size: 33rpx; line-height: 1.75; color: var(--ink); font-weight: 600;
 }
-.gate-note { color: var(--stone-label); }
