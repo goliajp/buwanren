@@ -22,7 +22,7 @@
          「多了一位」这件事,看数字比看文字快 -->
     <view class="tally" wx:if="{{total > 0}}">
       <view class="tally-track"><view class="tally-fill" style="width:{{lived * 100 / total}}%"></view></view>
-      <text class="tally-n">{{lived}} / {{total}}</text>
+      <text class="tally-n {{跳过了 ? 'tally-pop' : ''}}">{{lived}} / {{total}}</text>
     </view>
   </view>
 

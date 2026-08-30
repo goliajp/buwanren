@@ -90,6 +90,8 @@ export interface OrderLine {
   sku_name?: string | null
   /** 这一行封着谁（御守才有）。快照名是「御守 · 单枚」，认不出人 */
   villager_name?: string | null
+  /** 他劝你的方向 —— 一单那一屏拿它给脸配色 */
+  villager_direction?: string | null
   qty: number
   unit_price_minor: number
   line_subtotal_minor: number
