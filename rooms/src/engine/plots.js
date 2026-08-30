@@ -92,7 +92,7 @@
     { id: 'laoxu', row: 6, col: 3, w: 72, kind: 'bld', seed: 60182, note: '河这岸' },
     { id: 'cyber', row: 6, col: 4, w: 76, kind: 'bld', seed: 15282, note: '河这岸' },
     // 第八排 —— 河那岸
-    { id: 'chenjiu', row: 7, col: 0, w: 76, kind: 'bld', seed: 614112, note: '赌坊里的算手 —— 过了河那边，离村口远' },
+    { id: 'chenjiu', row: 7, col: 0, w: 76, kind: 'bld', seed: 614112, note: '牌桌上的算手 —— 过了河那边，离村口远' },
     { id: 'ami', row: 7, col: 1, w: 76, kind: 'dome', roof: ['#e8a030', '#c07820'], note: '河那岸' },
     { id: 'barista', row: 7, col: 2, w: 80, kind: 'bld', seed: 40082, note: '河那岸' },
     { id: 'courier', row: 7, col: 3, w: 72, kind: 'bld', seed: 49282, note: '河那岸' },
