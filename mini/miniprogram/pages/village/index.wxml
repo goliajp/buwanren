@@ -50,6 +50,35 @@
     </view>
   </view>
 
+  <!-- 【村里一个人都没有的时候】。原先这一格是空的 ——
+       说话卡片要有人住着才有内容（后端没人就返回 null），
+       于是第一次打开的人看到的是:一句问候、一整幅村子、一条空的 0/40，
+       和右上角一颗「扫御守」—— 而他手上没有御守。
+       屏上没有一句话告诉他这是哪儿、能干什么。
+
+       这一格不是「缺一张卡」，是**这个产品的开场白缺席**。
+       所以补的不是占位，是叙事:村子先自我介绍，再给一条不花钱就能走的路。
+       等第一位住进来，它自动让位给「他今天说」——
+       开场白只说一次，说完就该退场。 -->
+  <view wx:elif="{{!lived}}" class="says intro" bindtap="goInvite"
+        hover-class="says-hover" hover-stay-time="100">
+    <view class="says-face intro-face">村</view>
+    <view class="says-body">
+      <!-- 说的是【屋子】不是【人】。第一版写「现在一个都没有」，
+           而画面里明明走着十几个 —— 那些是村里本来就有的摊贩与路人，
+           不是四十位住户，但新来的人不知道，只看见一句被画面直接反驳的话。
+           字号层次跟「他今天说」一致:小灰在上、大黑在下。 -->
+      <view class="says-who">你的村子</view>
+      <view class="says-text">四十间屋子，还都空着</view>
+      <view class="says-foot">
+        <!-- 跟「他今天说」同构、同高:整张卡可点，右下角一条出路。
+             卡再高一点村子就被挤出屏，而村子是这一屏的主体。 -->
+        <text class="says-id intro-alt" catchtap="goNatal">谁来住你说了算 · 填出生时间 ›</text>
+        <text class="says-go">看看谁能来 ›</text>
+      </view>
+    </view>
+  </view>
+
   <!-- type="2d" 是必须的:旧版 canvas 拿不到 node,也就没有 requestAnimationFrame -->
   <canvas
     type="2d"

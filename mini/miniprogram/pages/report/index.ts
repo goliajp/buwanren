@@ -49,7 +49,7 @@ Page({
 
   async load() {
     if (!this.data.id) {
-      this.setData({ loading: false, err: '没说是哪一册' })
+      this.setData({ loading: false, err: '没说是哪一份' })
       return
     }
     this.setData({ loading: true, err: '' })

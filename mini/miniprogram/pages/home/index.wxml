@@ -158,8 +158,8 @@
 
   <!-- 没本命时压在罗盘下面的那一句 + 出口。罗盘照样能转。 -->
   <block wx:if="{{!summary && !err}}">
-    <view class="foot-hint">还没填生辰，转出来的还不算你的</view>
-    <button class="btn" bindtap="goNatal">先填生辰</button>
+    <view class="foot-hint">还没填出生时间，转出来的还不算你的</view>
+    <button class="btn" bindtap="goNatal">填出生时间</button>
   </block>
   </view>
 
