@@ -329,8 +329,21 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
     // **空屋不消失是世界观**：它照样在图上、照样点得到、照样说话，
     // 而且【不说是谁的】。还没请回来的人，连名字都还不该知道。
     const id = hit.at
+    if (this.atHome[id]) {
+      wx.navigateTo({ url: '/pages/villager/index?id=' + id })
+      return
+    }
+    /* 空屋那一屏带上【这一格在哪儿】—— 不带 id。
+       四十格点进去原先长得一模一样（都是「这间空着」），而人是从地图上
+       点着某一格进来的：那一屏答不上「我在哪儿」（标尺 §1.5.4 第一问）。
+       位置不是新信息（他刚在图上看见那一格），名字才是 ——
+       所以传 row/col，不传 at。 */
+    const 表 = (globalThis as unknown as { VILLAGE_PLOTS?: Array<{ id: string; row: number; col: number }> }).VILLAGE_PLOTS
+    const 那格 = 表 && 表.find((x) => x.id === id)
     wx.navigateTo({
-      url: this.atHome[id] ? '/pages/villager/index?id=' + id : '/pages/plot/index',
+      url: 那格
+        ? `/pages/plot/index?row=${那格.row}&col=${那格.col}`
+        : '/pages/plot/index',
     })
   },
 

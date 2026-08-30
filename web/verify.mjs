@@ -1228,13 +1228,26 @@ ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/plot
    '点一格空的，开的是空屋那一屏',
    await p.evaluate(() => globalThis.__router.current().__route))
 const t1 = await text()
-ok(t1.includes('这间空着'), '空屋说「这间空着」')
+ok(t1.includes('空着'), '空屋说它空着')
+/* **说得出是哪一间**。四十格原先点进去长得一模一样（都是「这间空着」），
+   而人是从图上点着某一格进来的 —— 那一屏答不上「我在哪儿」（标尺 §1.5.4）。
+   桃桃在第三排第一列 = 进村口、西头。位置由村子那边按 row/col 传过来。 */
+ok(/进村口，西头那间空着/.test(t1),
+   '空屋说得出是哪一间　—— 四十格不再长得一模一样',
+   (t1.match(/\S*那间空着|这间空着/) || [''])[0])
+/* 而且【仍然不说是谁】。传的是 row/col 不是 at —— 位置不是新信息
+   （他刚在图上看见那一格），名字才是。 */
+ok(!/桃桃|tao/i.test(t1), '仍旧不说是谁的　—— 还没请回来的人连名字都不该知道',
+   t1.slice(0, 40))
+ok(!/\bid=|at=/.test(await p.evaluate(() => location.search + JSON.stringify(globalThis.__router.current().options || {}))),
+   '空屋那一屏拿不到住户的编号　—— 传的是位置，不是人')
 /* 说了还得【看得见】。这条检查有来由：卡片时代它排在村子图后面，
    而村子图比屏幕高 —— 2026-08-18 之前它永远落在屏幕外，点一格房子
    屏幕上什么都不动，而所有检查照样绿，因为 innerText 里读得到它。
    现在是独立一屏，但这条不能删 —— 换成「那句话真的在视口里」。 */
 const 那句位置 = await p.evaluate(() => {
-  const all = [...document.querySelectorAll('div')].filter((d) => d.innerText && d.innerText.includes('这间空着'))
+  // 按 class 找，不按文案找 —— 文案会变（现在它说的是「进村口，西头那间空着」）
+  const all = [...document.querySelectorAll('.empty-t')]
   const el = all[all.length - 1]
   if (!el) return null
   const r = el.getBoundingClientRect()
