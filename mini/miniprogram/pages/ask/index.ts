@@ -1,6 +1,7 @@
 import { najiApi } from '../../services/naji'
 import type { NajiDetail, NajiResult } from '../../types/naji'
 import { 今天几号 } from '../../utils/day'
+import { 那天几点 } from '../../utils/day'
 
 
 
@@ -29,15 +30,13 @@ interface IData {
 
 /** detail → 展示态 · 前端派生 time_label,recommend 后端不返置 null */
 function detailToResult(d: NajiDetail): NajiResult {
-  const dt = new Date(d.asked_at)
-  const mm = String(dt.getMonth() + 1).padStart(2, '0')
-  const dd = String(dt.getDate()).padStart(2, '0')
-  const hh = String(dt.getHours()).padStart(2, '0')
-  const mi = String(dt.getMinutes()).padStart(2, '0')
   return {
     id: d.id,
     asked_at: d.asked_at,
-    time_label: `${mm}·${dd} ${hh}:${mi}`,
+    /* 这一屏自己拼过一版「08·30 13:53」—— 跟别处的说法又不一样。
+       后端那个 `time_label` 更不能用:它写的是「未时 · 13:53」，
+       时辰是屏上不许出现的那一类词。统一走 utils/day。 */
+    time_label: 那天几点(d.asked_at),
     quote: d.quote ?? { text: '', source: '' },
     gate: d.gate,
     direction: d.direction,

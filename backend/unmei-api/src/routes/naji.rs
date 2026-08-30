@@ -75,6 +75,7 @@ async fn spin(
     let rec = pick_recommend(&st.db, &c.sub, &user_region, &user_platform, seed).await?;
 
     // ─── 6. time_label
+    // 「下午 1 点 · 13:53」—— 前一半说给人听，后一半是准确时刻
     let tl = format!("{} · {:02}:{:02}", time_label(hour), hour, minute);
 
     // ─── 7. 写 naji_record
@@ -141,8 +142,9 @@ async fn history(
     ).bind(&c.sub).fetch_all(&st.db).await?;
     let mut v = Vec::with_capacity(rows.len());
     for r in rows {
-        // time_label 已含 "时"(如 "酉时"),这里不再拼尾;历史上曾误产 "酉时时"
-        let date = format!("{:02}·{:02} {}",
+        // 「8月30日 下午 1 点」。原先是「08·30 未时」——
+        // 时辰是屏上不许出现的那一类词，而这一栏每天都有人读
+        let date = format!("{}月{}日 {}",
             r.get::<i32, _>("asked_month"), r.get::<i32, _>("asked_day"),
             time_label(r.get::<i32, _>("asked_hour") as u32));
         v.push(serde_json::json!({

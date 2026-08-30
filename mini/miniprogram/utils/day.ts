@@ -24,3 +24,11 @@ export function 那一天(iso: string): string {
   if (!m) return ''
   return `${m[1]}年${Number(m[2])}月${Number(m[3])}日`
 }
+
+/** 「8月30日 13:53」—— 之前问过的那一条，要说清是哪天几点 */
+export function 那天几点(iso: string): string {
+  const d = new Date(iso)
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mi = String(d.getMinutes()).padStart(2, '0')
+  return `${d.getMonth() + 1}月${d.getDate()}日 ${hh}:${mi}`
+}
