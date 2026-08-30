@@ -11,9 +11,9 @@
   </view>
 
   <block wx:else>
-    <!-- 0830:这是【这个角色的主页】，而它原先没有脸 ——
+    <!-- 0830：这是【这个角色的主页】，而它原先没有脸 ——
          一个靠角色立身的产品，最不该没有角色的就是这一屏。
-         头像与名字并排，属性从三行横线表格改成一排药丸:
+         头像与名字并排，属性从三行横线表格改成一排药丸：
          「会这一门／稀有度／住下了吗」是三个标签，不是三条记录。 -->
     <view class="hd">
       <view class="face face-{{who.direction}}">{{who.face}}</view>
@@ -27,7 +27,8 @@
     <view class="tags">
       <text class="tag tag-lack lack-{{who.direction}}">缺 {{who.lack}}</text>
       <text class="tag" wx:if="{{who.art}}">{{who.art}}</text>
-      <text class="tag" wx:if="{{who.rarity}}">{{who.rarity}}</text>
+      <!-- 稀有度（「常」「稀」）是运营的分档，不是给买的人看的词 ——
+           屏上摆一个「常」字，读的人只会当成错别字。它退到那一份里去。 -->
       <text class="tag {{who.at_home ? 'tag-home' : ''}}">{{who.at_home ? '住着' : '还没请来'}}</text>
     </view>
 
@@ -49,6 +50,36 @@
     <view class="reading daily" wx:elif="{{who.at_home}}">
       <view class="reading-v dim">今天还没问过{{who.name}}</view>
       <view class="reading-hint">一天一次 · 同一天问她，说的是同一句</view>
+    </view>
+
+    <!-- 【还没请来】那一支原先什么都没有：屏上只有四个标签，
+         中间三百多像素空着 —— 而这正是决定要花九十九块的地方。
+         这三条对每一位都成立（它们是产品机制，不是四十条内容），
+         所以不必等台词写齐就能说。 -->
+    <view class="gets" wx:if="{{!who.at_home}}">
+      <view class="gets-k">请{{who.name}}回家之后</view>
+      <view class="gets-row">
+        <view class="gets-n">1</view>
+        <view class="gets-b">
+          <view class="gets-t">他住进村里那一间</view>
+          <view class="gets-s">四十间屋子空着的那一间，从此有人</view>
+        </view>
+      </view>
+      <view class="gets-row">
+        <view class="gets-n">2</view>
+        <view class="gets-b">
+          <view class="gets-t">每天跟你说一句</view>
+          <view class="gets-s">他自己的口气，不是通用的话</view>
+        </view>
+      </view>
+      <view class="gets-row">
+        <view class="gets-n">3</view>
+        <view class="gets-b">
+          <view class="gets-t">有事可以问他</view>
+          <view class="gets-s" wx:if="{{who.art}}">他这一门是{{who.art}} · 一天一次</view>
+          <view class="gets-s" wx:else>一天一次</view>
+        </view>
+      </view>
     </view>
 
     <view class="acts">

@@ -348,13 +348,18 @@ echo "▶ O · 物流与退款：用户这一侧看得见吗"
 # 这两条在移动网页版上**验不到正路**：要到 paid 必须真付款，而付款只有真机有。
 # 所以在这里用真数据验接口那一侧，界面那一侧由镜像验「没有就不显示」。
 T6=$(curl -sS -X POST "$API/v1/auth/anonymous" -H 'content-type: application/json' -d '{"region":"cn"}' | jq -r .token)
-U6=$(PSQL "SELECT id FROM app_user ORDER BY created_at DESC LIMIT 1")
 ORD6=$(curl -sS -X POST "$API/v1/orders" -H "authorization: Bearer $T6" \
   -H 'content-type: application/json' -H "idempotency-key: $(idem ship)" \
   -d '{"lines":[{"sku_id":"sku-naji-deep","qty":1}],"region":"cn"}' | jq -r '.order_id // empty')
 if [ -z "$ORD6" ]; then
   check "建一张单（后面几条要用）" "有 order_id" "建不出来"
 else
+  # id 从【订单 id】派生，不用 $RANDOM。$RANDOM 只有 32768 个值，
+  # 库里积到两百多条 shp-verify-* 之后就会撞 —— 撞了整条 INSERT 失败，
+  # 而失败被 `>/dev/null` 一起吞掉，于是包裹没造出来，
+  # 报出来却是「用户看不见包裹」，看着像产品坏了（2026-08-31 撞到一次:
+  # 门禁里三条红，单独重跑 59/0）。写入的错误从此不再往 /dev/null 扔。
+  #
   # 摆成已付 + 造一件包裹。这一条验的是「用户看不看得见」，不是「怎么付的钱」。
   # 退款要的是**一笔真的成功支付**，不是把订单状态改成 paid 就行 ——
   # 只改订单会得到「无成功支付可退」（2026-08-19 第一版就这么错了）。
@@ -366,11 +371,11 @@ else
         UPDATE order_record SET status='paid', amount_paid_minor=amount_total_minor, paid_at=NOW()
         WHERE id='$ORD6';
         INSERT INTO shipment (id, order_id, carrier_code, tracking_no, status)
-        VALUES ('shp-verify-$RANDOM','$ORD6','sf','SFVERIFY001','in_transit');" >/dev/null
+        VALUES ('shp-v-$ORD6','$ORD6','sf','SFVERIFY001','in_transit');"
   SHP=$(PSQL "SELECT id FROM shipment WHERE order_id='$ORD6' LIMIT 1")
   PSQL "INSERT INTO shipment_trace_event (id, shipment_id, event_at, event_kind, location, description,
           raw_source, raw_payload_json)
-        VALUES ('ste-verify-$RANDOM','$SHP',NOW(),'in_transit','长沙','离开集散中心','manual','{}'::jsonb);" >/dev/null
+        VALUES ('ste-v-$SHP','$SHP',NOW(),'in_transit','长沙','离开集散中心','manual','{}'::jsonb);"
 
   n=$(curl -sS "$API/v1/orders/$ORD6/shipments" -H "authorization: Bearer $T6" | jq 'length')
   check "包裹看得见" "1" "$n"
