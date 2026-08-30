@@ -31,6 +31,8 @@ FILES=(
   # **凡是被 mutate 改到的文件，都必须在这张名单里。**
   mini/miniprogram/pages/villager/index.ts
   # 尺子那一支的变异对象:唯一出口(onBack)与标题
+  # 尺子那一支的「单出口」变异对象
+  mini/miniprogram/pages/name/index.ts
   # 金额那一支的变异对象
   mini/miniprogram/pages/product/index.ts
   backend/unmei-api/src/ai_compose.rs
@@ -414,8 +416,13 @@ echo "── check-screen-ruler（每一屏对得上尺子吗）──"
 # 它的 `onBack` 定义了却从没绑到 wxml 上,一次都没运行过。
 # 现在按「绑上的处理器体内真有没有跳转」判,所以变异要掏空【函数体】,
 # 光改名字是抓不到的 —— 那正是旧判据的毛病。
+# 变异对象要挑【真正只有一个出口】的那一屏。原先锚在 badges 上，
+# 而 0830 给它的每一枚徽章都接了去处（onTap 体内有跳转）——
+# 掏空 onBack 之后它仍然有出口，门禁不报红是对的，报出来却是
+# 「没抓到 —— 这就是下一个假绿」，指错了方向。
+# `name` 这一屏只有 onBack 会跳（save 不跳），它才是单出口。
 mutate "唯一的出口空有其名（函数体里不跳了）" check-screen-ruler \
-  "sub('mini/miniprogram/pages/badges/index.ts', r'\n  onBack\(\).*?\n  \},', '\n  onBack() {\n    // 变异:掏空\n  },')"
+  "sub('mini/miniprogram/pages/name/index.ts', r'\n  onBack\(\).*?\n  \},', '\n  onBack() {\n    // 变异:掏空\n  },')"
 mutate "一屏连标题都没有" check-screen-ruler \
   "edit('mini/miniprogram/pages/badges/index.wxml', 'class=\"title\"', 'class=\"tiitle\"')"
 

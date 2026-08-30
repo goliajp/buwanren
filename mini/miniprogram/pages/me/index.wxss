@@ -54,3 +54,13 @@
   padding: 22rpx 4rpx 0;
   border-top: 1rpx solid var(--stone-line-x);
 }
+
+/* 还没买过什么的时候，只留一行轻提示 —— 空状态不该是屏上最重的东西。
+   （原先是一个粗黑虚线框，比上面的菜单还抢眼。） */
+.nothing {
+  display: flex; align-items: center; justify-content: space-between; gap: 12rpx;
+  margin-top: 26rpx; padding: 22rpx 24rpx;
+  background: var(--paper-inset); border-radius: var(--r-card);
+  font-size: 25rpx; color: var(--ink-mid); line-height: 1.5;
+}
+.nothing-go { flex: none; color: var(--amber-deep); font-weight: 600; }
