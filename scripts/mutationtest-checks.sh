@@ -33,6 +33,8 @@ FILES=(
   # 尺子那一支的变异对象:唯一出口(onBack)与标题
   # 尺子那一支的「单出口」变异对象
   mini/miniprogram/pages/name/index.ts
+  # 台词那一支的变异对象
+  backend/migrations/20260831002_aluo_lines.sql
   # 指代那一支的变异对象
   mini/miniprogram/pages/home/index.wxml
   # 金额那一支的变异对象
@@ -403,6 +405,15 @@ mutate "bind 到一个不存在的处理器" check-wxml-handlers \
   "edit('mini/miniprogram/pages/ask/index.wxml', 'bindtap=\"goHome\">再问一次', 'bindtap=\"reset\">再问一次')"
 
 echo
+echo "── check-villager-lines（村民台词的规格）──"
+# 台词一位一位地写。这一支守的是【写出来的那几条合不合规格】,
+# 不是「写了几位」—— 少一条会在轮播里露空当，术语混进来就成了报盘。
+mutate "台词结尾多了个句号" check-villager-lines \
+  "edit('backend/migrations/20260831002_aluo_lines.sql', \"('aluo', 3, '啊')\", \"('aluo', 3, '啊。')\")"
+mutate "台词里混进了术语" check-villager-lines \
+  "edit('backend/migrations/20260831002_aluo_lines.sql', '跟鸟说话比较容易', '你日主偏弱')"
+
+echo
 echo "── check-no-deixis（屏上不拿指代当名字）──"
 # 「那一份」曾是这个付费产品在屏上的全部说法。指代要有上下文才成立，
 # 而第一次看见它的人没有上下文（2026-08-31 用户指出）。
@@ -598,7 +609,7 @@ echo "── 对照：没变异的源码，下面每一支都必须全绿 ──
 for c in check-api-shape check-plots check-relations check-punct-ui check-routes \
          check-bodies check-reachable-pages check-error-leak \
          check-page-imports check-wxml-handlers check-design-css check-wireframe-fill \
-         check-screen-ruler check-money-fmt check-no-deixis \
+         check-screen-ruler check-money-fmt check-no-deixis check-villager-lines \
          check-punct check-art-leaf check-admin-roles "export-cast --check"; do
   # 读文档的那三支:文档不在就跳过 —— 够不着的检查不该打分
   case "$c" in
