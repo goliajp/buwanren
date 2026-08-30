@@ -428,6 +428,22 @@ async function 量一屏(route, params) {
   return { ...m, 溢出: m.内容 - m.视口 }
 }
 
+/* 顶上那张卡与底下那一槽【不许说同一件事】。
+   卡上写「四十间屋子，还都空着」，槽里再写一句「现在都空着」——
+   一字之差的同一句（标尺 §1.5.5 第 4 条）。矮屏上看不出来：那一槽是
+   收起的;长屏（14 / ProMax）上两句一起摆着，而多数人用的是长屏。
+   一直只在最矮那一档看，就一直看不见它。 */
+if (API) {
+  await p.setViewportSize({ width: 430, height: 932 })
+  await open('pages/village/index')
+  await p.waitForTimeout(2400)
+  const 长屏文 = await text()
+  const 空着几次 = (长屏文.match(/都空着/g) || []).length
+  ok(空着几次 <= 1, '长屏上「都空着」只说一遍　—— 卡片说过了，槽里不再说',
+     `出现 ${空着几次} 次`)
+  await p.setViewportSize({ width: 375, height: 667 })
+}
+
 /* 【没请回来的人不该在你的村子里走动】。
    卡片上写着「四十间屋子，还都空着 · 0/40」，而画面里阿云、桃桃、婆婆、
    丹增在溜达、还冒着台词气泡 —— 新用户第一眼看见的是一个已经很热闹的村子，
