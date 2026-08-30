@@ -2,8 +2,8 @@
 .card { padding: 24rpx; background: var(--paper-inset); }
 .card-name { font-size: 34rpx; font-weight: 700; }
 .card-sub { font-size: 24rpx; color: var(--ink-faint); margin-top: 8rpx; }
-/* 钱用墨色,不用桃粉。0830 §3.2:桃粉是「喜欢」那一档,压不住价格。
-   这里原是旧的暗红 #9a3b3b,统一换色时被一并映射成了桃粉 */
+/* 钱用墨色，不用桃粉。0830 §3.2：桃粉是「喜欢」那一档，压不住价格。
+   这里原是旧的暗红 #9a3b3b，统一换色时被一并映射成了桃粉 */
 .card-price { font-size: 34rpx; font-weight: 700; color: var(--ink); margin-top: 16rpx;
               font-variant-numeric: tabular-nums; }
 .hr { height: 1rpx; background: var(--stone-line-x); margin: 28rpx 0; }
@@ -27,7 +27,7 @@
 
 /* ── 0830 ────────────────────────────────────────────────────
    留言那一行原先是「标签 + 一个黑框输入框」，两者挤在一起、还压着标签。
-   输入框按这一版的调子来:凹陷的浅底、无边框、圆角。 */
+   输入框按这一版的调子来：凹陷的浅底、无边框、圆角。 */
 .row .msg, .msg {
   flex: 1;
   margin-left: 20rpx;
@@ -52,3 +52,8 @@
   font-size: 42rpx; font-weight: 700;
 }
 .card-who .who-body { flex: 1; min-width: 0; }
+
+/* 没填「寄到哪」时按钮待命 —— 满橙的大按钮长得跟能按一样。
+   要写成 `button.btn.btn-wait`：app.wxss 里是 `button.btn`（标签 + 类），
+   单个 `.btn-wait` 压不过它，症状是「这条 CSS 像没写」。 */
+button.btn.btn-wait { background: #EADFCD; color: #A08E74; box-shadow: none; }

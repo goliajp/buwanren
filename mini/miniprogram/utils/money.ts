@@ -33,5 +33,11 @@ export function money(minor: number, currency: string): string {
   }
   const s = sym[currency] || currency + ' '
   if (d === 0) return s + minor
-  return s + Math.floor(minor / 100) + '.' + String(minor % 100).padStart(2, '0')
+  /* 整数金额【不挂两个零】。`¥99.00` 是记账格式,人不这么说话,
+     而那两个零还占着标价上最重的那块地方（商品屏上它跟「99」一样大）。
+     有零头才写:¥99 / ¥99.50。 */
+  const 元 = Math.floor(minor / 100)
+  const 分 = minor % 100
+  if (分 === 0) return s + 元
+  return s + 元 + '.' + String(分).padStart(2, '0')
 }

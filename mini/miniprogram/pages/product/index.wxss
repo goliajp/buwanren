@@ -49,8 +49,12 @@
   margin-bottom: 40rpx;
 }
 
-.cta { display: flex; gap: 20rpx; }
-.cta .btn { flex: 1; }
+/* 按钮组跟上面留出距离 —— 加了「你会收到」三条之后它贴了上去，
+   第三条的副标题被压在按钮下面（截图上看见的）。 */
+.cta { display: flex; gap: 20rpx; margin-top: 34rpx; }
+/* 「请他回家」是主，「回去」是次 —— 等宽会读成两个并列的选择。 */
+.cta .btn { flex: 2; }
+.cta .btn.ghost { flex: 1; }
 
 .foot-hint {
   margin-top: 32rpx;
@@ -72,3 +76,19 @@
 }
 .who-body { flex: 1; min-width: 0; }
 .who-sub { margin-top: 6rpx; font-size: 25rpx; color: var(--ink-faint); }
+
+/* ── 你会收到什么 ─────────────────────────────────────────
+   花这笔钱的决策屏原先只有一行小灰字把三件事挤在一起，底下半屏空着。 */
+.gets { margin-top: 30rpx; padding-top: 26rpx; border-top: 1rpx solid var(--stone-line-x); }
+.gets-k { font-size: 24rpx; color: var(--ink-faint); margin-bottom: 20rpx; }
+.gets-row { display: flex; align-items: flex-start; gap: 18rpx; margin-bottom: 22rpx; }
+.gets-row:last-child { margin-bottom: 0; }
+.gets-n {
+  flex: none; width: 40rpx; height: 40rpx; margin-top: 2rpx;
+  border-radius: 999rpx; background: var(--amber-lite);
+  color: var(--amber-deep); font-size: 23rpx; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+}
+.gets-b { flex: 1; min-width: 0; }
+.gets-t { font-size: 28rpx; font-weight: 600; color: var(--ink); line-height: 1.45; }
+.gets-s { font-size: 23rpx; color: var(--ink-faint); margin-top: 5rpx; line-height: 1.5; }
