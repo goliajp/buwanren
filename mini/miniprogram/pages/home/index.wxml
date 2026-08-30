@@ -14,19 +14,29 @@
     <!-- 设计 H1 顶上的三行。原先渲的是 66px 的展示体（上一版设计里
          「你缺的」是这一屏的身份字段、字最大），那一块 173px ——
          有本命时它跟弹性槽抢地方，抢到任何真实机型都放不下槽。
-         措辞也用回设计自己的：「你缺的是」「伤你的是」。 -->
+         措辞：「你缺的是」「已经够多的是」—— 后者跟算完那一屏用同一个说法。 -->
     <view class="delta">
       <view class="delta-line">你缺的是「<text class="wx-{{summary.primary_pinyin}}">{{summary.primary_yongshen}}</text>」</view>
-      <view class="delta-line dim" wx:if="{{summary.avoid_wuxing.length > 0}}">伤你的是<text
+      <!-- 「伤你的是」跟算完那一屏的「这几样已经够多」说的是同一件事，
+           两处不同的说法会让人以为是两回事。 -->
+      <view class="delta-line dim" wx:if="{{summary.avoid_wuxing.length > 0}}">已经够多的是<text
             wx:for="{{summary.avoid_wuxing}}" wx:key="*this"
             class="wx-{{avoidPinyin[index]}}"
             style="margin-left: {{index > 0 ? '16rpx' : '16rpx'}}">{{item}}</text></view>
-      <view class="delta-role" bindtap="goNatal">主用神 · {{summary.primary_role}}　展开看盘 ›</view>
+      <!-- 「主用神 · 印星」是术语（标尺 §1.5.3 说人话）—— 屏上不说，想看的人点进去 -->
+      <view class="delta-role" bindtap="goNatal">看完整的那一份 ›</view>
     </view>
 
-    <!-- 那一句话进弹性槽：设计 H1 顶上就三行（缺什么 / 过什么 / 展开看盘），
-         没有它。而它正合槽的判据 —— 删掉这一屏仍然成立。 -->
-    <view class="quote flexslot">「{{summary.friendly_hint}}」</view>
+    <!-- 那一句人话不再进弹性槽：矮屏收起之后这一屏只剩三行术语和一个罗盘，
+         而它是这一屏唯一说人话的地方。 -->
+    <view class="quote">{{summary.friendly_hint}}</view>
+
+    <!-- 把这一屏接回村子（标尺 §1.5.2 沉浸感）：它原先是一个悬空的罗盘 ——
+         没有脸、没有谁说的话、没有一处景，而它叫「我家」。
+         「你缺土」这件事的用处正是「村里哪几位补得上」。 -->
+    <view class="tovillage" bindtap="goInvite" hover-class="entry-hover" hover-stay-time="100">
+      <text>村里有几位跟你补得上</text><text class="tovillage-go">去看看 ›</text>
+    </view>
   </block>
 
   <!-- 这条线分的是「你缺的」跟「今天」。上面那块被 wx:if 藏起来时它得跟着藏 ——

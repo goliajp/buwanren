@@ -209,12 +209,23 @@ pub async fn unscanned_in_order(
     user_id: &str,
     order_id: &str,
 ) -> Result<bool, DomainError> {
+    /* 【还没付钱的单子不算】。原先这一句只看「这一单里有没有还没扫的御守」，
+       完全没问订单走到哪一步了 —— 于是一张刚建出来、还待付的单子上，
+       屏幕上同时摆着「收到了，去扫开它」和「去支付」两颗橙按钮，
+       而没付钱是不可能收到货的。买家读到的是一句不可能成立的话。
+
+       判据跟村主屏那一支（`delivered_but_unscanned`）对齐：
+       钱付了才谈得上寄，寄到了才谈得上扫。这里放宽到「付过就算」
+       而不要求 delivered —— 一单自己的屏上，付完就该看得见下一步，
+       物流那一节由「寄出」那一块说。 */
     let n: Option<i64> = sqlx::query_scalar(
         r#"SELECT count(*)::bigint
              FROM order_line ol
+             JOIN order_record o ON o.id = ol.order_id
              JOIN sku k ON k.id = ol.sku_id
              JOIN product pr ON pr.id = k.product_id
             WHERE ol.order_id = $2
+              AND o.status IN ('paid', 'fulfilling', 'done')
               AND pr.category = 'omamori'
               AND k.villager_id IS NOT NULL
               AND NOT EXISTS (

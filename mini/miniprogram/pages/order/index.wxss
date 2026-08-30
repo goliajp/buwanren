@@ -37,8 +37,11 @@
             font-size: 24rpx; color: var(--stone-label); }
 .wake-input { flex: 1; background: var(--paper-inset); 
               border-radius: 16rpx; padding: 12rpx 18rpx; font-size: 26rpx; color: var(--ink); }
+/* 墨黑那一块是旧色板的残留 —— 这一屏别的东西都是琥珀与米白，
+   它一个人黑着，看起来像别的产品掉进来的。它是次要动作（扫不出来时才用），
+   所以用浅琥珀，不跟主按钮抢。 */
 .wake-go { flex: none; padding: 12rpx 24rpx; border-radius: 16rpx;
-           background: var(--ink); color: var(--paper); font-size: 24rpx; }
+           background: var(--amber-lite); color: #8A4A12; font-weight: 600; font-size: 24rpx; }
 .wake-err { margin-top: 12rpx; font-size: 24rpx; color: var(--peach); line-height: 1.6; }
 .slot-done { margin-top: 24rpx; padding-top: 18rpx; border-top: 1rpx solid var(--stone-line-x);
              font-size: 22rpx; color: var(--stone-label); line-height: 1.7; }

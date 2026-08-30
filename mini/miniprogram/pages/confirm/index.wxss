@@ -42,3 +42,13 @@
 /* 「去付」是这一屏的动作，给它整行的分量 */
 .sum-act { display: flex; align-items: center; gap: 20rpx; margin-top: 24rpx; }
 .sum-act .btn { flex: none; }
+
+/* 御守那一张卡上摆人（0830 标尺 §1.5.2）。
+   底色由 `.face-<方向>`（app.wxss）给 —— 这里不写 background（门禁盯着） */
+.card-who { display: flex; align-items: center; gap: 22rpx; }
+.card-who .who-face {
+  flex: none; width: 96rpx; height: 96rpx; border-radius: 999rpx;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 42rpx; font-weight: 700;
+}
+.card-who .who-body { flex: 1; min-width: 0; }
