@@ -357,11 +357,15 @@ async fn get_my_order(
                     .and_then(|n| n.as_str())
                     .map(|s| s.to_string());
                 if let Some(n) = name { o.insert("sku_name".into(), J::String(n)); }
-                // 这一行封着谁。不是御守就没有这一栏 —— 页面据此决定说不说
-                if let Some(who) = o.get("id").and_then(|v| v.as_str())
-                    .and_then(|lid| 行上的人.get(lid)).cloned() {
-                    o.insert("villager_name".into(), J::String(who));
-                }
+                /* 这一行封着谁。**不是御守也给这个键，值是 null** ——
+                   「有时候有这个键、有时候没有」比「一直是 null」难对付得多:
+                   前端得同时处理 undefined 与 null 两种缺席，
+                   而动线那一支（check-api-shape-live）判的是「键在不在」，
+                   条件给键会让它在某些数据下红、某些数据下绿。 */
+                let who = o.get("id").and_then(|v| v.as_str())
+                    .and_then(|lid| 行上的人.get(lid)).cloned();
+                o.insert("villager_name".into(),
+                         who.map_or(J::Null, J::String));
             }
             l
         }).collect::<Vec<_>>(),

@@ -277,3 +277,13 @@
   font-weight: 700;
   letter-spacing: 0.02em;
 }
+
+/* 通往村子的那条路（0830 标尺 §1.5.2）。做成一条带子而不是按钮 ——
+   这一屏的主动作是中间那个罗盘，它不该跟罗盘抢。 */
+.tovillage {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 18rpx; padding: 16rpx 20rpx;
+  background: var(--moss-lite); border-radius: var(--r-card);
+  font-size: 25rpx; color: #2E7D5B; font-weight: 600;
+}
+.tovillage-go { color: #2E8B57; }
