@@ -7824,7 +7824,7 @@ KLRLJJJRqK
   let curTime = 'noon', curWx = 'clear', curRain = 0
   function nearOf(v) {
     const out = []
-    for (const o of villagers) {
+    for (const o of 在场()) {
       if (o === v || o.mode === 'home') continue
       if (Math.hypot(o.x - v.x, o.y - v.y) < 72) out.push(o.lk)
     }
@@ -7865,9 +7865,10 @@ KLRLJJJRqK
   function tryMeet(now) {
     if (convo || now < meetCheckAt) return
     meetCheckAt = now + 900
-    for (let i = 0; i < villagers.length; i++) {
-      for (let j = i + 1; j < villagers.length; j++) {
-        const A = villagers[i], B = villagers[j]
+    const 场2 = 在场()
+    for (let i = 0; i < 场2.length; i++) {
+      for (let j = i + 1; j < 场2.length; j++) {
+        const A = 场2[i], B = 场2[j]
         if (A.mode === 'home' || B.mode === 'home') continue
         if (A.mode === 'talk' || B.mode === 'talk') continue
         if (A.fly || B.fly) continue                    // 飞行中不停下聊天
@@ -7936,10 +7937,17 @@ KLRLJJJRqK
      不跟着改的话 mkV 会读 NAV[undefined][0]，整块画布直接不出来。
      指派原则：各自站在【自家附近】那个点上。 */
   const villagers = [
-    mkV('ayun', 'WN', ['今天云不错', '就打一把……就一把', '课上说什么来着']),
-    mkV('tao', 'WM', ['今日局不错哦', '家人们，点个小红心', '哼，才没在等谁']),
-    mkV('popo', 'PZ', ['在线占卜，好评返现', '乖，吃糖', '快递到了没？'], { fly: true }),
-    mkV('tenz', 'N1', ['一百零八式，走起', '今晚摇滚法会！', '酥油茶，巴适']),
+    /* 【这四位是四十位里的】—— 请回家之后才在村里走动。
+       没请回来的人在你的村子里溜达、还冒着台词气泡，跟卡片上那句
+       「四十间屋子，还都空着 · 0/40」直接打架：新用户第一眼看见的是
+       一个已经很热闹的村子，那「请人回家」的动机就没了。
+       这也正是「还没请回来的人连名字都不该知道」那条设定 ——
+       而这儿是从正门破的。下面 `cast: true` 就是这个标记。
+       没标的那些是路人（villm），村子的生气归他们，不受此限。 */
+    mkV('ayun', 'WN', ['今天云不错', '就打一把……就一把', '课上说什么来着'], { cast: true }),
+    mkV('tao', 'WM', ['今日局不错哦', '家人们，点个小红心', '哼，才没在等谁'], { cast: true }),
+    mkV('popo', 'PZ', ['在线占卜，好评返现', '乖，吃糖', '快递到了没？'], { fly: true, cast: true }),
+    mkV('tenz', 'N1', ['一百零八式，走起', '今晚摇滚法会！', '酥油茶，巴适'], { cast: true }),
     mkV('villm', 'EN2', ['今儿天气真好', '去买个菜', '早啊'], { remap: { h: '#5a4028', b: '#5a8a44' } }),
     mkV('villm', 'EM', ['听说要来新住户', '这瓜甜', '回见'], { remap: { h: '#3a2c20', b: '#c85a48' } }),
     mkV('villm', 'S1', ['纳个吉去', '午饭吃啥好', '哎哟'], { remap: { h: '#6e5236', b: '#4a6a88' } }),
@@ -7951,6 +7959,16 @@ KLRLJJJRqK
     mkV('villm', 'WS', ['桃子便宜卖', '走过路过别错过', '尝一个？'], { remap: { h: '#3a2c20', b: '#e8b23d' }, stationary: true, x: 168, y: 616, lk: 'vpeach' }),
   ]
 
+
+  /* 此刻【在场】的那些人。四十位里的（`cast`）请回家之后才算在场；
+     路人一直在场，村子的生气归他们。
+
+     做成一个取数口而不是在七处各加一次判断 —— 七处里漏掉一处，
+     那位就会半个身子在场：走动的循环跳过他，画的循环还画他。
+     `HOME` 是同一份真相（门口木牌换灯笼也读它）。 */
+  function 在场() {
+    return villagers.filter((v) => !v.cast || HOME[v.spr])
+  }
 
   let frame = 0, lastT = 0
   const clouds = [
@@ -8031,14 +8049,14 @@ KLRLJJJRqK
     if (frame % 20 === 0) {
       const tl = { morn: '清晨', noon: '正午', dusk: '黄昏', night: '夜里' }[curTime]
       const wl = curRain > 0.55 ? '雨' : curRain > 0.12 ? '小雨' : '晴'
-      globalThis.VILLAGE_SUB = '村民 ' + villagers.length + ' · ' + tl + ' · ' + wl
+      globalThis.VILLAGE_SUB = '村民 ' + 在场().length + ' · ' + tl + ' · ' + wl
     }
 
     // 碰面判定 + 对话推进
     tryMeet(t)
     stepConvo(t)
 
-    for (const v of villagers) {
+    for (const v of 在场()) {
       if (v.mode === 'talk') continue          // 对话中:站定不动
       if (v.stationary) {
         if (t > v.until) {
@@ -8189,9 +8207,10 @@ KLRLJJJRqK
       }
     }
     // 村民相遇:靠近时头顶冒符号
-    for (let a2 = 0; a2 < villagers.length; a2++)
-      for (let b2 = a2 + 1; b2 < villagers.length; b2++) {
-        const va = villagers[a2], vb = villagers[b2]
+    const 场 = 在场()
+    for (let a2 = 0; a2 < 场.length; a2++)
+      for (let b2 = a2 + 1; b2 < 场.length; b2++) {
+        const va = 场[a2], vb = 场[b2]
         if (va.mode === 'home' || vb.mode === 'home' || va.fly || vb.fly) continue
         const dd = Math.hypot(va.x - vb.x, va.y - vb.y)
         if (dd < 60) {
@@ -8232,7 +8251,7 @@ KLRLJJJRqK
       }
       // 村民撑伞
       if (rain > 0.25) {
-        for (const v of villagers) {
+        for (const v of 在场()) {
           if (v.fly || v.stationary || v.mode === 'home') continue
           const uc = v.umb
           mainG.fillStyle = uc
@@ -8453,7 +8472,7 @@ KLRLJJJRqK
       mainG.fillRect(bx3 + (wing ? 2 : 0), by3 - 2, wing ? 4 : 2, 5)
       mainG.fillStyle = '#3a2c20'; mainG.fillRect(bx3, by3 - 2, 2, 6)
     }
-    const sorted = villagers.slice().sort((a, b) => a.y - b.y)
+    const sorted = 在场().slice().sort((a, b) => a.y - b.y)
     for (const v of sorted) {
       if (t < v.doorFlash) {
         const [dx3, dy3] = NAV[v.home]
@@ -8600,7 +8619,7 @@ KLRLJJJRqK
      那需要一张 40 格的宅基表,村子里还没有,不是这里少写了几行。 */
   globalThis.VILLAGE_HIT = function (x, y) {
     let best = null, bd = Infinity
-    for (const v of villagers) {
+    for (const v of 在场()) {
       const dx = x - (v.x + 16), dy = y - (v.y + 20), d = dx * dx + dy * dy
       if (d < 26 * 26 && d < bd) { bd = d; best = { kind: 'villager', who: v.lk, at: v.home, x: v.x + 16, y: v.y } }
     }
@@ -8632,6 +8651,13 @@ KLRLJJJRqK
   /* 村子里现在有什么。页面拿它对账 —— n/40 的真数来自服务端,
      这里报的是【画面这一侧】能显示多少格,两个数不该混用:
      服务端说你请回来 12 位,而村子只画得下 20 格,差在哪儿要一眼看得出。 */
+  /* 此刻在场的【四十位里的】那几个 —— 给门禁用。
+     「没请回来的不该在村里走动」这条只能这么验：光看屏上有没有他的
+     台词气泡是碰运气（气泡是间歇冒的），碰不上就成了一条永远绿的断言。 */
+  globalThis.VILLAGE_CAST_ON_STAGE = function () {
+    return 在场().filter((v) => v.cast).map((v) => v.spr)
+  }
+
   globalThis.VILLAGE_CENSUS = function () {
     const P = globalThis.VILLAGE_PLOTS || [], U = globalThis.VILLAGE_UNSITED || []
     return {
@@ -8639,6 +8665,10 @@ KLRLJJJRqK
       待落位: U.length,
       住着: P.filter((p2) => HOME[p2.id]).length,
       村民: villagers.length,
+      /* 此刻【在场】的有几位 —— 四十位里的请回家之后才在场，路人一直在。
+         点选那一支要拿它当判据：拿全量比的话，台下那几位本来就点不到，
+         报出来是「村子点不准」，看着像命中判定坏了。 */
+      在场: 在场().length,
     }
   }
 
