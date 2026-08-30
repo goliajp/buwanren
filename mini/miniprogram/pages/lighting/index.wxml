@@ -2,31 +2,54 @@
      连退路都只有往前的那两条）。此刻给任何导航都是打断。 -->
 <view class="page">
   <!-- 「苏合的院子」那幅画还没有。**不假装有** —— 画一支真在烧的香，
-       烟按秒飘。哪天院子画出来了，把它铺在这一层底下就是。 -->
+       烟按秒飘。哪天院子画出来了，把它铺在这一层底下就是。
+
+       【没点的时候它不该在烧】。头一版无论你点没点，屏上都有一支
+       亮着火星、冒着烟的香 —— 于是「我也点了」按下去，画面上什么都没发生
+       (逐帧拍过：100ms 与 1600ms 两帧只有按钮变灰)。
+       更糟的是那一下的回报是【负】的：屏上唯一的亮色(橙色按钮)变成灰色，
+       你参与了一场仪式，画面的回应是把光关掉。
+       现在：没点是一支冷的香；点下去窜一下火，然后火星亮着、烟起来。 -->
   <view class="yard">
-    <view class="smoke s1"></view>
-    <view class="smoke s2"></view>
-    <view class="smoke s3"></view>
-    <view class="stick"><view class="ember"></view></view>
+    <block wx:if="{{iLit}}">
+      <view class="smoke s1"></view>
+      <view class="smoke s2"></view>
+      <view class="smoke s3"></view>
+    </block>
+    <view class="stick {{iLit ? 'on' : ''}}">
+      <view class="ember" wx:if="{{iLit}}"></view>
+      <!-- 窜火：只在点着的那一下。一圈光从香头炸开又收回去 -->
+      <view class="flare" wx:if="{{刚点着}}"></view>
+    </view>
   </view>
 
   <view class="body">
-    <view class="t1">今晚一起点一支</view>
+    <view class="title t1">今晚一起点一支</view>
     <view class="t2">「不说话也行，坐着就好」</view>
 
     <!-- 人数取不到就不显示那一行，香照点（设计册 10.7）。
-         显示「0 个人在点」比不显示更糟：那是句假话。 -->
+         显示「0 个人在点」比不显示更糟：那是句假话。
+         两条分行 —— 一条是「有多少人」，一条是「烧到哪儿了」,
+         挤一行读起来是「还有 12 个人在点已烧 03:15」。 -->
     <view class="meta">
-      <text wx:if="{{count !== null}}" class="meta-n">还有 {{count}} 个人在点</text>
-      <text class="meta-t">已烧 {{burned}} / 约 {{total}}</text>
+      <view wx:if="{{count !== null}}" class="meta-n">还有 {{count}} 个人在点</view>
+      <view class="meta-t">已烧 {{burned}} / 约 {{total}}</view>
     </view>
   </view>
 
   <view class="acts">
-    <button class="btn lit" bindtap="onLit" disabled="{{iLit || busy}}">
-      {{iLit ? '你点上了' : (busy ? '点着……' : '我也点了')}}
-    </button>
-    <!-- 「我没有香」通到苏合那儿 —— 不推销，只放这一个出口（设计册 10.8）。 -->
-    <button class="btn ghost" bindtap="goIncense">我没有香</button>
+    <block wx:if="{{!iLit}}">
+      <button class="btn lit" bindtap="onLit" disabled="{{busy}}">
+        {{busy ? '点着……' : '我也点了'}}
+      </button>
+      <!-- 「我没有香」通到苏合那儿 —— 不推销，只放这一个出口（设计册 10.8）。 -->
+      <button class="btn ghost" bindtap="goIncense">我没有香</button>
+    </block>
+    <block wx:else>
+      <!-- 点上了之后这儿【不再有按钮】。一颗灰掉的大按钮会把屏上最重的
+           一块地方留给一个按不动的东西，而此刻该被看的是那支香。 -->
+      <view class="done">你点上了 · 坐一会儿</view>
+      <view class="leave" bindtap="onLeave">先走一步</view>
+    </block>
   </view>
 </view>

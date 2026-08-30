@@ -910,21 +910,21 @@ if (API) {
        await p.evaluate(() => globalThis.__router.current().__route))
 
     /* 二 · 头一页是【结论】,四柱在后面 —— 而且是真盘,干支不是占位符。
-       原先头一页就是四柱:花钱买的那一份,开篇甩给人一张排盘图,
-       一句话都没有。0830 改成先说结论(key: lead),术语页往后排。
-       这三条断言原来钉着「头一页是四柱」,改完之后它们红了三轮 ——
-       红得对:产品变了,断言就该跟着说新的话,而不是删掉。 */
+       原先头一页就是四柱：花钱买的那一份，开篇甩给人一张排盘图，
+       一句话都没有。0830 改成先说结论（key: lead），术语页往后排。
+       这三条断言原来钉着「头一页是四柱」，改完之后它们红了三轮 ——
+       红得对：产品变了，断言就该跟着说新的话，而不是删掉。 */
     await p.waitForFunction(() => (globalThis.__router.current().data.tabs || []).length > 0,
                             null, { timeout: 15000 }).catch(() => {})
     const 册 = await p.evaluate(() => globalThis.__router.current().data)
     ok((册.tabs || []).length >= 4, '这一份翻得出好几页', String((册.tabs || []).length))
     ok(册.page && 册.page.key === 'lead',
        '头一页是给人看的那句话，不是排盘图', 册.page && 册.page.key)
-    /* 四柱那一页仍要在,且要是真盘 —— 它只是不再打头。
-       翻到它去验,不是假设它排第几。 */
-    /* `tabs` 是 title 的字符串数组,不是对象 —— 头一版这里写 `t.key`,
-       拿到 -1,报出来是「四柱那一页不在了」,而它好端端在第二页。
-       又一次:测量装置坏了,长得跟真失败一模一样。
+    /* 四柱那一页仍要在，且要是真盘 —— 它只是不再打头。
+       翻到它去验，不是假设它排第几。 */
+    /* `tabs` 是 title 的字符串数组，不是对象 —— 头一版这里写 `t.key`，
+       拿到 -1，报出来是「四柱那一页不在了」，而它好端端在第二页。
+       又一次：测量装置坏了，长得跟真失败一模一样。
        所以按 key 找要问页面自己存的那份 `pages`。 */
     const 柱页 = await p.evaluate(() =>
       (globalThis.__router.current().pages || []).findIndex((x) => x.key === 'pillars'))
@@ -1111,22 +1111,18 @@ if (API) {
       return !bar || getComputedStyle(bar).display === 'none'
     }), '这一屏没有 tab 条　—— 全屏时刻')
 
-    const 点前 = await p.evaluate(() => globalThis.__router.current().data.count)
-    await p.getByText('我也点了', { exact: true }).click()
-    await p.waitForFunction(() => globalThis.__router.current().data.iLit === true,
-                            null, { timeout: 15000 }).catch(() => {})
-    ok(await p.evaluate(() => globalThis.__router.current().data.iLit) === true,
-       '点得上', String(await p.evaluate(() => globalThis.__router.current().data.count)))
-    const 点后 = await p.evaluate(() => globalThis.__router.current().data.count)
-    ok(点后 === (点前 || 0) + 1, '人数加了一个', `${点前} → ${点后}`)
-    /* 一个人一场只算一次。连点十下不该变成十个人 —— 按钮点完就禁着，
-       而且后端那一侧也拦（主键 + ON CONFLICT）。 */
-    ok(await p.evaluate(() => {
-      const b = [...document.querySelectorAll('button')].find((e) => /你点上了/.test(e.innerText))
-      return !!b && b.disabled
-    }), '点过之后那颗按钮就按不动了')
+    /* 没点的时候那支香【不该在烧】。头一版无论点没点，屏上都有火星和烟，
+       于是「我也点了」按下去画面上什么都没发生 —— 逐帧拍才看出来
+       （100ms 与 1600ms 两帧只有按钮变灰，而按钮是从橙变灰：
+        那一下的回报是【负】的）。尺子 §1.5.35 第三条。 */
+    ok(await p.evaluate(() => !document.querySelector('.ember')),
+       '还没点的时候香是冷的　—— 没点着的香不该冒烟')
+    ok(await p.evaluate(() => document.querySelectorAll('.smoke').length === 0),
+       '还没点的时候没有烟')
 
-    /* 「我没有香」通到苏合那儿 —— 不推销，只放这一个出口。 */
+    /* 「我没有香」通到苏合那儿 —— 不推销，只放这一个出口。
+       **点香【之前】验**：点上之后这颗按钮就不在了（你已经有香了），
+       原先这一段排在点香之后，那时它会点空。 */
     await p.getByText('我没有香', { exact: true }).click()
     await p.waitForFunction(
       () => globalThis.__router.current().__route === 'pages/incense/index',
@@ -1135,7 +1131,35 @@ if (API) {
     ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/incense/index',
        '「我没有香」通到苏合那儿', await p.evaluate(() => globalThis.__router.current().__route))
     await open('pages/lighting/index')
-    await p.waitForTimeout(1200)
+    await p.waitForTimeout(1400)
+
+    const 点前 = await p.evaluate(() => globalThis.__router.current().data.count)
+    await p.getByText('我也点了', { exact: true }).click()
+    /* 窜火只烧那一下（0.9s），所以要【立刻】看 —— 等 iLit 落定再看就晚了。
+       这一条盯的是「这一下屏上真的发生了什么」。 */
+    const 窜过火 = await p.waitForFunction(() => !!document.querySelector('.flare'),
+                                          null, { timeout: 4000 }).then(() => true, () => false)
+    ok(窜过火, '点下去有一下窜火　—— 每周只有这一下，屏上不能什么都不发生')
+    await p.waitForFunction(() => globalThis.__router.current().data.iLit === true,
+                            null, { timeout: 15000 }).catch(() => {})
+    ok(await p.evaluate(() => globalThis.__router.current().data.iLit) === true,
+       '点得上', String(await p.evaluate(() => globalThis.__router.current().data.count)))
+    const 点后 = await p.evaluate(() => globalThis.__router.current().data.count)
+    ok(点后 === (点前 || 0) + 1, '人数加了一个', `${点前} → ${点后}`)
+    ok(await p.evaluate(() => !!document.querySelector('.ember')),
+       '点上之后火星亮着')
+    await p.waitForTimeout(600)
+    ok(await p.evaluate(() => document.querySelectorAll('.smoke').length > 0),
+       '烟也起来了')
+    /* 一个人一场只算一次。连点十下不该变成十个人 ——
+       现在那颗按钮点完就【不在了】（灰掉的大按钮会把屏上最重的一块地方
+       留给一个按不动的东西，而此刻该被看的是那支香），
+       后端那一侧也拦（主键 + ON CONFLICT）。 */
+    ok(await p.evaluate(() =>
+         ![...document.querySelectorAll('button')].some((e) => /我也点了|你点上了/.test(e.innerText))),
+       '点过之后那颗按钮就不在了　—— 再点不出第二个人')
+    ok((await text()).includes('你点上了'), '点上之后屏上说得出这件事已经成了')
+
     await shot('11-同步点香')
   } else {
     /* 那一槽在矮屏上是收起的（弹性槽），所以这一条要在长屏上看。
@@ -1252,8 +1276,8 @@ if (API) {
      **不断言「几位在卖」** —— 那是这台机器上的数据；断言的是
      「册上的人比在卖的多」与「多出来的那些收在『还在路上』里、按不动」。
 
-     0830 改了结构:原先四十位平级混排、五位一页翻,而在卖的只有几位 ——
-     往后整整七页全是灰的「还没来」。现在能请的摆在前面,没来的收成一行,
+     0830 改了结构：原先四十位平级混排、五位一页翻，而在卖的只有几位 ——
+     往后整整七页全是灰的「还没来」。现在能请的摆在前面，没来的收成一行，
      所以这里验的从「翻到有未上架的那一页」变成「摊开看得见他们」。 */
   if (请.n > 0) {
     const 册 = await p.evaluate(() => {
@@ -1263,7 +1287,7 @@ if (API) {
     ok(册.共 >= 册.在卖, '册上的人不比在卖的少', `${册.在卖} 在卖 / 共 ${册.共}`)
     if (册.共 > 册.在卖) {
       /* 收着的时候他们不该占地方 —— 这正是改结构要买的东西。
-         `展开` 在「一位都请不动」时默认是开的,那一支下面单独验。 */
+         `展开` 在「一位都请不动」时默认是开的，那一支下面单独验。 */
       if (!册.展开) {
         ok(await p.evaluate(() => document.querySelectorAll('.soon-item').length) === 0,
            '收着的时候没来的那些一行都不占 —— 改结构买的就是这个')
@@ -1281,7 +1305,7 @@ if (API) {
          `摊开 ${摊开后.行} 行 / 应有 ${册.共 - 册.在卖}`)
       // 0830:「未上架」是运营词，买家那一侧说的是「还没来」
       /* 没来的那些按不动 —— 点了再说「买不了」是先答应再反悔。
-         它们连 bindtap 都没有,所以这一条验的是「真的没接」。 */
+         它们连 bindtap 都没有，所以这一条验的是「真的没接」。 */
       const 之前 = await p.evaluate(() => globalThis.__router.current().__route)
       const 那行 = p.locator('.soon-item').first()
       if (await 那行.count()) {
@@ -1313,9 +1337,9 @@ if (API) {
   await open('pages/invite/index')
 
   /* 「一屏放得下」那条约束(设计 10.3)在 0830 的落点从翻页换成了折叠:
-     默认那一屏只摆能请的几位,一屏放得下;没来的收成一行。
-     翻页是旧落点 —— 它把四位能请的摊成八页,后七页全是灰的。
-     摊开/收起两头在上面那段已经验过,这里只钉住【默认态不摊开】——
+     默认那一屏只摆能请的几位，一屏放得下；没来的收成一行。
+     翻页是旧落点 —— 它把四位能请的摊成八页，后七页全是灰的。
+     摊开／收起两头在上面那段已经验过，这里只钉住【默认态不摊开】——
      默认就摊开的话，这一屏又会滚，那条约束就白立了。 */
   await open('pages/invite/index')
   {
@@ -1326,7 +1350,7 @@ if (API) {
     if (d.能请 > 0) {
       ok(d.展开 === false, '默认那一屏不摊开 —— 摊开就滚了', `能请 ${d.能请} / 没来 ${d.没来}`)
     } else {
-      /* 一位都请不动的时候收着才是错的:那是一屏空白。 */
+      /* 一位都请不动的时候收着才是错的：那是一屏空白。 */
       ok(d.展开 === true, '一位都请不动时默认摊开 —— 收着的话这一屏是空的')
     }
   }
@@ -2124,7 +2148,7 @@ if (!API) {
   })
   const 全部文 = await text()
   /* 「一位也请不来」是旧文案 —— 页面上写的是「一位也没数到」。
-     这一条是 `||`,有数据时永远短路,于是那半边错了三个月没人知道。 */
+     这一条是 `||`，有数据时永远短路，于是那半边错了三个月没人知道。 */
   ok(全部数 > 0 || 全部文.includes('一位也没数到'),
      `「谁能来」两种数据形状都说得对（${全部数 > 0 ? 全部数 + ' 位' : '空状态'}）`,
      String(全部数))
