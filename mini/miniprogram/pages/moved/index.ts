@@ -22,13 +22,18 @@ interface IData {
   direction: string
   /** 收集数跳过那一格了没 —— 跳的一刻数字弹一下 */
   跳过了: boolean
+  /** 他搬进来说的第一句。**没写过台词的人是空串** —— 那时就不说，
+      不拿一句通用问候顶上;四十位共用一句会当场暴露他们是批量生成的 */
+  say: string
   /** 收集进度。这一刻最实在的奖励是那个数往上跳一格 */
   lived: number
   total: number
 }
 
 Page<IData, WechatMiniprogram.IAnyObject>({
-  data: { name: '', isNew: true, id: '', face: '', direction: '', lived: 0, total: 0, 跳过了: false },
+  data: { name: '', isNew: true, id: '', face: '', direction: '', lived: 0, total: 0, 跳过了: false,
+          /** 他搬进来说的第一句。没写过台词的人是空串 —— 那时就不说 */
+          say: '' },
 
   onLoad(q: Record<string, string | undefined>) {
     const name = q.name || '他'
@@ -38,6 +43,9 @@ Page<IData, WechatMiniprogram.IAnyObject>({
       isNew: q.n !== '0',
       id: q.id || '',
       direction: q.dir || '',
+      /* 只有【真的第一次】才说这一句:重复扫那一屏写的是「早就在了」，
+         一个早就住着的人不会再自我介绍一遍。 */
+      say: q.n !== '0' ? (q.say || '') : '',
     })
     /* 收集数从服务端取 —— 不从上一页带过来。带过来的是【扫之前】那个数，
        而这一屏要显示的正是「多了一位之后」。差一个人，
