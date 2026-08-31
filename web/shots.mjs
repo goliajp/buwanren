@@ -6,7 +6,7 @@
  * 用法: bun web/shots.mjs [--api=...] [--out=/tmp/shots] [--only=village,invite]
  */
 import { chromium } from 'playwright'
-import { mkdirSync, readFileSync } from 'fs'
+import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { execFileSync, execFile, spawn } from 'child_process'
 import { fileURLToPath } from 'url'
@@ -176,6 +176,33 @@ for (const [名, 路, q] of 屏) {
   console.log(`  ${坏 ? '⚠' : '·'} ${名.padEnd(9)} ${OUT}/${名}.png${坏 ? '　← 停在错误态' : ''}`)
   n++
 }
-console.log(`\n截了 ${n} 张 → ${OUT}`)
+/* 一页索引 —— 截出来的图散在一个目录里，验收的时候得一张张开。
+   排成一页就能横着翻，也看得出哪几屏挨在一起是什么感觉。
+   写成本地文件，`open` 打开就是（这个项目不产出外链）。 */
+{
+  const 图 = readdirSync(OUT).filter((f) => f.endsWith('.png')).sort()
+  const 卡 = 图.map((f) => `<figure><img src="./${f}" loading="lazy"><figcaption>${f.replace(/\.png$/, '')}</figcaption></figure>`).join('\n')
+  writeFileSync(join(OUT, 'index.html'), `<!doctype html><meta charset="utf-8">
+<title>不完人 · ${图.length} 屏</title>
+<style>
+  body { margin:0; padding:24px; background:#1a1712; color:#e8e0d4;
+         font:14px/1.6 -apple-system,"PingFang SC",sans-serif }
+  h1 { font-size:20px; font-weight:600; margin:0 0 4px }
+  .sub { color:#8a8177; margin-bottom:24px }
+  .grid { display:flex; flex-wrap:wrap; gap:20px; align-items:flex-start }
+  figure { margin:0; width:250px }
+  img { width:100%; border-radius:10px; display:block; background:#fdf9f0;
+        box-shadow:0 4px 20px rgba(0,0,0,.4) }
+  figcaption { margin-top:8px; color:#b5aa9a; font-size:13px; text-align:center }
+</style>
+<h1>不完人 · 0830</h1>
+<div class="sub">${图.length} 张 · ${new Date().toLocaleString('zh-CN')}${API ? ' · 打的真后端' : ' · 假服务端'}</div>
+<div class="grid">
+${卡}
+</div>`)
+  console.log(`\n一页看完：open ${join(OUT, 'index.html')}`)
+}
+
+console.log(`截了 ${n} 张 → ${OUT}`)
 await b.close()
 收工()
