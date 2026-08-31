@@ -12,10 +12,14 @@
  */
 
 import { mineApi } from '../../services/mine'
+import { 脸 } from '../../utils/face'
 import { storage } from '../../services/storage'
 import { 一句 } from '../../utils/say'
 
 interface IData {
+  /** 婆婆与苏合的头像那一段 style。她们的脸画好了就有 */
+  婆脸: string
+  苏脸: string
   nickname: string
   draft: string
   note: string
@@ -23,7 +27,11 @@ interface IData {
 }
 
 Page<IData, WechatMiniprogram.IAnyObject>({
-  data: { nickname: '', draft: '', note: '', saving: false },
+  data: {
+    /* 这两句预览是婆婆和苏合说的 —— 那就用她们的脸。
+       原先是写死的「婆」「苏」两个字。 */
+    婆脸: 脸('popo'),
+    苏脸: 脸('suhe'), nickname: '', draft: '', note: '', saving: false },
 
   onShow() {
     const u = getApp<IAppOption>().globalData.user || storage.getUser()
