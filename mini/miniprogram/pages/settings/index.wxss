@@ -47,6 +47,9 @@
    东西会留在旧账号）」）——十四个字的括号注释是公文排版，而且
    「留在旧账号」读起来像「东西还在、换回去就有」，跟真实后果反着来。 */
 .cta-note {
-  margin-top: 16rpx; padding: 0 20rpx;
-  font-size: 23rpx; line-height: 1.7; color: var(--ink-mid); text-align: center;
+  margin: 18rpx auto 0; padding: 16rpx 24rpx; max-width: 560rpx;
+  border-radius: 12rpx;
+  background: #FFF6EC;
+  border: 1rpx solid var(--amber-lite);
+  font-size: 24rpx; line-height: 1.75; color: var(--ink-mid); text-align: center;
 }
