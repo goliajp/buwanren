@@ -12238,7 +12238,11 @@ KKKyRRRRRRK.
     { id: 'cloth',  node: 'E',   x: 1120, y: 1000, poses: ['stand'], fps: 1, dur: [4, 7], flip: false, w: 1, say: '盖着', pSay: 0.5 },
   ]
 
-  const st = { mode: 'act', act: ACTS[0], x: 560, y: 566, node: 'MID', path: [],
+  /* 开局坐标必须等于 ACTS[0] 的坐标 —— 状态说她在做第一件事，人就得在那件事的位置上。
+     这里原先写的是 y:566，比 divine 的 796 高 230，正好把她塞进工作台底下：
+     她照常被 placeActor 放出来、照常摆排盘姿势，只是整个人被桌子挡得一点不剩。
+     开局那 4 秒正是进屋的第一印象，于是「进白鹭家看不见白鹭」。 */
+  const st = { mode: 'act', act: ACTS[0], x: ACTS[0].x, y: ACTS[0].y, node: 'MID', path: [],
                until: globalThis.ENGINE_HOST.now() + 4000, frame: 0, tx: 0, ty: 0, sayText: null, sayUntil: 0 }
   let BAILU_PERF = null
   function pick() { return globalThis.pickAct(ACTS, st.act) }
