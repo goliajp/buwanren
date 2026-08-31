@@ -58,7 +58,7 @@
           <view class="item-sub" wx:if="{{item.sub}}">{{item.sub}}</view>
         </view>
         <!-- 「请他来」对婆婆是错的 —— 四十位里男女都有。不带代词 -->
-        <text class="item-go">请回家 ›</text>
+        <text class="item-go">请回村 ›</text>
       </view>
     </view>
 
