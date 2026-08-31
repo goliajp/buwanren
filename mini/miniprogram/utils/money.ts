@@ -26,6 +26,15 @@ export const 状态说法: Record<string, string> = {
   disputed: '有争议',
 }
 
+/* 卡片右边那个动作词。同一张卡在不同状态下该做的事不一样 ——
+   待付的单子最要紧的动作是去付，写「看」等于把它藏起来:
+   订单列表上那一笔的唯一动作就是它。 */
+export function 该做什么(status: string): string {
+  if (status === 'unpaid') return '去付'
+  if (status === 'draft') return '接着填'
+  return '看'
+}
+
 export function money(minor: number, currency: string): string {
   const d = currency === 'JPY' ? 0 : 2
   const sym: Record<string, string> = {

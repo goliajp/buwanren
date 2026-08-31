@@ -60,7 +60,7 @@ Page<IData, WechatMiniprogram.IAnyObject & { pendingReload: boolean; loadDefault
       date: '1995-06-15',
       time: '14:30',
       gender: 'M',
-      label: '默认',
+      label: '我',
     },
     填了: { date: false, time: false, gender: false },
     齐了: false,
@@ -208,7 +208,7 @@ Page<IData, WechatMiniprogram.IAnyObject & { pendingReload: boolean; loadDefault
       const [y, m, d] = form.date.split('-').map((n) => parseInt(n, 10))
       const [hh, mm] = form.time.split(':').map((n) => parseInt(n, 10))
       const natal = await natalApi.create({
-        label: form.label.trim() || '默认',
+        label: form.label.trim() || '我',
         year: y,
         month: m,
         day: d,

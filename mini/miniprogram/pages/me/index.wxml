@@ -48,7 +48,7 @@
     <view class="recent-title">{{recent.title}}</view>
     <view class="recent-line">
       <text class="recent-when">{{recent.when}} · {{recent.state}}</text>
-      <text class="recent-go">看 ›</text>
+      <text class="recent-go">{{recent.go}} ›</text>
     </view>
   </view>
   <view class="nothing" wx:elif="{{recentEmpty}}" bindtap="goVillage"

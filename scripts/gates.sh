@@ -143,6 +143,10 @@ gate "check-relations · 关系网"  . python3 scripts/check-relations.py
 gate "check-api-shape · 前后端"  . python3 scripts/check-api-shape.py
 gate "check-punct · 文档标点"    . python3 scripts/check-punct.py
 gate "check-punct-ui · 界面文案" . python3 scripts/check-punct-ui.py
+# 「缺 X」是村民自己缺 X（lack_bias 表:缺过才懂，所以那样劝你）。
+# 请人那一屏曾把它说成「他补你哪一样」——村民成了工具，
+# 产品叫「不完人」的理由当场没了，而两屏各说各的谁也不会红。
+gate "「缺」说的是谁" . python3 scripts/check-lack-sense.py
 gate "设计文档里有没有悄悄失效的" . python3 scripts/check-design-css.py
 gate "线框每一屏都填满了吗" . python3 scripts/check-wireframe-fill.py
 gate "check-routes · 调的接口都在吗" . python3 scripts/check-routes.py
