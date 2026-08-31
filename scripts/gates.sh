@@ -160,6 +160,10 @@ gate "迁移没被改过" . python3 scripts/check-migrations.py
 # 库里的字就是旧的，而那件事没有任何地方看得出来。
 # 房间那边早有同样的护栏（`rooms/tools/build.js --check`），这边一直没有。
 gate "村民表与设计册同步" . python3 scripts/export-cast.py --check
+# 参照数据的源头是 backend/seed/*.sql，不是迁移。改「缺」这种键的时候
+# 只补一条 UPDATE 迁移、不动种子，下一次灌种子就把旧词原样插回来 ——
+# 偏向表多一行，而那句「应有 41 行」要到合并之后才红（2026-08-31 真踩到）。
+gate "缺与偏向对得上" . python3 scripts/check-seed-lack.py
 if [ "$QUICK" = 1 ]; then
   # `--quick` 跳过变异测试，而变异测试是【钉在具体文件的具体字符串上】的。
   # 你改的要是它盯着的文件，这一跳就正好跳过了唯一会发现「断言漂了」的那支。
