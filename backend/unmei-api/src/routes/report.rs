@@ -328,13 +328,34 @@ fn 排页(c: &J, version: Option<&str>, 今: chrono::NaiveDate) -> Vec<J> {
             "v": 串(p.get("ganzhi")),
             "now": Some(i) == 现格,
         })).collect();
+        /* 【这一步怎么读】。这一页原先只有一排干支加五百像素空白 ——
+           八个字谁都排得出来，「你现在这一步是帮你还是拦你」才是要问的。
+           喜忌从用神那一节取，取不到就只留通则那一段，不编。
+
+           算在 `json!` 【外面】:那个宏解析不了带泛型的块表达式
+           （`Vec<String>` 的尖括号会被当成比较运算符），
+           报出来是「comparison operators cannot be chained」，
+           跟这段逻辑本身没关系。 */
+        let 通则 = "换运不是换命，换的是舞台：同一张盘在不同的十年里，\
+得力的地方和费劲的地方会挪位置。顺行逆行只是干支往哪个方向数，\
+由性别和年柱的阴阳定，跟好坏无关。";
+        let 喜 = c.get("yongshen").map(|y| 串(y.get("primary_wuxing"))).unwrap_or_default();
+        let 不喜: Vec<String> = c.get("yongshen")
+            .and_then(|y| y.get("avoid_wuxing")).and_then(|a| a.as_array())
+            .map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect())
+            .unwrap_or_default();
+        let 大运正文 = match (现格, 喜.is_empty()) {
+            (Some(i), false) => format!("{}\n\n{}", 通则, 这一步怎么读(&d[i], d.get(i + 1), &喜, &不喜)),
+            _ => 通则.to_string(),
+        };
+
         if !rows.is_empty() {
             pages.push(json!({
                 "key": "dayun", "title": "大运",
                 "lead": if c.get("dayun").and_then(|d| d.get("forward")).and_then(|v| v.as_bool()).unwrap_or(true) { "顺行" } else { "逆行" },
                 "note": "每一步走十年，从起运那年算起 · 标着的那格是现在",
                 "rows": rows,
-                "body": "换运不是换命，换的是舞台：同一张盘在不同的十年里，得力的地方和费劲的地方会挪位置。顺行逆行只是干支往哪个方向数，由性别和年柱的阴阳定，跟好坏无关。",
+                "body": 大运正文,
                 "source": 出处,
             }));
         }
@@ -383,6 +404,57 @@ fn 排页(c: &J, version: Option<&str>, 今: chrono::NaiveDate) -> Vec<J> {
 
    十段各写一次「主线是什么、顺的时候什么样、费劲的时候什么样」。
    术语留着（这是专业页），但句子按现代汉语写，不用文言。 */
+/* 干支带的是哪一行。天干十个、地支十二个，各有定数 ——
+   这是对照表，不是判断。 */
+fn 五行(干支: &str) -> Option<&'static str> {
+    let 首 = 干支.chars().next()?;
+    Some(match 首 {
+        '甲' | '乙' => "木",
+        '丙' | '丁' => "火",
+        '戊' | '己' => "土",
+        '庚' | '辛' => "金",
+        '壬' | '癸' => "水",
+        _ => return None,
+    })
+}
+
+/* 【这一步怎么读】。大运那一页原先只有一排干支加五百像素空白 ——
+   八个字谁都排得出来，「你现在这一步是帮你还是拦你」才是要问的。
+
+   只做一层:这一步带的那一行，在不在你的喜忌里。
+   真要细断还得看它跟盘里其它字的会合刑冲，那一层这份说明书不做，
+   而且**说清楚不做** —— 含糊地暗示自己算得更深，比少说一层糟。
+
+   八格逐个写会把那一页挤满，人真正想知道的是「我现在在哪儿、
+   接下来会怎样」，所以只说当前这一步和下一步。 */
+fn 这一步怎么读(这格: &J, 下格: Option<&J>, 喜: &str, 不喜: &[String]) -> String {
+    let 干支 = 串(这格.get("ganzhi"));
+    let 行 = match 五行(&干支) { Some(x) => x, None => return String::new() };
+    let 起 = 这格.get("start_age").and_then(|v| v.as_i64()).unwrap_or(0);
+
+    let 味 = if 行 == 喜 {
+        format!("带的是{}，正是你缺的那一样 —— 这十年顺手一些", 行)
+    } else if 不喜.iter().any(|x| x == 行) {
+        format!("带的是{}，是你已经够多的那一样 —— 这十年得多费些劲", 行)
+    } else {
+        format!("带的是{}，跟你的喜忌都不搭边 —— 不特别帮你，也不特别拦你", 行)
+    };
+
+    let mut 话 = format!("{} 岁起这一步 {}，{}。", 起, 干支, 味);
+    if let Some(下) = 下格 {
+        let 下支 = 串(下.get("ganzhi"));
+        let 下起 = 下.get("start_age").and_then(|v| v.as_i64()).unwrap_or(0);
+        if let Some(下行) = 五行(&下支) {
+            let 下味 = if 下行 == 喜 { "会松一些" }
+                       else if 不喜.iter().any(|x| x == 下行) { "会紧一些" }
+                       else { "跟这一步差不多" };
+            话.push_str(&format!("{} 岁换到 {}，带{}，{}。", 下起, 下支, 下行, 下味));
+        }
+    }
+    话.push_str("这里只看这一步带哪一行 —— 它跟盘里其它字怎么牵扯，这一册不做那一层。");
+    话
+}
+
 fn 格局怎么读(名: &str) -> String {
     let 正文 = match 名.trim_end_matches('格') {
         "正财" => "主线是「守」。财在盘里指你要经手、要守住的那部分：钱、事、答应下来的责任。正财来路清楚、进得稳，所以这类盘讲究撑不撑得住 —— 身强是持家有方，身弱容易被事情推着走。",
@@ -434,6 +506,43 @@ mod tests {
     /* 「后面几页」这句话原先写死成「五页」，而实际排出来是六页 ——
        它偏偏印在承诺「不用懂术数也读得完」的那一页上。
        页数由数据定（缺格局就少一页），所以这里拿两种盘各数一次。 */
+    /* 大运那一页要说清「这一步是帮你还是拦你」。判据只有一层:
+       这一步带的那一行在不在喜忌里 —— 而这一层必须【说清楚只有一层】，
+       含糊地暗示算得更深比少说一层糟。 */
+    #[test]
+    fn 大运那一页说得出这一步是帮你还是拦你() {
+        /* 1998 年生的人在 2026 年是 28 岁 —— 「现在这一步」是 20 岁那格，
+           不是第一格。头一版把两格写成 10 / 20，断言就落在了下一格上。 */
+        let 盘 = |步: &str, 下: &str| json!({
+            "input": { "year": 1998, "month": 3, "day": 5 },
+            "yongshen": { "primary_wuxing": "土", "avoid_wuxing": ["火", "木"] },
+            "dayun": { "forward": false, "pillars": [
+                { "ganzhi": "癸丑", "start_age": 10 },
+                { "ganzhi": 步, "start_age": 20 },
+                { "ganzhi": 下, "start_age": 30 }] },
+        });
+        // 戊 = 土 = 喜 → 顺手;丙 = 火 = 忌 → 费劲
+        let 顺 = 排页(&盘("戊子", "丙午"), None, 日(2026, 8, 31));
+        let 文 = 顺.iter().find(|x| x["key"] == "dayun").unwrap()["body"].as_str().unwrap();
+        assert!(文.contains("正是你缺的那一样"), "带喜的那一步该说顺手：{文}");
+        assert!(文.contains("会紧一些"), "下一步带忌，该预告紧一些：{文}");
+        assert!(文.contains("这一册不做那一层"), "只做一层就要说清只做一层：{文}");
+
+        let 逆 = 排页(&盘("丙午", "戊子"), None, 日(2026, 8, 31));
+        let 文2 = 逆.iter().find(|x| x["key"] == "dayun").unwrap()["body"].as_str().unwrap();
+        assert!(文2.contains("已经够多的那一样"), "带忌的那一步该说费劲：{文2}");
+
+        // 【取不到用神就不编】—— 只留通则，不硬说这一步是好是坏
+        let 无 = 排页(&json!({
+            "input": { "year": 1998, "month": 3, "day": 5 },
+            "dayun": { "forward": false, "pillars": [
+                { "ganzhi": "癸丑", "start_age": 10 }, { "ganzhi": "戊子", "start_age": 20 }] },
+        }), None, 日(2026, 8, 31));
+        let 文3 = 无.iter().find(|x| x["key"] == "dayun").unwrap()["body"].as_str().unwrap();
+        assert!(!文3.contains("只看这一步"),
+                "没有用神就不该断这一步是帮你还是拦你：{文3}");
+    }
+
     #[test]
     fn 说在前面报的页数就是实际页数() {
         let 全 = json!({
