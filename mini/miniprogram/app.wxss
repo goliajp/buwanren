@@ -383,13 +383,28 @@ input::placeholder, textarea::placeholder { color: var(--stone-label); }
    所以颜色本身也在说事。
 
    等 40 张头像画好，这一整套连同 `.face-*` 一起撤掉。 */
-.face-move   { background: linear-gradient(150deg, #FFE0C2, #FFB067); color: #8A4A12; }
-.face-still  { background: linear-gradient(150deg, #DCEEF7, #9CC9E4); color: #2A5C7A; }
-.face-wait   { background: linear-gradient(150deg, #E6E2F5, #B3AADD); color: #4A3F7A; }
-.face-keep   { background: linear-gradient(150deg, #E3EDDC, #A9C99A); color: #3F5F31; }
-.face-let_go { background: linear-gradient(150deg, #F8DFE4, #E7A8B8); color: #7A3448; }
-.face-near   { background: linear-gradient(150deg, #FFE6D2, #F5A98C); color: #8A3F28; }
-.face-ask    { background: linear-gradient(150deg, #FDEDCB, #E8C878); color: #7A5A1A; }
+.face-move   { --f1: #FFE0C2; --f2: #FFB067; background: linear-gradient(150deg, var(--f1), var(--f2)); color: #8A4A12; }
+.face-still  { --f1: #DCEEF7; --f2: #9CC9E4; background: linear-gradient(150deg, var(--f1), var(--f2)); color: #2A5C7A; }
+.face-wait   { --f1: #E6E2F5; --f2: #B3AADD; background: linear-gradient(150deg, var(--f1), var(--f2)); color: #4A3F7A; }
+.face-keep   { --f1: #E3EDDC; --f2: #A9C99A; background: linear-gradient(150deg, var(--f1), var(--f2)); color: #3F5F31; }
+.face-let_go { --f1: #F8DFE4; --f2: #E7A8B8; background: linear-gradient(150deg, var(--f1), var(--f2)); color: #7A3448; }
+.face-near   { --f1: #FFE6D2; --f2: #F5A98C; background: linear-gradient(150deg, var(--f1), var(--f2)); color: #8A3F28; }
+.face-ask    { --f1: #FDEDCB; --f2: #E8C878; background: linear-gradient(150deg, var(--f1), var(--f2)); color: #7A5A1A; }
+
+/* 【同一路人别长成同一张脸】。方向色是有意的（颜色本身在说「他劝你往哪走」），
+   不能打乱;但缺「近人」那一路有十一位，名册上十一个一模一样的粉橙圆牌
+   并排摆着，占位感最重的就是这一屏。
+
+   同色之内换渐变角度 —— 六档，够把十一位分开，颜色仍然在说方向。
+   类名由村民 id 定（`utils/face.ts` 的 `脸纹()`），同一个人在
+   名册、村子、他的主页、搬进来那一刻都是同一张脸。
+   等四十张立绘画好，这一套连同 `.face-*` 一起撤掉。 */
+.fa-0 { background-image: linear-gradient(150deg, var(--f1), var(--f2)) }
+.fa-1 { background-image: linear-gradient(30deg,  var(--f1), var(--f2)) }
+.fa-2 { background-image: linear-gradient(200deg, var(--f1), var(--f2)) }
+.fa-3 { background-image: linear-gradient(95deg,  var(--f1), var(--f2)) }
+.fa-4 { background-image: linear-gradient(255deg, var(--f1), var(--f2)) }
+.fa-5 { background-image: linear-gradient(325deg, var(--f1), var(--f2)) }
 
 /* 「缺什么」那颗药丸跟头像走同一个方向色。
    原先它固定是琥珀 —— 于是丹增的卡上，头像是蓝的（缺静 · 劝你停），

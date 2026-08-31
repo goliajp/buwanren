@@ -237,3 +237,13 @@ button.btn.btn-wait { background: #EADFCD; color: #A08E74; box-shadow: none; }
 .stamp-tu   .stamp-label { color: var(--wx-tu-fg) }
 .stamp-jin  .stamp-label { color: var(--wx-jin-fg) }
 .stamp-shui .stamp-label { color: var(--wx-shui-fg) }
+
+
+/* 「不知道时辰怎么办」。挂在那一栏底下，不是独立一块 ——
+   它是那一栏的注脚，不该看着像又一条要填的东西。 */
+.field-note {
+  margin: -6rpx 0 18rpx;
+  padding: 0 4rpx;
+  font-size: 22rpx; line-height: 1.65;
+  color: var(--ink-faint);
+}
