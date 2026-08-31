@@ -12,6 +12,7 @@
  */
 
 import { villageApi } from '../../services/village'
+import { 脸 } from '../../utils/face'
 import { commerceApi } from '../../services/commerce'
 import type { ApiError } from '../../services/api'
 import type { VillagerInVillage } from '../../types/village'
@@ -29,6 +30,8 @@ interface IData {
   loading: boolean
   err: string
   who: (VillagerInVillage & { face?: string }) | null
+  /** 头像那一段 style。画好脸的人是 background-image，没画好的是空串 */
+  脸样: string
   /** 有没有搬进小程序的屋子 —— 没有就不给「去他家坐坐」这颗按钮 */
   canEnter: boolean
   /** 他卖着东西吗（设计册 10.8：东西长在卖它的人身上） */
@@ -43,6 +46,7 @@ interface IData {
 
 Page<IData, WechatMiniprogram.IAnyObject>({
   data: { id: '', loading: true, err: '', who: null, canEnter: false, say: '', inviting: false, asking: false,
+    脸样: '',
           sells: false, sellsLabel: '', sellsProduct: '' },
 
   onLoad(q: Record<string, string | undefined>) {
@@ -79,6 +83,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
         loading: false,
         // 头像占位:姓名末字。等 40 张画好换这一行，版式不用动
         who: { ...who, face: who.name.slice(-1) },
+        脸样: 脸(who.id),
         canEnter: who.at_home && hasRoom(id),
         /* 他卖的东西，入口在他这儿。**要先请回家** ——
            人都还没来，摊子就不该摆在这儿。 */

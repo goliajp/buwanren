@@ -10,7 +10,7 @@
        但这一屏此前【一张脸都没有】—— 而从商品页到确认屏都有他。
        买了别的（香、报告）就没有这一格，照旧只有标题。 -->
   <view class="hd {{who ? 'hd-who' : ''}}">
-    <view class="who-face face-{{who.direction}}" wx:if="{{who}}">{{who.face}}</view>
+    <view class="who-face face-{{who.direction}} {{who.脸样 ? 'face-art' : ''}}" wx:if="{{who}}" style="{{who.脸样}}"><text wx:if="{{!who.脸样}}">{{who.face}}</text></view>
     <view class="hd-body">
     <view class="title">{{headline || '　'}}</view>
     <!-- 取不到时不显示这一行：三个字段都空的话它会渲成「· 下单 ·」，

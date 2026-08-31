@@ -314,8 +314,8 @@ async fn get_my_order(
        这个等价错过三次（商品页的眉标、下单页的卡片名、这一页的明细名），
        每次都是各自在前端推断「有 villager_name 就是御守」——
        所以这里直接把答案给出去，不让调用方再猜。 */
-    let 行上的人: std::collections::HashMap<String, (String, Option<String>, bool)> = sqlx::query(
-        r#"SELECT ol.id AS line_id, v.name, b.direction,
+    let 行上的人: std::collections::HashMap<String, (String, Option<String>, bool, String)> = sqlx::query(
+        r#"SELECT ol.id AS line_id, v.name, b.direction, v.id AS vid,
                   (p.fulfillment_kind = 'residency') AS resident
              FROM order_line ol
              JOIN sku k ON k.id = ol.sku_id
@@ -327,7 +327,8 @@ async fn get_my_order(
      .into_iter()
      .map(|r| (r.get::<String, _>("line_id"),
                (r.get::<String, _>("name"), r.get::<Option<String>, _>("direction"),
-                r.get::<Option<bool>, _>("resident").unwrap_or(false))))
+                r.get::<Option<bool>, _>("resident").unwrap_or(false),
+                r.get::<String, _>("vid"))))
      .collect();
     let lines = sqlx::query("SELECT * FROM order_line WHERE order_id=$1 ORDER BY line_no")
         .bind(&id).fetch_all(&st.db).await.map_err(map_db)?;
@@ -377,16 +378,21 @@ async fn get_my_order(
                 let who = o.get("id").and_then(|v| v.as_str())
                     .and_then(|lid| 行上的人.get(lid)).cloned();
                 o.insert("villager_name".into(),
-                         who.as_ref().map_or(J::Null, |(n, _, _)| J::String(n.clone())));
+                         who.as_ref().map_or(J::Null, |(n, _, _, _)| J::String(n.clone())));
+                /* 【村民 id】。头像按 id 取（engine/faces.js），只有名字取不到脸 ——
+                   而这一屏原先根本没显示过脸:wxml 上写着 who，
+                   ts 里却没有这个字段，从来没人给它赋过值。 */
+                o.insert("villager_id".into(),
+                         who.as_ref().map_or(J::Null, |(_, _, _, i)| J::String(i.clone())));
                 /* 买了这一行，村里会不会多一个人。**不挂人的行也给这个键**，
                    值是 false —— 理由跟 villager_name 那条一样：
                    「有时候有这个键」比「一直有」难对付得多。 */
                 o.insert("becomes_resident".into(),
-                         J::Bool(who.as_ref().map_or(false, |(_, _, r)| *r)));
+                         J::Bool(who.as_ref().map_or(false, |(_, _, r, _)| *r)));
                 /* 方向也给 —— 一单那一屏要拿它给脸配色。
                    不给的话页面只能自己引用自己的旧值，那是取不到就摆错色。 */
                 o.insert("villager_direction".into(),
-                         who.and_then(|(_, d, _)| d).map_or(J::Null, J::String));
+                         who.and_then(|(_, d, _, _)| d).map_or(J::Null, J::String));
             }
             l
         }).collect::<Vec<_>>(),

@@ -97,6 +97,8 @@ export interface OrderLine {
   becomes_resident: boolean
   /** 他劝你的方向 —— 一单那一屏拿它给脸配色 */
   villager_direction?: string | null
+  /** 他是谁。头像按 id 取，只有名字取不到脸 */
+  villager_id?: string | null
   qty: number
   unit_price_minor: number
   line_subtotal_minor: number

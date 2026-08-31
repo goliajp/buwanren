@@ -9,6 +9,7 @@
  */
 
 import { commerceApi } from '../../services/commerce'
+import { 脸 } from '../../utils/face'
 import type { ProductDetail } from '../../types/commerce'
 import { money } from '../../utils/money'
 import { 一句 } from '../../utils/say'
@@ -28,6 +29,8 @@ interface IData {
   totalText: string
   /** 御守封着的那位，脸上那个字（姓名末字）。不是御守就是空 */
   face: string
+  /** 头像那一段 style。画好脸的人有，没画好的是空串 */
+  脸样: string
   /** 买了会不会住进村里 —— 只有会的那种才叫「谁谁的御守」 */
   住进来: boolean
   qty: number
@@ -46,7 +49,7 @@ interface IData {
 Page<IData, WechatMiniprogram.IAnyObject>({
   data: {
     id: '', loading: true, err: '', p: null,
-    skuId: '', unit: 0, cur: 'CNY', unitText: '', totalText: '', face: '', 住进来: false,
+    skuId: '', unit: 0, cur: 'CNY', unitText: '', totalText: '', face: '', 脸样: '', 住进来: false,
     qty: 1, message: '',
     contact: null, addrNote: '', buying: false, note: '', buyKey: '',
     /* 寄到哪填了没 —— 「去付」长什么样看它。
@@ -88,6 +91,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
           unitText: sku ? money(unit, cur) : '',
           // 脸上那个字取姓名末字 —— 跟别处几处一样（门禁 check-face-color 盯着）
           face: p.villager ? p.villager.name.slice(-1) : '',
+          脸样: p.villager ? 脸(p.villager.id) : '',
           /* 买了会不会住进村里 —— 只有会的那种才叫「谁谁的御守」。
              香也挂着苏合，但买香是寄一盒香给你。原先拿「有没有关联村民」
              当判据，于是买香的确认页写着「苏合的御守」，
