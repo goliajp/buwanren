@@ -3140,7 +3140,7 @@ if (!API) {
   }
   /* 搬走的三块不该还在这一屏上。留一块在这儿,这一屏就又放不下了 ——
      而「放不下」在真机上的样子是【底下那一截看不见】,不是报错。 */
-  for (const 不该有 of ['退出并重新登录', '这台设备上的账号']) {
+  for (const 不该有 of ['退出', '这台设备上的账号']) {
     ok(!我屏.includes(不该有), `「${不该有}」已经不在这一屏上`, 不该有)
   }
 
@@ -3378,8 +3378,29 @@ if (API) {
   await open('pages/settings/index')
   await p.waitForTimeout(900)
   const 退出前 = await p.evaluate(() => globalThis.__router.current().data.user && globalThis.__router.current().data.user.id)
-  await p.getByText('退出并重新登录').click()
+
+  /* 【先验它拦不拦】。这颗按钮对没绑微信的人是不可逆的:换一个新的匿名号，
+     村里的人和买过的东西都留在旧号里。所以按下去必须先问一句。
+
+     危险的那一头故意放在 confirm(而不是 cancel):浏览器的 confirm 显示不出
+     按钮文字，Playwright 又默认 dismiss —— 放 cancel 的话每跑一次验证
+     就真的退一次账号，而且看着像通过。 */
+  let 问过 = ''
+  const 听 = (d) => { 问过 = d.message(); d.dismiss() }
+  p.on('dialog', 听)
+  await p.getByText('退出（这台设备上的东西会留在旧账号）').click()
+  await p.waitForTimeout(700)
+  p.off('dialog', 听)
+  ok(/找不回来|留在旧账号/.test(问过), '退出之前先说清楚会丢什么', 问过 || '（一句都没问就退了）')
+  const 没点也没退 = await p.evaluate(() => globalThis.__router.current().data.user && globalThis.__router.current().data.user.id)
+  ok(没点也没退 === 退出前, '在那句问话上按「先不退」，人就还是原来那个', String(没点也没退).slice(0, 14) + '…')
+
+  // 再点一次，这回答应下去 —— 下面钉的是【答应之后现状是什么】
+  const 答应 = (d) => d.accept()
+  p.on('dialog', 答应)
+  await p.getByText('退出（这台设备上的东西会留在旧账号）').click()
   await p.waitForTimeout(2200)
+  p.off('dialog', 答应)
   const 退出后 = await p.evaluate(() => globalThis.__router.current().data.user && globalThis.__router.current().data.user.id)
   ok(!!退出前 && !!退出后 && 退出前 !== 退出后,
      '「退出并重新登录」当场换成另一个匿名身份　—— 现状如此，待拍板',

@@ -21,7 +21,7 @@
   <!-- 这五行原先在「我的」上折叠着 —— 折叠是为了让【那一屏】放得下，
        搬到这一屏之后那个理由没有了。而它们存在的唯一用途就是被人念给客服听，
        多一次「展开」等于让唯一的用途多一道手续。 -->
-  <view class="sec-k">这台设备上的账号</view>
+  <view class="sec-k">这台设备上的账号 · 出问题时把这几行念给我们</view>
   <view class="card" wx:if="{{user}}">
     <view class="prof-row">
       <text class="prof-k">ID</text>
@@ -38,7 +38,7 @@
     <view class="prof-row">
       <text class="prof-k">类型</text>
       <text class="prof-v {{user.is_anonymous ? '' : 'ok'}}">
-        {{user.is_anonymous ? '匿名' : '实名'}}
+        {{user.is_anonymous ? '还没绑微信' : '已绑微信'}}
       </text>
     </view>
     <view class="prof-row" wx:if="{{activeNatalId}}">
@@ -51,7 +51,9 @@
   </view>
 
   <view class="cta">
-    <button class="btn ghost" bindtap="doLogout">退出并重新登录</button>
+    <button class="btn ghost" bindtap="doLogout">
+      {{user && user.is_anonymous ? '退出（这台设备上的东西会留在旧账号）' : '退出并重新登录'}}
+    </button>
   </view>
 
   <view class="foot-hint">

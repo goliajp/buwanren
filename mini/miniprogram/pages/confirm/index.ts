@@ -28,6 +28,8 @@ interface IData {
   totalText: string
   /** 御守封着的那位，脸上那个字（姓名末字）。不是御守就是空 */
   face: string
+  /** 买了会不会住进村里 —— 只有会的那种才叫「谁谁的御守」 */
+  住进来: boolean
   qty: number
   message: string
   contact: Contact | null
@@ -44,7 +46,7 @@ interface IData {
 Page<IData, WechatMiniprogram.IAnyObject>({
   data: {
     id: '', loading: true, err: '', p: null,
-    skuId: '', unit: 0, cur: 'CNY', unitText: '', totalText: '', face: '',
+    skuId: '', unit: 0, cur: 'CNY', unitText: '', totalText: '', face: '', 住进来: false,
     qty: 1, message: '',
     contact: null, addrNote: '', buying: false, note: '', buyKey: '',
     /* 寄到哪填了没 —— 「去付」长什么样看它。
@@ -86,6 +88,11 @@ Page<IData, WechatMiniprogram.IAnyObject>({
           unitText: sku ? money(unit, cur) : '',
           // 脸上那个字取姓名末字 —— 跟别处几处一样（门禁 check-face-color 盯着）
           face: p.villager ? p.villager.name.slice(-1) : '',
+          /* 买了会不会住进村里 —— 只有会的那种才叫「谁谁的御守」。
+             香也挂着苏合，但买香是寄一盒香给你。原先拿「有没有关联村民」
+             当判据，于是买香的确认页写着「苏合的御守」，
+             底下明细却写「苏合配的那一味」——一屏两个名字。 */
+          住进来: p.product ? p.product.fulfillment_kind === 'residency' : false,
           totalText: sku ? money(unit * this.data.qty, cur) : '',
         })
       },
@@ -143,7 +150,10 @@ Page<IData, WechatMiniprogram.IAnyObject>({
        而订单那一屏也没有补填的地方,一单落下去就成了悬案。
        原先这里一个字都不问,「去付」照样满橙。 */
     if (!(contact && contact.address)) {
-      this.setData({ note: '还差【寄到哪】—— 上面点一下选个地址，御守要寄到你手上' })
+      // 买香的时候这句原先也说「御守要寄到你手上」——寄的是香，不是御守
+      this.setData({ note: this.data.住进来
+        ? '还差【寄到哪】—— 上面点一下选个地址，御守要寄到你手上'
+        : '还差【寄到哪】—— 上面点一下选个地址，东西要寄到你手上' })
       return
     }
     this.setData({ buying: true, note: '' })

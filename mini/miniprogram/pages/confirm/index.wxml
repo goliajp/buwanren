@@ -14,11 +14,19 @@
     <!-- 御守是一个人。上一屏还是「丹增 · 下山的武僧」，这一屏原先只剩
          「御守 ¥99」—— 你以为在请一个人，付钱前发现在买一件货
          （标尺 §1.5.2 沉浸感）。有人就摆人，没有就照旧摆商品。 -->
-    <view class="card card-who" wx:if="{{p.villager}}">
+    <view class="card card-who" wx:if="{{p.villager && 住进来}}">
       <view class="who-face face-{{p.villager.direction}}">{{face}}</view>
       <view class="who-body">
         <view class="card-name">{{p.villager.name}}的御守</view>
         <view class="card-sub">{{p.villager.title}}<text wx:if="{{p.villager.art}}"> · {{p.villager.art}}</text></view>
+        <view class="card-price">{{unitText}}</view>
+      </view>
+    </view>
+    <view class="card card-who" wx:elif="{{p.villager}}">
+      <view class="who-face face-{{p.villager.direction}}">{{face}}</view>
+      <view class="who-body">
+        <view class="card-name">{{p.product.name}}</view>
+        <view class="card-sub">{{p.villager.name}}那儿的<text wx:if="{{p.villager.title}}"> · {{p.villager.title}}</text></view>
         <view class="card-price">{{unitText}}</view>
       </view>
     </view>
