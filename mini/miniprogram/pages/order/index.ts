@@ -26,6 +26,43 @@ const 物流说法: Record<string, string> = {
   failed_delivery: '投递失败', unknown: '承运商没说清',
 }
 
+/* 这一单走到哪一步了。
+
+   订单详情在最常见的情况下（买一件、还没付、没有物流）整屏只有标题、
+   金额、状态三行，中间七百多像素全空 —— 而人点进来就是想知道
+   「我这单现在怎么样、接下来会怎样」。
+
+   步骤按这一单【买了会发生什么】分：会住进村里的走「寄出 → 住进来」，
+   要算的走「算好 → 读过」，其余就是寄东西。判据来自后端给的
+   `becomes_resident` 与这一单有没有册子，不在这里猜。 */
+function 这一单走到哪儿(status: string, d: OrderDetail): Array<{ t: string; s: string }> {
+  const 住 = (d.lines || []).some((l) => l.becomes_resident)
+  const 册 = (d.reports || [])[0]
+  const 名: string[] = 住
+    ? ['下单', '付款', '寄出', '住进来']
+    : (册 ? ['下单', '付款', '算好', '读过'] : ['下单', '付款', '寄出', '收到'])
+
+  const 付了 = status !== 'unpaid' && status !== 'draft' && status !== 'cancelled'
+  const 做好了 = (住 || !册)
+    ? (d.shipments || []).length > 0
+    : 册.status === 'ready'
+  const 完了 = status === 'done' || (住 && 付了 && !d.to_scan && 做好了)
+
+  /* 【走过的必须是连着的一段】。分开判各步的话会出现「还没付款、
+     但算好那一步亮着」——本机的册子是验证脚本直接种成 ready 的，
+     真实链路里也可能因为补偿任务先跑而短暂出现。
+     所以取【从头连续成立】的那一段，遇到第一个没成立的就停。 */
+  const 成了 = [true, 付了, 做好了, 完了]
+  let 走过 = 0
+  while (走过 < 名.length && 成了[走过]) 走过++
+
+  /* 橙的那一点是【下一步该发生的事】，不是「最后做完的那件」——
+     人点进订单是想知道接下来等什么。全部做完时没有下一步，
+     那就让最后一步亮着。 */
+  const 现在 = 走过 >= 名.length ? 名.length - 1 : 走过
+  return 名.map((t, i) => ({ t, s: i < 现在 ? 'past' : (i === 现在 ? 'now' : 'todo') }))
+}
+
 Page({
   data: {
     id: '',
@@ -60,6 +97,7 @@ Page({
     /** 这一单里还有没有没扫开的御守（设计册 M3）。
      *  有 → 这一屏的主按钮是「收到了，去扫开它」。 */
     toScan: false,
+    走到哪儿: [] as Array<{ t: string; s: string }>,
     /** 这一单买的那一册（设计册 M2「看 ›」）。null = 这单没买报告 */
     report: null as { id: string; status: string } | null,
     waking: false,
@@ -115,6 +153,7 @@ Page({
             sub: money(l.line_subtotal_minor, o.currency),
           })),
           toScan: !!d.to_scan,
+          走到哪儿: 这一单走到哪儿(o.status, d),
           /* 这一单买的册子。御守的完成态是住进村里，报告的完成态是
              **你读到了** —— 所以它跟「去扫开它」一样是主按钮。
              还没出的那些（还差生辰）也给出来：它是这一单真实的状态，
