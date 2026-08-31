@@ -13,13 +13,13 @@ import { commerceApi } from '../../services/commerce'
 import { storage } from '../../services/storage'
 import type { ApiError } from '../../services/api'
 import type { OrderCard } from '../../types/commerce'
-import { money, 状态说法 } from '../../utils/money'
+import { money, 状态说法, 该做什么 } from '../../utils/money'
 import { 一句 } from '../../utils/say'
 
 /** 一页五笔 —— 设计 10.3：一屏放得下五笔，多了左右翻，不往下滚 */
 const 每页 = 5
 
-type Row = OrderCard & { statusText: string; totalText: string; whenText: string }
+type Row = OrderCard & { statusText: string; totalText: string; whenText: string; go: string }
 
 interface IData {
   loading: boolean
@@ -86,6 +86,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
             ? (o.line_count > 1 ? o.title + ' 等 ' + o.line_count + ' 件' : o.title)
             : '单 ' + o.id.slice(0, 8),
           statusText: 状态说法[o.status] || o.status,
+          go: 该做什么(o.status),
           totalText: money(o.amount_total_minor, o.currency),
           whenText: (o.created_at || '').slice(5, 10).replace('-', '/'),
         }))

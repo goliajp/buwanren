@@ -9,7 +9,7 @@
 import { storage } from '../../services/storage'
 import { mineApi } from '../../services/mine'
 import { commerceApi } from '../../services/commerce'
-import { 状态说法 } from '../../utils/money'
+import { 状态说法, 该做什么 } from '../../utils/money'
 import type { OrderCard, TraceEvent } from '../../types/commerce'
 
 interface Recent {
@@ -17,6 +17,8 @@ interface Recent {
   title: string
   when: string
   state: string
+  /** 右边那个动作词。待付的单子该「去付」，不是「看」 */
+  go: string
 }
 
 interface IData {
@@ -123,6 +125,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
               : '单 ' + o.id.slice(0, 8),
             when: (o.created_at || '').slice(5, 10).replace('-', '/') + ' 下单',
             state: 状态说法[o.status] || o.status,
+            go: 该做什么(o.status),
           },
         })
         this.loadNextStop(o)
