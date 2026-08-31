@@ -18,7 +18,11 @@
     <view class="hd">
       <!-- 状态点压在脸的右下角，所以要包一层能定位的壳 -->
       <view class="facewrap">
-        <view class="face face-{{who.direction}}">{{who.face}}</view>
+        <!-- 画好脸的人铺真图，没画好的仍旧是圆底 + 姓名末字。
+             有图时不渲那个字:它会从像素的透明处透出来。 -->
+        <view class="face face-{{who.direction}} {{脸样 ? 'face-art' : ''}}" style="{{脸样}}">
+          <text wx:if="{{!脸样}}">{{who.face}}</text>
+        </view>
         <!-- 【状态跟着人走】。「住着 / 还没请来」是个是非题，
              占一整个胶囊太重;做成脸上那个小点，不读字也看得出来。 -->
         <view class="dot {{who.at_home ? 'dot-home' : ''}}"></view>

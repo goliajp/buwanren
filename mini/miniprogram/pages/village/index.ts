@@ -12,6 +12,7 @@
  */
 
 import { villageApi } from '../../services/village'
+import { 脸 } from '../../utils/face'
 import { 唤醒, 扫一枚 } from '../../utils/omamori'
 import { 轻 } from '../../utils/feel'
 import { incenseApi } from '../../services/incense'
@@ -99,7 +100,7 @@ interface VillageData {
   codeBusy: boolean
   /** 某位今天说的一句（设计册 V1）。null = 村里还没人，这一块整个不摆。
    *  它会改画布的可用高度 —— 从无到有那天要重算，见 `fitCanvas` */
-  says: null | { villager_id: string; name: string; title: string | null; art: string | null; text: string; face: string; direction: string | null }
+  says: null | { villager_id: string; name: string; title: string | null; art: string | null; text: string; face: string; direction: string | null; 脸样?: string }
   /** 正在找那一位的御守 —— 找的时候按钮换个字，别让人以为没反应 */
 }
 
@@ -195,7 +196,7 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
            但「有人在跟你说话」得一眼成立，纯文字做不到。
            等 40 张头像画好，这一行换成图片地址即可，版式不动。 */
         const 说的 = v.today_says
-          ? { ...v.today_says, face: v.today_says.name.slice(-1) }
+          ? { ...v.today_says, face: v.today_says.name.slice(-1), 脸样: 脸(v.today_says.villager_id) }
           : null
         /* 「有没有那一格」才是判据 —— 说话卡与开场白二选一，都占 90px。
            只比 `says` 的有无，会漏掉「第一位住进来那天开场白让位给说话卡」

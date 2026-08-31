@@ -391,6 +391,20 @@ input::placeholder, textarea::placeholder { color: var(--stone-label); }
 .face-near   { --f1: #FFE6D2; --f2: #F5A98C; background: linear-gradient(150deg, var(--f1), var(--f2)); color: #8A3F28; }
 .face-ask    { --f1: #FDEDCB; --f2: #E8C878; background: linear-gradient(150deg, var(--f1), var(--f2)); color: #7A5A1A; }
 
+/* 【铺了真脸的圆牌】。四十位的正面像素图早就画好在设计册里，
+   只是从来没接到这一侧 —— 界面上一直是「圆底 + 姓名末字」。
+   由 `rooms/tools/export-faces.mjs` 导出成 engine/faces.js，
+   `utils/face.ts` 的 `脸(id)` 拼出这一段 style。
+
+   `pixelated` 是必须的:12×16 的图放到 168rpx，不声明就被插值成一团糊。
+   底色留着 —— 像素图有透明处，透出方向色，跟还没画好的那些看着是一套。 */
+.face-art {
+  background-repeat: no-repeat;
+  background-position: center 58%;
+  background-size: 74% auto;
+  image-rendering: pixelated;
+}
+
 /* 【同一路人别长成同一张脸】。方向色是有意的（颜色本身在说「他劝你往哪走」），
    不能打乱;但缺「近人」那一路有十一位，名册上十一个一模一样的粉橙圆牌
    并排摆着，占位感最重的就是这一屏。
