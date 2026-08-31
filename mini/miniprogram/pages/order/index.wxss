@@ -126,3 +126,17 @@
   background: var(--amber); box-shadow: 0 0 0 5rpx var(--amber-lite);
 }
 .tk-now .tk-t { color: var(--ink); font-size: 23rpx; }
+
+
+/* 下一步等什么。比标题轻、比落款重 —— 它是这一屏此刻最要紧的一句话。 */
+.nextline {
+  margin-top: 26rpx; padding: 20rpx 24rpx;
+  background: var(--paper-panel); border-radius: 14rpx;
+  font-size: 26rpx; line-height: 1.7; color: var(--ink);
+}
+/* 订单号。给客服念的，不是给买家读的 —— 最轻的一档，等宽字。 */
+.ordno {
+  margin-top: 18rpx;
+  font-size: 21rpx; color: var(--stone-label);
+  font-family: ui-monospace, Menlo, monospace;
+}
