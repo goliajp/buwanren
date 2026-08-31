@@ -481,6 +481,21 @@ async fn scan(
     let name: Option<String> = r.as_ref().map(|x| x.get("name"));
     let direction: Option<String> = r.as_ref().and_then(|x| x.get("direction"));
 
+    /* 【他搬进来的第一句话】。这一屏是整条链上唯一一次「实物变成人」，
+       而在此之前他是一张不出声的脸 —— 一个刚被请回来的人，
+       不说话就还只是一件商品。
+
+       **只给写过台词的人**（`villager_line` 里有行的那几位）。
+       四十位共用一句通用问候的话，当场就暴露「这些人是批量生成的」，
+       比沉默更伤 —— 那正是「不完人」这个设定最经不起的误读。
+       取 seq=1 那一条:四条里第一条是这个人的开场。 */
+    let 第一句: Option<String> = sqlx::query_scalar(
+        "SELECT text FROM villager_line WHERE villager_id = $1 AND seq = 1",
+    )
+    .bind(&vid)
+    .fetch_optional(&st.db)
+    .await?;
+
     Ok(Json(json!({
         "villager_id": vid,
         "villager_name": name,
@@ -488,6 +503,8 @@ async fn scan(
         // 重复扫不是错误,但界面要说得不一样:
         // 第一次是「他住进来了」,第二次是「他早就在了」
         "moved_in": out.is_new(),
+        // 没写过台词的人给 null —— 界面据此决定说不说，不编一句顶上
+        "first_line": 第一句,
     })))
 }
 

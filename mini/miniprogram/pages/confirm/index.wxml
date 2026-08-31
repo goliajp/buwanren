@@ -46,7 +46,11 @@
     </view>
     <view class="note" wx:if="{{addrNote}}">{{addrNote}}</view>
 
-    <view class="row">
+    <!-- 【御守不摆数量】。它是把一位具体的人请进村里那一格 ——
+         数量填 2 等于请两个婆婆，而村里只有一个婆婆、一格屋子。
+         摆一个填了没意义的字段，比不摆更让人犹豫:人会停下来想
+         「填 2 会怎样」，而那个问题没有答案。香和别的实物照旧摆。 -->
+    <view class="row" wx:if="{{!住进来}}">
       <text class="row-k">数量</text>
       <view class="stepper">
         <text class="step {{qty <= 1 ? 'step-off' : ''}}" bindtap="minus">−</text>

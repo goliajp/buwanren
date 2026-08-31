@@ -102,8 +102,8 @@
     <view class="empty-state">
       <view class="empty-art">问</view>
       <view class="empty-t">今天还没问过</view>
-      <view class="empty-s">想清楚一件事，去转一下</view>
-      <button class="btn" bindtap="goHome">去转一下</button>
+      <view class="empty-s">心里先装着一件事，签才对得上</view>
+      <button class="btn" bindtap="goHome">去问一件事</button>
     </view>
   </block>
 
