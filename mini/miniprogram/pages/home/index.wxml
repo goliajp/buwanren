@@ -37,7 +37,7 @@
          没有脸、没有谁说的话、没有一处景，而它叫「我家」。
          「你缺土」这件事的用处正是「村里哪几位补得上」。 -->
     <view class="tovillage" bindtap="goInvite" hover-class="entry-hover" hover-stay-time="100">
-      <text>村里有几位跟你补得上</text><text class="tovillage-go">去看看 ›</text>
+      <text>村里有几位说得到你</text><text class="tovillage-go">去看看 ›</text>
     </view>
   </block>
 

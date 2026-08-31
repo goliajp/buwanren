@@ -109,7 +109,7 @@
            花钱买的东西读到底没有落点。这里做两件事:
            告诉他册子不会丢，再给他下一步。 -->
       <view class="fin" wx:if="{{at === tabs.length - 1}}">
-        <view class="fin-p">后面没有了 —— 看不明白的地方，村里人照着这张盘给你讲</view>
+        <view class="fin-p">后面没有了 —— 看不明白的地方，村里人照着这份说明书给你讲</view>
         <button class="btn fin-b" bindtap="onAskVillage">去问问村里人</button>
       </view>
     </view>

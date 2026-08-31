@@ -61,7 +61,7 @@
     <!-- 算完之后要有下一步。原先只有「再填一份」——
          最贵的一步做完了，然后没有下文，而这一屏正是把结果接回村子的地方。 -->
     <view class="cta enter" style="animation-delay:400ms">
-      <button class="btn" bindtap="goInvite">看看谁跟你补得上</button>
+      <button class="btn" bindtap="goInvite">看看谁说得到你</button>
       <button class="btn ghost" bindtap="rebuild">再填一份</button>
     </view>
 

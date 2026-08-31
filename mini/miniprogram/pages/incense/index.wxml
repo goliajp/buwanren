@@ -46,10 +46,11 @@
           hover-class="pick-hover" hover-stay-time="100">
       <view class="pick-n">{{item.name}}</view>
       <view class="pick-p">{{item.priceText}}</view>
-      <!-- 点一档直接进确认屏（等于开始下单）—— 而卡片上原先一个字都没说
-           这件事：三张牌并排摆着，看不出是能按的，也看不出按下去会怎样。
-           这一屏是苏合卖香的地方，屏上却没有一颗写着「买」的东西。 -->
-      <view class="pick-go">买这一档 ›</view>
+      <!-- 点一档直接进确认屏（等于开始下单）。这条动作带做成实心的:
+           原先是一行 21rpx 的橙字，比屏底那颗「回去」还轻 ——
+           而这一屏最要紧的事是买。三张牌上写同一句「买这一档」也没必要，
+           上面已经写着这一档是什么、多少钱。 -->
+      <view class="pick-go">买</view>
     </view>
   </view>
 

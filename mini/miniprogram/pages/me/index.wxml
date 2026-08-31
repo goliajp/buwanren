@@ -24,7 +24,11 @@
       <text class="entry-v">{{badgeText}}</text>
       <text class="entry-arrow">›</text>
     </view>
-    <view class="entry" bindtap="goSubs" hover-class="entry-hover" hover-stay-time="100">
+    <!-- 真订着东西的时候才摆这一行。村里现在没有可订的东西，
+         那一屏点进去只会说「等有了会摆在这儿」—— 它唯一传达的信息是
+         这个产品还没做完，而它跟另外四行并排挂着，会把那四行的可信度
+         一起拉低。有货那天它自己就回来了。 -->
+    <view class="entry" wx:if="{{hasSubs}}" bindtap="goSubs" hover-class="entry-hover" hover-stay-time="100">
       <text class="entry-k">订着的</text>
       <text class="entry-v">{{subText}}</text>
       <text class="entry-arrow">›</text>

@@ -42,7 +42,7 @@
     // ══ 表演态:点「请桃桃起一局」══
     perform: {
       actor: { x: 636, y: 700, poses: ['reach1', 'reach2'], fps: 1.0, flip: false, speed: 18 },
-      button: 'taoCastBtn', labels: ['请桃桃起一局', '收局'],
+      button: 'taoCastBtn', labels: ['请桃桃翻张牌', '收牌'],
       stateKey: 'casting',                      // 局桌读这个键画九宫与天盘
       lineGap: 4200,                            // 她在算，不是在演 —— 节奏放慢
       lines: ['三奇六仪……先排地盘', '值符落在哪一宫来着', '别催。催也快不了',

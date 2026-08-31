@@ -140,14 +140,24 @@ button.btn.btn-hover:not([disabled]) {
   box-shadow: 0 0 0 var(--amber-deep), 0 4rpx 10rpx rgba(232,121,26,.2);
 }
 
+/* 次要动作。原先是纯白 + 厚度 + 阴影，跟主按钮同尺寸 ——
+   在米色底上那是【跳出来】的，视觉重量跟主按钮几乎一样。
+   结果是「回去」在八屏上成了屏幕最大的东西，而它是最不重要的动作:
+   香那一屏最要紧的是买，可白底的「回去」比橙色的「买这一档」还醒目。
+
+   改成透明底 + 一圈细描边:看得见、点得着，但一眼就知道它次于主按钮。
+   不用纯文字链是因为好几屏上它是唯一的按钮（空态的「回去」），
+   太轻了就找不着落点。 */
 button.btn.ghost {
-  background: #fff;
-  color: var(--ink);
-  box-shadow: 0 4rpx 0 var(--stone-line-x), 0 6rpx 16rpx rgba(43,38,32,.06);
+  background: transparent;
+  color: var(--ink-mid);
+  border: 2rpx solid var(--stone-line);
+  box-shadow: none;
 }
 button.btn.ghost.btn-hover:not([disabled]) {
-  transform: translateY(4rpx);
-  box-shadow: 0 0 0 var(--stone-line-x), 0 3rpx 8rpx rgba(43,38,32,.05);
+  transform: none;
+  border-color: var(--ink-faint);
+  color: var(--ink);
 }
 
 /* `.stamp`（朱印红）删了。0830 里它被映射成桃粉，而桃粉是「喜欢」那一档 ——
