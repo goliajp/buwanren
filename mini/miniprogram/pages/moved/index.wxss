@@ -79,3 +79,34 @@
   40%  { transform: scale(1.34); }
   100% { transform: scale(1);    }
 }
+
+
+/* 他搬进来说的第一句。带尖角的气泡 —— 尖角指着上面那张脸，
+   这一句才归属到人身上，而不是又一行界面文案。
+   出现在名字浮起之后（延迟 640ms）:跟脸同时出来就没有
+   「他开口了」这个因果，只是一次性铺完的排版。 */
+.firstsay {
+  position: relative;
+  display: inline-block;
+  max-width: 560rpx;
+  margin: 26rpx auto 0;
+  padding: 18rpx 26rpx;
+  background: var(--paper-panel);
+  border-radius: 20rpx;
+  box-shadow: 0 4rpx 14rpx rgba(43,38,32,.08);
+  font-size: 27rpx; line-height: 1.6; color: var(--ink);
+  opacity: 0;
+  animation: 开口 .3s ease-out .64s forwards;
+}
+/* 尖角:上边中间一个小三角，跟气泡同色 */
+.firstsay::before {
+  content: '';
+  position: absolute; top: -12rpx; left: 50%; margin-left: -12rpx;
+  border-left: 12rpx solid transparent;
+  border-right: 12rpx solid transparent;
+  border-bottom: 12rpx solid var(--paper-panel);
+}
+@keyframes 开口 {
+  from { opacity: 0; transform: translateY(10rpx) }
+  to   { opacity: 1; transform: translateY(0) }
+}

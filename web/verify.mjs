@@ -702,6 +702,27 @@ if (API) {
   await p.waitForTimeout(400)
   const 重复 = await text()
   ok(重复.includes('早就在了'), '重复扫说的是「早就在了」，不是同一句', 重复.slice(0, 30))
+  /* 两句【不能同时在】。`wx:else` 必须紧跟着 `wx:if` —— 中间插一个元素
+     那一对就散了，两句一起显示，而屏上看着只是「话多了一行」。
+     2026-08-31 加那句开场白时正好插在中间，真踩到。 */
+  await open('pages/moved/index', { name: '某位', id: 'nobody' })
+  await p.waitForTimeout(900)
+  const 头一回文 = await text()
+  ok(!(头一回文.includes('住进了村里那一格') && 头一回文.includes('你已经扫过')),
+     '「搬进来了」和「早就在了」不会同时出现', 头一回文.slice(0, 52))
+
+  /* 【他搬进来说的第一句】。这一屏是整条链上唯一一次「实物变成人」，
+     在此之前他是一张不出声的脸 —— 不说话就还只是一件商品。
+     只给写过台词的人:婆婆有，随手编的 id 没有。 */
+  await open('pages/moved/index', { name: '婆婆', id: 'popo', say: '吃了没？没吃先去吃' })
+  await p.waitForTimeout(1200)
+  ok(await p.evaluate(() => !!document.querySelector('.firstsay')),
+     '搬进来那一刻他开口说了一句', await p.evaluate(() =>
+       (document.querySelector('.firstsay') || {}).textContent || '（没有气泡）'))
+  await open('pages/moved/index', { name: '某位', id: 'nobody' })
+  await p.waitForTimeout(800)
+  ok(!(await p.evaluate(() => !!document.querySelector('.firstsay'))),
+     '没写过台词的人不编一句顶上　—— 四十位共用一句会当场露馅')
   /* 「他住进来了」那一屏上的出口。扫完一枚御守之后最想做的就是这一下,
      而它从来没被真按过 —— 按钮在、点了没反应是两回事。 */
   await p.getByText('去看看', { exact: true }).click()
