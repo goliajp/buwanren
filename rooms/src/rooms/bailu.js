@@ -327,7 +327,7 @@
   globalThis.BAILU_ROOM.perform = {
     // 玩家点按钮 → 她回案前跪坐排盘。speed 20 高于闲逛 12
     actor: { x: 640, y: 796, poses: ['sit'], fps: 1, flip: false, speed: 20 },
-    button: 'bailuCastBtn', labels: ['请白鹭排个盘', '收起'], stateKey: 'divining',
+    button: 'bailuCastBtn', labels: ['请白鹭看看星星', '收起'], stateKey: 'divining',
     lineGap: 5000,
     lines: ['写生辰来。年月日时，要准',
             '……紫微在命，天府在迁。你天生是要动的',

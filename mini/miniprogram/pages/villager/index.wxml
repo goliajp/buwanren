@@ -25,7 +25,7 @@
 
     <!-- 「缺」是这个产品的身份字段，所以它排在最前、颜色最重 -->
     <view class="tags">
-      <text class="tag tag-lack lack-{{who.direction}}">缺 {{who.lack}}</text>
+      <text class="tag tag-lack lack-{{who.direction}}">缺{{who.lack}}</text>
       <text class="tag" wx:if="{{who.art}}">{{who.art}}</text>
       <!-- 稀有度（「常」「稀」）是运营的分档，不是给买的人看的词 ——
            屏上摆一个「常」字，读的人只会当成错别字。它退到那一份里去。 -->
@@ -84,7 +84,10 @@
 
     <view class="acts">
       <block wx:if="{{who.at_home}}">
-        <button class="btn" bindtap="onAsk">{{asking ? '问着……' : '问事'}}</button>
+        <button class="btn" bindtap="onAsk">
+          <block wx:if="{{asking}}">问着……</block>
+          <block wx:else>问问{{who.name}}</block>
+        </button>
         <!-- 她卖的东西，入口在她这儿（设计册 10.8：香在苏合家里卖，不在铺子里）。
              这一颗按 `sells` 出现 —— 由后端说这位村民卖不卖东西，页面不写死名单：
              写死的话，第二个卖东西的人来了没人记得改这里。 -->

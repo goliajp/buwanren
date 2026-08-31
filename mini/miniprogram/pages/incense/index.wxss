@@ -82,6 +82,13 @@
 .acts { margin-top: auto; }
 .acts .btn { width: 100%; box-sizing: border-box; }
 
-/* 点一档直接进确认屏 —— 卡片得说出这件事。
-   三张牌并排摆着看不出能按，而这一屏是卖香的地方。 */
-.pick-go { margin-top: 12rpx; font-size: 21rpx; font-weight: 600; color: var(--amber-deep); }
+/* 点一档直接进确认屏 —— 卡片得说出这件事，而且要说得够重:
+   这一屏最要紧的动作是买，它不该比屏底那颗「回去」还轻。
+   实心带子贴在卡片底部，三张并排就是三颗按钮。 */
+.pick-go {
+  margin: 18rpx -10rpx -20rpx; padding: 14rpx 0;
+  border-radius: 0 0 var(--r-card) var(--r-card);
+  background: var(--amber); color: #fff;
+  font-size: 26rpx; font-weight: 700; letter-spacing: 0.08em;
+}
+.pick-hover .pick-go { background: var(--amber-deep); }
