@@ -105,6 +105,13 @@ Page({
     wx.navigateTo({ url: '/pages/natal/index' })
   },
 
+
+  /* 读完了去问人。用 switchTab —— 村子是 tab 页，navigateTo 打不开它，
+     而这一册是从「我」那一栏 navigateTo 进来的，返回栈里没有村子。 */
+  onAskVillage() {
+    wx.switchTab({ url: '/pages/village/index' })
+  },
+
   onBack() {
     wx.navigateBack({ fail: () => wx.switchTab({ url: '/pages/me/index' }) })
   },
