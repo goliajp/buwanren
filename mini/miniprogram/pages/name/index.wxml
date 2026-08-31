@@ -22,11 +22,11 @@
            这两位是写死的举例，所以颜色也写死 —— 但要写【她们真正的那个色】，
            不能各自现调一个:同一个人在别处是粉的，到这儿变成琥珀与绿，
            颜色就不再是在指人了。 -->
-      <view class="say-face face-near">婆</view>
+      <view class="say-face face-near {{婆脸 ? 'face-art' : ''}}" style="{{婆脸}}"><text wx:if="{{!婆脸}}">婆</text></view>
       <view class="bubble">{{draft || nickname}}，别急，慢慢来</view>
     </view>
     <view class="say-row">
-      <view class="say-face face-near">苏</view>
+      <view class="say-face face-near {{苏脸 ? 'face-art' : ''}}" style="{{苏脸}}"><text wx:if="{{!苏脸}}">苏</text></view>
       <view class="bubble">{{draft || nickname}}，这一味给你留着</view>
     </view>
   </view>

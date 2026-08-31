@@ -9,6 +9,7 @@
  * （「你缺火，我给你配一味暖的」），三档价钱只是那句话的后果。
  */
 import { natalApi } from '../../services/natal'
+import { 脸 } from '../../utils/face'
 import { incenseApi } from '../../services/incense'
 import { commerceApi } from '../../services/commerce'
 import { storage } from '../../services/storage'
@@ -26,6 +27,8 @@ const 配语: Record<string, string> = {
 }
 
 interface IData {
+  /** 苏合的头像那一段 style。她的脸画好了就有，没有就是空串 */
+  脸样: string
   /** 卖的是哪一件。从村民那一页带过来 —— 写死的话，
    *  第二个卖东西的人来了这一屏就指错商品。
    *  （她那一句的口气仍是苏合的：第二个卖家来时各配一张表。） */
@@ -40,7 +43,11 @@ interface IData {
 }
 
 Page<IData, WechatMiniprogram.IAnyObject>({
-  data: { productId: 'prod-suhe-incense', loading: true, err: '', line: '', skus: [], tonight: false },
+  data: {
+    /* 这一屏就是苏合的 —— 头像也就写死她。
+       上一轮接四十张脸时扫的是 `face-{{…}}` 那种模式，
+       这里的类名是写死的 `face-near`，于是漏掉了。 */
+    脸样: 脸('suhe'), productId: 'prod-suhe-incense', loading: true, err: '', line: '', skus: [], tonight: false },
 
   onLoad(q: Record<string, string | undefined>) {
     if (q.id) this.setData({ productId: q.id })
