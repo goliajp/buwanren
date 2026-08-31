@@ -32,8 +32,13 @@ bash scripts/gates.sh 2>&1 | tee "$LOG"
 if ! grep -qE '^过 [0-9]+ · 挂 0 · 跳过 0' "$LOG"; then
   echo
   echo "✗ 合并后的 develop 没有全绿 —— 不推。"
-  echo "  这一支已经合进本地 develop 了；修好再跑一次这条命令，"
-  echo "  或者 git reset --hard origin/develop 退回去。"
+  echo "  这一支已经合进本地 develop 了。两条路："
+  echo "    · 修好，再跑一次这条命令"
+  echo "    · git reset --hard HEAD~1   ← 只退这次合并"
+  echo
+  echo "  【别用 git reset --hard origin/develop】除非你确认本地没有别的"
+  echo "  未推提交 —— 它会把那些一起丢掉。2026-08-31 我就这么丢了两个，"
+  echo "  从 reflog 才捡回来。"
   rm -f "$LOG"; exit 1
 fi
 rm -f "$LOG"
