@@ -29,6 +29,18 @@ import pathlib
 错, 人 = [], {}
 
 文件 = sorted(迁移.glob('*villager_line*.sql')) + sorted(迁移.glob('*_lines.sql'))
+
+# 【别漏文件】。上面靠文件名挑，起名没照规矩来的那一份就静默不参与 ——
+# 而报出来是「11 位都合规格」，看着跟通过一模一样（2026-09-01 真踩到:
+# 新写的八位起名叫 `..._lines_batch2.sql`，`*_lines.sql` 匹配不上）。
+# 判据是【目录里凡是插 villager_line 的文件，都得在名单里】。
+漏 = [f for f in sorted(迁移.glob('*.sql'))
+      if 'INSERT INTO villager_line' in f.read_text(encoding='utf-8') and f not in 文件]
+if 漏:
+    print('✗ 这几份插了台词却没被扫到（文件名得含 villager_line 或以 _lines.sql 结尾）：')
+    for f in 漏:
+        print('    ' + f.name)
+    sys.exit(1)
 if not 文件:
     print('✗ 找不到台词迁移 —— 这一支够不着要验的东西，不算通过')
     sys.exit(1)
