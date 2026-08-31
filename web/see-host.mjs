@@ -63,8 +63,9 @@ for (const [id, 名] of Object.entries(房)) {
   const [线, 因] = 豁免[id] || [底线, '']
   const 过 = 率 >= 线
   if (!过) 错++
-  console.log(`  ${过 ? '·' : '✗'} ${名}　露出 ${(率*100).toFixed(0)}%`
-            + `（${Math.round(见)}/${Math.round(应见)} 像素）${因 ? '　— ' + 因 : ''}`)
+  const 百分 = Math.round(率 * 100)
+  const 括注 = `（${Math.round(见)}/${Math.round(应见)} 像素）`
+  console.log(`  ${过 ? '·' : '✗'} ${名}　露出 ${百分}%${括注}${因 ? '　— ' + 因 : ''}`)
 }
 await b.close(); 服务.kill()
 if (查 !== 6) { console.log(`✗ 只查到 ${查} 间房`); process.exit(1) }
