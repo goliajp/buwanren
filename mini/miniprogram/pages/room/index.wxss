@@ -12,3 +12,6 @@
 .cast { margin-left: auto; padding: 12rpx 32rpx; border-radius: 16rpx;
         background: var(--ink); color: var(--paper); font-size: 28rpx; }
 .err { padding: 32rpx; color: var(--peach); font-size: 26rpx; line-height: 1.7; }
+
+/* 出口。名字左边，跟别处的「回去」同一档次要动作。 */
+.back { font-size: 26rpx; color: var(--ink-mid); padding: 8rpx 0; }

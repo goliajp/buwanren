@@ -147,6 +147,14 @@ Page<RoomData, WechatMiniprogram.IAnyObject>({
       })
   },
 
+
+  /* 回村里。`navigateBack` 的 fail 兜底要留着 —— 直接开这一页时
+     页面栈里没有上一页（推送、扫码后跳进来都是这样），
+     那时 back 会抛，人就卡在一屏没有出口的画面上。 */
+  onBack() {
+    wx.navigateBack({ fail() { wx.switchTab({ url: '/pages/village/index' }) } })
+  },
+
   onTap(e: WechatMiniprogram.TouchEvent) {
     // detail.x / y 是相对元素的逻辑像素;画布是 1440 宽,差一个比例。
     // 换算交给适配层做(它知道 node.width),这里只把显示宽度告诉它。

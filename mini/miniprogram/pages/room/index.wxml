@@ -15,6 +15,11 @@
   </view>
 
   <view class="bar">
+    <!-- 【出口】。这一屏原先只有名字和一颗主按钮 —— 进了屋出不来。
+         真机上有原生返回栏，但这个 app 每一屏底下都摆着「回去」，
+         唯独这里没有;而它是引擎屏，尺子那一支按「有没有 canvas」豁免了它，
+         于是「不是死路」那一条从没在这一屏上验过。 -->
+    <view class="back" bindtap="onBack">‹ 回村里</view>
     <view class="who">{{name}}</view>
     <!-- 表演态那颗按钮。文案由引擎写回来,不由这里点了几下决定 -->
     <view wx:if="{{castLabel}}" class="cast" bindtap="onCast">{{castLabel}}</view>
