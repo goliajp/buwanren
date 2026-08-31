@@ -307,17 +307,27 @@ async fn get_my_order(
        走到结账屏，人就不见了，买家读到的是「我在买一件货」。
        名字取【现在库里的】而不是快照:村民改名是极少的事，
        而认不出是谁的代价，比名字晚一天更新大得多。 */
-    let 行上的人: std::collections::HashMap<String, (String, Option<String>)> = sqlx::query(
-        r#"SELECT ol.id AS line_id, v.name, b.direction
+    /* 【挂着人 ≠ 是御守】。香也挂着苏合（`sku.villager_id`），
+       但买香是寄一盒香给你，不是请她搬进来。判据是商品的 `fulfillment_kind`：
+       `residency` 才会有人住进村里。
+
+       这个等价错过三次（商品页的眉标、下单页的卡片名、这一页的明细名），
+       每次都是各自在前端推断「有 villager_name 就是御守」——
+       所以这里直接把答案给出去，不让调用方再猜。 */
+    let 行上的人: std::collections::HashMap<String, (String, Option<String>, bool)> = sqlx::query(
+        r#"SELECT ol.id AS line_id, v.name, b.direction,
+                  (p.fulfillment_kind = 'residency') AS resident
              FROM order_line ol
              JOIN sku k ON k.id = ol.sku_id
+             JOIN product p ON p.id = k.product_id
              JOIN villager v ON v.id = k.villager_id
              LEFT JOIN lack_bias b ON b.lack = v.lack
             WHERE ol.order_id = $1"#,
     ).bind(&id).fetch_all(&st.db).await.map_err(map_db)?
      .into_iter()
      .map(|r| (r.get::<String, _>("line_id"),
-               (r.get::<String, _>("name"), r.get::<Option<String>, _>("direction"))))
+               (r.get::<String, _>("name"), r.get::<Option<String>, _>("direction"),
+                r.get::<Option<bool>, _>("resident").unwrap_or(false))))
      .collect();
     let lines = sqlx::query("SELECT * FROM order_line WHERE order_id=$1 ORDER BY line_no")
         .bind(&id).fetch_all(&st.db).await.map_err(map_db)?;
@@ -367,11 +377,16 @@ async fn get_my_order(
                 let who = o.get("id").and_then(|v| v.as_str())
                     .and_then(|lid| 行上的人.get(lid)).cloned();
                 o.insert("villager_name".into(),
-                         who.as_ref().map_or(J::Null, |(n, _)| J::String(n.clone())));
+                         who.as_ref().map_or(J::Null, |(n, _, _)| J::String(n.clone())));
+                /* 买了这一行，村里会不会多一个人。**不挂人的行也给这个键**，
+                   值是 false —— 理由跟 villager_name 那条一样：
+                   「有时候有这个键」比「一直有」难对付得多。 */
+                o.insert("becomes_resident".into(),
+                         J::Bool(who.as_ref().map_or(false, |(_, _, r)| *r)));
                 /* 方向也给 —— 一单那一屏要拿它给脸配色。
                    不给的话页面只能自己引用自己的旧值，那是取不到就摆错色。 */
                 o.insert("villager_direction".into(),
-                         who.and_then(|(_, d)| d).map_or(J::Null, J::String));
+                         who.and_then(|(_, d, _)| d).map_or(J::Null, J::String));
             }
             l
         }).collect::<Vec<_>>(),

@@ -88,8 +88,13 @@ export interface OrderLine {
   line_no: number
   sku_id: string
   sku_name?: string | null
-  /** 这一行封着谁（御守才有）。快照名是「御守 · 单枚」，认不出人 */
+  /** 这一行挂着谁。快照名是「御守 · 单枚」，认不出人。
+      **挂着人不等于是御守** —— 香也挂着苏合。要不要说「谁谁的御守」，
+      看下面那个 `becomes_resident`，别拿这个字段推断。 */
   villager_name?: string | null
+  /** 买了这一行，村里会不会多一个人（`fulfillment_kind === 'residency'`）。
+      不挂人的行也有这个键，值是 false */
+  becomes_resident: boolean
   /** 他劝你的方向 —— 一单那一屏拿它给脸配色 */
   villager_direction?: string | null
   qty: number

@@ -147,6 +147,10 @@ gate "check-punct-ui · 界面文案" . python3 scripts/check-punct-ui.py
 # 请人那一屏曾把它说成「他补你哪一样」——村民成了工具，
 # 产品叫「不完人」的理由当场没了，而两屏各说各的谁也不会红。
 gate "「缺」说的是谁" . python3 scripts/check-lack-sense.py
+# 挂着人不等于是御守 —— 香也挂着苏合，但买香是寄一盒香给你。
+# 这个等价错过三次（商品页眉标、下单页卡片名、订单详情明细），
+# 每次都是各自在前端推断。后端现在直接给 becomes_resident，这一支盯着别再猜。
+gate "挂着人不等于是御守" . python3 scripts/check-omamori-sense.py
 gate "设计文档里有没有悄悄失效的" . python3 scripts/check-design-css.py
 gate "线框每一屏都填满了吗" . python3 scripts/check-wireframe-fill.py
 gate "check-routes · 调的接口都在吗" . python3 scripts/check-routes.py

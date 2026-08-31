@@ -135,7 +135,7 @@
     </view>
 
     <!-- 弹性槽（设计册 M3）：说清这一单什么时候才算真的完成 -->
-    <view class="flexslot slot-done" wx:if="{{toScan}}">扫开之后她住进村里 —— 那才是这单真正完成</view>
+    <view class="flexslot slot-done" wx:if="{{toScan}}">扫开之后就住进村里 —— 那才是这单真正完成</view>
 
     <!-- 进弹性槽：这是给在网页版上验的人看的说明，不是买家要读的 -->
     <view class="foot-hint flexslot">支付要在微信里完成 · 移动网页版上到这一步为止</view>

@@ -73,7 +73,7 @@
           hover-class="recommend-hover"
           hover-stay-time="100"
           bindtap="onRecommend">
-      <view class="rec-k">也可以问问他 <text class="rec-arrow">›</text></view>
+      <view class="rec-k">也可以问问 <text class="rec-arrow">›</text></view>
       <view class="rec-name">{{result.recommend.name}}</view>
       <view class="rec-sub" wx:if="{{result.recommend.sub_title}}">{{result.recommend.sub_title}}</view>
     </view>

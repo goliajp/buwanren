@@ -105,7 +105,12 @@ Page({
           paidText: money(o.amount_paid_minor, o.currency),
           paidMinor: Number(o.amount_paid_minor) || 0,
           lines: d.lines.map((l) => ({
-            name: l.villager_name ? l.villager_name + '的御守' : (l.sku_name || l.sku_id),
+            // 「谁谁的御守」只对【买了会有人住进来】的行成立。
+            // 香也挂着苏合，写成「苏合的御守」的话，同一屏上明细叫一个名字、
+            // 底下总计那行叫另一个，看着像买了两样东西。
+            name: (l.becomes_resident && l.villager_name)
+              ? l.villager_name + '的御守'
+              : (l.sku_name || l.sku_id),
             qty: l.qty,
             sub: money(l.line_subtotal_minor, o.currency),
           })),
@@ -120,7 +125,7 @@ Page({
           /* 御守说得出是谁 —— 「丹增的御守」而不是「御守 · 单枚」。
              从商品页那一屏的「丹增 · 下山的武僧」走过来，人不该在结账时消失。 */
           headline: d.lines.length
-            ? ((d.lines[0].villager_name
+            ? (((d.lines[0].becomes_resident && d.lines[0].villager_name)
                  ? d.lines[0].villager_name + '的御守'
                  : (d.lines[0].sku_name || d.lines[0].sku_id))
                + (d.lines.length > 1 ? ' 等 ' + d.lines.length + ' 件' : ''))
