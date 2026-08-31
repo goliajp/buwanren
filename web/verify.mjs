@@ -896,6 +896,24 @@ if (API) {
       const 单屏 = await text()
       await shot('12-一单')
       ok(单屏.includes('收到了，去扫开它'), '主按钮是「收到了，去扫开它」')
+
+      /* 【走到哪儿】这一条路。这一单是御守、已付、已寄、还没扫 ——
+         所以四步应该是「下单·付款走过 / 寄出走过 / 住进来正等着」。
+         这一页原先在最常见的情况下整屏七百多像素全空，人看不出
+         这单现在怎么样；而步骤要是各判各的，会出现「没付款但算好亮着」。 */
+      const 路 = await p.evaluate(() => globalThis.__router.current().data.走到哪儿)
+      ok(Array.isArray(路) && 路.length === 4 && 路[3].t === '住进来',
+         '御守那一单的四步是「下单 · 付款 · 寄出 · 住进来」',
+         Array.isArray(路) ? 路.map((x) => x.t).join(' · ') : String(路))
+      if (Array.isArray(路) && 路.length === 4) {
+        const 亮 = 路.findIndex((x) => x.s === 'now')
+        ok(亮 === 3, '已付已寄没扫的单子，亮着的是最后那一步',
+           路.map((x) => x.t + ':' + x.s).join(' '))
+        // 走过的必须连成一段 —— 中间断开就是各判各的
+        const 连 = 路.every((x, i) => i >= 亮 || x.s === 'past')
+        ok(连, '亮着那一步之前的每一步都走过了，中间不许断',
+           路.map((x) => x.s).join(' '))
+      }
       /* 标题是买的那个东西，不是状态词（设计册 M3 线框）。
          原先大字写着「已付」，而买的是什么要往下看一块。 */
       const 单头 = await p.evaluate(() => ({

@@ -34,7 +34,7 @@
 
     <!-- 问签的结果。同一天问同一位逐字相同 —— 那是设定，不是缓存 -->
     <view class="reading" wx:if="{{say}}">
-      <view class="reading-k">他说</view>
+      <view class="reading-k">{{who.name}}说</view>
       <view class="reading-v">{{say}}</view>
     </view>
 
@@ -49,7 +49,7 @@
     </view>
     <view class="reading daily" wx:elif="{{who.at_home}}">
       <view class="reading-v dim">今天还没问过{{who.name}}</view>
-      <view class="reading-hint">一天一次 · 同一天问她，说的是同一句</view>
+      <view class="reading-hint">一天一次 · 同一天再问，说的是同一句</view>
     </view>
 
     <!-- 【还没请来】那一支原先什么都没有：屏上只有四个标签，
@@ -61,7 +61,7 @@
       <view class="gets-row">
         <view class="gets-n">1</view>
         <view class="gets-b">
-          <view class="gets-t">他住进村里那一间</view>
+          <view class="gets-t">{{who.name}}住进村里那一间</view>
           <view class="gets-s">四十间屋子空着的那一间，从此有人</view>
         </view>
       </view>
@@ -69,14 +69,14 @@
         <view class="gets-n">2</view>
         <view class="gets-b">
           <view class="gets-t">每天跟你说一句</view>
-          <view class="gets-s">他自己的口气，不是通用的话</view>
+          <view class="gets-s">{{who.name}}自己的口气，不是通用的话</view>
         </view>
       </view>
       <view class="gets-row">
         <view class="gets-n">3</view>
         <view class="gets-b">
-          <view class="gets-t">有事可以问他</view>
-          <view class="gets-s" wx:if="{{who.art}}">他这一门是{{who.art}} · 一天一次</view>
+          <view class="gets-t">有事可以问{{who.name}}</view>
+          <view class="gets-s" wx:if="{{who.art}}">这一门是{{who.art}} · 一天一次</view>
           <view class="gets-s" wx:else>一天一次</view>
         </view>
       </view>

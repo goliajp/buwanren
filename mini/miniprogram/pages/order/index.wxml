@@ -33,6 +33,21 @@
   </view>
 
   <block wx:else>
+    <!-- 【走到哪儿】。这一页原先在最常见的情况下（买一件、还没付、没有物流）
+         整屏只有标题、金额、状态三行，中间七百多像素全空 ——
+         而人点进来就是想知道这一单现在怎么样、接下来会怎样。
+         这里【不放 flexslot】：那个槽在 699px 以下整个隐藏，
+         而参照机 iPhone SE 正好在那以下，等于给最该看到的人看不见。 -->
+    <!-- 展开详细轨迹时收起它:两者说的是同一件事（这单走到哪儿），
+         一个粗一个细。同时摆着不只是挤 —— 十二条轨迹的单子会被顶出屏外，
+         而顶出去的那一截在真机上的样子是【底下看不见】，不是报错。 -->
+    <view class="track" wx:if="{{!traceOf}}">
+      <view wx:for="{{走到哪儿}}" wx:key="t" class="tk tk-{{item.s}}">
+        <view class="tk-dot"></view>
+        <view class="tk-t">{{item.t}}</view>
+      </view>
+    </view>
+
     <!-- 多件时才逐行列。单件的话标题已经说了是什么，再列一遍是重复。 -->
     <view class="lines" wx:if="{{lines.length > 1}}">
       <view wx:for="{{lines}}" wx:key="name" class="line">
@@ -135,7 +150,7 @@
     </view>
 
     <!-- 弹性槽（设计册 M3）：说清这一单什么时候才算真的完成 -->
-    <view class="flexslot slot-done" wx:if="{{toScan}}">扫开之后她住进村里 —— 那才是这单真正完成</view>
+    <view class="flexslot slot-done" wx:if="{{toScan}}">扫开之后就住进村里 —— 那才是这单真正完成</view>
 
     <!-- 进弹性槽：这是给在网页版上验的人看的说明，不是买家要读的 -->
     <view class="foot-hint flexslot">支付要在微信里完成 · 移动网页版上到这一步为止</view>
