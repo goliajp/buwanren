@@ -922,6 +922,15 @@ if (API) {
          所以四步应该是「下单·付款走过 / 寄出走过 / 住进来正等着」。
          这一页原先在最常见的情况下整屏七百多像素全空，人看不出
          这单现在怎么样；而步骤要是各判各的，会出现「没付款但算好亮着」。 */
+      /* 【下一步等什么】+【单号】。进度线说得出「在哪儿」，说不出
+         「接下来会怎样」，而人点进订单就是想知道这两件;出了事还得有个
+         能念给客服的东西 —— 这一屏原先一样都没有。 */
+      const 下步 = await p.evaluate(() => globalThis.__router.current().data.下一步)
+      ok(!!下步 && 下步.length > 6, '这一单说得出下一步等什么', String(下步))
+      const 单文 = await text()
+      ok(单文.includes('单号') && 单文.includes('ord-'),
+         '屏上有能念给客服的单号', (单文.match(/单号 \S+/) || ['（没有）'])[0])
+
       const 路 = await p.evaluate(() => globalThis.__router.current().data.走到哪儿)
       ok(Array.isArray(路) && 路.length === 4 && 路[3].t === '住进来',
          '御守那一单的四步是「下单 · 付款 · 寄出 · 住进来」',
