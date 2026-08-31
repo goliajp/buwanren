@@ -79,6 +79,12 @@
 .acts .btn { flex: 1; min-width: 0; box-sizing: border-box; }
 .acts .btn:not(.ghost) { flex: none; width: 100%; }
 .acts .btn.ghost { padding-left: 20rpx; padding-right: 20rpx; }
+/* 按钮行里那一行字（「先看清楚再决定买不买」/「屋子还没搬进来」）
+   要【独占一行】。不写这一条它就是 flex 的一个子项，跟「回村里」
+   并排挤在最后一行，看起来像个左对齐的残句 —— 2026-09-01 截图抓到。
+   它说的是上面那颗主按钮的事，所以跟着主按钮居中、贴着它。 */
+.acts .hint { flex-basis: 100%; width: 100%; text-align: center;
+              margin-top: -6rpx; align-self: auto; }
 
 /* 她今天说的那一句（0830「居民是主角」）。跟问签结果同一个壳，
    位置也同一处 —— 问过之后它让位给真正的那一签。 */

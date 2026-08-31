@@ -101,21 +101,40 @@ fn default_platform() -> String { "web".into() }
 async fn list_products(
     State(st): State<AppState>, Query(q): Query<ProductsQ>,
 ) -> Result<Json<Vec<J>>, ApiError> {
+    /* 【2026-09-01】列表也带上价钱。
+       村民页那颗「请 X 回村」是掏钱的入口，而它之前【不写价】——
+       五路评审里有三路把它列成第一条不敢按的理由:一个没用过的人，
+       不知道按下去是马上扣钱还是先看看，于是干脆不按。
+       价钱在 price_book 上、按 region/platform 生效，跟详情页同一套取法;
+       这里取这件商品最便宜的那一档，够按钮写「¥99 起」。
+       取不到（没上架、没定价）就是 null，页面据此说「还没上架」，
+       不假装有货。 */
     let rows = sqlx::query(
-        r#"SELECT id, code, name, sub_title, category, kind, fulfillment_kind,
-                  hero_image_url, tags, description_md
-           FROM product
-           WHERE status='listed'
-             AND $1 = ANY(available_regions)
-             AND ($2 = 'all' OR $2 = ANY(available_platforms))
-             AND ($3::text IS NULL OR category = $3)
-             AND ($4::text IS NULL OR kind = $4)
+        r#"SELECT p.id, p.code, p.name, p.sub_title, p.category, p.kind, p.fulfillment_kind,
+                  p.hero_image_url, p.tags, p.description_md,
+                  lo.price_minor AS from_price_minor, lo.currency AS from_currency
+           FROM product p
+           LEFT JOIN LATERAL (
+              SELECT pb.price_minor, pb.currency
+                FROM sku s
+                JOIN price_book pb ON pb.sku_id = s.id AND pb.status='active'
+                 AND pb.region IN ($1, 'global') AND pb.platform IN ($2, 'all')
+                 AND pb.effective_from <= NOW()
+                 AND (pb.effective_to IS NULL OR pb.effective_to > NOW())
+               WHERE s.product_id = p.id AND s.status='active'
+               ORDER BY pb.price_minor ASC LIMIT 1
+           ) lo ON TRUE
+           WHERE p.status='listed'
+             AND $1 = ANY(p.available_regions)
+             AND ($2 = 'all' OR $2 = ANY(p.available_platforms))
+             AND ($3::text IS NULL OR p.category = $3)
+             AND ($4::text IS NULL OR p.kind = $4)
              AND ($5::text IS NULL OR EXISTS (
-                   SELECT 1 FROM sku s
-                   WHERE s.product_id = product.id
-                     AND s.status = 'active'
-                     AND s.villager_id = $5))
-           ORDER BY sort_weight DESC, created_at DESC"#,
+                   SELECT 1 FROM sku s2
+                   WHERE s2.product_id = p.id
+                     AND s2.status = 'active'
+                     AND s2.villager_id = $5))
+           ORDER BY p.sort_weight DESC, p.created_at DESC"#,
     ).bind(&q.region).bind(&q.platform).bind(&q.category).bind(&q.kind).bind(&q.villager_id)
      .fetch_all(&st.db).await.map_err(map_db)?;
     Ok(Json(map_rows(rows)))
@@ -155,7 +174,7 @@ async fn get_product(
        村民绑在 sku 上（`sku.villager_id`），所以这里顺着 sku 把人取出来。
        不是御守的商品（香、报告）取不到，就是 null —— 页面据此决定说不说。 */
     let 是谁 = sqlx::query(
-        r#"SELECT v.id, v.name, v.title, a.name AS art_name, b.direction
+        r#"SELECT v.id, v.name, v.title, COALESCE(a.plain, a.name) AS art_name, b.direction
              FROM sku s
              JOIN villager v ON v.id = s.villager_id
              LEFT JOIN art a ON a.key = v.art_key

@@ -16,6 +16,9 @@
  *   插值   {{ 表达式 }},文本与属性里都认
  */
 ;(function () {
+  // HTML 的布尔属性:属性在 = 真，与值无关。WXML 不是这么算的（见下面用它的地方）
+  const BOOL_ATTRS = { disabled: 1, checked: 1, readonly: 1, multiple: 1, autofocus: 1, hidden: 1 }
+
   const TAGS = {
     view: 'div', text: 'span', block: null, button: 'button',
     input: 'input', picker: 'div', image: 'img', canvas: 'canvas',
@@ -227,6 +230,14 @@
       }
       if (k in NATIVE_ONLY) { v.attrs['data-native-only'] = k; continue }
       const val = interp(a[k], scope)
+      /* 【布尔属性按 WXML 的真假算，不按 HTML 的「在不在」算】。
+         WXML 里 `disabled="{{x}}"` 看的是 x 的真假;而 HTML 里
+         `disabled=""` 就已经是禁用了 —— 于是 `disabled="{{''}}"`
+         在真机上可点，在这儿是灰的。2026-09-01 撞到:村民屏那颗
+         「请沈砚回村 · ¥99」在镜像里点不动，真机上好好的。
+         这种偏差最坏的地方是它【看起来像发现了 bug】。`0` 同理。
+         只对真正的 HTML 布尔属性这么办 —— `value=""` 这种空串是合法的。 */
+      if (k in BOOL_ATTRS) { v.attrs[k] = val ? '' : null; continue }
       v.attrs[k] = val === true ? '' : (val === false || val == null ? null : String(val))
     }
     build(n.kids, scope, v.kids)

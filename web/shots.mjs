@@ -141,6 +141,12 @@ const 屏 = [
   ['settings', 'pages/settings/index'],
   ['plot', 'pages/plot/index', { id: '7' }],
   ['villager', 'pages/villager/index', { id: 'popo' }],
+  /* 【2026-09-01】还没请回来的那一位单独截一张。
+     这一屏有两支:住着的看到「问问他」，没住的看到那颗要掏钱的
+     「请他回村 · ¥99」。之前只截了住着的一支，于是**全屏唯一的付费
+     按钮从来没被看过一眼** —— 五路评审是靠读代码发现它不写价的。
+     丹增没种进上面那份住户名单，而他的御守在架上（sku.villager_id='tenz'）。 */
+  ['villager-invite', 'pages/villager/index', { id: 'tenz' }],
   /* `dir` 跟真链一样带上 —— 扫开御守那一下 `唤醒()` 就是这么传的。
      不带的话截出来的脸是默认琥珀，而真机上是他自己的颜色:
      照片跟产品对不上，比没照片更误导。 */

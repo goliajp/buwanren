@@ -14,6 +14,16 @@
       <text class="entry-v">{{nickname}}</text>
       <text class="entry-arrow">›</text>
     </view>
+    <!-- 【2026-09-01】出生时间。这一行原先不在这儿 ——
+         而建档那一屏自己写着「留几份、随时换」「问清楚了再建一份准的
+         换过来」，界面上却没有一个回得去的口子:填完就再也改不了，
+         那两句话就成了空头承诺。
+         放在「名字」下面:这两行是同一类东西 —— 关于你自己的。 -->
+    <view class="entry" bindtap="goNatal" hover-class="entry-hover" hover-stay-time="100">
+      <text class="entry-k">出生时间</text>
+      <text class="entry-v">{{natalText}}</text>
+      <text class="entry-arrow">›</text>
+    </view>
     <view class="entry" bindtap="goOrders" hover-class="entry-hover" hover-stay-time="100">
       <text class="entry-k">我买过的</text>
       <text class="entry-v">{{orderText}}</text>
@@ -57,7 +67,11 @@
   </view>
   <view class="nothing" wx:elif="{{recentEmpty}}" bindtap="goVillage"
         hover-class="entry-hover" hover-stay-time="100">
-    <text>东西长在人身上 —— 去村里看看谁能来</text>
+    <!-- 【2026-09-01】原先写「东西长在人身上」—— 那是设计册里的一句话
+         （每样东西都归某位村民卖，没有独立的铺子），照抄到界面上就成了
+         一句谜语:没读过设计册的人不知道「东西」指什么、「长在」是什么意思。
+         空状态要说的只有两件事:现在没有、哪儿能有。 -->
+    <text>这儿还是空的 —— 村里每位都带着自己的东西，去看看谁能来</text>
     <text class="nothing-go">去 ›</text>
   </view>
   <view class="recent muted" wx:else>

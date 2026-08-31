@@ -39,7 +39,20 @@ interface IData {
   tonight: boolean
   /** 她那一句。没有本命时是空 —— **不编一句**，改说不知道并给出口 */
   line: string
-  skus: Array<{ id: string; name: string; priceText: string }>
+  skus: Array<{ id: string; name: string; priceText: string; 荐: boolean }>
+}
+
+/* 三档要分出主次。
+   原先三张牌各带一条一模一样的实心橙「买」—— 三个同级的主动作等于
+   没有主动作，眼睛无处落，而这一屏最要紧的事就是选一档。
+
+   推荐哪一档？**不编社会证明**。「多数人选这个」得有数据，我们没有，
+   写了就是骗。能诚实说的只有一件事:第一次买的人该从最小的一档起，
+   所以荐的是【最便宜的那一档】—— 由价格算出来，不写死在第几张牌上。
+   （写死 index 0 的话，哪天档位次序一改，推荐就悄悄落到别处。） */
+function 标出最便宜那一档<T extends { 分: number }>(档: T[]): Array<T & { 荐: boolean }> {
+  const 最低 = Math.min(...档.map((x) => x.分))
+  return 档.map((x) => ({ ...x, 荐: x.分 === 最低 }))
 }
 
 Page<IData, WechatMiniprogram.IAnyObject>({
@@ -65,15 +78,16 @@ Page<IData, WechatMiniprogram.IAnyObject>({
       (d) => this.setData({
         loading: false,
         err: '',
-        skus: d.skus
+        skus: 标出最便宜那一档(d.skus
           /* 挑不出价的档不显示。显示一个没有价钱的选项，
              点进去才发现买不了，比不显示更糟。 */
           .filter((s) => s.current_price_minor != null && s.current_currency)
           .map((s) => ({
             id: s.id,
             name: s.name,
+             分: s.current_price_minor as number,
             priceText: money(s.current_price_minor as number, s.current_currency as string),
-          })),
+          }))),
       }),
       (e: ApiError) => this.setData({ loading: false, err: 一句(e) }),
     )

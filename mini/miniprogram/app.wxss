@@ -148,10 +148,18 @@ button.btn.btn-hover:not([disabled]) {
    改成透明底 + 一圈细描边:看得见、点得着，但一眼就知道它次于主按钮。
    不用纯文字链是因为好几屏上它是唯一的按钮（空态的「回去」），
    太轻了就找不着落点。 */
+/* 【2026-09-01】次要按钮从「一圈淡线」改成「一块实的面」。
+   原先是透明底 + `--stone-line` 描边，而那个边在纸底上只有 1.31:1 ——
+   界面部件的边界该有 3:1，它连一半都不到:截图上「回村里」几乎只剩四个字
+   飘着，看不出是一颗按钮。
+   把边加深到 #D8C9B0（1.54:1）同时给一块 `--paper-inset` 的底 ——
+   这一档的可辨识不再靠那圈线，靠的是【它比纸暗一层】这件事本身，
+   而这也正是这一类游戏 UI（星露谷 / 动森）的做法:次要动作是一块木牌，
+   不是一个线框。文字仍是 `--ink-mid`（5.65:1），够清楚。 */
 button.btn.ghost {
-  background: transparent;
+  background: var(--paper-inset);
   color: var(--ink-mid);
-  border: 2rpx solid var(--stone-line);
+  border: 2rpx solid #D8C9B0;
   box-shadow: none;
 }
 button.btn.ghost.btn-hover:not([disabled]) {

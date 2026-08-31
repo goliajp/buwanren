@@ -40,12 +40,22 @@ interface IData {
   sellsProduct: string
   /** 找他的御守时那一行字 */
   say: string
+  /** 请他回村要多少钱 —— 「¥99」这样一个字符串，取不到是空串。
+   *  按钮上必须写它:一个没用过的人，不知道按下去是马上扣钱还是先看看，
+   *  于是干脆不按（五路评审里三路把这条列成第一个不敢按的理由）。 */
+  价: string
+  /** 请不回来时按钮上那句话。空串 = 请得回来。
+   *  这句话里有「御守」两个字，而【挂着人不等于是御守】——
+   *  香也挂着苏合。所以这句只在筛过 `fulfillment_kind === 'residency'`
+   *  之后才拼得出来，跟那个判断写在同一处（门禁 check-omamori-sense）。 */
+  请不来: string
   inviting: boolean
   asking: boolean
 }
 
 Page<IData, WechatMiniprogram.IAnyObject>({
   data: { id: '', loading: true, err: '', who: null, canEnter: false, say: '', inviting: false, asking: false,
+    价: '', 请不来: '',
     脸样: '',
           sells: false, sellsLabel: '', sellsProduct: '' },
 
@@ -92,9 +102,40 @@ Page<IData, WechatMiniprogram.IAnyObject>({
         sellsProduct: who.sells ? who.sells.product_id : '',
       })
       wx.setNavigationBarTitle({ title: who.name })
+      if (!who.at_home) this.取价(id)
     } catch (e) {
       this.setData({ loading: false, err: '取不到：' + (一句(e as { status?: number; message?: string })) })
     }
+  },
+
+  /* 请他回村要多少钱。**在按钮上写出来，不等点进去才说。**
+     价钱是列表接口给的（`from_price_minor` = 这件商品最便宜那一档），
+     跟详情页同一套 region/platform 生效规则，不是页面自己算的。
+
+     取不到分两种，说法不一样:
+       · 一件都没有 → 「御守还没上架」，按钮变灰，别让人白点一趟
+       · 有商品但没价 → 只写「请 X 回村」，不编一个数字出来
+     这两种都不该拿别人的价顶上 —— 价钱写错一次，后面写什么都没人信。 */
+  取价(id: string) {
+    commerceApi.products('omamori', id).then(
+      (all) => {
+        if (this.data.id !== id) return          // 翻页翻快了，别把上一位的价贴上来
+        /* 【挂着人 ≠ 是御守】。香也挂着苏合（`sku.villager_id`），
+           但买香是寄一盒香给你，不是请她搬进来。判据是会不会有人住进村里
+           —— `fulfillment_kind === 'residency'`，不是分类叫 omamori。 */
+        const list = all.filter((x) => x.fulfillment_kind === 'residency')
+        if (!list.length) {
+          const 谁 = this.data.who ? this.data.who.name : '他'
+          this.setData({ 请不来: 谁 + '的御守还没上架' })
+          return
+        }
+        const 分 = list[0].from_price_minor
+        if (typeof 分 !== 'number') return
+        const 元 = 分 % 100 === 0 ? String(分 / 100) : (分 / 100).toFixed(2)
+        this.setData({ 价: (list[0].from_currency === 'CNY' ? '¥' : '') + 元 })
+      },
+      () => {},                                   // 取不到价就不写价，页面照常
+    )
   },
 
   /* 问签。注意它不是起卦 —— 起卦是罗盘（`pages/ask`，naji），

@@ -102,7 +102,10 @@
     <view class="empty-state">
       <view class="empty-art">问</view>
       <view class="empty-t">今天还没问过</view>
-      <view class="empty-s">心里先装着一件事，签才对得上</view>
+      <!-- 【2026-09-01】原先是「签才对得上」。这一屏从头到尾叫
+           「问一件事」，到这里忽然冒出一个「签」—— 同一件事两个名字，
+           而第二个名字用户没见过。 -->
+      <view class="empty-s">心里先装着一件事，回答才对得上</view>
       <button class="btn" bindtap="goHome">去问一件事</button>
     </view>
   </block>
