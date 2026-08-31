@@ -116,7 +116,7 @@
       </button>
     </view>
 
-    <view class="compass-hint">想清楚一件事，点中间，或者摇一摇</view>
+    <view class="compass-hint">心里装着一件事，点中间，或者摇一摇</view>
   </block>
 
   <!-- spinning · 罗盘旋转中 -->

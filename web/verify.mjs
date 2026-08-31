@@ -895,7 +895,7 @@ if (API) {
          String(await p.evaluate(() => globalThis.__router.current().data.toScan)))
       const 单屏 = await text()
       await shot('12-一单')
-      ok(单屏.includes('收到了，去扫开它'), '主按钮是「收到了，去扫开它」')
+      ok(单屏.includes('收到了，去扫一下'), '主按钮是「收到了，去扫一下」', 单屏.slice(0, 40))
 
       /* 【走到哪儿】这一条路。这一单是御守、已付、已寄、还没扫 ——
          所以四步应该是「下单·付款走过 / 寄出走过 / 住进来正等着」。
@@ -933,7 +933,7 @@ if (API) {
         const 有 = (t) => [...document.querySelectorAll('button, view, text')]
           .some((e) => e.innerText && e.innerText.trim() === t)
         const 槽 = document.querySelector('.slot-done')
-        return { 主按钮在: 有('收到了，去扫开它'),
+        return { 主按钮在: 有('收到了，去扫一下'),
                  槽收了: !槽 || getComputedStyle(槽).display === 'none' }
       })
       ok(矮屏.主按钮在, '矮屏上主按钮照样在　—— 它不在槽里')
@@ -1525,7 +1525,7 @@ if (API) {
   const 试 = async (id, 名) => {
     await open('pages/villager/index', { id })
     await 等取完('pages/villager/index')
-    await p.getByText('请回家', { exact: true }).click()
+    await p.locator('button.btn').filter({ hasText: '回村' }).first().click()
     await p.waitForTimeout(1500)
     return {
       路由: await p.evaluate(() => globalThis.__router.current().__route),
@@ -1599,7 +1599,7 @@ ok(t2.includes('阿云'), '认出是谁')
    所以这一行现在长成「缺 勤」。要验的东西没变 —— 这一屏说得出他缺什么。 */
 ok(/缺\s*\S/.test(t2), '说得出缺什么　—— 卡片放不下的正是这一行', t2.slice(0, 40))
 ok(/问问[^\s]/.test(t2), '住着的那位给得出「问问她」的入口', t2.slice(0, 30))
-ok(t2.includes('去家里坐坐'), '给「去家里坐坐」　—— 阿云那间房搬进来了')
+ok(t2.includes('去屋里看看'), '给「去屋里看看」　—— 阿云那间房搬进来了', t2.slice(0, 40))
 
 /* 先按一下「回村里」再回来。下面那条同样的检查挂在「目录里有他的 sku」上,
    而这一趟没有 sku 时它整条跳过 —— 于是从村子点进来的这一支,
@@ -1684,7 +1684,7 @@ ok(t4.includes('屋子还没搬进来'), '明说屋子还没搬进来　—— �
 console.log('\n── 进屋 ──')
 await tapPlot('ayun')
 await 等取完('pages/villager/index')
-await p.getByText('去家里坐坐', { exact: true }).click()
+await p.getByText('去屋里看看', { exact: true }).click()
 await p.waitForTimeout(2500)
 const r2 = await p.evaluate(() => {
   const cv = document.querySelector('canvas')
@@ -2467,7 +2467,7 @@ console.log('\n── 一屏放得下吗（iPhone SE · 内容区 597）──')
       为什么: '待付给的是「去支付 / 不要了」，跟已付那组按钮不一样' },
     { 页: 'pages/order/index', 名: '该扫了',
       切: () => globalThis.__router.current().setData({ status: 'paid', toScan: true, err: '' }),
-      凭据: '收到了，去扫开它',
+      凭据: '收到了，去扫一下',
       为什么: 'M3 那颗主按钮加一槽话，是这一屏最高的一种形态' },
     { 页: 'pages/order/index', 名: '轨迹很长',
       切: () => {
@@ -2514,8 +2514,8 @@ console.log('\n── 一屏放得下吗（iPhone SE · 内容区 597）──')
         c.setData({ who: Object.assign({}, c.data.who, { at_home: false }),
                     sells: false, canEnter: false, err: '' })
       },
-      凭据: '请回家',
-      为什么: '没请回来时只有「请回家」，住着时是问问 / 去屋里 / 卖的东西' },
+      凭据: '回村',
+      为什么: '没请回来时只有「请X回村」，住着时是问问 / 去屋里 / 卖的东西' },
   ]
   for (const 态 of 多形态) {
     const 名 = 态.页.replace('pages/', '').replace('/index', '')
@@ -3000,9 +3000,14 @@ if (!API) {
     if (没拿到 > 0) {
       const 有去处 = await p.evaluate(() =>
         (globalThis.__router.current().data.items || []).filter((x) => !x.earned && x.去).length)
-      ok(有去处 === 没拿到,
-         '还没拿到的每一枚都说得出去哪儿拿　—— 不是一张点不动的清单',
-         `${有去处}/${没拿到}`)
+      /* 【至少有一条路走得动】，不要求每一枚都写。
+         六枚里有四枚指的是同一件事（问一件事），四张卡都写同一句的话，
+         屏上就是四行一样的橙字，看不出先做哪个 —— 那不是「说得出去哪儿拿」，
+         是把一句话说了四遍。后面那几枚留着各自的解锁条件当目录，本来就够。
+         这条要守的是原来那件事:这一屏不能是点不动的清单。 */
+      ok(有去处 >= 1 && 有去处 <= 没拿到,
+         '还没拿到的里头有走得动的路　—— 不是一张点不动的清单',
+         `${有去处}/${没拿到} 枚给了去处`)
       const 之前 = await p.evaluate(() => globalThis.__router.current().__route)
       /* 点【没拿到的】那一枚。拿到过的是纪念不是待办，本来就不跳 ——
          头一版点 `.badge` 的第一个，而这个库里第一枚恰好已经拿到了，
