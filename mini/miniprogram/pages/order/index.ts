@@ -64,6 +64,23 @@ function 这一单走到哪儿(status: string, d: OrderDetail): Array<{ t: strin
   return 名.map((t, i) => ({ t, s: i < 现在 ? 'past' : (i === 现在 ? 'now' : 'todo') }))
 }
 
+/* 【下一步等什么】。进度线说得出「在哪儿」，说不出「接下来会怎样」。
+   按这一单买了会发生什么分三种:会住进村里的、要算的、寄东西的。
+   已经走完的不说 —— 那时该说的话在按钮上。 */
+function 下一步等什么(status: string, d: OrderDetail): string {
+  if (status === 'cancelled' || status === 'done') return ''
+  const 住 = (d.lines || []).some((l) => l.becomes_resident)
+  const 册 = (d.reports || [])[0]
+  if (status === 'unpaid' || status === 'draft') {
+    return 住 ? '付完就把御守寄给你 —— 收到扫一下，他就住进村里那一格'
+         : 册 ? '付完马上开始算 —— 算好了这一屏会告诉你'
+              : '付完就寄给你 —— 到了这一屏会告诉你'
+  }
+  if (住) return d.to_scan ? '御守在路上。收到之后扫一下，他就住进来' : '已经付过了，等寄出'
+  if (册) return 册.status === 'ready' ? '算好了 —— 上面那颗按钮打得开' : '在算了 —— 算好会告诉你'
+  return '已经付过了，等寄出'
+}
+
 Page({
   data: {
     id: '',
@@ -100,6 +117,7 @@ Page({
     who: null as null | { name: string; face: string; direction: string; 脸样: string },
     toScan: false,
     走到哪儿: [] as Array<{ t: string; s: string }>,
+    下一步: '',
     /** 这一单买的那一册（设计册 M2「看 ›」）。null = 这单没买报告 */
     report: null as { id: string; status: string } | null,
     waking: false,
@@ -168,6 +186,7 @@ Page({
           })(),
           toScan: !!d.to_scan,
           走到哪儿: 这一单走到哪儿(o.status, d),
+          下一步: 下一步等什么(o.status, d),
           /* 这一单买的册子。御守的完成态是住进村里，报告的完成态是
              **你读到了** —— 所以它跟「去扫开它」一样是主按钮。
              还没出的那些（还差生辰）也给出来：它是这一单真实的状态，
@@ -311,6 +330,16 @@ Page({
     const r = this.data.report
     if (!r) return
     wx.navigateTo({ url: `/pages/report/index?id=${r.id}` })
+  },
+
+
+  /* 长按复制单号。出了事人得有个东西能念给客服 ——
+     这一屏原先没有任何这样的东西。 */
+  onCopyId() {
+    wx.setClipboardData({
+      data: this.data.id,
+      success: () => wx.showToast({ title: '单号复制好了', icon: 'none' }),
+    })
   },
 
   onBack() {
