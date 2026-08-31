@@ -20,13 +20,17 @@
  */
 
 import { villageApi } from '../../services/village'
+import { 一列脸纹 } from '../../utils/face'
 import { natalApi } from '../../services/natal'
 import type { ApiError } from '../../services/api'
 import type { VillagerCard } from '../../types/village'
 import { 轻 } from '../../utils/feel'
 import { 一句 } from '../../utils/say'
 
-type 位 = { id: string; name: string; sub: string; onSale: boolean; product: string | null; face: string; lack: string; direction: string }
+type 位 = { id: string; name: string; sub: string; onSale: boolean; product: string | null; face: string; lack: string; direction: string;
+            /** 同色之内的脸纹 —— 缺「近人」那一路有十一位，不然十一张一模一样。
+                在【切段之后】发，所以映射那一步它还没有 */
+            纹?: string }
 
 interface IData {
   loading: boolean
@@ -92,6 +96,12 @@ Page<IData, WechatMiniprogram.IAnyObject>({
            这里只按「能不能请」切两段，段内顺序原样保留。 */
         const 能请 = 全部.filter((x) => x.onSale)
         const 没来 = 全部.filter((x) => !x.onSale)
+        /* 脸纹在【切段之后】发。两段各自并排显示，档位要在各自段里均分 ——
+           在切段之前发的话，一段里可能连着三个同档。 */
+        for (const 段 of [能请, 没来]) {
+          const 纹们 = 一列脸纹(段)
+          段.forEach((x, i) => { x.纹 = 纹们[i] })
+        }
         this.setData({
           loading: false,
           /* 顶上那句的理由，用【头一位的】那条 —— 它是主方向那一条。
