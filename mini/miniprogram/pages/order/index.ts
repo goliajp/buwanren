@@ -9,6 +9,7 @@
  */
 
 import { commerceApi, newIdemKey } from '../../services/commerce'
+import { 脸 } from '../../utils/face'
 import { storage } from '../../services/storage'
 import type { ApiError } from '../../services/api'
 import type { OrderDetail, Shipment, TraceEvent } from '../../types/commerce'
@@ -96,6 +97,7 @@ Page({
     refundKey: '',
     /** 这一单里还有没有没扫开的御守（设计册 M3）。
      *  有 → 这一屏的主按钮是「收到了，去扫开它」。 */
+    who: null as null | { name: string; face: string; direction: string; 脸样: string },
     toScan: false,
     走到哪儿: [] as Array<{ t: string; s: string }>,
     /** 这一单买的那一册（设计册 M2「看 ›」）。null = 这单没买报告 */
@@ -152,6 +154,18 @@ Page({
             qty: l.qty,
             sub: money(l.line_subtotal_minor, o.currency),
           })),
+          /* 【这一屏的那张脸】。wxml 上一直写着 who，而 ts 里从来没有这个字段 ——
+             也就是说这块脸从第一天起就没显示过。从商品页到确认屏都有他，
+             到了订单详情人就消失了。
+             只在【会住进来】的那种单上摆:买香买报告没有「那个人」。 */
+          who: (() => {
+            const l = (d.lines || [])[0]
+            return l && l.becomes_resident && l.villager_name
+              ? { name: l.villager_name, face: l.villager_name.slice(-1),
+                  direction: l.villager_direction || '',
+                  脸样: 脸(l.villager_id || '') }
+              : null
+          })(),
           toScan: !!d.to_scan,
           走到哪儿: 这一单走到哪儿(o.status, d),
           /* 这一单买的册子。御守的完成态是住进村里，报告的完成态是

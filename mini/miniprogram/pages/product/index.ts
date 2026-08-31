@@ -8,6 +8,7 @@
  */
 
 import { commerceApi } from '../../services/commerce'
+import { 脸 } from '../../utils/face'
 import { storage } from '../../services/storage'
 import type { ApiError } from '../../services/api'
 import type { ProductDetail, Sku } from '../../types/commerce'
@@ -38,6 +39,8 @@ Page({
     买法: '就要这个',
     /** 御守封着的那个人。不是御守的商品是 null —— 页面据此决定说不说他 */
     villager: null as null | { id: string; name: string; title: string | null; art: string | null; direction: string; face: string },
+    /** 头像那一段 style。画好脸的人有，没画好的是空串 */
+    脸样: '',
     tags: [] as string[],
     skus: [] as Sku[],
     /** 能买的那个 sku（有价的第一个）。没有价就买不了，如实显示 */
@@ -95,6 +98,7 @@ Page({
           villager: d.villager
             ? { ...d.villager, face: d.villager.name.slice(-1), direction: d.villager.direction || '' }
             : null,
+          脸样: d.villager ? 脸(d.villager.id) : '',
           tags: d.product.tags || [],
           skus: d.skus,
         })

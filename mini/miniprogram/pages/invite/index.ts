@@ -20,7 +20,7 @@
  */
 
 import { villageApi } from '../../services/village'
-import { 一列脸纹 } from '../../utils/face'
+import { 一列脸纹, 脸 } from '../../utils/face'
 import { natalApi } from '../../services/natal'
 import type { ApiError } from '../../services/api'
 import type { VillagerCard } from '../../types/village'
@@ -30,7 +30,9 @@ import { 一句 } from '../../utils/say'
 type 位 = { id: string; name: string; sub: string; onSale: boolean; product: string | null; face: string; lack: string; direction: string;
             /** 同色之内的脸纹 —— 缺「近人」那一路有十一位，不然十一张一模一样。
                 在【切段之后】发，所以映射那一步它还没有 */
-            纹?: string }
+            纹?: string
+            /** 头像那一段 style。画好脸的人有，没画好的是空串 */
+            脸样: string }
 
 interface IData {
   loading: boolean
@@ -87,6 +89,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
           product: v.omamori_product_id,
           // 头像占位:姓名末字。等 40 张画好换成图片地址,版式不动
           face: v.name.slice(-1),
+          脸样: 脸(v.id),
           lack: v.lack || '',
           // 头像底色按方向分 —— 四十位一个颜色时分不出谁是谁
           direction: v.direction || '',
