@@ -151,7 +151,16 @@ const 屏 = [
   ['name', 'pages/name/index'],
   ['bind', 'pages/bind/index'],
   ['lighting', 'pages/lighting/index'],
-  ['room', 'pages/room/index', { id: 'ayun' }],
+  /* 六间房各拍一张。参数名是 `room` —— 写成 `id` 的话页面认不出来，
+     会静默回落到默认那间(白鹭)，出一张看着完全正常的图：真房间、真人名、
+     真按钮，没有任何地方会红。2026-08-31 之前这一屏拍到的一直是白鹭家，
+     而我以为它拍的是阿云家。 */
+  ['room-ayun', 'pages/room/index', { room: 'ayun' }],
+  ['room-bailu', 'pages/room/index', { room: 'bailu' }],
+  ['room-popo', 'pages/room/index', { room: 'popo' }],
+  ['room-shenyan', 'pages/room/index', { room: 'shenyan' }],
+  ['room-tao', 'pages/room/index', { room: 'tao' }],
+  ['room-tenz', 'pages/room/index', { room: 'tenz' }],
   ...(单子 ? [['order', 'pages/order/index', { id: 单子 }]] : []),
 ]
 
