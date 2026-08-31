@@ -16,20 +16,29 @@
          头像与名字并排，属性从三行横线表格改成一排药丸：
          「会这一门／稀有度／住下了吗」是三个标签，不是三条记录。 -->
     <view class="hd">
-      <view class="face face-{{who.direction}}">{{who.face}}</view>
+      <!-- 状态点压在脸的右下角，所以要包一层能定位的壳 -->
+      <view class="facewrap">
+        <view class="face face-{{who.direction}}">{{who.face}}</view>
+        <!-- 【状态跟着人走】。「住着 / 还没请来」是个是非题，
+             占一整个胶囊太重;做成脸上那个小点，不读字也看得出来。 -->
+        <view class="dot {{who.at_home ? 'dot-home' : ''}}"></view>
+      </view>
       <view class="hd-body">
         <view class="name">{{who.name}}</view>
-        <view class="title" wx:if="{{who.title}}">{{who.title}}</view>
+        <!-- 【身份跟身份在一起】。「占卜的老太太」和「塔罗」回答的是
+             同一个问题（她是谁），本来就该在一行上，不该拆成
+             一行副标题加一个胶囊。 -->
+        <view class="title" wx:if="{{who.title}}">{{who.title}}<text wx:if="{{who.art}}"> · {{who.art}}</text></view>
       </view>
     </view>
 
-    <!-- 「缺」是这个产品的身份字段，所以它排在最前、颜色最重 -->
-    <view class="tags">
-      <text class="tag tag-lack lack-{{who.direction}}">缺{{who.lack}}</text>
-      <text class="tag" wx:if="{{who.art}}">{{who.art}}</text>
-      <!-- 稀有度（「常」「稀」）是运营的分档，不是给买的人看的词 ——
-           屏上摆一个「常」字，读的人只会当成错别字。它退到那一份里去。 -->
-      <text class="tag {{who.at_home ? 'tag-home' : ''}}">{{who.at_home ? '住着' : '还没请来'}}</text>
+    <!-- 【「缺」是玩法钩子，单独成块】。它跟上面两样不是一类东西:
+         那两样说「他是谁」，这一句说「他身上缺着什么、所以会那样劝你」——
+         这是「不完人」这个名字的来处，也是请他回村的理由。
+         三样原先并排成三个一模一样的胶囊，读的人得逐个读完才知道谁是谁。 -->
+    <view class="lack lack-{{who.direction}}">
+      <text class="lack-k">缺{{who.lack}}</text>
+      <text class="lack-s">缺过才懂，所以才这样劝你</text>
     </view>
 
     <!-- 问签的结果。同一天问同一位逐字相同 —— 那是设定，不是缓存 -->
