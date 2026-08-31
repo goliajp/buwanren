@@ -27,14 +27,27 @@ const MIN_SPIN_MS = 3200
  * 8 方位 → face 上默认角度(以正南=0°、顺时针递增)
  * face rotate(θ) 时: 让某方位从原位置转到「指针指向」(正上=0°) 需要 rotate = -angle
  */
+/* 盘停在哪一格。
+ *
+ * 【2026-09-01 修】四个正方向原先写的是「南 / 西 / 北 / 东」，
+ * 而后端给的是「南方 / 西方 / 北方 / 东方」—— 带一个「方」字。
+ * 于是 `DIRECTION_ANGLE[result.direction]` 对这四个值全是 undefined，
+ * 落到 `?? 0`:盘每次都停在正上方那一格。库里 1600 多条记录里
+ * 这四个占三分之一还多。
+ *
+ * 没人发现，是因为上一轮把盘面上的八卦符与方位名【都拿掉了】——
+ * 那一改让盘不再玄，同时也让「它停在哪儿」变得没法用眼睛检验:
+ * 八个格子长得一模一样，停错了跟停对了看起来完全相同。
+ * 所以 scripts/check-dial-angles.py 从此机械核对这张表跟库里的取值。
+ */
 const DIRECTION_ANGLE: Record<string, number> = {
-  南:   0,
+  南方: 0,
   西南: 45,
-  西:   90,
+  西方: 90,
   西北: 135,
-  北:   180,
+  北方: 180,
   东北: 225,
-  东:   270,
+  东方: 270,
   东南: 315,
 }
 
@@ -49,7 +62,9 @@ type SummaryView = NatalSummary & {
 }
 
 /** 弹性槽里那几行。矮屏看不见，长屏才出现（设计 10.1） */
-interface RecentRow { id: string; day: string; gate: string; dir: string }
+// 方位不进这一行 —— 屏上不显示它（见 wxml 里那段），
+// 留个用不上的字段只会让下一个人以为它该显示
+interface RecentRow { id: string; day: string; gate: string }
 
 type Mode = 'idle' | 'spinning'
 
@@ -254,7 +269,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     this.setData({
       recentErr: '',
       recent: list.slice(0, 3).map((r) => ({
-        id: r.id, day: r.date, gate: r.gate, dir: r.direction,
+        id: r.id, day: r.date, gate: r.gate,
       })),
     })
   },

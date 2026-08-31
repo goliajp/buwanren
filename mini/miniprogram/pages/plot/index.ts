@@ -11,6 +11,7 @@
  * 他不是「所有空屋的代称」。已按真实设定改。
  */
 
+import { villageApi } from '../../services/village'
 import { 轻 } from '../../utils/feel'
 
 /* 这一格在村里的哪儿。八排的地理写在 `rooms/src/engine/plots.js` 的
@@ -34,7 +35,15 @@ function 哪一格(row: number, col: number): string {
 }
 
 Page({
-  data: { 在哪儿: '' },
+  /* 【2026-09-01】这一屏原先是条纯过道:点一格空屋进来，它说
+     「这间空着 · 请回一位，这儿就有人住了」，再点一下去名册 ——
+     两句话都是人点进来之前就知道的（他点的正是一格空屋）。
+     五路评审都说它可以并进名册。
+
+     不删它:那个「?」是收集欲的落点，删掉就少了这一拍。
+     补一件他【不知道】的事 —— 村里现在住了几位、还空着几格。
+     此刻正是他最想知道这个数的时候。取不到就不摆那一行，不编。 */
+  data: { 在哪儿: '', 收集: '' },
 
   onLoad(q: Record<string, string | undefined>) {
     const row = parseInt(q.row || '', 10)
@@ -44,6 +53,10 @@ Page({
     if (Number.isInteger(row) && Number.isInteger(col)) {
       this.setData({ 在哪儿: 哪一格(row, col) })
     }
+    villageApi.mine().then(
+      (v) => this.setData({ 收集: `四十格里住了 ${v.found} 位，还空着 ${v.total - v.found} 格` }),
+      () => {},
+    )
   },
 
   goInvite() {

@@ -404,12 +404,18 @@ input::placeholder, textarea::placeholder { color: var(--stone-label); }
    由 `rooms/tools/export-faces.mjs` 导出成 engine/faces.js，
    `utils/face.ts` 的 `脸(id)` 拼出这一段 style。
 
-   `pixelated` 是必须的:12×16 的图放到 168rpx，不声明就被插值成一团糊。
-   底色留着 —— 像素图有透明处，透出方向色，跟还没画好的那些看着是一套。 */
+   `pixelated` 是必须的:14×16 的图放到 168rpx，不声明就被插值成一团糊。
+   底色留着 —— 像素图有透明处，透出方向色，跟还没画好的那些看着是一套。
+
+   【2026-09-01】导出那一步开始把四十张摊到同一块 14×16 的画布上
+   （宽居中、底对齐）。在那之前每张各是各的尺寸（11×11 到 14×16），
+   同一个 74% 缩放下，窄的那位被放得更大 —— 并排摆着像素块一个人一个
+   大小，看着不是一套画。画布统一之后这一档从 74% 提到 84%:
+   人物在圆牌里的占比才跟原先相当（画布宽了两格，人没变大）。 */
 .face-art {
   background-repeat: no-repeat;
   background-position: center 58%;
-  background-size: 74% auto;
+  background-size: 84% auto;
   image-rendering: pixelated;
 }
 

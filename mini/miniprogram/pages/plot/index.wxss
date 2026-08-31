@@ -12,3 +12,6 @@
 .empty-s.dim { color: var(--stone-label); font-size: 23rpx; margin-top: 8rpx; }
 .empty-state .btn { width: 100%; box-sizing: border-box; }
 .back { margin-top: 28rpx; font-size: 26rpx; color: var(--ink-faint); }
+
+/* 收集数。比那句「请回一位」轻一档 —— 它是背景信息，不是这一屏的动作。 */
+.empty-tally { margin-top: 14rpx; font-size: 23rpx; color: var(--stone-label); }

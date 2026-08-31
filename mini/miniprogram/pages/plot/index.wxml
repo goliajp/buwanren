@@ -16,6 +16,9 @@
          实测有人读成「等你哪天回来才知道」，以为在说他自己下次登录。
          省掉那层嵌套，直接说因果:请一位，这儿就有人。 -->
     <view class="empty-s">请回一位，这儿就有人住了</view>
+    <!-- 他不知道的那件事:村里现在几位、还空着几格。
+         这一屏原先说的两句他点进来之前就知道 —— 他点的正是一格空屋。 -->
+    <view class="empty-tally" wx:if="{{收集}}">{{收集}}</view>
     <button class="btn" bindtap="goInvite">看看谁能来</button>
     <view class="back" bindtap="onBack">回村里</view>
   </view>
