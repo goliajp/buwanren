@@ -111,7 +111,12 @@
          槽的判据本来就是「删掉这一屏仍然成立」。
          在矮屏上看不出来（槽是收起的），长屏上两句一起摆着。
          有人之后这一句才有信息：还差几位。 -->
-    <text class="tally-n" wx:if="{{lived > 0}}">还差 {{total - lived}} 位就集齐了</text>
+    <!-- 【集齐那一句】。原先只有一支「还差 {{total - lived}} 位就集齐了」，
+         到 40/40 那一刻它说的是「还差 0 位就集齐了」—— 语法没错，
+         但那是这个产品情感最高的一刻，而屏上给的是一句荒谬的话。
+         这一态从没人看过：开发库里最多住着几位，走查也走不到。 -->
+    <text class="tally-n" wx:if="{{lived > 0 && lived >= total}}">四十位都回来了</text>
+    <text class="tally-n" wx:elif="{{lived > 0}}">还差 {{total - lived}} 位就集齐了</text>
     <text wx:if="{{tonight}}" class="tally-go" bindtap="goTonight">今晚九点在苏合院子里 ›</text>
     <text wx:else class="tally-dim">周四晚九点，苏合在院子里点香</text>
   </view>
