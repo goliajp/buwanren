@@ -229,6 +229,7 @@ gate "村民台词合规格"        . python3 scripts/check-villager-lines.py
 gate "屏上不拿指代当名字"     . python3 scripts/check-no-deixis.py
 gate "金额只有一支格式化"     . python3 scripts/check-money-fmt.py
 gate "22 屏对得上尺子吗" . python3 scripts/check-screen-ruler.py
+gate "开局站位对得上第一件事吗" . python3 scripts/check-room-start.py
 # 镜像自己会先组装。动线要真跑一遍浏览器,几十秒
 gate "web verify · 动线"  . bash web/run-verify.sh
 
