@@ -119,9 +119,25 @@ async fn the_voice_is_the_villagers_own() {
     assert!(popo.say.contains("婆婆") || popo.say.contains("呀"), "婆婆的口气：{}", popo.say);
     assert!(mira.say.contains("小家伙"), "米拉的口气：{}", mira.say);
     assert!(tenz.say.starts_with("嘿哈"), "丹增的口气：{}", tenz.say);
-    // 白鹭「短、冷、精确到分秒」—— 她没有开场也没有收尾,说出来该是最短的一句
-    let bailu = villager::reading(&pool, &user, "bailu", day(8), None).await.unwrap();
-    assert!(bailu.say.len() < tenz.say.len(), "白鹭该说得比丹增还短");
+    /* 白鹭「短、冷、精确到分秒」—— 她没有开场也没有收尾。
+       比【一次抽到的那句】是抽签:选句的种子含 user id，而 user id 每跑
+       一次都是新的（`common::user`），所以同一天两个人取到的句子组合不同。
+       白鹭偶尔抽到长句、丹增偶尔抽到短句，这条就翻面 ——
+       跑十二次全绿，而门禁那一趟正好撞上（2026-08-31）。
+       低频翻面比常红更坏:它让每一次真红都能被当成噪音。
+
+       改成比【好几天的平均】：验的性质没变（她说话短），
+       而判据不再取决于抽签抽到哪一句。 */
+    let mut bailu_len = 0usize;
+    let mut tenz_len = 0usize;
+    for d in 8..=14 {
+        bailu_len += villager::reading(&pool, &user, "bailu", day(d), None).await.unwrap().say.len();
+        tenz_len += villager::reading(&pool, &user, "tenz", day(d), None).await.unwrap().say.len();
+    }
+    assert!(
+        bailu_len < tenz_len,
+        "白鹭七天加起来该比丹增短：白鹭 {bailu_len} / 丹增 {tenz_len}"
+    );
 }
 
 // ═══════════════════════ 不兜底 ═══════════════════════
