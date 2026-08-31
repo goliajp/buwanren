@@ -383,7 +383,7 @@ KKKyRRRRRRK.
     ],
     perform: {
       actor: { x: 673, y: 1091, poses: ['sit'], fps: 1, flip: false, speed: 18 },
-      button: 'tenzCastBtn', labels: ['请丹增指点迷津', '收起'], stateKey: 'divining',
+      button: 'tenzCastBtn', labels: ['请丹增拨拨念珠', '收起'], stateKey: 'divining',
       lineGap: 5000,
       lines: ['让贫僧翻翻历书……', '火土相生，是个好日子',
               '初八不宜动土，改初十', '这个方位，宜。放心去',

@@ -9601,7 +9601,7 @@ KKBBBBBBKK
     // ══ 表演态:点「请桃桃起一局」══
     perform: {
       actor: { x: 636, y: 700, poses: ['reach1', 'reach2'], fps: 1.0, flip: false, speed: 18 },
-      button: 'taoCastBtn', labels: ['请桃桃起一局', '收局'],
+      button: 'taoCastBtn', labels: ['请桃桃翻张牌', '收牌'],
       stateKey: 'casting',                      // 局桌读这个键画九宫与天盘
       lineGap: 4200,                            // 她在算，不是在演 —— 节奏放慢
       lines: ['三奇六仪……先排地盘', '值符落在哪一宫来着', '别催。催也快不了',
@@ -11761,7 +11761,7 @@ KKKyRRRRRRK.
     ],
     perform: {
       actor: { x: 673, y: 1091, poses: ['sit'], fps: 1, flip: false, speed: 18 },
-      button: 'tenzCastBtn', labels: ['请丹增指点迷津', '收起'], stateKey: 'divining',
+      button: 'tenzCastBtn', labels: ['请丹增拨拨念珠', '收起'], stateKey: 'divining',
       lineGap: 5000,
       lines: ['让贫僧翻翻历书……', '火土相生，是个好日子',
               '初八不宜动土，改初十', '这个方位，宜。放心去',
@@ -12211,7 +12211,7 @@ KKKyRRRRRRK.
   globalThis.BAILU_ROOM.perform = {
     // 玩家点按钮 → 她回案前跪坐排盘。speed 20 高于闲逛 12
     actor: { x: 640, y: 796, poses: ['sit'], fps: 1, flip: false, speed: 20 },
-    button: 'bailuCastBtn', labels: ['请白鹭排个盘', '收起'], stateKey: 'divining',
+    button: 'bailuCastBtn', labels: ['请白鹭看看星星', '收起'], stateKey: 'divining',
     lineGap: 5000,
     lines: ['写生辰来。年月日时，要准',
             '……紫微在命，天府在迁。你天生是要动的',
@@ -12831,7 +12831,7 @@ KFKWWWWWWKFK
       // 玩家点按钮 → 他回案后跪坐下来测字。speed 22 高于闲逛的 12:
       // 表演是玩家【唯一】发起的动作,让他慢慢晃过去是最直接的挫败感
       actor: { x: 677, y: 1034, poses: ['sit'], fps: 1, flip: false, speed: 22 },
-      button: 'shenyanCastBtn', labels: ['请沈砚测个字', '收起'], stateKey: 'cezi',
+      button: 'shenyanCastBtn', labels: ['请沈砚拆个字', '收起'], stateKey: 'cezi',
       lineGap: 5000,
       lines: ['写一个字来。随手写，别想',
               '此字左虚右实 —— 恕我直言，你近来外头撑得辛苦',
@@ -27379,7 +27379,16 @@ if (st.said && t < st.saidUntil) {
     // props 按 id 覆盖平时位置;actor 锁定站位与姿态。
     perform: {
       actor: { x: 680, y: 762, poses: ['divine1', 'divine2'], fps: 1.4, flip: false, pointer: true, speed: 18 },
-      button: 'ayunCastBtn', labels: ['请阿云起一课', '收课'], stateKey: 'casting',
+    /* 按钮上不写行话。「起一课」「排个盘」「测个字」「指点迷津」这些是
+       术数名词，只有付费报告的专业页才留;界面上一律说人话。
+       实测:给一位没听说过命理的人看这四句，三句完全不懂 ——
+       「起一课」被读成「上一节课」，「排个盘」猜成排队上菜，
+       「指点迷津」认得字却说「是我爸妈朋友圈里的词，配一朵莲花那种」。
+
+       写法是【这位在屏幕上真的做的那个动作】:六颗各不相同，
+       而且每颗都预告了点下去会看到什么。行话反而做不到 ——
+       「起一课」看不出画面。 */
+      button: 'ayunCastBtn', labels: ['请阿云掐指算算', '收了'], stateKey: 'casting',
       lineGap: 5200,
       lines: ['时辰这东西  你不定它  它就定你', '四课立起来  人事才有骨架',
               '初传是因  中传是变  末传是果', '课是死的  人是活的',

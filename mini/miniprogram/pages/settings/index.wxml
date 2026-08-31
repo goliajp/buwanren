@@ -52,8 +52,12 @@
 
   <view class="cta">
     <button class="btn ghost" bindtap="doLogout">
-      {{user && user.is_anonymous ? '退出（这台设备上的东西会留在旧账号）' : '退出并重新登录'}}
+      {{user && user.is_anonymous ? '退出' : '退出并重新登录'}}
     </button>
+  </view>
+
+  <view class="cta-note" wx:if="{{user && user.is_anonymous}}">
+    你还没绑微信 —— 退出以后，村里的人和买过的东西都回不来了
   </view>
 
   <view class="foot-hint">

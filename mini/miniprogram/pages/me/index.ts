@@ -26,6 +26,8 @@ interface IData {
   orderText: string
   badgeText: string
   subText: string
+  /** 真订着东西没有。没有就不摆那一行 —— 空的那一屏只会说产品没做完 */
+  hasSubs: boolean
   /** 有单子时的那一笔；没有就是 null */
   recent: Recent | null
   /** 真的一笔都没有（区别于「还没取到」——后者不该显示「还没买过什么」） */
@@ -42,6 +44,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     orderText: '',
     badgeText: '',
     subText: '',
+    hasSubs: false,
     recent: null,
     recentEmpty: false,
     recentNote: '',
@@ -101,7 +104,8 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     )
 
     mineApi.subscriptions().then(
-      (list) => this.setData({ subText: list.length ? list.length + ' 个订着' : '还没有' }),
+      (list) => this.setData({ subText: list.length ? list.length + ' 个订着' : '还没有',
+                                  hasSubs: list.length > 0 }),
       () => this.setData({ subText: '看不到' }),
     )
 
