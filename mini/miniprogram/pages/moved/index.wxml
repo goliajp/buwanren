@@ -9,7 +9,7 @@
     <!-- 光晕:从中心扩散出去的一圈,只在「真的第一次」那一下放 -->
     <view class="halo" wx:if="{{isNew}}"></view>
     <view class="halo halo-2" wx:if="{{isNew}}"></view>
-    <view class="glyph face-{{direction}}">{{face}}</view>
+    <view class="glyph face-{{direction}} {{脸样 ? 'face-art' : ''}}" style="{{脸样}}"><text wx:if="{{!脸样}}">{{face}}</text></view>
   </view>
 
   <view class="body">

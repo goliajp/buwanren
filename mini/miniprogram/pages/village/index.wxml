@@ -39,7 +39,7 @@
         hover-class="says-hover" hover-stay-time="100">
     <!-- 脸。没有美术之前用姓名末字 —— 不假装有立绘，但「有人在跟你说话」
          这件事得在零点几秒内成立，纯文字做不到 -->
-    <view class="says-face face-{{says.direction}}">{{says.face}}</view>
+    <view class="says-face face-{{says.direction}} {{says.脸样 ? 'face-art' : ''}}" style="{{says.脸样}}"><text wx:if="{{!says.脸样}}">{{says.face}}</text></view>
     <view class="says-body">
       <view class="says-who">{{says.name}}今天说</view>
       <view class="says-text">{{says.text}}</view>

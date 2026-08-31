@@ -10,6 +10,7 @@
  */
 
 import { villageApi } from '../../services/village'
+import { 脸 } from '../../utils/face'
 
 interface IData {
   name: string
@@ -18,6 +19,8 @@ interface IData {
   id: string
   /** 圆牌里那个字。没有美术之前用姓名末字 —— 跟村子、名册同一套占位 */
   face: string
+  /** 头像那一段 style。画好脸的人有，没画好的是空串 */
+  脸样: string
   /** 他劝你的方向 —— 脸的底色按它挑，四处要一样 */
   direction: string
   /** 收集数跳过那一格了没 —— 跳的一刻数字弹一下 */
@@ -31,7 +34,7 @@ interface IData {
 }
 
 Page<IData, WechatMiniprogram.IAnyObject>({
-  data: { name: '', isNew: true, id: '', face: '', direction: '', lived: 0, total: 0, 跳过了: false,
+  data: { name: '', isNew: true, id: '', face: '', 脸样: '', direction: '', lived: 0, total: 0, 跳过了: false,
           /** 他搬进来说的第一句。没写过台词的人是空串 —— 那时就不说 */
           say: '' },
 
@@ -40,6 +43,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     this.setData({
       name,
       face: name.slice(-1),
+      脸样: 脸(q.id || ''),
       isNew: q.n !== '0',
       id: q.id || '',
       direction: q.dir || '',

@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "check": "tsc --noEmit",
-    "build:engine": "cd .. && bun rooms/tools/build-engine.js build --emit=mini/miniprogram/engine",
+    "build:engine": "cd .. && bun rooms/tools/build-engine.js build --emit=mini/miniprogram/engine && bun rooms/tools/export-faces.mjs",
     "web": "cd .. && bun web/build.mjs",
     "web:verify": "cd .. && bash web/run-verify.sh"
   },

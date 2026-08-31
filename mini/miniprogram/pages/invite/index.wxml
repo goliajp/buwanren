@@ -49,7 +49,7 @@
         <!-- 脸。四十位原先是四十行文字 —— 一个靠角色立身的产品，
              最不该没有角色的就是这一屏。没有美术之前用姓名末字，
              等头像画好换这一处即可。 -->
-        <view class="item-face face-{{item.direction}} {{item.纹}}">{{item.face}}</view>
+        <view class="item-face face-{{item.direction}} {{item.纹}} {{item.脸样 ? 'face-art' : ''}}" style="{{item.脸样}}"><text wx:if="{{!item.脸样}}">{{item.face}}</text></view>
         <view class="item-body">
           <view class="item-top">
             <text class="item-name">{{item.name}}</text>
@@ -71,8 +71,8 @@
            而这一屏卖的是人 —— 三张脸让那 36 位有重量,点开的理由是真的。
            摊开之后脸就撤掉:下面整列都是脸,这儿再放三张是重复。 -->
       <view class="soon-peek" wx:if="{{!展开}}">
-        <view wx:for="{{预告}}" wx:key="id" class="peek-face face-{{item.direction}}"
-              style="margin-left:{{index === 0 ? 0 : -18}}rpx; z-index:{{3 - index}}">{{item.face}}</view>
+        <view wx:for="{{预告}}" wx:key="id" class="peek-face face-{{item.direction}} {{item.脸样 ? 'face-art' : ''}}"
+              style="margin-left:{{index === 0 ? 0 : -18}}rpx; z-index:{{3 - index}}; {{item.脸样}}"><text wx:if="{{!item.脸样}}">{{item.face}}</text></view>
       </view>
       <text class="soon-txt" wx:if="{{展开}}">收起</text>
       <text class="soon-txt" wx:else>另外 {{没来.length}} 位还在路上</text>
@@ -84,7 +84,7 @@
     <view class="soon-list" wx:if="{{展开}}">
       <view wx:for="{{没来}}" wx:key="id" class="soon-item enter"
             style="animation-delay:{{index < 12 ? index * 26 : 312}}ms">
-        <view class="soon-face">{{item.face}}</view>
+        <view class="soon-face {{item.脸样 ? 'face-art' : ''}}" style="{{item.脸样}}"><text wx:if="{{!item.脸样}}">{{item.face}}</text></view>
         <text class="soon-name">{{item.name}}</text>
         <text class="soon-sub" wx:if="{{item.sub}}">{{item.sub}}</text>
         <text class="soon-lack" wx:if="{{item.lack}}">缺{{item.lack}}</text>
