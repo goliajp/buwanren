@@ -12,7 +12,7 @@
     <!-- 药丸写着「缺 亲人」，贴在【他】那一侧 —— 第一次看的人会读成
          「这个人缺勤」，而它说的是他补【你】哪一样。所以这里要点一句。
          填过出生时间之后这句会换成「你缺 X · ……」，那时它自明。 -->
-    <view class="why" wx:else>填了出生时间就按你缺的排 · 右边两个字是他自己缺的 —— 缺过才懂怎么劝人</view>
+    <view class="why" wx:else>填了出生时间就按你缺的排 · 右边两个字是各人自己缺的 —— 缺过才懂怎么劝人</view>
     <view class="hr"></view>
   </view>
 
@@ -111,7 +111,7 @@
       <view class="how-step">
         <view class="how-n">3</view>
         <view class="how-t">扫开它</view>
-        <view class="how-s">他就住进村里</view>
+        <view class="how-s">就住进村里</view>
       </view>
     </view>
 
