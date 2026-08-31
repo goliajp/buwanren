@@ -67,11 +67,26 @@ for vid, 名 in 村民:
 注释 = re.compile(r'<!--.*?-->', re.S)
 for f in sorted(页.glob('*/index.wxml')):
     源 = 注释.sub('', f.read_text(encoding='utf-8'))
-    if 'face-{{' not in 源 and 'soon-face' not in 源:
+    有头像 = ('face-{{' in 源) or ('soon-face' in 源) \
+             or re.search(r'class="[^"]*\bface-(move|still|keep|let_go|ask|near|wait)\b', 源)
+    if not 有头像:
         continue
     ts = (f.parent / 'index.ts').read_text(encoding='utf-8')
-    if '脸样' not in 源 or "utils/face" not in ts:
-        错.append(f'{f.parent.name} 屏上有头像，却没接 脸() —— 那一屏还是圆底加一个字')
+    # 判据是【头像元素绑了 style】——铺真脸只能靠它。
+    # 原先卡在「必须叫『脸样』」，而改名字那一屏用的是「婆脸」「苏脸」，
+    # 于是那一屏漏过去了:两个预览气泡还顶着写死的「婆」「苏」两个字。
+    标签 = re.findall(r'<view\b[^>]*>', 源, re.S)
+    头像行 = [t for t in 标签
+              if re.search(r'class="[^"]*\b(face|who-face|item-face|peek-face|soon-face|say-face|glyph)\b', t)]
+    # 两种不算:骨架屏的占位（`sk-` 开头，那是加载态，本来就没有人），
+    # 和【村子自己说话】那一格（`intro-face`，说话的是屋子不是人，村子没有脸）。
+    头像行 = [行 for 行 in 头像行 if 'sk-' not in 行 and 'intro-face' not in 行]
+    有插值样式 = re.compile(r'style="[^"]*\{\{')
+    没铺图 = [t.strip().replace('\n', ' ')[:52] for t in 头像行 if not 有插值样式.search(t)]
+    if "utils/face" not in ts:
+        错.append(f'{f.parent.name} 屏上有头像，却没接 utils/face —— 那一屏还是圆底加一个字')
+    elif 没铺图:
+        错.append(f'{f.parent.name} 有 {len(没铺图)} 处头像没绑 style（铺不上真脸）：{没铺图[0]}')
 
 for e in 错:
     print('  ✗ ' + e)

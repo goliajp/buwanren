@@ -12,7 +12,7 @@
   <view class="say-row">
     <!-- 苏合的方向是 near（往人里去）。这一屏就是她的，所以写死；
          但写的是她真正的那个色，不是在这儿现调一个 -->
-    <view class="say-face face-near">苏</view>
+    <view class="say-face face-near {{脸样 ? 'face-art' : ''}}" style="{{脸样}}"><text wx:if="{{!脸样}}">苏</text></view>
     <view class="bubble">
       <block wx:if="{{line}}">{{line}}</block>
       <block wx:else>
