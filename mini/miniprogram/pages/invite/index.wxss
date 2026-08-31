@@ -122,7 +122,7 @@
   display: flex; align-items: center; justify-content: center;
   font-size: 24rpx;
   border: 3rpx solid var(--paper-inset);
-  filter: saturate(.45);
+  filter: saturate(.72);
 }
 .soon-hover { opacity: .55; }
 /* 箭头转过来 —— 收起/展开是同一个东西的两面,不该是两个图标 */

@@ -72,6 +72,22 @@
       if (o && o.success) o.success(r)
       return Promise.resolve(r)
     },
+    /* 复制到剪贴板。浏览器【真有】这个能力，所以真接上（铁律二:
+       只有真机才有的才抛）。差别写在这儿:真机是系统剪贴板，
+       浏览器走 navigator.clipboard，它要 https 或 localhost，
+       而且可能被用户拒绝 —— 拒绝时走 fail，跟真机一样。 */
+    setClipboardData(o) {
+      const 文 = (o && o.data) || ''
+      const 好 = () => { if (o && o.success) o.success({ errMsg: 'setClipboardData:ok' })
+                         if (o && o.complete) o.complete({}) }
+      const 坏 = (e) => { if (o && o.fail) o.fail({ errMsg: 'setClipboardData:fail ' + e })
+                          if (o && o.complete) o.complete({}) }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(文).then(好, 坏)
+      } else {
+        坏('这个浏览器没有 clipboard')
+      }
+    },
     setNavigationBarTitle(o) { document.title = (o && o.title) || '' },
     /* 三档强度。真机上 `type` 走的是系统的 Taptic 引擎，力度与质感是
        系统给的；浏览器只有一个「震多久」，所以这里用时长近似:
