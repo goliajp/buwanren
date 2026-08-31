@@ -428,6 +428,30 @@ async function 量一屏(route, params) {
   return { ...m, 溢出: m.内容 - m.视口 }
 }
 
+/* 【集齐那一句】。40/40 是这个产品情感最高的一刻，而原先屏上说的是
+   「还差 0 位就集齐了」—— 语法没错，意思荒谬。
+   这一态靠真数据【永远走不到】（开发库里最多住着几位，而请回四十位
+   要四十次真扫码），所以只能造。夹具写在明处：只动 `lived`，
+   验的是这一屏在那个数上说什么。 */
+if (API) {
+  await open('pages/village/index')
+  await p.waitForTimeout(2200)
+  const 说 = async (n) => {
+    await p.evaluate((v) => globalThis.__router.current().setData({ lived: v, total: 40 }), n)
+    await p.waitForTimeout(350)
+    return p.evaluate(() => {
+      const e = [...document.querySelectorAll('.tally-n')].filter((x) => x.offsetParent !== null)
+      return e.length ? e[0].innerText : ''
+    })
+  }
+  const 差一 = await 说(39)
+  const 齐了 = await 说(40)
+  ok(/还差 1 位/.test(差一), '差一位时说得出还差几位', 差一)
+  ok(齐了 !== '' && !/还差 0/.test(齐了),
+     '集齐那一刻不说「还差 0 位就集齐了」', 齐了)
+  await 说(0)
+}
+
 /* 顶上那张卡与底下那一槽【不许说同一件事】。
    卡上写「四十间屋子，还都空着」，槽里再写一句「现在都空着」——
    一字之差的同一句（标尺 §1.5.5 第 4 条）。矮屏上看不出来：那一槽是
