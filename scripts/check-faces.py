@@ -62,6 +62,23 @@ for vid, 名 in 村民:
     except Exception as e:
         错.append(f'{名}({vid}) 的头像坏了：{e}')
 
+# 【四十张必须是同一块画布】。设计册里每个人的正面图各画各的
+# （量下来 11×11 到 14×16），而界面上是同一个圆牌、同一个
+# `background-size` —— 窄的那位就被放得更大:并排摆着像素块一个人一个
+# 大小，看着不是一套画（2026-09-01 五路评审）。
+# 导出那一步（rooms/tools/export-faces.mjs）负责把每张摊到同一块画布上，
+# 宽居中、底对齐。这一条盯着别再漏回去。
+尺寸 = {}
+for vid, 图 in 脸.items():
+    try:
+        raw = base64.b64decode(图.split(',', 1)[1])
+        尺寸.setdefault(struct.unpack('>II', raw[16:24]), []).append(vid)
+    except Exception:
+        pass                                   # 坏图上面那一段已经报过
+if len(尺寸) > 1:
+    描述 = '、'.join(f'{w}×{h} 有 {len(v)} 位' for (w, h), v in sorted(尺寸.items()))
+    错.append(f'四十张脸不是同一块画布（{描述}）—— 同一个圆牌里像素块会一人一个大小')
+
 # 用到头像的屏，必须走 脸()，不许自己裸写末字
 页 = 根 / 'mini/miniprogram/pages'
 注释 = re.compile(r'<!--.*?-->', re.S)

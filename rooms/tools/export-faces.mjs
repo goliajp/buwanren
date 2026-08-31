@@ -93,9 +93,33 @@ await b.close()
 const 位数 = Object.keys(网格).length
 if (位数 < 40) throw new Error(`只导出了 ${位数} 位 —— 设计册没加载完，别把半份产物写下去`)
 
+/* 【统一画布】。设计册里每个人的正面图是各画各的:量下来 11×11 到
+   14×16 都有。而界面上的头像圆牌是同一个尺寸、同一个 `background-size:
+   74%` —— 于是 11 格宽的那位被放大得比 14 格宽的那位更狠，
+   同一屏上并排摆着，像素块一个人一个大小，看着就不是一套画。
+   （2026-09-01 五路评审说的「像素没落在整数格上」，根子在这儿:
+   CSS 那一侧给不同尺寸的图找不出一个共同的整数倍。）
+
+   所以在导出这一步把每张都摊到同一块画布上:宽居中、【底对齐】——
+   人是站在地上的，底对齐才不会有的悬空有的踩下去。
+   画布取所有图的最大宽高，透明补边，一格都不缩放、不裁切。 */
+const 全部格 = Object.values(网格)
+const 画布宽 = Math.max(...全部格.map((g) => g[0].length))
+const 画布高 = Math.max(...全部格.map((g) => g.length))
+const 摊平 = (格) => {
+  const w = 格[0].length, h = 格.length
+  const 左 = Math.floor((画布宽 - w) / 2)          // 宽居中
+  const 上 = 画布高 - h                             // 底对齐:人站在地上
+  return Array.from({ length: 画布高 }, (_, y) =>
+    Array.from({ length: 画布宽 }, (_, x) => {
+      const r = 格[y - 上]
+      return r ? (r[x - 左] || '') : ''
+    }))
+}
+
 const 脸 = {}
 for (const [id, 格] of Object.entries(网格))
-  脸[id] = 'data:image/png;base64,' + 成图(格).toString('base64')
+  脸[id] = 'data:image/png;base64,' + 成图(摊平(格)).toString('base64')
 
 writeFileSync(出口, `/* 四十位的头像 —— 由 rooms/tools/export-faces.mjs 从设计册导出。
    手改这个文件没有意义:下一次导出就覆盖掉了。要改脸去改设计册
@@ -103,4 +127,4 @@ writeFileSync(出口, `/* 四十位的头像 —— 由 rooms/tools/export-faces
 module.exports = ${JSON.stringify(脸)}
 `)
 const 大小 = Object.values(脸).reduce((n, s) => n + s.length, 0)
-console.log(`✓ ${出口.replace(根 + '/', '')}  ${位数} 位 · ${(大小 / 1024).toFixed(1)} KB`)
+console.log(`✓ ${出口.replace(根 + '/', '')}  ${位数} 位 · ${画布宽}×${画布高} 同一块画布 · ${(大小 / 1024).toFixed(1)} KB`)
