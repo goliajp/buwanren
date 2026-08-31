@@ -506,7 +506,7 @@ KFKWWWWWWKFK
       // 玩家点按钮 → 他回案后跪坐下来测字。speed 22 高于闲逛的 12:
       // 表演是玩家【唯一】发起的动作,让他慢慢晃过去是最直接的挫败感
       actor: { x: 677, y: 1034, poses: ['sit'], fps: 1, flip: false, speed: 22 },
-      button: 'shenyanCastBtn', labels: ['请沈砚测个字', '收起'], stateKey: 'cezi',
+      button: 'shenyanCastBtn', labels: ['请沈砚拆个字', '收起'], stateKey: 'cezi',
       lineGap: 5000,
       lines: ['写一个字来。随手写，别想',
               '此字左虚右实 —— 恕我直言，你近来外头撑得辛苦',

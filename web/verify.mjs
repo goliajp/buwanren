@@ -847,7 +847,7 @@ if (API) {
 
       /* 先填一串对不上的：话要说清是哪一种情况，不是一句「失败」。 */
       await p.locator('.manual-input').fill('NOT-A-REAL-CODE')
-      await p.getByText('唤醒', { exact: true }).click()
+      await p.locator('.manual-go').click()
       await p.waitForFunction(() => !!globalThis.__router.current().data.codeErr,
                               null, { timeout: 15000 }).catch(() => {})
       const 错话 = await p.evaluate(() => globalThis.__router.current().data.codeErr)
@@ -857,7 +857,7 @@ if (API) {
       const 真码 = await mintCredential('popo')
       await p.locator('.manual-input').fill('')
       await p.locator('.manual-input').fill(真码)
-      await p.getByText('唤醒', { exact: true }).click()
+      await p.locator('.manual-go').click()
       await p.waitForFunction(
         () => globalThis.__router.current().__route === 'pages/moved/index',
         null, { timeout: 15000 },
@@ -944,7 +944,7 @@ if (API) {
          用的是同一支 `utils/omamori`，所以两屏说的是同一句话。 */
       const 单码 = await mintCredential('tenz')
       await p.locator('.wake-input').fill(单码)
-      await p.getByText('唤醒', { exact: true }).click()
+      await p.locator('.wake-go').click()
       await p.waitForFunction(
         () => globalThis.__router.current().__route === 'pages/moved/index',
         null, { timeout: 15000 },
@@ -1341,7 +1341,7 @@ ok(/\d{1,2}月\d{1,2}日 · 周[一二三四五六日]/.test(槽文),
 await p.setViewportSize({ width: 375, height: 667 })
 await shot('01-village')
 
-// ③ 空宅基会说话,且不给问事 ─────────────────────────────────────
+// ③ 空宅基会说话,且不给「问」的入口 ─────────────────────────────
 console.log('\n── 点一格空着的（桃桃还没请回家）──')
 await tapPlot('tao')
 await p.waitForTimeout(600)
@@ -1379,7 +1379,7 @@ ok(那句位置 && 那句位置.top < 那句位置.h && 那句位置.bottom > 0,
    '而且看得见　—— 在屏幕外的话，等于什么都没发生',
    那句位置 ? `top ${那句位置.top} / 视口 ${那句位置.h}` : '找不到那句话')
 ok(!t1.includes('桃桃'), '空屋不说是谁的　—— 还没请回来的人，名字都不该知道')
-ok(!t1.includes('问事'), '空屋不给「问事」　—— 那是设定不是权限')
+ok(!/问问|问一件/.test(t1), '空屋不给「问」的入口　—— 那是设定不是权限', t1.slice(0, 40))
 await shot('02-empty')
 
 /* 空屋说完那一句原先就没了 —— 一条死路。现在它给一个出口：
@@ -1536,7 +1536,7 @@ if (API) {
      而本机有 500 多件 —— 写死 popo 的话本机绿、CI 红（2026-08-19 真红了一次，
      跟前面切分类那条是同一个坑）。 */
   const 有货的那位 = await p.evaluate(async (base) => {
-    /* 还得【没住进来】—— 住进来的那一屏上是「问事／去他家坐坐」，
+    /* 还得【没住进来】—— 住进来的那一屏上是「问问她／去屋里坐坐」，
        根本没有「请他来」这颗按钮。这一趟前面刚把阿云与陈九请回了家，
        所以不能只看有没有货。先问一遍谁还在外面。 */
     const raw = localStorage.getItem('unmei:buwanren:token')
@@ -1584,7 +1584,7 @@ if (API) {
   console.log('  · 跳过「请一位来」与「请他来」：要真目录（不计入通过）')
 }
 
-// ④ 住着的那一格:问事出签 ───────────────────────────────────────
+// ④ 住着的那一格:问一句出签 ─────────────────────────────────────
 console.log('\n── 点一格住着的（阿云）──')
 await tapPlot('ayun')
 await 等取完('pages/villager/index')
@@ -1598,7 +1598,7 @@ ok(t2.includes('阿云'), '认出是谁')
 /* 0830:属性从三行横线表格（「缺的是 / 会这一门 / 稀有度」）改成了一排标签，
    所以这一行现在长成「缺 勤」。要验的东西没变 —— 这一屏说得出他缺什么。 */
 ok(/缺\s*\S/.test(t2), '说得出缺什么　—— 卡片放不下的正是这一行', t2.slice(0, 40))
-ok(t2.includes('问事'), '给「问事」')
+ok(/问问[^\s]/.test(t2), '住着的那位给得出「问问她」的入口', t2.slice(0, 30))
 ok(t2.includes('去家里坐坐'), '给「去家里坐坐」　—— 阿云那间房搬进来了')
 
 /* 先按一下「回村里」再回来。下面那条同样的检查挂在「目录里有他的 sku」上,
@@ -1616,14 +1616,14 @@ ok(t2.includes('去家里坐坐'), '给「去家里坐坐」　—— 阿云那�
     await tapPlot('ayun')
     await 等取完('pages/villager/index')
     const 在 = await p.evaluate(() => globalThis.__router.current().__route === 'pages/villager/index'
-      && (document.getElementById('app').innerText || '').includes('问事'))
+      && /问问/.test(document.getElementById('app').innerText || ''))
     if (在) break
     await open('pages/village/index')
     await p.waitForTimeout(500)
   }
 }
 
-await p.getByText('问事').click()
+await p.locator('button.btn').filter({ hasText: '问问' }).first().click()
 /* 等签真的落下来，不数毫秒。700ms 在负载高的机器上不够 ——
    报出来的是「出的不是阿云的口气」，而实际只是还没到。 */
 await p.waitForFunction(
@@ -2057,7 +2057,7 @@ if (API && MINGLI) {
      80 条的盘是 null。前端一切正常,没有任何一处会红。
 
      先把这个用户今天的阿云签删掉:同一位同一天的签是有缓存的,不删的话
-     再点「问事」拿到的是刚才那一条 —— 那时候还没本命,空盘是如实的结果,
+     再问一次拿到的是刚才那一条 —— 那时候还没本命,空盘是如实的结果,
      后端根本不会去取盘(日志里连一行都不会有)。删掉才是真的再问一次。
      这是【测试夹具】,跟发御守凭据一样,写在这里、看得见。 */
   const uid = sql1("SELECT user_id FROM villager_reading ORDER BY asked_at DESC LIMIT 1")
@@ -2075,7 +2075,7 @@ if (API && MINGLI) {
 
   await open('pages/village/index')
   await tapPlot('ayun')
-  await p.getByText('问事').click()
+  await p.locator('button.btn').filter({ hasText: '问问' }).first().click()
   await p.waitForTimeout(1500)
   const 最近 = sql1("SELECT villager_id || ' | ' || coalesce(chart_json::text,'null') FROM villager_reading ORDER BY asked_at DESC LIMIT 1")
   const 盘 = 最近.split(' | ').slice(1).join(' | ')
@@ -2515,7 +2515,7 @@ console.log('\n── 一屏放得下吗（iPhone SE · 内容区 597）──')
                     sells: false, canEnter: false, err: '' })
       },
       凭据: '请回家',
-      为什么: '没请回来时只有「请回家」，住着时是问事 / 去家里 / 她卖的' },
+      为什么: '没请回来时只有「请回家」，住着时是问问 / 去屋里 / 卖的东西' },
   ]
   for (const 态 of 多形态) {
     const 名 = 态.页.replace('pages/', '').replace('/index', '')
@@ -3050,10 +3050,20 @@ if (!API) {
      '账号那五行不用点就在 —— 念给客服听的东西不该再藏一层', 明细.slice(0, 40))
   await open('pages/me/index')
 
-  await p.getByText('订着的', { exact: true }).click()
+  /* 【一个都没订的时候，那一行不摆出来】。村里现在没有可订的东西，
+     点进去只会说「等有了会摆在这儿」—— 它唯一传达的信息是产品没做完，
+     而它跟另外四行并排挂着，会把那四行的可信度一起拉低。
+     有货那天 `hasSubs` 自己就把它带回来。 */
+  const 我屏文 = await text()
+  const 有订 = await p.evaluate(() => globalThis.__router.current().data.hasSubs)
+  ok(有订 === false && !我屏文.includes('订着的'),
+     '一个都没订的时候，「我的」上不摆那一行', `hasSubs=${有订}`)
+
+  // 那一页本身照旧走得通（有货那天入口回来，链路不能是断的）
+  await open('pages/subs/index')
   await p.waitForTimeout(1200)
   ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/subs/index',
-     '「订」进得了自己那一页', await p.evaluate(() => globalThis.__router.current().__route))
+     '「订」那一页本身还在，只是入口先收起来了', await p.evaluate(() => globalThis.__router.current().__route))
   /* 出口那一条没变，只是搬进了那一页里面：空的时候要说清哪儿能有。 */
   await p.waitForTimeout(900)
   const 空文 = await text()
@@ -3153,7 +3163,7 @@ if (!API) {
   await open('pages/me/index')
   await p.waitForTimeout(1500)
   const 我屏 = await text()
-  for (const 条 of ['名字', '我买过的', '我得到的', '订着的', '设置']) {
+  for (const 条 of ['名字', '我买过的', '我得到的', '设置']) {
     ok(我屏.includes(条), `「我的」上有「${条}」这一条`, 条)
   }
   /* 搬走的三块不该还在这一屏上。留一块在这儿,这一屏就又放不下了 ——
@@ -3406,7 +3416,7 @@ if (API) {
   let 问过 = ''
   const 听 = (d) => { 问过 = d.message(); d.dismiss() }
   p.on('dialog', 听)
-  await p.getByText('退出（这台设备上的东西会留在旧账号）').click()
+  await p.getByText('退出', { exact: true }).click()
   await p.waitForTimeout(700)
   p.off('dialog', 听)
   ok(/找不回来|留在旧账号/.test(问过), '退出之前先说清楚会丢什么', 问过 || '（一句都没问就退了）')
@@ -3416,7 +3426,7 @@ if (API) {
   // 再点一次，这回答应下去 —— 下面钉的是【答应之后现状是什么】
   const 答应 = (d) => d.accept()
   p.on('dialog', 答应)
-  await p.getByText('退出（这台设备上的东西会留在旧账号）').click()
+  await p.getByText('退出', { exact: true }).click()
   await p.waitForTimeout(2200)
   p.off('dialog', 答应)
   const 退出后 = await p.evaluate(() => globalThis.__router.current().data.user && globalThis.__router.current().data.user.id)

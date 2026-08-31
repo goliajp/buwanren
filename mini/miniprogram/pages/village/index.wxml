@@ -131,7 +131,7 @@
       <input class="manual-input" placeholder="御守背面那串字"
              value="{{code}}" maxlength="40" bindinput="onCodeInput"/>
       <view class="manual-go" bindtap="onCodeSubmit" hover-class="manual-go-hover" hover-stay-time="100">
-        {{codeBusy ? '找着…' : '唤醒'}}
+        {{codeBusy ? '找着…' : '请出来'}}
       </view>
     </view>
     <view wx:if="{{codeErr}}" class="manual-err">{{codeErr}}</view>

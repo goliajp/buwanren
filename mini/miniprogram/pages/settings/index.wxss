@@ -41,3 +41,12 @@
   letter-spacing: 0.02em;
   padding: 16rpx 0 0;
 }
+
+
+/* 退出那颗按钮底下这句。它原先塞在按钮的括号里（「退出（这台设备上的
+   东西会留在旧账号）」）——十四个字的括号注释是公文排版，而且
+   「留在旧账号」读起来像「东西还在、换回去就有」，跟真实后果反着来。 */
+.cta-note {
+  margin-top: 16rpx; padding: 0 20rpx;
+  font-size: 23rpx; line-height: 1.7; color: var(--ink-mid); text-align: center;
+}

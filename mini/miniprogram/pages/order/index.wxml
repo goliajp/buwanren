@@ -114,7 +114,7 @@
         扫不出来？
         <input class="wake-input" placeholder="御守背面那串字"
                value="{{code}}" maxlength="40" bindinput="onCodeInput"/>
-        <text class="wake-go" bindtap="onCodeSubmit">唤醒</text>
+        <text class="wake-go" bindtap="onCodeSubmit">请出来</text>
       </view>
       <view wx:if="{{wakeErr}}" class="wake-err">{{wakeErr}}</view>
     </view>

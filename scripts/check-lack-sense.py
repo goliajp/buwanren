@@ -11,15 +11,21 @@
 """
 import re, sys, pathlib
 
-# 「补你」「补齐你」「填补你」这一类，把村民写成了给你补短板的工具
-反向 = re.compile(r'补(你|上你|齐你)|填补你|把你补')
+# 把村民写成「给你补短板的工具」的各种说法。
+# 「补你哪一样」是第一次抓到的写法；「跟你补得上」躲过了它 ——
+# 同一个意思换个语序就漏了，所以判的是「补」跟「你」在一句话里凑到一起。
+反向 = re.compile(r'补你|补上你|补齐你|填补你|把你补|跟你补|与你补|你补得|补得上你')
 界面 = list(pathlib.Path('mini/miniprogram').rglob('*.wxml')) \
       + list(pathlib.Path('mini/miniprogram').rglob('*.ts'))
 错 = []
+块注释 = re.compile(r'<!--.*?-->|/\*.*?\*/', re.S)
 for f in 界面:
-    for i, 行 in enumerate(f.read_text(encoding='utf-8').splitlines(), 1):
+    # 跨行注释整段抹掉（换成等量空行，行号才不漂）——
+    # 这几处正是在注释里【讨论】这个错误说法本身，不该报它们
+    源 = 块注释.sub(lambda m: '\n' * m.group(0).count('\n'), f.read_text(encoding='utf-8'))
+    for i, 行 in enumerate(源.splitlines(), 1):
         if 行.lstrip().startswith(('*', '//', '<!--')):
-            continue                      # 注释里讨论这件事是允许的
+            continue                      # 单行注释同理
         m = 反向.search(行)
         if m:
             错.append(f'{f}:{i}　「{m.group(0)}」—— 村民缺的是他自己的，不是拿来补你的')
