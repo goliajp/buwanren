@@ -68,7 +68,7 @@ async fn my_village(
     // 连没找回的一起返回。**空屋不消失是世界观,不是待办** ——
     // 前端要能把空屋画出来、点得到、让它说「这间空着,等人」。
     let rows = sqlx::query(
-        "SELECT v.id, v.name, v.title, v.art_key, a.name AS art_name, v.lack, v.rarity, \
+        "SELECT v.id, v.name, v.title, v.art_key, COALESCE(a.plain, a.name) AS art_name, v.lack, v.rarity, \
                 b.direction \
          FROM villager v \
          LEFT JOIN art a ON a.key = v.art_key \
@@ -233,7 +233,7 @@ async fn today_says(
     }
 
     let rows = sqlx::query(
-        r#"SELECT l.villager_id, l.seq, l.text, v.name, v.title, a.name AS art_name,
+        r#"SELECT l.villager_id, l.seq, l.text, v.name, v.title, COALESCE(a.plain, a.name) AS art_name,
                   b.direction
              FROM villager_line l
              JOIN villager v ON v.id = l.villager_id
@@ -275,7 +275,7 @@ async fn all_villagers(
     axum::extract::Query(q): axum::extract::Query<名册参数>,
 ) -> Result<Json<J>, ApiError> {
     let rows = sqlx::query(
-        "SELECT v.id, v.name, v.title, a.name AS art_name, v.rarity, v.lack, b.direction \
+        "SELECT v.id, v.name, v.title, COALESCE(a.plain, a.name) AS art_name, v.rarity, v.lack, b.direction \
          FROM villager v \
          LEFT JOIN art a ON a.key = v.art_key \
          LEFT JOIN lack_bias b ON b.lack = v.lack \

@@ -8,6 +8,7 @@
  */
 import { storage } from '../../services/storage'
 import { mineApi } from '../../services/mine'
+import { natalApi } from '../../services/natal'
 import { commerceApi } from '../../services/commerce'
 import { 状态说法, 该做什么 } from '../../utils/money'
 import type { OrderCard, TraceEvent } from '../../types/commerce'
@@ -23,6 +24,11 @@ interface Recent {
 
 interface IData {
   nickname: string
+  /** 出生时间那一行的右侧:「已填 · 三份」/「还没填」。
+   *  【2026-09-01】这一行原先【不存在】—— 而建档那一屏自己写着
+   *  「留几份、随时换」「问清楚了再建一份准的换过来」，
+   *  那句话在界面上没有兑现的地方:填完之后，再也回不去了。 */
+  natalText: string
   orderText: string
   badgeText: string
   subText: string
@@ -41,6 +47,7 @@ interface IData {
 Page<IData, WechatMiniprogram.IAnyObject>({
   data: {
     nickname: '',
+    natalText: '',
     orderText: '',
     badgeText: '',
     subText: '',
@@ -53,7 +60,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
 
   onShow() {
     this.pull()
-    if (storage.getToken()) this.loadMine()
+    if (storage.getToken()) { this.loadMine(); this.取出生时间() }
   },
 
   /* 匿名登录是异步的：冷启动时 onShow 会抢在 token 之前跑，
@@ -61,6 +68,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
   onAuthReady() {
     this.pull()
     this.loadMine()
+    this.取出生时间()
   },
 
   pull() {
@@ -70,6 +78,17 @@ Page<IData, WechatMiniprogram.IAnyObject>({
   },
 
   goName() { wx.navigateTo({ url: '/pages/name/index' }) },
+
+  goNatal() { wx.navigateTo({ url: '/pages/natal/index' }) },
+
+  /* 有几份出生时间。**取不到就不写**，不写「还没填」——
+     那两种在屏上长得一样，而一个填过的人看见「还没填」会以为自己的没了。 */
+  取出生时间() {
+    natalApi.list().then(
+      (l) => this.setData({ natalText: l.length ? (l.length > 1 ? `${l.length} 份` : '已填') : '还没填' }),
+      () => this.setData({ natalText: '' }),
+    )
+  },
   goOrders() { wx.navigateTo({ url: '/pages/orders/index' }) },
   goBadges() { wx.navigateTo({ url: '/pages/badges/index' }) },
   goSubs() { wx.navigateTo({ url: '/pages/subs/index' }) },

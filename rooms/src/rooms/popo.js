@@ -21,7 +21,7 @@
     // 她骑扫帚 —— fly 走直线，速度与走路一致
     perform: {
       actor: { x: 632, y: 914, poses: ['gaze'], fps: 1, flip: false, fly: true, speed: 13 },
-      button: 'popoCastBtn', labels: ['请婆婆看水晶球', '不看了'],
+      button: 'popoCastBtn', labels: ['请婆婆翻张牌', '收牌'],
       stateKey: 'casting',                      // 水晶球与五芒星阵读这个键
       lineGap: 7200,
       lines: ['坐近些。雾散得慢，急不得',

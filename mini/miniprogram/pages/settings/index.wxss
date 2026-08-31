@@ -46,8 +46,10 @@
 /* 退出那颗按钮底下这句。它原先塞在按钮的括号里（「退出（这台设备上的
    东西会留在旧账号）」）——十四个字的括号注释是公文排版，而且
    「留在旧账号」读起来像「东西还在、换回去就有」，跟真实后果反着来。 */
+/* 警告现在在按钮【上面】（wxml 里那段注释说了为什么），
+   所以外边距也要反过来 —— 原先的 `18rpx auto 0` 是在贴它上面的按钮。 */
 .cta-note {
-  margin: 18rpx auto 0; padding: 16rpx 24rpx; max-width: 560rpx;
+  margin: 0 auto 18rpx; padding: 16rpx 24rpx; max-width: 560rpx;
   border-radius: 12rpx;
   background: #FFF6EC;
   border: 1rpx solid var(--amber-lite);

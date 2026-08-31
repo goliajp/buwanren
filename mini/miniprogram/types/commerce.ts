@@ -22,6 +22,11 @@ export interface ProductCard {
   hero_image_url?: string | null
   tags: string[]
   description_md?: string
+  /** 这件商品最便宜的那一档现价（分）。没上架 / 没定价是 null。
+   *  按钮上写价钱要它 —— 详情页那份价在 `skus[].current_price_minor` 上，
+   *  可列表页拿不到详情，于是从前按钮只能不写价。 */
+  from_price_minor?: number | null
+  from_currency?: string | null
 }
 
 export interface Sku {

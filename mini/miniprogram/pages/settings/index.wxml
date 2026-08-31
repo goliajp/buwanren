@@ -42,7 +42,9 @@
       </text>
     </view>
     <view class="prof-row" wx:if="{{activeNatalId}}">
-      <text class="prof-k">本命</text>
+      <!-- 【2026-09-01】原先写「本命」。整个界面另外九处都写「出生时间」，
+           只有这一处用了行话 —— 而设置页恰好是不熟的人来找东西的地方。 -->
+      <text class="prof-k">出生时间</text>
       <text class="prof-v mono">{{activeNatalId}}</text>
     </view>
   </view>
@@ -50,14 +52,18 @@
     <text class="prof-v">还没登录上 —— 退出重来一次试试</text>
   </view>
 
+  <!-- 【2026-09-01】警告挪到按钮【上面】。
+       原先它在按钮底下 —— 而这是一颗不可逆的按钮:匿名账号退出之后，
+       村里的人和买过的东西都回不来。放在下面等于「按完再告诉你」，
+       读到的时候手已经抬起来了。要挡住一次误按，字必须在按之前经过眼睛。 -->
+  <view class="cta-note warn" wx:if="{{user && user.is_anonymous}}">
+    你还没绑微信 —— 退出以后，村里的人和买过的东西都回不来了
+  </view>
+
   <view class="cta">
     <button class="btn ghost" bindtap="doLogout">
       {{user && user.is_anonymous ? '退出' : '退出并重新登录'}}
     </button>
-  </view>
-
-  <view class="cta-note" wx:if="{{user && user.is_anonymous}}">
-    你还没绑微信 —— 退出以后，村里的人和买过的东西都回不来了
   </view>
 
   <view class="foot-hint">

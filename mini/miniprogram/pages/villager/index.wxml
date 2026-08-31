@@ -70,7 +70,7 @@
          这三条对每一位都成立（它们是产品机制，不是四十条内容），
          所以不必等台词写齐就能说。 -->
     <view class="gets" wx:if="{{!who.at_home}}">
-      <view class="gets-k">请{{who.name}}回家之后</view>
+      <view class="gets-k">请{{who.name}}回村之后</view>
       <view class="gets-row">
         <view class="gets-n">1</view>
         <view class="gets-b">
@@ -106,15 +106,28 @@
              写死的话，第二个卖东西的人来了没人记得改这里。 -->
         <button class="btn ghost" wx:if="{{sells}}" bindtap="goSells">{{sellsLabel}}</button>
         <button class="btn ghost" wx:if="{{canEnter}}" bindtap="onEnter">去屋里看看</button>
-        <view class="hint" wx:else>屋子还没搬进来</view>
+        <!-- 【2026-09-01】原先写「屋子还没搬进来」—— 搬进来的是人，
+             不是屋子;而且它说的其实是【我们还没把这一间做出来】。
+             主语错了一次，读的人就得自己猜一次。 -->
+        <view class="hint" wx:else>{{who.name}}的屋子还在盖 —— 做好了就能进去坐坐</view>
       </block>
       <block wx:else>
         <!-- 没请回家不给问签 —— 那是设定不是权限，所以不给这颗按钮，
              而不是点了再报错 -->
-        <button class="btn" bindtap="goInvite">
+        <!-- 【2026-09-01】价钱写在按钮上。
+             这颗是全屏唯一要掏钱的地方，而它之前只写「请婆婆回村」——
+             按下去是马上扣钱还是先看看？没人知道，于是不按。
+             价来自列表接口（`from_price_minor`），取不到就不写，不编。
+             没上架的那位按钮变灰并说明白，别让人白点一趟。 -->
+        <button class="btn" bindtap="goInvite" disabled="{{请不来}}">
           <block wx:if="{{inviting}}">找着……</block>
+          <block wx:elif="{{请不来}}">{{请不来}}</block>
+          <block wx:elif="{{价}}">请{{who.name}}回村 · {{价}}</block>
           <block wx:else>请{{who.name}}回村</block>
         </button>
+        <!-- 掏钱之前先说清楚下一步是什么 —— 按钮上的价钱回答「多少」，
+             这一行回答「按下去会发生什么」。两个都得有，人才敢按。 -->
+        <view class="hint" wx:if="{{价 && !请不来}}">先看清楚再决定买不买</view>
       </block>
       <!-- 「回村里」原先在另一个容器里，于是它永远自己占一行、
            还按内容宽左对齐。它跟「去屋里看看」是同一档的次要动作，

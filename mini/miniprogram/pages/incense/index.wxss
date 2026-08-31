@@ -92,3 +92,28 @@
   font-size: 26rpx; font-weight: 700; letter-spacing: 0.08em;
 }
 .pick-hover .pick-go { background: var(--amber-deep); }
+
+
+/* ── 2026-09-01：三档分主次 ─────────────────────────────────
+   荐的那一档留实心橙并戴一个小标;另外两档的动作带退成
+   「纸底 + 橙字」—— 还是看得出可以点，但不跟主的抢。
+   为什么荐最便宜那一档:见 index.ts 里 `标出最便宜那一档` 上面那段。 */
+.pick-go {
+  background: var(--paper-inset);
+  color: var(--amber-deep);
+  border-top: 2rpx solid #EDE3D2;
+}
+.pick-rec .pick-go {
+  background: var(--amber);
+  color: #fff;
+  border-top: none;
+}
+.pick-rec { border-color: var(--amber); box-shadow: 0 4rpx 14rpx rgba(232,121,26,.14); }
+.pick-tag {
+  position: absolute; top: -16rpx; left: 50%; transform: translateX(-50%);
+  white-space: nowrap;
+  padding: 4rpx 14rpx; border-radius: 999rpx;
+  background: var(--amber); color: #fff;
+  font-size: 19rpx; font-weight: 600; letter-spacing: .02em;
+}
+.pick { position: relative; }
