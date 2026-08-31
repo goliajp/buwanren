@@ -2476,6 +2476,11 @@ KLRLJJJRqK
       const rr2 = 255, gg2 = (245 - ph * 40) | 0, bb2 = (250 - ph * 90) | 0
       mainG.fillStyle = 'rgba(40,60,20,0.10)'
       mainG.fillRect(c2.x + 8, c2.y + 8 * cs, 36 * cs, 6)
+      /* 半透明。云原先是不透明的实色方块，跟台词气泡（白底圆角块）
+         在同一屏上撞了形状——七朵没有字的方块飘在房顶上，一眼看过去
+         像是七个没加载出来的气泡。透了之后房子从底下透出来，
+         它才读得成「天上的东西」。0.72 是让房顶的瓦纹刚好看得见的那一档。 */
+      mainG.globalAlpha = 0.72
       mainG.fillStyle = 'rgb(' + rr2 + ',' + gg2 + ',' + bb2 + ')'
       mainG.fillRect(c2.x, c2.y, 14 * cs, 9 * cs)
       mainG.fillRect(c2.x + 12 * cs, c2.y, 14 * cs, 9 * cs)
@@ -2487,6 +2492,7 @@ KLRLJJJRqK
       mainG.fillRect(c2.x + 6 * cs, c2.y - 6 * cs, 10 * cs, 3)
       mainG.fillStyle = 'rgba(' + rr2 + ',' + ((gg2 - 24) | 0) + ',' + ((bb2 - 30) | 0) + ',0.9)'
       mainG.fillRect(c2.x + 3, c2.y + 8 * cs, 32 * cs, 3 * cs)
+      mainG.globalAlpha = 1
     }
     mainG.fillStyle = 'rgba(255,255,255,0.45)'
     for (let k = 0; k < 22; k++) {

@@ -41,6 +41,29 @@ Page<IData, WechatMiniprogram.IAnyObject>({
   goBind() { wx.navigateTo({ url: '/pages/bind/index' }) },
 
   async doLogout() {
+    /* 【先问一句】。匿名账号退出 = 换一个新的匿名号，旧号里的村民、
+       买过的东西、说明书全都够不着了 —— 不可逆，而按钮上写的是
+       「退出并重新登录」，听着像刷新。
+
+       危险的那一头放在 confirm（要主动点右边那颗），安全的放 cancel:
+       网页版的垫片用的是浏览器 confirm，显示不出这两个按钮的文字，
+       而 Playwright 默认 dismiss（= cancel）。把「退出」放 cancel 的话，
+       每次跑验证都会真的把账号退掉。 */
+    const 匿名 = !!(this.data.user && this.data.user.is_anonymous)
+    const 答 = await new Promise<boolean>((给) => {
+      wx.showModal({
+        title: 匿名 ? '退出就找不回来了' : '退出？',
+        content: 匿名
+          ? '你还没绑微信 —— 退出会换一个新账号，村里的人、买过的东西、说明书都留在旧账号里。想留住它们，先回上一屏绑微信'
+          : '下次用微信登录回来，东西都还在',
+        confirmText: 匿名 ? '还是退出' : '退出',
+        cancelText: 匿名 ? '先不退' : '算了',
+        success: (r) => 给(!!r.confirm),
+        fail: () => 给(false),
+      })
+    })
+    if (!答) return
+
     logout()
     const app = getApp<IAppOption>()
     app.globalData.token = null
