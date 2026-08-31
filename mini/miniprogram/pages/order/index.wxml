@@ -108,7 +108,7 @@
          所以它是这一屏的主按钮，排在退款前面。 -->
     <view class="cta cta-wake" wx:if="{{toScan}}">
       <button class="btn" bindtap="onWake" disabled="{{waking}}">
-        {{waking ? '唤着……' : '收到了，去扫开它'}}
+        {{waking ? '找着……' : '收到了，去扫一下'}}
       </button>
       <view class="wake-alt">
         扫不出来？

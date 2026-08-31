@@ -92,16 +92,19 @@
              这一颗按 `sells` 出现 —— 由后端说这位村民卖不卖东西，页面不写死名单：
              写死的话，第二个卖东西的人来了没人记得改这里。 -->
         <button class="btn ghost" wx:if="{{sells}}" bindtap="goSells">{{sellsLabel}}</button>
-        <button class="btn ghost" wx:if="{{canEnter}}" bindtap="onEnter">去家里坐坐</button>
+        <button class="btn ghost" wx:if="{{canEnter}}" bindtap="onEnter">去屋里看看</button>
         <view class="hint" wx:else>屋子还没搬进来</view>
       </block>
       <block wx:else>
         <!-- 没请回家不给问签 —— 那是设定不是权限，所以不给这颗按钮，
              而不是点了再报错 -->
-        <button class="btn" bindtap="goInvite">{{inviting ? '找着……' : '请回家'}}</button>
+        <button class="btn" bindtap="goInvite">
+          <block wx:if="{{inviting}}">找着……</block>
+          <block wx:else>请{{who.name}}回村</block>
+        </button>
       </block>
       <!-- 「回村里」原先在另一个容器里，于是它永远自己占一行、
-           还按内容宽左对齐。它跟「去家里坐坐」是同一档的次要动作，
+           还按内容宽左对齐。它跟「去屋里看看」是同一档的次要动作，
            该并排 —— 放进同一个 acts 里就行 -->
       <button class="btn ghost" bindtap="onBack">回村里</button>
     </view>

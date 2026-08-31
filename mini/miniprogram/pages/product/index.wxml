@@ -1,6 +1,6 @@
 <view class="page">
   <!-- 御守是【一个人】。这一屏是决定掏不掏钱的地方，而它原先的标题是
-       「一件 / 御守」—— 刚点的明明是「丹增 · 请回家」，落地却是一件匿名商品，
+       「一件 / 御守」—— 刚点的明明是「丹增 · 请回村」，落地却是一件匿名商品，
        连说明里都只能写「这位不完人」。标尺 §1.5.3 第一问「我在哪儿」答不上。
        现在：是谁买谁，脸和名字在最上面；不是御守的商品（香、报告）照旧。 -->
   <view class="hd who" wx:if="{{villager && fulfillment === 'residency'}}">
@@ -8,7 +8,7 @@
     <view class="who-body">
       <!-- 不带代词：四十位里男女都有，写死一个「他」轮到婆婆那天就是错的
            （0830 的代词清扫定过这条，而这一行是后加的，差点又犯一次） -->
-      <view class="eyebrow">请回家</view>
+      <view class="eyebrow">请回村</view>
       <view class="title">{{villager.name}}</view>
       <view class="who-sub" wx:if="{{villager.title}}">{{villager.title}}<text wx:if="{{villager.art}}"> · {{villager.art}}</text></view>
     </view>
