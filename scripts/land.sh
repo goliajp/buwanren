@@ -11,8 +11,12 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
-BR="${1:?要落哪一支}"
-MSG="${2:?合并说明}"
+# 用显式判断而不是 `${1:?说明}` —— 那个 `?` 紧挨着汉字，
+# 会被界面文案的标点门禁当成「汉字前的半角问号」（它看不出那是 bash 语法）。
+BR="${1:-}"
+MSG="${2:-}"
+[ -n "$BR" ]  || { echo "用法：bash scripts/land.sh <分支名> <合并说明>"; exit 1; }
+[ -n "$MSG" ] || { echo "用法：bash scripts/land.sh <分支名> <合并说明>"; exit 1; }
 
 git rev-parse --verify "$BR" >/dev/null 2>&1 || { echo "✗ 没有这一支：$BR"; exit 1; }
 [ -z "$(git status --porcelain)" ] || { echo "✗ 工作区不干净，先处理掉"; git status -s; exit 1; }
