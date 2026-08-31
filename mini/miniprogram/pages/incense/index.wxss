@@ -26,7 +26,15 @@
 /* 这一屏的内容就这么多（三档 + 几句话）。让它自然结束、「回去」贴底 ——
    中间那片空是留白，不是「画到一半」。硬塞内容把它填满才是后者。 */
 .page { display: flex; flex-direction: column; }
-.acts { margin-top: auto; padding-top: 48rpx; text-align: center; }
+/* 【贴底，但不拉开太远】。`.page` 是 `min-height: 100vh`（全局），
+   配上 `margin-top: auto` 就把这颗按钮顶到视口底 —— 在 iPhone SE 上
+   正好，在长屏（14 / ProMax）上会在内容与按钮之间撑出三到五百像素，
+   一屏看着像没做完。而那片空白只在长屏出现，我一直只看最矮那一档，
+   所以从没见过它。
+
+   `margin-bottom: auto` 让上下两段弹性平分那段富余：按钮不再钉死在
+   视口底，而是跟着内容往下留一段。矮屏上富余是 0，行为不变。 */
+.acts { margin-top: auto; margin-bottom: auto; padding-top: 48rpx; text-align: center; }
 .slot-on { display: flex; align-items: center; color: var(--ink-mid); }
 .slot-arrow { margin-left: auto; color: var(--stone-label); }
 
