@@ -23,7 +23,15 @@
    这里再写一个 100% 会把它盖掉（页面样式排在后面），
    而 100% 的父级没有高度，于是按钮跟在内容后面、底下空五百像素。 */
 .page { display: flex; flex-direction: column; }
-.cta { margin-top: auto; padding-top: 40rpx; }
+/* 【贴底，但不拉开太远】。`.page` 是 `min-height: 100vh`（全局），
+   配上 `margin-top: auto` 就把这颗按钮顶到视口底 —— 在 iPhone SE 上
+   正好，在长屏（14 / ProMax）上会在内容与按钮之间撑出三到五百像素，
+   一屏看着像没做完。而那片空白只在长屏出现，我一直只看最矮那一档，
+   所以从没见过它。
+
+   `margin-bottom: auto` 让上下两段弹性平分那段富余：按钮不再钉死在
+   视口底，而是跟着内容往下留一段。矮屏上富余是 0，行为不变。 */
+.cta { margin-top: auto; margin-bottom: auto; padding-top: 40rpx; }
 .cta .btn { width: 100%; box-sizing: border-box; }
 .err-msg { margin-bottom: 28rpx; }
 
