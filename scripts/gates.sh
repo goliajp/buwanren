@@ -230,6 +230,10 @@ gate "屏上不拿指代当名字"     . python3 scripts/check-no-deixis.py
 gate "金额只有一支格式化"     . python3 scripts/check-money-fmt.py
 gate "22 屏对得上尺子吗" . python3 scripts/check-screen-ruler.py
 gate "开局站位对得上第一件事吗" . python3 scripts/check-room-start.py
+# 「站位对得上」不等于「看得见」——婆婆的站位一直是对的，
+# 只是正对着水晶球坐，从正面看整个人只剩一个帽尖（实测露出 41%）。
+# 这一支把主人染成品红重渲一次，数画面上还剩多少 —— 那就是没被挡住的部分。
+gate "进屋看得见主人吗" . bun web/see-host.mjs
 # 镜像自己会先组装。动线要真跑一遍浏览器,几十秒
 gate "web verify · 动线"  . bash web/run-verify.sh
 
