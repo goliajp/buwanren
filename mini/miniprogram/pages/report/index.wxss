@@ -97,7 +97,29 @@
   font-size: 26rpx; color: #6B5A3C; line-height: 1.85;
 }
 
+/* 正文。比表格里的数低一档、比出处高一档 —— 它是解说，不是数据也不是落款。
+   行高放宽到 1.9:这几段是要读完的，不是扫一眼的。 */
+.body {
+  margin-top: 30rpx;
+  font-size: 26rpx; line-height: 1.9;
+  color: var(--ink-mid);
+}
+
 .src { margin-top: 20rpx; font-size: 20rpx; color: var(--stone-label); }
+
+/* 结尾。跟正文之间拉开一段距离，让人知道这是另一件事 ——
+   上面是这一页，这里是整册。 */
+/* 收束压成一行加一颗按钮。设计册 10.3 定的是「一册不滚动，翻页时页签不动」——
+   收束一长，页签就被推到屏外，翻纸的感觉当场断掉。
+   「册子不会丢」那句话删了:它的家在「我」那一栏，不在这儿。 */
+.fin {
+  margin-top: 36rpx; padding-top: 26rpx;
+  border-top: 1rpx solid var(--stone-line-x);
+}
+.fin-p { font-size: 25rpx; line-height: 1.8; color: var(--ink-mid); }
+/* 下边距不能省:页签那条 margin-top:auto 只在有剩余空间时才把自己推到底，
+   末页内容撑满时它就紧贴上来，按钮正好压在页签的分隔线上。 */
+.fin-b { margin-top: 22rpx; margin-bottom: 26rpx; }
 
 /* 页名一排。当前那个反白 —— 六页里在哪儿一眼看得出 */
 .tabs {

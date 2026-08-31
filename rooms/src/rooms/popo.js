@@ -612,7 +612,10 @@ KFKqqqqKKK
   // 权重 w 体现主次：读牌与照顾动物是她的主业，飞一圈是偶尔高兴。
   // node 保留作分区标记（供 roomstats / pathlint 读），寻路本身走网格。
   const ACTS = [
-    { id: 'read',   node: 'C1', x: 652, y: 964,  poses: ['gaze'],           fps: 1,   dur: [8, 12], flip: false, w: 4,
+    /* x 从 652 挪到 590：水晶球在 666，跟她原来的位置几乎正对，
+       从正面看整个人只剩一个帽尖露在球外面（实测只露出 41%）。
+       她坐在桌后是对的，只是不该正对着球坐 —— 往左挪 62，脸就从球边上出来了。 */
+    { id: 'read',   node: 'C1', x: 590, y: 964,  poses: ['gaze'],           fps: 1,   dur: [8, 12], flip: false, w: 4,
       say: ['牌是这么说的哦。信不信在你呀', '我不下断语的。我只说我看见什么', '这张……嗯，不算坏事'] },
     { id: 'drawer', node: 'C1', x: 572, y: 1224, poses: ['sit'],            fps: 1,   dur: [5, 8],  flip: false, w: 1,
       say: '……哎呀，看它做什么' },
@@ -646,8 +649,8 @@ KFKqqqqKKK
   ]
 
   const st = {
-    mode: 'act', act: ACTS[0], x: 652, y: 964, path: [],
-    until: globalThis.ENGINE_HOST.now() + 5000, frame: 0, tx: 652, ty: 964,
+    mode: 'act', act: ACTS[0], x: ACTS[0].x, y: ACTS[0].y, path: [],
+    until: globalThis.ENGINE_HOST.now() + 5000, frame: 0, tx: ACTS[0].x, ty: ACTS[0].y,
     sayText: null, sayUntil: 0, flyA: 0,
   }
   let POPO_PERF = null
