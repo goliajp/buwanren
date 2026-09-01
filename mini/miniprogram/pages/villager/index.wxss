@@ -110,3 +110,11 @@
 .gets-b { flex: 1; min-width: 0; }
 .gets-t { font-size: 28rpx; font-weight: 600; color: var(--ink); line-height: 1.45; }
 .gets-s { font-size: 23rpx; color: var(--ink-faint); margin-top: 5rpx; line-height: 1.5; }
+/* 「怎么来」——【它是实物、要寄、要扫】。摆在三条好处之前:
+   那三条说的是付完以后会怎样，而这一条说的是中间还有几天快递。
+   顺序错了，人会以为付完就开通（2026-09-01 五路评审）。 */
+.ships { display: flex; gap: 14rpx; align-items: baseline;
+         margin-bottom: 20rpx; padding-bottom: 18rpx;
+         border-bottom: 1rpx solid var(--stone-line-x); }
+.ships-k { flex: none; font-size: 23rpx; color: var(--stone-label); }
+.ships-v { font-size: 25rpx; line-height: 1.6; color: var(--ink-mid); }

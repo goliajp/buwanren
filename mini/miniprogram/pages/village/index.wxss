@@ -46,9 +46,12 @@
 .nudge-s { font-size: 24rpx; color: var(--ink-faint); margin-top: 4rpx; }
 
 /* E2 的弹性槽：手输编号。矮屏收起（app.wxss 里那条 max-height 规则） */
-.manual { width: 100%; box-sizing: border-box; padding: 20rpx 32rpx 24rpx; }
-.manual-k { font-size: 24rpx; color: var(--ink-faint); margin-bottom: 12rpx; }
-.manual-row { display: flex; align-items: center; gap: 16rpx; }
+/* 折叠着的时候要【压到一行的价钱】。实测:20/24 的内边距加上
+   `.manual-k` 的下边距，整块 47px，村主屏在 iPhone SE 上超 20px。
+   展开之后再把下边距加回来（`.manual-row` 自己带上边距）。 */
+.manual { width: 100%; box-sizing: border-box; padding: 8rpx 32rpx 10rpx; }
+.manual-k { font-size: 24rpx; color: var(--ink-faint); }
+.manual-row { display: flex; align-items: center; gap: 16rpx; margin-top: 12rpx; }
 .manual-input {
   flex: 1; background: var(--paper); 
   border-radius: 16rpx; padding: 14rpx 20rpx; font-size: 26rpx; color: var(--ink);
@@ -100,3 +103,12 @@
 .bar-n { flex: none; font-size: 26rpx; font-weight: 700; color: var(--moss); font-variant-numeric: tabular-nums; }
 /* 一位都没有时进度条是空的 —— 空条比没有条更让人想填满它 */
 .bar-fill { min-width: 0; }
+
+/* 收集数那一条现在可点（住进第一位之后，它是这一屏唯一通向「谁能来」的路）。
+   右边给一条明说的出路 —— 一条能点却看不出能点的进度条等于不能点。 */
+.bar-go { flex: none; margin-left: 16rpx; font-size: 24rpx; font-weight: 600; color: var(--amber-deep); }
+.bar-hover { opacity: .72; }
+
+/* 手输编号:一行入口 + 展开。常驻的是那一行，不是整块。 */
+.manual-caret { margin-left: 6rpx; font-size: 20rpx; color: var(--stone-label); }
+.manual-k-hover { opacity: .66; }

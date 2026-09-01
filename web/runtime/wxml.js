@@ -342,7 +342,24 @@
             // catch* 的语义:自己处理完就不再往上传。
             // 少这一句的话，点开场白里的按钮会连外层那张卡的 bindtap 一起走。
             if (截住) ev.stopPropagation()
+            /* 【换了页就别让这一次点击继续往上冒】。
+               这里的 DOM 是【复用】的（paint 只打补丁，不重建节点），
+               而事件的传播路径在派发之初就定好了 —— 于是:
+               按钮的处理器里换了页 → 补丁把祖先节点改成了新页面的元素、
+               顺手绑上新页面的 bindtap → 同一次点击继续冒泡，
+               打到新页面刚绑上的那个处理器上。
+               真机上不会这样:那一屏已经不在了，点击落不到它身上。
+
+               2026-09-01 撞到:村民屏按「回村里」应当退到村子，
+               实测落在「谁能来」—— 因为村子主屏的收集条那天刚变成可点的
+               `goInvite`，正好复用了同一个位置的节点。
+               这种偏差最坏的地方是它【看起来像产品的 bug】。 */
+            const 换页前 = globalThis.__router && globalThis.__router.current
+              ? globalThis.__router.current() : null
             on(name, ev, el)
+            const 换页后 = globalThis.__router && globalThis.__router.current
+              ? globalThis.__router.current() : null
+            if (换页前 !== 换页后) ev.stopImmediatePropagation()
           }
           el.addEventListener(type, fn)
           el.__off.push(() => el.removeEventListener(type, fn))

@@ -59,6 +59,9 @@ export interface VillagerCard {
   rarity: string | null
   /** 他的御守在不在卖。在 → 那件商品的 id；不在 → null，页面写「未上架」。
    *  设计册 10.8：「没上架的也列出来 …… 照实说，不拿别人顶上」。 */
+  /** 这个「缺」自己那一句（lack_bias.note）。四十条各不相同 ——
+   *  村民屏原先四十位共用一句模板，看第二个人就露馅。取不到是 null */
+  lack_note?: string | null
   omamori_product_id: string | null
   /** 请他回村多少钱（分）。没上架 / 没定价是 null —— 名册上就不写价，不编 */
   omamori_price_minor?: number | null

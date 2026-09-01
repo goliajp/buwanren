@@ -95,6 +95,8 @@ interface VillageData {
    *  没有就是 false —— 这一条只在该出现时出现，常驻的提示会被无视。 */
   toScan: boolean
   /** 手输的那串编号（E2 的弹性槽）。扫不出来的人走这条路 */
+  /** 手输编号那一块展开了没。一行入口，点开才展开 —— 整块常驻会把村子挤出屏 */
+  手输开着: boolean
   code: string
   codeErr: string
   codeBusy: boolean
@@ -105,7 +107,7 @@ interface VillageData {
 }
 
 Page<VillageData, WechatMiniprogram.IAnyObject>({
-  data: { cssW: 0, cssH: 0, sub: '', greet: '', today: '', tonight: false, lived: 0, total: 40, err: '', toScan: false, code: '', codeErr: '', codeBusy: false,
+  data: { 手输开着: false, cssW: 0, cssH: 0, sub: '', greet: '', today: '', tonight: false, lived: 0, total: 40, err: '', toScan: false, code: '', codeErr: '', codeBusy: false,
     says: null },
 
   handle: null as { stop(): void } | null,
@@ -239,7 +241,14 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
        **改头部的版式就要改这个数**：它俩对不上时，画布不会让位，
        症状是「多一条就超出去几十像素」，而那几十像素正好等于差值。 */
     const 头部 = 70
-    const 提示条 = this.data.toScan ? 56 : 0
+    /* 「扫不出来？手输编号」那一行。**改那一块的版式就要改这个数** ——
+       2026-09-01 它从弹性槽里拿出来、改成折叠一行时，这里没跟着改，
+       村主屏在 iPhone SE 上就超出去 20px（实测折叠态 28px，
+       而这里还按 56 留，差的那一截正好是画布多铺出来的）。
+       这个数是【留给它的空】，留得越少画布铺得越大 —— 我第一版把它
+       从 56 调到 32，想着「那一行只有 28px」，结果溢出从 1px 涨到 25px。
+       实测定:折叠那一行 28px，留 60 时整屏刚好放得下。 */
+    const 提示条 = this.data.toScan ? 60 : 0
     /* 「某位今天说的一句」那一块，实测 90px。跟头部同一个道理：写死，
        **改那一块的版式就要改这个数**。它是条件出现的（空村时没有），
        所以跟提示条一样要参与重算，否则村里第一个人住进来那天，
@@ -369,6 +378,13 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
      码磨花了、相机坏了、光线不够 —— 这些人现在一条出路都没有，
      而他们手上真有一枚御守，是这条链上最不该被卡住的人。
      走的是**同一条路**（`utils/omamori` 的 `唤醒`），跟一单那一屏共用。 */
+
+  /* 手输编号那一块:一行入口，点开才展开。
+     整块常驻会把村子挤出屏（实测 55px），而它又不能放回弹性槽 ——
+     槽在 ≤699px 上整块隐藏，而参照机 iPhone SE 正好在那以下，
+     等于把扫码失败之后唯一那条出路，从最需要它的机器上拿掉。 */
+  onManualToggle() { this.setData({ 手输开着: !this.data.手输开着 }) },
+
   onCodeInput(e: WechatMiniprogram.CustomEvent<{ value: string }>) {
     this.setData({ code: e.detail.value, codeErr: '' })
   },
