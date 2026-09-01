@@ -32,8 +32,13 @@ async fn list(
         let category: String = r.get("category");
         if let Some(c) = q.category.as_deref() { if category != c { return None; } }
         let price_cn: i32 = r.get("price_cn");
+        /* 【格式化只有一支】。原先是 `format!("¥{}", price_cn / 100)` ——
+           整数除法截断（9950 会显示成 ¥99，少收五十），而且硬写 ¥。
+           `money_display` 按币种定小数位、按币种给符号，跟前端
+           `utils/money.ts` 的 `money()` 是同一套规矩
+           （2026-09-01 五路评审 · 工程审计）。 */
         let price = if price_cn > 0 {
-            format!("¥{}", price_cn / 100)
+            crate::ai_compose::money_display(price_cn as i64, "CNY")
         } else { "免费".to_string() };
         Some(ActivityPublic {
             id: r.get("id"), title: r.get("title"), sub_title: r.get("sub_title"),

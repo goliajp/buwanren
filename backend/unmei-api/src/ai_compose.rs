@@ -259,7 +259,7 @@ pub async fn pick_recommend(
 
 /// 分转成一句能直接显示的价格。小数位问 `Currency` 要 —— 它是穷尽的，
 /// 加一个币种会在三处编译不过（那是 2026-08-18 特意改成这样的）。
-fn money_display(minor: i64, currency: &str) -> String {
+pub fn money_display(minor: i64, currency: &str) -> String {
     use unmei_domain::commerce::money::Currency;
     let Some(c) = Currency::from_str_lax(currency) else {
         // 认不出的币种不猜小数位 —— 原样把分和代码写出来，看得出是哪里不对。
