@@ -3,7 +3,7 @@
        原先它是一段贴在顶上的文字，下面三分之二空着。
        现在居中，给一个虚线的空位子：那个「?」就是这一格的全部内容。 -->
   <view class="empty-state">
-    <view class="empty-art plot-art">?</view>
+    <view class="empty-art pix" style="--pix:url('/images/empty-plot.png')"></view>
     <!-- 说【哪一间】。四十格原先点进来长得一模一样，而人是从图上
          点着某一格进来的 —— 那一屏答不上「我在哪儿」(标尺 §1.5.4 第一问)。
          位置从村子那边传过来(row/col)；拿不到就退回「这间」，不编一个。 -->

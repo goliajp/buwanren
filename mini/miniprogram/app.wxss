@@ -319,6 +319,14 @@ button.btn.ghost.btn-hover:not([disabled]) {
   text-align: center;
   padding: 40rpx 40rpx 80rpx;
 }
+/* 空状态那个圆牌。
+   【2026-09-01】圈里放的从【印刷体汉字】换成【像素画】。
+   原先四屏各放一个字（问 / 订 / 单 / ?），而这个产品全身都是像素:
+   四十个村民、六间屋、一整幅村子 —— 空态却是排版字，
+   而空屏是最容易被记住的地方（五路评审 · 视觉，说这是「游戏感」
+   差距最集中的一处，因为最有生气的资产早就画好了）。
+   画的都是村子里已经有的东西:签筒、木箱、单据、空门牌。
+   底还是那圈琥珀渐变 —— 它是对的，换的只是里头那个东西。 */
 .empty-art {
   width: 168rpx; height: 168rpx; border-radius: 999rpx;
   background: linear-gradient(155deg, var(--amber-lite) 0%, #FFF6EA 100%);
@@ -326,6 +334,15 @@ button.btn.ghost.btn-hover:not([disabled]) {
   display: flex; align-items: center; justify-content: center;
   font-size: 64rpx; color: var(--amber-deep); font-weight: 700;
   margin-bottom: 30rpx;
+}
+/* 有像素图的那几屏:图压在圆牌上，字就不摆了（wxml 里留空）。
+   `pixelated` 是必须的 —— 16×16 放到 84px，不声明就是一团糊。 */
+.empty-art.pix {
+  background-image: var(--pix);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 60% auto;
+  image-rendering: pixelated;
 }
 .empty-t { font-size: 33rpx; font-weight: 600; color: var(--ink); }
 .empty-s { font-size: 25rpx; color: var(--ink-faint); margin-top: 12rpx; line-height: 1.7; max-width: 540rpx; }

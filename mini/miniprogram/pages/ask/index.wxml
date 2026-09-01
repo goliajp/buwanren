@@ -104,7 +104,7 @@
        空状态永远带出口（设计 10.7）。 -->
   <block wx:if="{{!result && mode !== 'spinning'}}">
     <view class="empty-state">
-      <view class="empty-art">问</view>
+      <view class="empty-art pix" style="--pix:url('/images/empty-ask.png')"></view>
       <view class="empty-t">今天还没问过</view>
       <!-- 【2026-09-01】原先是「签才对得上」。这一屏从头到尾叫
            「问一件事」，到这里忽然冒出一个「签」—— 同一件事两个名字，

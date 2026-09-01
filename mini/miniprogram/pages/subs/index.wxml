@@ -31,7 +31,7 @@
       <view class="empty">
         <!-- 圆牌跟「我买过的」那一屏同一套 —— 同一组入口里，
              一屏有插画一屏没有，读起来像后者没做完 -->
-        <view class="empty-art">订</view>
+        <view class="empty-art pix" style="--pix:url('/images/empty-subs.png')"></view>
         <view class="empty-t">还没有订着的</view>
         <view class="empty-sub" wx:if="{{offers.length > 0}}">空着不是问题 —— 下面是哪儿能有</view>
         <view class="empty-sub" wx:elif="{{!offersErr}}">村里现在没有可以订的东西 · 等有了会摆在这儿</view>
