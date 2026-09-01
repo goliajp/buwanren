@@ -39,6 +39,8 @@ Page({
     买法: '就要这个',
     /** 御守封着的那个人。不是御守的商品是 null —— 页面据此决定说不说他 */
     villager: null as null | { id: string; name: string; title: string | null; art: string | null; direction: string; face: string },
+    /** 描述里已经交代过怎么寄了吗 —— 交代过就不再摆那一行 */
+    描述里说了寄: false,
     /** 头像那一段 style。画好脸的人有，没画好的是空串 */
     脸样: '',
     tags: [] as string[],
@@ -96,9 +98,18 @@ Page({
               : '就要这个',
           /* 御守绑着一个人。脸的那个字取姓名末字 —— 跟别处四处一样（门禁盯着） */
           villager: d.villager
-            ? { ...d.villager, face: d.villager.name.slice(-1), direction: d.villager.direction || '' }
+            ? { ...d.villager, face: d.villager.name.slice(-1), direction: d.villager.direction || '',
+                /* 【身份跟手艺一样的时候只说一遍】。副标是「{身份} · {手艺}」——
+                   卢恩的身份是「刻符的北地人」、手艺是「刻符」，
+                   摆出来就是「刻符的北地人 · 刻符」，读着像卡带
+                   （2026-09-02 玉那一屏第一次渲出来时看见的）。
+                   身份里已经含着手艺两个字就不再重复。 */
+                art: (d.villager.art && d.villager.title
+                      && d.villager.title.indexOf(d.villager.art) >= 0)
+                  ? null : d.villager.art }
             : null,
           脸样: d.villager ? 脸(d.villager.id) : '',
+          描述里说了寄: /寄/.test(d.product.description_md || ''),
           tags: d.product.tags || [],
           skus: d.skus,
         })

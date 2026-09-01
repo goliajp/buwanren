@@ -101,7 +101,10 @@
     <view class="ship" wx:elif="{{fulfillment === 'residency'}}">
       付完就搬进你的村子 · 有屋子、有名字、每天说一句
     </view>
-    <view class="ship" wx:elif="{{fulfillment === 'shipping'}}">实物，会寄给你</view>
+    <!-- 描述里已经说过怎么寄的，这一行就不说了 —— 玉那一件的描述是
+         「实物，顺丰寄给你，三到五天到」，底下再来一句「实物，会寄给你」:
+         同一件事说两遍，而且后一句更含糊（2026-09-02）。 -->
+    <view class="ship" wx:elif="{{fulfillment === 'shipping' && !描述里说了寄}}">实物，会寄给你</view>
     <view class="ship" wx:elif="{{fulfillment === 'async_compute'}}">下单后算，算完在这里看</view>
 
     <view class="note" wx:if="{{note}}">{{note}}</view>

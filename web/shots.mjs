@@ -160,6 +160,9 @@ const 屏 = [
      而去掉之后长什么样，没有一张截图看得到）。
      商品 id 由跑的时候查库定，不写死:目录是多区域快照，id 会变。 */
   ['product-oma', 'pages/product/index', { id: '@御守' }],
+  /* 玉那一件:它上架着，而 2026-09-02 之前全 app 走不到它。
+     现在卢恩卖它（sku.villager_id），从名册点他进去就能到 —— 截一张看看它长什么样。 */
+  ['product-jade', 'pages/product/index', { id: 'prod-jade-pendant' }],
   ['confirm-oma', 'pages/confirm/index', { id: '@御守' }],
   ['name', 'pages/name/index'],
   ['bind', 'pages/bind/index'],

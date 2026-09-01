@@ -168,10 +168,21 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     )
   },
 
+  /* 【有自己一屏的商品在这儿列名，其余走通用商品页】。
+     香有自己一屏，是因为它是三档价钱 + 苏合的口气（见 pages/incense/index.ts
+     顶上那段）；玉葫芦坠只有一档，通用商品页渲得出来，而且渲得对。
+     上一版这里【一律】跳香那一屏 —— 那时全村只有苏合一个人卖东西，
+     所以看不出问题;卢恩开始卖玉之后，点他的「他卖的东西」会跳到
+     一个按三档香写的屏，上面是别人的口气（2026-09-02）。
+
+     写成显式名单，不按 category 猜:香和玉的 category 都是 charm、
+     kind 都是 one_shot，猜不出来;而猜出来的路由会在加第三件东西时
+     悄悄把它送错地方，且不报错。 */
   goSells() {
-    if (this.data.sellsProduct) {
-      wx.navigateTo({ url: '/pages/incense/index?id=' + this.data.sellsProduct })
-    }
+    const id = this.data.sellsProduct
+    if (!id) return
+    const 自己一屏: Record<string, string> = { 'prod-suhe-incense': '/pages/incense/index' }
+    wx.navigateTo({ url: (自己一屏[id] || '/pages/product/index') + '?id=' + id })
   },
 
   onEnter() {
