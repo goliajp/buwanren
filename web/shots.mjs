@@ -154,6 +154,13 @@ const 屏 = [
   ...(册 ? [['report', 'pages/report/index', { id: 册 }]] : []),
   ['confirm', 'pages/confirm/index', { id: 'prod-suhe-incense' }],
   ['product', 'pages/product/index', { id: 'prod-suhe-incense' }],
+  /* 【御守那两屏也要截】。上面两条截的是香 —— 而香是【要寄】的那一种，
+     它的确认屏有「寄到」「运费」两行，御守没有。只截香等于给御守
+     那条主链路打了分（2026-09-01 第二轮评审 · 转化路把地址那道坎去掉了，
+     而去掉之后长什么样，没有一张截图看得到）。
+     商品 id 由跑的时候查库定，不写死:目录是多区域快照，id 会变。 */
+  ['product-oma', 'pages/product/index', { id: '@御守' }],
+  ['confirm-oma', 'pages/confirm/index', { id: '@御守' }],
   ['name', 'pages/name/index'],
   ['bind', 'pages/bind/index'],
   ['lighting', 'pages/lighting/index'],
@@ -172,8 +179,20 @@ const 屏 = [
 
 const 量 = {}
 let n = 0
-for (const [名, 路, q] of 屏) {
+/* `@御守` 这种占位在跑的时候查库换成真 id —— 目录是多区域快照，
+   写死 id 会在下一次重建目录之后指向一件不存在的商品，
+   而那时截出来的是「取不到」那一屏，看着仍然像一张正常截图。 */
+const 真id = (v) => {
+  if (v !== '@御守') return v
+  const id = sql1("SELECT p.id FROM product p JOIN sku k ON k.product_id=p.id"
+    + " WHERE p.fulfillment_kind='residency' AND p.status='listed'"
+    + " AND k.villager_id IS NOT NULL ORDER BY p.id LIMIT 1")
+  if (!id) throw new Error('库里没有在售的御守商品 —— 御守那两屏截不成')
+  return id
+}
+for (const [名, 路, q0] of 屏) {
   if (ONLY.length && !ONLY.includes(名)) continue
+  const q = q0 && Object.fromEntries(Object.entries(q0).map(([k, v]) => [k, 真id(v)]))
   await 去(路, q)
   await p.screenshot({ path: join(OUT, `${名}.png`) })
   /* 那一册有六页，一张截图只看得到第一页 —— 而用神与大运在后面。
@@ -227,7 +246,12 @@ writeFileSync(join(OUT, 'measure.json'), JSON.stringify(量, null, 1))
     console.log('\n  ⚠ 这几屏一屏放不下（超出多少）：')
     for (const [名, v] of 滚的) console.log(`      ${名}　超 ${v.内容高 - v.视口.高}px`)
   } else {
-    console.log('\n  · 28 屏都一屏放得下')
+    /* 【数出来的，不是写死的】。这里原先写死一句「28 屏都一屏放得下」——
+       而屏的条数是会变的:同一天加了御守那两屏之后，它照旧报 28，
+       等于把新加的两屏算进了一句它没量过的结论
+       （2026-09-01 第二轮评审那一轮自己撞上的）。 */
+    const 屏数 = Object.keys(量).length
+    console.log(`\n  · ${屏数} 屏都一屏放得下`)
   }
 }
 {

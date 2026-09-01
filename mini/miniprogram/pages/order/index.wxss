@@ -36,16 +36,9 @@
 .trace-empty { margin-top: 18rpx; font-size: 24rpx; color: var(--stone-label); }
 
 /* 「收到了，去扫开它」（设计册 M3）。扫不出来的那一条跟村子主屏同一套话 */
-.wake-alt { display: flex; align-items: center; gap: 12rpx; margin-top: 20rpx;
-            font-size: 24rpx; color: var(--stone-label); }
-.wake-input { flex: 1; background: var(--paper-inset); 
-              border-radius: 16rpx; padding: 12rpx 18rpx; font-size: 26rpx; color: var(--ink); }
 /* 墨黑那一块是旧色板的残留 —— 这一屏别的东西都是琥珀与米白，
    它一个人黑着，看起来像别的产品掉进来的。它是次要动作（扫不出来时才用），
    所以用浅琥珀，不跟主按钮抢。 */
-.wake-go { flex: none; padding: 12rpx 24rpx; border-radius: 16rpx;
-           background: var(--amber-lite); color: #8A4A12; font-weight: 600; font-size: 24rpx; }
-.wake-err { margin-top: 12rpx; font-size: 24rpx; color: var(--peach-text); line-height: 1.6; }
 .slot-done { margin-top: 24rpx; padding-top: 18rpx; border-top: 1rpx solid var(--stone-line-x);
              font-size: 22rpx; color: var(--stone-label); line-height: 1.7; }
 
@@ -64,8 +57,8 @@
 /* 「收到了，去扫开它」那一组自己排一列：主按钮一行、手输那一行在下面。
    `.cta` 是横排的（两颗按钮并排），把这一组塞进去会让主按钮被挤成
    一列竖着的字 —— 2026-08-28 从截图上看见的。 */
-.cta.cta-wake { flex-direction: column; align-items: stretch; }
-.cta.cta-wake .btn { flex: none; width: 100%; }
+.cta.cta-visit { flex-direction: column; align-items: stretch; }
+.cta.cta-visit .btn { flex: none; width: 100%; }
 
 /* 册子那条主按钮。跟「去扫开它」一样排在退款前面 ——
    买家点进这一屏最想做的事是把买的东西拿到手 */

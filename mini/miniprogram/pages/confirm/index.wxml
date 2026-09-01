@@ -17,7 +17,7 @@
     <view class="card card-who" wx:if="{{p.villager && 住进来}}">
       <view class="who-face face-{{p.villager.direction}} {{脸样 ? 'face-art' : ''}}" style="{{脸样}}"><text wx:if="{{!脸样}}">{{face}}</text></view>
       <view class="who-body">
-        <view class="card-name">{{p.villager.name}}的御守</view>
+        <view class="card-name">{{p.villager.name}}的护身符</view>
         <view class="card-sub">{{p.villager.title}}<text wx:if="{{p.villager.art}}"> · {{p.villager.art}}</text></view>
         <view class="card-price">{{unitText}}</view>
       </view>
@@ -39,12 +39,17 @@
     <view class="hr"></view>
 
     <!-- 寄到哪。微信地址簿只有真机有 —— 网页版会说这台设备上没有，不假装填好 -->
-    <view class="row" bindtap="chooseAddr">
-      <text class="row-k">寄到</text>
-      <text class="row-v" wx:if="{{contact}}">{{contact.name}} · {{contact.phone}} · {{contact.address}}</text>
-      <text class="row-v dim" wx:else>还没填 ›</text>
-    </view>
-    <view class="note" wx:if="{{addrNote}}">{{addrNote}}</view>
+    <!-- 【只有真要寄的那一件问这个】。御守付完那位就搬进村里、说明书是算出来的，
+         两样都没有包裹 —— 而上一版对每一件都要地址，等于在主推的那一件前面
+         摆了一道跟它无关的坎（2026-09-01 第二轮评审 · 转化路）。 -->
+    <block wx:if="{{要寄}}">
+      <view class="row" bindtap="chooseAddr">
+        <text class="row-k">寄到</text>
+        <text class="row-v" wx:if="{{contact}}">{{contact.name}} · {{contact.phone}} · {{contact.address}}</text>
+        <text class="row-v dim" wx:else>还没填 ›</text>
+      </view>
+      <view class="note" wx:if="{{addrNote}}">{{addrNote}}</view>
+    </block>
 
     <!-- 【御守不摆数量】。它是把一位具体的人请进村里那一格 ——
          数量填 2 等于请两个婆婆，而村里只有一个婆婆、一格屋子。
@@ -67,14 +72,26 @@
     <view class="hr"></view>
 
     <view class="sum-k">算下来</view>
-    <view class="row"><text class="row-k">{{p.product.name}} × {{qty}}</text><text class="row-v">{{totalText}}</text></view>
+    <!-- 【明细里的名字跟卡片上那个一样】。上头卡片写着「婆婆的御守」，
+         这一行却写「御守 × 1」—— 同一屏两个名字，读的人得比一比才知道
+         说的是同一件（2026-09-01 第二轮评审 · 转化路）。
+         判据跟卡片同一个（`p.villager && 住进来`），不另起一套。 -->
+    <view class="row">
+      <text class="row-k" wx:if="{{p.villager && 住进来}}">{{p.villager.name}}的护身符 × {{qty}}</text>
+      <text class="row-k" wx:else>{{p.product.name}} × {{qty}}</text>
+      <text class="row-v">{{totalText}}</text>
+    </view>
     <!-- 【不列运费】。后端算总价是 `let total = subtotal`，压根没有运费这回事，
          而「另算 · 以订单为准」把结账屏上最不能含糊的那个数变成了约数：
          写着「一共 ¥99」，下面又说还有一笔说不准的。包邮就直说包邮。 -->
-    <view class="row"><text class="row-k">运费</text><text class="row-v">包邮</text></view>
+    <!-- 不寄的那几件连运费这一行都不该有:没有包裹就谈不上包邮 -->
+    <view class="row" wx:if="{{要寄}}"><text class="row-k">运费</text><text class="row-v">包邮</text></view>
 
     <view class="note" wx:if="{{note}}">{{note}}</view>
 
+    <!-- 底下这两块钉在屏底（见 wxss 里 `.pay`）。
+         读的顺序跟看到的顺序一致:先「付完会怎样」，再「一共多少 · 去付」。 -->
+    <view class="foot">{{付完呢}}</view>
     <view class="pay">
       <view class="pay-total">一共 {{totalText}}</view>
       <!-- 没填【寄到哪】时按钮待命。满橙的大按钮长得跟能按一样，
@@ -93,10 +110,9 @@
            一颗按钮两个处理器本来就比一个处理器两条路难读。 -->
       <button class="btn" bindtap="go" disabled="{{buying}}">
         <block wx:if="{{buying}}">建单中…</block>
-        <block wx:elif="{{有地址}}">去付</block>
+        <block wx:elif="{{!要寄 || 有地址}}">去付</block>
         <block wx:else>先填寄到哪儿</block>
       </button>
     </view>
-    <view class="foot">付完之后就等它到 —— 到了会有人告诉你</view>
   </block>
 </view>

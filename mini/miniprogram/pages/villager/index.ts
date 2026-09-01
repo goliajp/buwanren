@@ -121,13 +121,15 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     commerceApi.products('omamori', id).then(
       (all) => {
         if (this.data.id !== id) return          // 翻页翻快了，别把上一位的价贴上来
-        /* 【挂着人 ≠ 是御守】。香也挂着苏合（`sku.villager_id`），
+        /* 【挂着人 ≠ 是护身符】。香也挂着苏合（`sku.villager_id`），
            但买香是寄一盒香给你，不是请她搬进来。判据是会不会有人住进村里
            —— `fulfillment_kind === 'residency'`，不是分类叫 omamori。 */
         const list = all.filter((x) => x.fulfillment_kind === 'residency')
         if (!list.length) {
-          const 谁 = this.data.who ? this.data.who.name : '他'
-          this.setData({ 请不来: 谁 + '的御守还没上架' })
+          /* 按钮上只写【为什么按不动】那半句，名字不写进去 ——
+             「桃桃的护身符还没做出来」放在一颗全宽按钮上要折行，
+             而这一屏从头到尾都在说这一位是谁，名字在按钮上是重复的。 */
+          this.setData({ 请不来: '这一枚还没做出来' })
           return
         }
         const 分 = list[0].from_price_minor
@@ -159,7 +161,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
           asking: false,
           say: '',
           err: err.status === 404
-            ? (who ? who.name : '他') + '还没住进你的村子'
+            ? (who ? who.name : '这一位') + '还没住进你的村子'
             : (一句(err)),
         })
       },
@@ -186,12 +188,13 @@ Page<IData, WechatMiniprogram.IAnyObject>({
       (list) => {
         this.setData({ inviting: false })
         if (!list.length) {
-          this.setData({ say: '他的御守还没上架' })
+          this.setData({ say: (this.data.who ? this.data.who.name : '这一位') + '还请不回来 —— 那一枚还没做出来' })
           return
         }
         wx.navigateTo({ url: '/pages/product/index?id=' + list[0].id })
       },
-      () => this.setData({ inviting: false, say: '一时找不到他的御守' }),
+      () => this.setData({ inviting: false,
+        say: '一时问不着' + (this.data.who ? this.data.who.name : '这一位') + '那边，回头再试' }),
     )
   },
 

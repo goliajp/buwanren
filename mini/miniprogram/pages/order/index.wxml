@@ -111,21 +111,14 @@
 
     <view class="note" wx:if="{{note}}">{{note}}</view>
 
-    <!-- 「收到了，去扫开它」（设计册 M3，10.8 特别点名的一条）。
-         **订单的完成态不是「已签收」，是她住进村里** —— 包裹到了、人没住进来，
-         这一单就停在半路，而扫码率是整条链上最敏感的一个数。
-         所以它是这一屏的主按钮，排在退款前面。 -->
-    <view class="cta cta-wake" wx:if="{{toScan}}">
-      <button class="btn" bindtap="onWake" disabled="{{waking}}">
-        {{waking ? '找着……' : '收到了，去扫一下'}}
-      </button>
-      <view class="wake-alt">
-        扫不出来？
-        <input class="wake-input" placeholder="御守背面那串字"
-               value="{{code}}" maxlength="40" bindinput="onCodeInput"/>
-        <text class="wake-go" bindtap="onCodeSubmit">请出来</text>
-      </view>
-      <view wx:if="{{wakeErr}}" class="wake-err">{{wakeErr}}</view>
+    <!-- 【这一单真正完成的样子:他住进来了】（2026-09-01 第二轮评审 · 转化路）。
+         这个位置原先是「收到了，去扫一下」加一个手输编号的输入框 ——
+         两样都够不着任何东西:买御守不寄实物、不发凭据，后端在付款那一刻
+         直接让他搬进村里。那颗按钮按下去只会扫无可扫。
+         扫护身符那条路仍在村子主屏（连手输编号一起），
+         那是【线下拿到实体御守的人】走的，跟这一单无关。 -->
+    <view class="cta cta-visit" wx:if="{{住下了 && who}}">
+      <button class="btn" bindtap="onVisit">去{{who.name}}屋里看看</button>
     </view>
 
     <!-- 买的是说明书的话，主按钮是「读你的说明书」。
@@ -139,23 +132,21 @@
          报告是履约之后才建的（unmei-app/src/report.rs），付款之前
          这颗按钮按下去只会失望;而它原先【压在主按钮「去支付」的上面】,
          次要动作排在主动作前面。付过了才摆它。 -->
-    <!-- 还要 `!toScan`：包裹到了没扫开的时候，这一屏的主按钮是
-         「收到了，去扫一下」（扫码率是整条链上最敏感的数）。
+    <!-- 还要 `!住下了`：他刚住进来的时候，这一屏的主按钮是「去他屋里看看」。
          两颗实心按钮并排，等于让人自己挑先做哪件。
          那时这一册照样从「我的 › 我买过的」进得去，只是不占这一屏的主位。 -->
-    <view class="cta cta-read" wx:if="{{report && status !== 'unpaid' && !toScan}}">
+    <view class="cta cta-read" wx:if="{{report && status !== 'unpaid' && !住下了}}">
       <button class="btn" bindtap="onRead">
         {{report.status === 'ready' ? '读你的说明书' : '这份说明书还差你的出生时间'}}
       </button>
     </view>
 
     <view class="cta">
-      <!-- 「去支付」跟上面那颗「收到了，去扫开它」**结构上互斥**。
-           后端修过 `to_scan` 之后（待付的单子不再说「收到了」），
-           数据上两颗已经不会同时为真 —— 但那是数据在保证，不是结构在保证，
-           而下一个改 `to_scan` 的人不会知道这一屏押着它。
-           `!toScan` 写在这儿，两颗就永远只出现一颗。 -->
-      <button wx:if="{{status === 'unpaid' && !toScan}}" class="btn" bindtap="onPay" disabled="{{paying}}">
+      <!-- 「去支付」跟上面那颗「去他屋里看看」**结构上互斥**:
+           没付钱的单子不可能有人住进来。数据上两颗已经不会同时为真 ——
+           但那是数据在保证，不是结构在保证，而下一个改这个判据的人
+           不会知道这一屏押着它。`!住下了` 写在这儿，两颗就永远只出现一颗。 -->
+      <button wx:if="{{status === 'unpaid' && !住下了}}" class="btn" bindtap="onPay" disabled="{{paying}}">
         {{paying ? '发起中……' : '去支付'}}
       </button>
       <!-- 「不要了」是【不可逆】的，而它原先跟「回去」同色同宽同高，
@@ -171,7 +162,7 @@
     </view>
 
     <!-- 弹性槽（设计册 M3）：说清这一单什么时候才算真的完成 -->
-    <view class="flexslot slot-done" wx:if="{{toScan}}">扫开之后就住进村里 —— 那才是这单真正完成</view>
+    <view class="flexslot slot-done" wx:if="{{住下了 && who}}">{{who.name}}已经在村里那一格住下了 —— 这单到此为止</view>
 
     <!-- 进弹性槽：这是给在网页版上验的人看的说明，不是买家要读的 -->
     <view class="foot-hint flexslot">支付要在微信里完成 · 移动网页版上到这一步为止</view>

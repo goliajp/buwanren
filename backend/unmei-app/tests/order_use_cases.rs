@@ -412,8 +412,8 @@ async fn reusing_an_unpaid_order_keeps_both_notes() {
 
     let 串: String = sqlx::query_scalar("SELECT audit_note FROM order_record WHERE id=$1")
         .bind(&头一次.order_id).fetch_one(&pool).await.expect("读 audit_note");
-    assert!(串.contains("第二遍"), "这一次写的备注得在里头，实际是:{串}");
-    assert!(串.contains("头一遍"), "上一次那句不该被抹掉，实际是:{串}");
+    assert!(串.contains("第二遍"), "这一次写的备注得在里头，实际是：{串}");
+    assert!(串.contains("头一遍"), "上一次那句不该被抹掉，实际是：{串}");
 }
 
 async fn order_fixture(pool: &sqlx::PgPool) -> (String, String) {

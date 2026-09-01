@@ -913,7 +913,7 @@ if (API) {
       await p.waitForFunction(() => !!globalThis.__router.current().data.codeErr,
                               null, { timeout: 15000 }).catch(() => {})
       const 错话 = await p.evaluate(() => globalThis.__router.current().data.codeErr)
-      ok(/对不上任何一枚御守/.test(错话 || ''), '认不出那串字时说得清是哪一种情况', String(错话))
+      ok(/对不上任何一枚护身符/.test(错话 || ''), '认不出那串字时说得清是哪一种情况', String(错话))
 
       /* 再填一串真的。这一下把婆婆请回家 —— 也就是把上面那条提示消掉。 */
       const 真码 = await mintCredential('popo')
@@ -930,11 +930,15 @@ if (API) {
       await p.setViewportSize({ width: 375, height: 667 })
 
       /* ── 一单那一屏的主按钮（设计册 M3）───────────────────────
-         10.8 特别点名的一条：**订单的完成态不是「已签收」，是她住进村里**。
-         包裹到了、人没住进来，这一单就停在半路 —— 而催归催，
-         点进单子却没有出口的话，这条链还是断的。 */
-      /* 自己种一单，用【另一位】：上面手输那一下已经把婆婆请回家了，
-         拿同一单来验，`to_scan` 本该是 false —— 而它是 false 看着就像功能没做。 */
+         10.8 说的是：**订单的完成态不是「已付」，是他住进村里**。这条仍然成立，
+         只是「住进村里」这件事今天发生在【付款那一刻】——
+         后端 residency 分支直接 move_in，既不建运单也不发凭据
+         （2026-09-01 第二轮评审 · 转化路）。
+
+         所以这段 fixture 也跟着改。它原先直插一条 `delivered` 的运单，
+         造出「包裹到了、人还没住进来」——而那个状态真链路产生不了:
+         买御守从来不寄东西。拿一个不存在的状态验出来的绿，是假的绿。
+         现在种的是【付款之后真会有的样子】:单子 paid、行 done、人已入住。 */
       const sku2 = sql1("SELECT id FROM sku WHERE villager_id='tenz' LIMIT 1")
       run([
         `INSERT INTO order_record(id,user_id,channel_origin,currency,`
@@ -942,22 +946,28 @@ if (API) {
         + `source_kind,region,paid_at) VALUES ('ord-m3-${尾}','${我是谁}','mini','CNY',`
         + `9900,9900,9900,'paid','one_shot','cn',NOW()) ON CONFLICT (id) DO NOTHING`,
         `INSERT INTO order_line(id,order_id,line_no,sku_id,sku_snapshot_json,`
-        + `unit_price_minor,qty,line_subtotal_minor) VALUES ('ol-m3-${尾}','ord-m3-${尾}',1,`
-        + `'${sku2}','{"sku_name":"御守"}'::jsonb,9900,1,9900) ON CONFLICT (id) DO NOTHING`,
-        `INSERT INTO shipment(id,order_id,carrier_code,tracking_no,status,delivered_at)`
-        + ` VALUES ('shp-m3-${尾}','ord-m3-${尾}','manual','M3-${尾}','delivered',NOW())`
-        + ` ON CONFLICT (id) DO NOTHING`,
+        + `unit_price_minor,qty,line_subtotal_minor,fulfillment_status) VALUES `
+        + `('ol-m3-${尾}','ord-m3-${尾}',1,'${sku2}','{"sku_name":"御守"}'::jsonb,`
+        + `9900,1,9900,'done') ON CONFLICT (id) DO UPDATE SET fulfillment_status='done'`,
+        /* 列名与 source_kind 跟真代码对齐（residency.rs 的 `move_in_from_line`
+           走的是 `insert_residency(…, None, "purchase", Some(order_line_id))`）——
+           种一个跟真路径长得不一样的行，验出来的绿说明不了真路径。 */
+        `INSERT INTO villager_residency(id,user_id,villager_id,source_kind,source_ref,moved_in_at)`
+        + ` VALUES ('res-m3-${尾}','${我是谁}','tenz','purchase','ol-m3-${尾}',NOW())`
+        + ` ON CONFLICT DO NOTHING`,
       ].join('; '))
       await p.setViewportSize({ width: 390, height: 844 })   // 槽在矮屏收起，先在长屏看它
       await open('pages/order/index', { id: 'ord-m3-' + 尾 })
-      await p.waitForFunction(() => globalThis.__router.current().data.toScan === true,
+      await p.waitForFunction(() => globalThis.__router.current().data.住下了 === true,
                               null, { timeout: 15000 }).catch(() => {})
-      ok(await p.evaluate(() => globalThis.__router.current().data.toScan) === true,
-         '这一单里有没扫开的御守时，单子那一屏知道',
-         String(await p.evaluate(() => globalThis.__router.current().data.toScan)))
+      ok(await p.evaluate(() => globalThis.__router.current().data.住下了) === true,
+         '御守那一单付完之后，单子那一屏知道他已经住下了',
+         String(await p.evaluate(() => globalThis.__router.current().data.住下了)))
       const 单屏 = await text()
       await shot('12-一单')
-      ok(单屏.includes('收到了，去扫一下'), '主按钮是「收到了，去扫一下」', 单屏.slice(0, 40))
+      /* 主按钮是【真去得了的那个地方】。原先这里是「收到了，去扫一下」——
+         而这一单没有东西可扫，那颗按钮按下去只会失败。 */
+      ok(/去.+屋里看看/.test(单屏), '主按钮是「去他屋里看看」', 单屏.slice(0, 40))
 
       /* 【走到哪儿】这一条路。这一单是御守、已付、已寄、还没扫 ——
          所以四步应该是「下单·付款走过 / 寄出走过 / 住进来正等着」。
@@ -973,8 +983,8 @@ if (API) {
          '屏上有能念给客服的单号', (单文.match(/单号 \S+/) || ['（没有）'])[0])
 
       const 路 = await p.evaluate(() => globalThis.__router.current().data.走到哪儿)
-      ok(Array.isArray(路) && 路.length === 4 && 路[3].t === '住进来',
-         '御守那一单的四步是「下单 · 付款 · 寄出 · 住进来」',
+      ok(Array.isArray(路) && 路.length === 3 && 路[2].t === '住进来',
+         '御守那一单是三步「下单 · 付款 · 住进来」　—— 中间没有「寄出」，因为不寄',
          Array.isArray(路) ? 路.map((x) => x.t).join(' · ') : String(路))
       if (Array.isArray(路) && 路.length === 4) {
         const 亮 = 路.findIndex((x) => x.s === 'now')
@@ -995,42 +1005,31 @@ if (API) {
          '一单的标题是买的那个东西，不是状态词', 单头.title)
       ok(/下单/.test(单头.sub) && /(待付|已付|完成|备着)/.test(单头.sub),
          '金额、日期、状态并成一行', 单头.sub)
-      ok(单屏.includes('那才是这单真正完成'), '槽里说清了这一单什么时候才算完')
+      ok(单屏.includes('这单到此为止'), '槽里说清了这一单什么时候才算完')
       /* 主按钮不在槽里 —— 它是这一屏的主按钮，矮屏上也必须在。
          把它放进槽等于说「放不下就算了」，而这一下正是整条链最要紧的一步。 */
       await p.setViewportSize({ width: 375, height: 667 })
       await p.waitForTimeout(400)
       const 矮屏 = await p.evaluate(() => {
-        const 有 = (t) => [...document.querySelectorAll('button, view, text')]
-          .some((e) => e.innerText && e.innerText.trim() === t)
         const 槽 = document.querySelector('.slot-done')
-        return { 主按钮在: 有('收到了，去扫一下'),
+        return { 主按钮在: [...document.querySelectorAll('button')]
+                             .some((e) => /去.+屋里看看/.test(e.innerText || '')),
                  槽收了: !槽 || getComputedStyle(槽).display === 'none' }
       })
       ok(矮屏.主按钮在, '矮屏上主按钮照样在　—— 它不在槽里')
       ok(矮屏.槽收了, '矮屏上那一句槽收起了')
       await p.setViewportSize({ width: 390, height: 844 })
 
-      /* 从这一屏手输编号也走得通 —— 出口不能只是一句话。
-         用的是同一支 `utils/omamori`，所以两屏说的是同一句话。 */
-      const 单码 = await mintCredential('tenz')
-      await p.locator('.wake-input').fill(单码)
-      await p.locator('.wake-go').click()
-      await p.waitForFunction(
-        () => globalThis.__router.current().__route === 'pages/moved/index',
-        null, { timeout: 15000 },
-      ).catch(() => {})
-      ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/moved/index',
-         '单子那一屏上手输编号，也开得出「他住进来了」',
-         await p.evaluate(() => globalThis.__router.current().__route))
-
-      /* 唤醒之后回到那一单：主按钮该没了 —— 这一单到这儿才算真的完成。 */
-      await open('pages/order/index', { id: 'ord-m3-' + 尾 })
-      await p.waitForFunction(() => globalThis.__router.current().data.toScan === false,
-                              null, { timeout: 15000 }).catch(() => {})
-      ok(await p.evaluate(() => globalThis.__router.current().data.toScan) === false,
-         '扫开之后单子上那颗主按钮就没了',
-         String(await p.evaluate(() => globalThis.__router.current().data.toScan)))
+      /* 【单子那一屏不许出现「扫」】（2026-09-01 第二轮评审 · 转化路）。
+         这里原先验的是「在这一屏手输编号也开得出『他住进来了』」——
+         而买御守从来不发凭据，那个输入框在真实的单子上永远填不出东西来。
+         手输那条路仍然验（在村子主屏那一段，同一支 `utils/omamori`），
+         那是线下拿到实体御守的人走的路，跟这一单无关。
+         这条断言反过来钉:这一屏不该再教人去扫任何东西。 */
+      const 单面 = await text()
+      ok(!/扫一下|扫开|扫不出来|背面那串字/.test(单面),
+         '单子那一屏不教人去扫 —— 这一单没有可扫的东西',
+         (单面.match(/扫[^\n]{0,12}/) || ['（干净）'])[0])
       await p.setViewportSize({ width: 375, height: 667 })
 
       /* ── 不是御守的东西，不许催扫 ─────────────────────────────
@@ -1063,9 +1062,9 @@ if (API) {
       ].join('; '))
       await open('pages/order/index', { id: 'ord-inc-' + 尾 })
       await p.waitForTimeout(1500)
-      ok(await p.evaluate(() => globalThis.__router.current().data.toScan) === false,
-         '买一盒香、包裹到了，单子上不说「去扫开它」　—— 香上没有码',
-         String(await p.evaluate(() => globalThis.__router.current().data.toScan)))
+      ok(await p.evaluate(() => globalThis.__router.current().data.住下了) === false,
+         '买一盒香、包裹到了，单子上不说「他住进来了」　—— 香不封人',
+         String(await p.evaluate(() => globalThis.__router.current().data.住下了)))
 
       /* 另一半：扫开之后它就该消失。只验「出现」的话，
          一个永远挂着的提示也能全绿 —— 而常驻的提示正是设计要避免的那个。 */
@@ -1676,11 +1675,11 @@ if (API) {
     await p.waitForTimeout(800)
     const 桃 = await p.evaluate(() => {
       const b = [...document.querySelectorAll('button.btn')]
-        .find((x) => /还没上架|回村/.test(x.innerText))
+        .find((x) => /还没做出来|回村/.test(x.innerText))
       return { 文: b ? b.innerText : '（没找到那颗按钮）', 灰: b ? b.disabled : false }
     })
-    ok(桃.文.includes('还没上架') && 桃.灰,
-       '没有御守在卖的那位，按钮上直说「还没上架」并且按不动　—— 不让人白点一趟',
+    ok(桃.文.includes('还没做出来') && 桃.灰,
+       '没有护身符在卖的那位，按钮上直说「还没做出来」并且按不动　—— 不让人白点一趟',
        `${桃.文} · disabled=${桃.灰}`)
   }
 } else {
@@ -2617,13 +2616,16 @@ console.log('\n── 一屏放得下吗（iPhone SE · 内容区 597）──')
       凭据: '会得到这些',
       为什么: '第一次来的人看到的是表单，不是盘面' },
     { 页: 'pages/order/index', 名: '待付',
-      切: () => globalThis.__router.current().setData({ status: 'unpaid', toScan: false, err: '' }),
+      切: () => globalThis.__router.current().setData({ status: 'unpaid', 住下了: false, err: '' }),
       凭据: '去支付',
       为什么: '待付给的是「去支付」加一行「不要这一单了」，跟已付那组按钮不一样' },
-    { 页: 'pages/order/index', 名: '该扫了',
-      切: () => globalThis.__router.current().setData({ status: 'paid', toScan: true, err: '' }),
-      凭据: '收到了，去扫一下',
-      为什么: 'M3 那颗主按钮加一槽话，是这一屏最高的一种形态' },
+    { 页: 'pages/order/index', 名: '住下了',
+      切: () => globalThis.__router.current().setData({
+        status: 'paid', 住下了: true, err: '',
+        who: { name: '丹增', face: '增', direction: 'ne', id: 'tenz', 脸样: '' },
+      }),
+      凭据: '屋里看看',
+      为什么: '付完之后那颗主按钮加一槽话，是这一屏最高的一种形态' },
     { 页: 'pages/order/index', 名: '轨迹很长',
       切: () => {
         /* 塞十二条 —— 比设计定的八条上限多四条。轨迹是承运商推来的，
@@ -2825,12 +2827,56 @@ if (!API) {
     ok(await p.evaluate(() => globalThis.__router.current().data.message) === '镜像留一句',
        '留言写进去留得住', 'bindinput → message')
 
-    /* 收货地址簿只有真机有 —— 网页版上它抛，这一屏要如实说，不假装填好了 */
-    await p.getByText('还没填', { exact: false }).click()
-    await p.waitForTimeout(500)
-    const 地址话 = await p.evaluate(() => globalThis.__router.current().data.addrNote)
-    ok(!!地址话 && !await p.evaluate(() => !!globalThis.__router.current().data.contact),
-       '选地址在网页上如实说做不到，不假装填好', String(地址话))
+    /* 【地址只在真要寄的那一件上问】（2026-09-01 第二轮评审 · 转化路）。
+       这一趟挑中的是香还是御守由目录决定，所以问页面它自己是哪一种，
+       不写死一支 —— 写死的那一支会在挑中另一种时挂满三十秒再抛。
+       两种都验:寄的那种要问地址（且在网页上如实说做不到），
+       不寄的那种连「寄到」两个字都不该有。 */
+    const 要寄 = await p.evaluate(() => globalThis.__router.current().data.要寄)
+    if (要寄) {
+      await p.getByText('还没填', { exact: false }).click()
+      await p.waitForTimeout(500)
+      const 地址话 = await p.evaluate(() => globalThis.__router.current().data.addrNote)
+      ok(!!地址话 && !await p.evaluate(() => !!globalThis.__router.current().data.contact),
+         '选地址在网页上如实说做不到，不假装填好', String(地址话))
+    } else {
+      const 这屏 = await text()
+      ok(!这屏.includes('寄到'), '不寄的那一件不问地址　—— 御守付完人就搬进来，没有包裹',
+         (这屏.match(/寄到[^\n]{0,10}/) || ['（没问）'])[0])
+    }
+
+    /* 另一半单独验:【御守那一屏】不问地址、按钮直接是「去付」。
+       上面那一支只走到目录当天挑中的那一种，而这条是转化路上最贵的一处，
+       不能靠「刚好挑中了」来覆盖。 */
+    {
+      const 御守商品 = sql1(
+        "SELECT p.id FROM product p WHERE p.fulfillment_kind='residency'"
+        + " AND p.status='listed' LIMIT 1")
+      if (御守商品) {
+        await open('pages/confirm/index', { id: 御守商品 })
+        await p.waitForFunction(
+          () => globalThis.__router.current().data.loading === false,
+          null, { timeout: 15000 },
+        ).catch(() => {})
+        const 御守屏 = await text()
+        ok(await p.evaluate(() => globalThis.__router.current().data.要寄) === false,
+           '御守那一屏知道自己不用寄',
+           String(await p.evaluate(() => globalThis.__router.current().data.要寄)))
+        ok(!御守屏.includes('寄到') && !御守屏.includes('先填寄到哪儿'),
+           '御守那一屏不问地址、按钮不是「先填寄到哪儿」',
+           (御守屏.match(/寄到[^\n]{0,10}/) || ['（没问）'])[0])
+        ok(御守屏.includes('去付'), '御守那一屏的主按钮直接就是「去付」')
+        ok(/搬进|住下/.test(御守屏), '底下那句说的是付完会发生什么',
+           (御守屏.match(/付完[^\n]{0,20}/) || ['（没说）'])[0])
+        await open('pages/confirm/index', 要参数['pages/confirm/index'])
+        await p.waitForFunction(
+          () => globalThis.__router.current().data.loading === false,
+          null, { timeout: 15000 },
+        ).catch(() => {})
+      } else {
+        ok(false, '库里找不到一件 residency 的在售商品 —— 这一段验不成')
+      }
+    }
 
     /* 确认那一屏的「回去」只长在**出错**那一支上 ——
        正常态没有它（真机上有原生返回箭头，所以不是死路）。
@@ -2860,8 +2906,17 @@ if (!API) {
     }
 
     /* 没填【寄到哪】的时候「去付」是按不出单的 —— 这是实物，
-       没有地址寄不出去，而订单那一屏也没有补填的地方。先验这一条。 */
-    {
+       没有地址寄不出去，而订单那一屏也没有补填的地方。先验这一条。
+       【只对真要寄的那一件成立】:御守 / 说明书没有包裹，它们的按钮
+       从一开始就该是「去付」（2026-09-01 第二轮评审 · 转化路）。 */
+    if (!要寄) {
+      const 钮文 = await p.evaluate(() => {
+        const b = [...document.querySelectorAll('button.btn')]
+          .find((x) => /去付|寄到哪/.test(x.innerText))
+        return b ? b.innerText.trim() : '（没找到那颗按钮）'
+      })
+      ok(钮文 === '去付', '不寄的那一件，按钮一上来就是「去付」　—— 不横一道地址', 钮文)
+    } else {
       const 有 = await p.evaluate(() => globalThis.__router.current().data.有地址)
       if (!有) {
         /* 【2026-09-01 这颗按钮改成直接做那件该做的事】。
@@ -2889,21 +2944,24 @@ if (!API) {
     /* 地址簿只有真机有（`wx.chooseAddress`，垫片会抛）。
        所以这里【显式桩掉那一跳】—— 跟扫御守那一步同一个做法：
        夹具写在明处，验的仍是这一屏自己的逻辑（拿到地址之后按钮亮起、
-       建单带着 contact 走）。 */
-    await p.evaluate(() => {
-      globalThis.__wxStub('chooseAddress', () => Promise.resolve({
-        userName: '镜像', telNumber: '13000000000',
-        provinceName: '浙江省', cityName: '杭州市', countyName: '西湖区',
-        detailInfo: '某条路 1 号',
-      }))
-    })
-    await p.getByText('还没填', { exact: false }).first().click()
-    await p.waitForFunction(() => globalThis.__router.current().data.有地址 === true,
-                            null, { timeout: 8000 }).catch(() => {})
-    ok(await p.evaluate(() => globalThis.__router.current().data.有地址) === true,
-       '选完地址，这一屏记下了它')
-    ok(await p.evaluate(() => !document.querySelector('button.btn-wait')),
-       '有了地址，「去付」才亮起来')
+       建单带着 contact 走）。
+       不寄的那一件没有这一行，整段跳过。 */
+    if (要寄) {
+      await p.evaluate(() => {
+        globalThis.__wxStub('chooseAddress', () => Promise.resolve({
+          userName: '镜像', telNumber: '13000000000',
+          provinceName: '浙江省', cityName: '杭州市', countyName: '西湖区',
+          detailInfo: '某条路 1 号',
+        }))
+      })
+      await p.getByText('还没填', { exact: false }).first().click()
+      await p.waitForFunction(() => globalThis.__router.current().data.有地址 === true,
+                              null, { timeout: 8000 }).catch(() => {})
+      ok(await p.evaluate(() => globalThis.__router.current().data.有地址) === true,
+         '选完地址，这一屏记下了它')
+      ok(await p.evaluate(() => !document.querySelector('button.btn-wait')),
+         '有了地址，「去付」才亮起来')
+    }
 
     await p.getByText('去付', { exact: true }).click()
     await p.waitForFunction(

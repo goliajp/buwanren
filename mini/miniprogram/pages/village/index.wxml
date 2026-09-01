@@ -27,7 +27,7 @@
        「东西到了」，那位不完人一直没住进村子。 -->
   <view wx:if="{{toScan}}" class="nudge" bindtap="onScan" hover-class="nudge-hover" hover-stay-time="100">
     <view class="nudge-t">你手上那枚，扫开它</view>
-    <view class="nudge-s">御守背面那个码</view>
+    <view class="nudge-s">背面那个码</view>
   </view>
 
   <!-- 某位今天说的一句（设计册 V1）。主屏第一眼该是【有人在跟你打招呼】，
@@ -154,7 +154,7 @@
       扫不出来？在这儿手输编号 <text class="manual-caret">{{手输开着 ? '⌃' : '⌄'}}</text>
     </view>
     <view class="manual-row" wx:if="{{手输开着}}">
-      <input class="manual-input" placeholder="御守背面那串字"
+      <input class="manual-input" placeholder="护身符背面那串字"
              value="{{code}}" maxlength="40" bindinput="onCodeInput"/>
       <view class="manual-go" bindtap="onCodeSubmit" hover-class="manual-go-hover" hover-stay-time="100">
         {{codeBusy ? '找着…' : '请出来'}}

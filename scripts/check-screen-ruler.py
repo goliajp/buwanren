@@ -93,9 +93,20 @@ for f in 文件:
             条件 = re.search(r'wx:if="\{\{([^}]*)\}\}"', b)
             if not 条件:
                 continue
-            for 名 in re.findall(r'!\s*([A-Za-z_$][\w$.]*)', 条件.group(1)):
-                if any(re.search(r'wx:if="\{\{\s*' + re.escape(名) + r'\s*\}\}"', o)
-                       for o in 剩 if o is not b):
+            # 【变量名可以是中文】。原先写的是 `[A-Za-z_$][\w$.]*` ——
+            # 第一个字符只认 ASCII，而这个仓里的条件变量大半是中文
+            # （`住下了` / `要寄` / `齐了`）。也就是说这一步对中文条件
+            # 一次都没生效过:凡是用中文变量写的互斥，全被算成「不互斥」。
+            for 名 in re.findall(r'!\s*([\w$][\w$.]*)', 条件.group(1)):
+                # 【对面写成 `X && 别的` 也算互斥】。原先只认裸的 `wx:if="{{X}}"` ——
+                # 于是把「去他屋里看看」的条件写成 `{{住下了 && who}}`（多一个
+                # 空值保护）之后，这一支就认不出「!住下了」是它的另一支，
+                # 报了一屏三颗主按钮（2026-09-01 第二轮评审那一轮撞上）。
+                # `!X` 与 `X && 任何东西` 结构上就是不会同时成立，这一步是可靠的。
+                def 有对面(o):
+                    m = re.search(r'wx:if="\{\{([^}]*)\}\}"', o)
+                    return bool(m) and 名 in [x.strip() for x in m.group(1).split('&&')]
+                if any(有对面(o) for o in 剩 if o is not b):
                     剩.remove(b)
                     break
         return 剩

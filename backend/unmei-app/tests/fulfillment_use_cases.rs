@@ -110,10 +110,16 @@ async fn paying_awards_the_purchase_badge_and_only_for_the_right_product() {
     unmei_app::fulfillment::apply_order_paid(&pool, &order_id).await.expect("重放");
     assert_eq!(有("any").await, 1, "重放不该发出第二枚");
 
-    sqlx::query("DELETE FROM user_badge WHERE badge_id LIKE $1")
-        .bind(format!("{记}%")).execute(&pool).await.ok();
-    sqlx::query("DELETE FROM badge WHERE id LIKE $1")
-        .bind(format!("{记}%")).execute(&pool).await.ok();
+    /* 两步并成一条语句。分两条的话中间有一道缝:并行跑的别的用例
+       在这中间把这枚徽章发给了它自己的用户，于是第二条 DELETE 撞外键 ——
+       而它后面跟着 `.ok()`，删不掉也不报，徽章就此留在库里
+       （查过:unmei_test 里躺着两枚 `bt57c0f5e5_*`）。
+       留在库里的「active 徽章」会被后面每一个用例的履约读到，
+       竞态于是变成常驻的。 */
+    sqlx::query(
+        "WITH 清 AS (DELETE FROM user_badge WHERE badge_id LIKE $1 RETURNING 1) \
+         DELETE FROM badge WHERE id LIKE $1",
+    ).bind(format!("{记}%")).execute(&pool).await.expect("收拾干净");
 }
 
 async fn shipment_count(pool: &sqlx::PgPool, order_id: &str) -> i64 {

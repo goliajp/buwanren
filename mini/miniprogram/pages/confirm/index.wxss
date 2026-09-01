@@ -1,4 +1,11 @@
-.page { padding: 32rpx 40rpx 40rpx; }
+/* 【底下那条成交栏钉在屏底】（2026-09-01 第二轮评审 · 转化路）。
+   原先它跟在内容后面往下排 —— 御守那一屏去掉「寄到」「运费」两行之后，
+   内容只剩四块，「一共 ¥99 / 去付」落在屏幕 45% 高的地方，
+   下面半屏全空:掏钱那一下浮在半空，拇指还够不着。
+   商品差异越大这个位置飘得越厉害（香有六块，御守只有四块），
+   而成交按钮的位置不该跟着买什么变。
+   钉在底部是这一类屏的通行做法，也顺带把「一共多少钱」一直摆在眼前。 */
+.page { padding: 32rpx 40rpx 220rpx; }
 .card { padding: 24rpx; background: var(--paper-inset); }
 .card-name { font-size: 34rpx; font-weight: 700; }
 .card-sub { font-size: 24rpx; color: var(--ink-faint); margin-top: 8rpx; }
@@ -23,9 +30,26 @@
 .msg { margin-top: 16rpx; font-size: 28rpx; padding: 12rpx 0; border-bottom: 1rpx solid var(--stone-line-x); }
 .sum-k { font-size: 24rpx; color: var(--ink-faint); margin-bottom: 8rpx; }
 .note { font-size: 26rpx; color: var(--peach-text); margin-top: 16rpx; }
-.pay { display: flex; justify-content: space-between; align-items: center; margin-top: 40rpx; }
+.pay {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 20rpx 40rpx calc(20rpx + env(safe-area-inset-bottom));
+  background: var(--paper);
+  /* 一条细线 + 一层浅影:说明它压在内容上面，而不是内容的一部分。
+     不用重阴影 —— 那会让它看着像浮窗。 */
+  border-top: 2rpx solid var(--stone-line-x);
+  box-shadow: 0 -6rpx 20rpx rgba(43,38,32,.05);
+}
 .pay-total { font-size: 34rpx; font-weight: 700; }
-.foot { font-size: 24rpx; color: var(--ink-faint); margin-top: 20rpx; }
+.pay .btn { flex: none; }
+/* 「下单后在『我的』里付款」这句跟着成交栏一起钉在底下 ——
+   它说的是按下去之后会怎样，离那颗按钮远了就没人读。 */
+.foot {
+  position: fixed; left: 0; right: 0; z-index: 5;
+  bottom: calc(112rpx + env(safe-area-inset-bottom));
+  padding: 0 40rpx 10rpx; background: var(--paper);
+  font-size: 24rpx; color: var(--ink-faint);
+}
 
 
 /* ── 0830 ────────────────────────────────────────────────────

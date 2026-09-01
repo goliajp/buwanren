@@ -35,6 +35,12 @@ interface IData {
   脸样: string
   /** 买了会不会住进村里 —— 只有会的那种才叫「谁谁的御守」 */
   住进来: boolean
+  /** 这一件【真的要寄】吗。只有 shipping 那一种要 ——
+   *  御守付完人就搬进来，说明书是算出来的，两样都没有包裹。
+   *  见下面 `go()` 里那段。 */
+  要寄: boolean
+  /** 付完之后会发生什么 —— 按这一件的履约方式说一句实话 */
+  付完呢: string
   qty: number
   message: string
   contact: Contact | null
@@ -48,10 +54,22 @@ interface IData {
   buyKey: string
 }
 
+/* 付完之后会发生什么 —— 底下那一行。
+   原先写死一句「付完之后就等它到 —— 到了会有人告诉你」，
+   而三种履约里只有一种真的会「到」:御守付完那位当场搬进村里，
+   说明书是算出来的。等一个不会来的包裹是这一版最贵的一句错话。 */
+function 付完会怎样(kind: string): string {
+  if (kind === 'residency') return '付完就搬进村里那一格 —— 马上就能去屋里坐坐'
+  if (kind === 'async_compute') return '付完就开始算 —— 算好了这一屏会告诉你'
+  if (kind === 'shipping') return '付完之后就等它到 —— 到了会有人告诉你'
+  return '付完马上就能用'
+}
+
 Page<IData, WechatMiniprogram.IAnyObject>({
   data: {
     id: '', wantSku: '', loading: true, err: '', p: null,
     skuId: '', unit: 0, cur: 'CNY', unitText: '', totalText: '', face: '', 脸样: '', 住进来: false,
+    要寄: false, 付完呢: '',
     qty: 1, message: '',
     contact: null, addrNote: '', buying: false, note: '', buyKey: '',
     /* 寄到哪填了没 —— 「去付」长什么样看它。
@@ -117,6 +135,14 @@ Page<IData, WechatMiniprogram.IAnyObject>({
              当判据，于是买香的确认页写着「苏合的御守」，
              底下明细却写「苏合配的那一味」——一屏两个名字。 */
           住进来: p.product ? p.product.fulfillment_kind === 'residency' : false,
+          /* 【地址只在真要寄的时候问】。上一版对每一件都要地址 ——
+             而 ¥99 的御守付完那位就住进村里，一个包裹都没有;说明书是算出来的。
+             于是主推的那一件在成交前多一道跟它无关的坎:按钮上写着
+             「先填寄到哪儿」，弹出微信地址簿，而那个地址此后没有任何东西用它
+             （2026-09-01 第二轮评审 · 转化路）。
+             判据用后端给的 fulfillment_kind，不在这里按品类猜。 */
+          要寄: p.product ? p.product.fulfillment_kind === 'shipping' : false,
+          付完呢: 付完会怎样(p.product ? p.product.fulfillment_kind : ''),
           totalText: sku ? money(unit * this.data.qty, cur) : '',
         })
       },
@@ -172,16 +198,13 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     /* 没地址时这颗按钮上写的是「先填寄到哪儿」—— 它就该去做那件事。
        原先它写「去付」、是灰的，按下去只在底下冒一句「还差寄到哪」:
        整屏唯一的成交按钮长得跟禁用一样，人按两下没反应就走了。 */
-    if (!(contact && contact.address)) { this.chooseAddr(); return }
+    if (this.data.要寄 && !(contact && contact.address)) { this.chooseAddr(); return }
     if (!this.data.skuId) { this.setData({ note: '这一件挑不出价，买不了' }); return }
-    /* 【寄到哪】是必须的:这是实物,没有地址就寄不出去 ——
-       而订单那一屏也没有补填的地方,一单落下去就成了悬案。
-       原先这里一个字都不问,「去付」照样满橙。 */
-    if (!(contact && contact.address)) {
-      // 买香的时候这句原先也说「御守要寄到你手上」——寄的是香，不是御守
-      this.setData({ note: this.data.住进来
-        ? '还差【寄到哪】—— 上面点一下选个地址，御守要寄到你手上'
-        : '还差【寄到哪】—— 上面点一下选个地址，东西要寄到你手上' })
+    /* 【寄到哪】只对真要寄的那一件是必须的:没有地址就寄不出去，
+       而订单那一屏也没有补填的地方，一单落下去就成了悬案。
+       御守 / 说明书没有包裹，这一步对它们是纯粹的坎（见上面 `要寄`）。 */
+    if (this.data.要寄 && !(contact && contact.address)) {
+      this.setData({ note: '还差【寄到哪】—— 上面点一下选个地址，东西要寄到你手上' })
       return
     }
     this.setData({ buying: true, note: '' })
