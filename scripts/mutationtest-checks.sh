@@ -368,8 +368,13 @@ mutate "把村从 tab 上摘了" check-reachable-pages \
 # 把那句改个名,它就成了孤儿 —— 传递可达这件事得真的在算,不能只看 tab。
 # 2026-08-23:那句从村主屏搬到了村民那一屏（REDESIGN.md R2，点一格开一屏），
 # 锚点跟着走。它当时报的是「变异没植进去（基准源码变了？）」而不是假绿。
-mutate "通往屋子的那句改没了" check-reachable-pages \
-  "edit('mini/miniprogram/pages/villager/index.ts', \"'/pages/room/index?room='\", \"'/pages/roomz/index?room='\")"
+# 2026-09-01:屋子多了【第二条】进路 —— 订单那一屏付完之后的「去他屋里看看」
+# （转化路改造，原先那个位置是「收到了，去扫一下」）。只改村民屏那一句
+# 已经孤立不了它，于是这条变异当场变成假的:门禁说「可达」是对的，
+# 是这条变异过时了。两处一起改，它才重新在问原来那个问题。
+mutate "通往屋子的那两句都改没了" check-reachable-pages \
+  "edit('mini/miniprogram/pages/villager/index.ts', \"'/pages/room/index?room='\", \"'/pages/roomz/index?room='\"); \
+   edit('mini/miniprogram/pages/order/index.ts', \"'/pages/room/index?room='\", \"'/pages/roomz/index?room='\")"
 
 # 后台控制台那一半：路由与侧边栏要一一对上。
 # 照的是真事 —— Users 那一页从初始提交起就挂在侧边栏上，而它要的接口后端没有。

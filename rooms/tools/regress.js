@@ -315,6 +315,21 @@ const emitDiffs = async (b, pairs) => {
   } else {
     if (!fs.existsSync(BASE)) { console.log('无基准,先跑 save'); await b.close(); process.exit(1) }
     const old = JSON.parse(fs.readFileSync(BASE, 'utf8'))
+    /* 【基准的 commit 还在不在,check 时就要说】。
+       2026-09-01 撞上:基准记的是 `d9777ea`,而那是 8-15 拆库【之前】的
+       commit,在这个仓里 `git show` 直接 `bad object` —— 也就是说
+       diff 模式从拆库那天起就再也跑不出旧图了，而只跑 check 的人看不见这件事:
+       它照常报「✗ 2 处与基准不符」，然后叫你去跑一个跑不起来的 diff。
+       基准自己的 note 写着「这两个字段没了基准就只是一串哈希」——
+       那就当场验一下这两个字段还算不算数。 */
+    if (old._meta && old._meta.gitRev) {
+      try { execSync(`git cat-file -e ${old._meta.gitRev}^{commit}`, { stdio: 'ignore' }) }
+      catch {
+        console.log(`⚠ 基准记的 commit ${old._meta.gitRev.slice(0, 8)} 在这个仓里已经取不到了 ——`)
+        console.log('  diff 模式重建不出旧图，这份基准现在【只是一串哈希】。')
+        console.log('  漂移一旦出现，只能靠人看新图判断，判完跑 save 重存。')
+      }
+    }
     let bad = 0, newRoom = 0
     for (const room of rooms(fp)) {
       if (!old[room]) { console.log('  + ' + room + ' 新房间,无基准(跑 save 收录)'); newRoom++; continue }
