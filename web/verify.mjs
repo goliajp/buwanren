@@ -363,7 +363,7 @@ async function moveIn(who) {
   await p.evaluate((c) => {
     globalThis.__wxStub('scanCode', () => Promise.resolve({ result: c }))
   }, cred)
-  await p.getByText('扫御守').click()
+  await p.getByText('扫护身符').click()
   /* 等它真的跳过去，不数毫秒。1200ms 在负载高的机器上不够 ——
      报出来的是「没开那一屏」，而实际只是还没到。
      固定等待在这个文件里已经撒过四次谎了。 */
@@ -2538,6 +2538,26 @@ console.log('\n── 一屏放得下吗（iPhone SE · 内容区 597）──')
     const m = await 量一屏(r, 要参数[r])
     const 名 = r.replace('pages/', '').replace('/index', '')
     量到[名] = m.溢出
+    /* 【多页的那一屏，每一页都要量】。说明书有六页，而这里只开了第一页
+       （说在前面）—— 它放得下，最后一页（三宫）却超出去 80px，
+       翻页那一整行落在折线之外:读到最后的人屏上没有出口。
+       全 app 只有它要滚，而且滚得静默，靠人翻截图才发现
+       （2026-09-01 五路评审）。一页放得下不等于六页都放得下。 */
+    if (r === 'pages/report/index') {
+      const 页数 = await p.evaluate(() => (globalThis.__router.current().data.tabs || []).length)
+      for (let i = 1; i < 页数; i++) {
+        await p.evaluate((k) => globalThis.__router.current().show(k), i)
+        await p.waitForTimeout(350)
+        const 这一页 = await p.evaluate(() => {
+          const d = document.documentElement, b = document.body
+          return Math.max(d.scrollHeight, b.scrollHeight) - window.innerHeight
+        })
+        const 页名 = await p.evaluate(() => (globalThis.__router.current().data.page || {}).title || '?')
+        if (这一页 > 8) 量到[名] = Math.max(量到[名], 这一页)
+        ok(这一页 <= 8, `说明书第 ${i + 1} 页「${页名}」也放得下`,
+           这一页 > 8 ? `超 ${这一页}px —— 翻页那一行会掉到折线外` : '放得下')
+      }
+    }
     const 记着 = 台账[名] ? 台账[名].超 : null
     if (m.溢出 > 8) {
       if (记着 === null) {
@@ -3835,7 +3855,7 @@ if (!(CAL > 0)) {
      · 假服务端:整条真链挂在「有真后端」上，只跑得到前端那一侧
      · 真后端:匿名登录 → 扫御守入住 → 问签 → 进屋，全链
    改断言数的时候这两个数要跟着改 —— 它们是账，不是魔法数。 */
-const 基准 = { 假: 111, 真: 317 }
+const 基准 = { 假: 111, 真: 323 }
 const LEAST = Math.floor((API ? 基准.真 : 基准.假) * 0.9)
 
 /* 这一趟到底碰了多少交互。页面上用 bindtap 之类声明的处理器是分母，

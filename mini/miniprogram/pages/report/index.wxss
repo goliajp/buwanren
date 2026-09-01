@@ -175,3 +175,7 @@
   display: block; width: 8rpx; height: 8rpx; border-radius: 999rpx;
   background: var(--amber); margin: 8rpx auto 0;
 }
+
+/* 结尾那一行的出口。做成文字链而不是整行按钮 —— 那颗按钮让最后一页
+   比别页高 80px，把翻页那一整行挤到折线外（2026-09-01 实测）。 */
+.fin-go { margin-left: 12rpx; color: var(--amber-deep); font-weight: 600; white-space: nowrap; }
