@@ -44,7 +44,11 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     try {
       const list = await mineApi.subscriptions()
       this.setData({ loading: false, subs: list })
-      if (!list.length) this.loadOffers()
+      /* 【订过的人也要看得见还能订什么】。原先是 `if (!list.length)` ——
+         也就是「已经订了就不再显示能订的」，跟「我的」那一行的门闩
+         正好互为反面:两个条件合起来，卖订阅那一半永远到不了
+         （2026-09-01 五路评审 · 工程审计）。 */
+      this.loadOffers()
     } catch (e) {
       // 取不到订阅，跟「一个都没订」是两件事 —— 后者才该出空状态
       this.setData({ loading: false, err: '取不到：' + (一句(e as { status?: number; message?: string })) })

@@ -66,7 +66,14 @@
              【2026-09-01】价写在这儿。点一行直奔商品页，那是掏钱那一路，
              而这一屏原先一个价都没有 —— 按下去要多少钱，人得先知道。
              取不到价就只写「请回村」，不编一个数字出来。 -->
-        <view class="item-go">
+        <!-- 已经住进来的那几位:名册上要认得出来。
+             原先它们跟没请的一样写「请回村 · ¥99」，而那个人此刻正住在
+             你的村子里 —— 同一个人在两屏里是两种身份（2026-09-01 五路评审）。 -->
+        <view class="item-go" wx:if="{{item.住着}}">
+          <text class="item-in">住着</text>
+          <text>去看看 ›</text>
+        </view>
+        <view class="item-go" wx:else>
           <text class="item-price" wx:if="{{item.价}}">{{item.价}}</text>
           <text>请回村 ›</text>
         </view>

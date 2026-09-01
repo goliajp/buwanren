@@ -178,3 +178,7 @@
    （2026-09-01：这一屏原先一个价都没有，而点一行直奔商品页。） */
 .item-go { display: flex; flex-direction: column; align-items: flex-end; gap: 2rpx; }
 .item-price { font-size: 28rpx; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* 已经住着的那几位。绿是村子的颜色（收集进度条同一支色）——
+   它跟琥珀的「请回村」并排时一眼分得开:一个是已经有的，一个是要花钱的。 */
+.item-in { font-size: 24rpx; font-weight: 700; color: var(--moss); }
