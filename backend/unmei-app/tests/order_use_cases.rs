@@ -444,7 +444,7 @@ async fn cannot_buy_a_villager_who_already_lives_with_you() {
 
     let 再来 = order::create(&pool, new_order(&user, vec![(sku, 1)])).await;
     match 再来 {
-        Err(DomainError::Conflict(m)) => assert!(m.contains(&villager), "话要说清是谁:{m}"),
+        Err(DomainError::Conflict(m)) => assert!(m.contains(&villager), "话要说清是谁：{m}"),
         other => panic!("已经住着的那位不该再卖一次，实际 {other:?}"),
     }
 }
@@ -462,7 +462,7 @@ async fn a_report_line_cannot_be_bought_twice_in_one_line() {
     assert!(order::create(&pool, new_order(&user, vec![(sku.clone(), 1)])).await.is_ok(),
             "一份该建得出来");
     match order::create(&pool, new_order(&user, vec![(sku, 2)])).await {
-        Err(DomainError::Validation(m)) => assert!(m.contains("qty"), "话里要说是数量的事:{m}"),
+        Err(DomainError::Validation(m)) => assert!(m.contains("qty"), "话里要说是数量的事：{m}"),
         other => panic!("说明书买两份该被拒 —— 收两份钱只出一册，实际 {other:?}"),
     }
 }
