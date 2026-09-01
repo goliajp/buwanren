@@ -175,7 +175,11 @@ Page<IData, WechatMiniprogram.IAnyObject>({
       pending = anyWx.chooseAddress({})
     } catch (e) {
       const err = e as { message?: string }
-      this.setData({ addrNote: err && err.message ? err.message : '这台设备上选不了' })
+      /* 地址簿是【设备能力】，不是后端 —— 它的 errMsg 是给开发看的
+         （真机上是 `chooseAddress:fail auth deny` 这种）。
+         屏上说人话，原文留给控制台。 */
+      console.warn('选地址失败：', err && err.message)
+      this.setData({ addrNote: '这台设备上选不了 —— 手机上打开小程序再填' })
       return
     }
     pending.then(
@@ -188,7 +192,10 @@ Page<IData, WechatMiniprogram.IAnyObject>({
           address: [a.provinceName, a.cityName, a.countyName, a.detailInfo].filter(Boolean).join(''),
         },
       }),
-      (e: { message?: string }) => this.setData({ addrNote: e && e.message ? e.message : '没选成' }),
+      (e: { message?: string }) => {
+        console.warn('选地址失败：', e && e.message)
+        this.setData({ addrNote: '没选成 —— 再点一下那一行试试' })
+      },
     )
   },
 
