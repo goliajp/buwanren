@@ -93,7 +93,10 @@
               style="margin-left:{{index === 0 ? 0 : -18}}rpx; z-index:{{3 - index}}; {{item.脸样}}"><text wx:if="{{!item.脸样}}">{{item.face}}</text></view>
       </view>
       <text class="soon-txt" wx:if="{{展开}}">收起</text>
-      <text class="soon-txt" wx:else>另外 {{没来.length}} 位还在路上</text>
+      <!-- 「还在路上」听着像「快上架了」，而它们其实一直都在、只是还没请。
+           说不清是「快能买了」还是「永远买不到」，而这直接决定人要不要
+           现在开始收集（2026-09-01 五路评审）。 -->
+      <text class="soon-txt" wx:else>另外 {{没来.length}} 位，还没请</text>
       <text class="soon-caret {{展开 ? 'up' : ''}}">›</text>
     </view>
 

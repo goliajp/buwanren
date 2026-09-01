@@ -74,7 +74,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
   pull() {
     const app = getApp<IAppOption>()
     const user = app.globalData.user
-    this.setData({ nickname: (user && user.nickname) || '过客' })
+    this.setData({ nickname: (user && user.nickname) || '新来的' })
   },
 
   goName() { wx.navigateTo({ url: '/pages/name/index' }) },
@@ -109,7 +109,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
         const app = getApp<IAppOption>()
         app.globalData.user = u
         storage.setUser(u)
-        this.setData({ nickname: u.nickname || '过客' })
+        this.setData({ nickname: u.nickname || '新来的' })
       },
       (e: { message?: string }) => console.warn('取不到我是谁，显示的是登录时那一份：', e && e.message),
     )
