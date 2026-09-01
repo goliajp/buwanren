@@ -26,6 +26,16 @@ export const 状态说法: Record<string, string> = {
   disputed: '有争议',
 }
 
+/* 【「已取消」要分清是谁取消的】。超时没付是系统扫掉的
+   （payment_sweep + `cancel_reason='expired'`），买家没做过这个动作 ——
+   而「不要这一单了」那条文字链就在订单屏上，两件事共用一个词，
+   最容易的理解是「我手滑点了它」（2026-09-01 第二轮评审 · 转化路）。
+   判据用后端给的 `cancel_reason`，不猜。 */
+export function 状态那一词(status: string, cancel_reason?: string | null): string {
+  if (status === 'cancelled' && cancel_reason === 'expired') return '超时取消'
+  return 状态说法[status] || status
+}
+
 /* 卡片右边那个动作词。同一张卡在不同状态下该做的事不一样 ——
    待付的单子最要紧的动作是去付，写「看」等于把它藏起来:
    订单列表上那一笔的唯一动作就是它。 */

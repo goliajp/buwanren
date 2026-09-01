@@ -86,7 +86,10 @@
       <!-- 「再问一次」= 回我家的罗盘。`reset` 随起卦一起搬走了，
            留一个绑到不存在的处理器上的按钮，点下去只会抛 -->
       <button wx:if="{{mode === 'result'}}" class="btn ghost" bindtap="goHome">再问一次</button>
-      <button wx:else class="btn ghost" bindtap="closeHist">返回</button>
+      <!-- 【一个动作一个词】。全 app 三十一处退出写的都是「回去」，
+           只有这一处写「返回」—— 同一个手势两种叫法，读的人得多想一下
+           它是不是别的东西（2026-09-02）。 -->
+      <button wx:else class="btn ghost" bindtap="closeHist">回去</button>
     </view>
 
     <!-- 门名与方位【一个都不留】。我先前把它们缩成注脚，以为「小字就不算」——
