@@ -183,9 +183,57 @@ pub async fn apply_order_paid(pool: &PgPool, order_id: &str) -> Result<Fulfillme
         }
     }
 
+    /* 【买东西那一类徽章在这儿发】。
+       在这之前全仓只有一处发徽章（unmei-api 的 naji.rs），而那一处只认
+       `action == "naji.spin"` —— 于是「闻过香」（规则 `order.paid`）
+       和「到过场」（`activity.checkin`）【永远发不出来】，
+       而「我得到的」那一屏还给了 CTA 催人去买香。
+       收了钱不兑现一条明写的承诺，是这一轮评审里对信任伤害最直接的一条。
+
+       规则支持按商品限定（`"product": "prod-suhe-incense"`）——
+       「闻过香」的名字说的是香，就只在买香时发;不写 product 的就是
+       「买过任何东西」。名字与条件必须是同一件事。 */
+    发买东西的徽章(&mut tx, order_id).await?;
+
     let outcome = settle_order_in_tx(&mut tx, order_id).await?;
     tx.commit().await.db()?;
     Ok(outcome)
+}
+
+async fn 发买东西的徽章(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    order_id: &str,
+) -> Result<(), DomainError> {
+    let 单 = sqlx::query(
+        "SELECT o.user_id, ARRAY_AGG(DISTINCT p.id) AS product_ids
+           FROM order_record o
+           JOIN order_line ol ON ol.order_id = o.id
+           JOIN sku s         ON s.id = ol.sku_id
+           JOIN product p     ON p.id = s.product_id
+          WHERE o.id = $1
+          GROUP BY o.user_id",
+    ).bind(order_id).fetch_optional(&mut **tx).await.db()?;
+    let Some(单) = 单 else { return Ok(()) };
+    let user_id: String = 单.get("user_id");
+    let 买了: Vec<String> = 单.get("product_ids");
+
+    let badges = sqlx::query("SELECT id, rule_dsl FROM badge WHERE status='active'")
+        .fetch_all(&mut **tx).await.db()?;
+    for b in badges {
+        let rule: serde_json::Value = b.get("rule_dsl");
+        if rule.get("action").and_then(|x| x.as_str()) != Some("order.paid") { continue }
+        if rule.get("type").and_then(|x| x.as_str()) != Some("count") { continue }
+        // 限定了商品的，只在买了那一件时发
+        if let Some(want) = rule.get("product").and_then(|x| x.as_str()) {
+            if !买了.iter().any(|p| p == want) { continue }
+        }
+        let badge_id: String = b.get("id");
+        // 已经有了就不再发 —— 这一支在 apply_order_paid 里，可能被重放
+        sqlx::query(
+            "INSERT INTO user_badge (user_id, badge_id) VALUES ($1,$2) ON CONFLICT DO NOTHING",
+        ).bind(&user_id).bind(&badge_id).execute(&mut **tx).await.db()?;
+    }
+    Ok(())
 }
 
 /// ShipmentDelivered → 该运单覆盖的行标 done,全部完成则订单翻 done。
