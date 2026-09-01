@@ -392,6 +392,92 @@ if (!routes || !routes.length) { console.log('✗ app.json 里一页都没有');
    最矮的机器是 iPhone SE：375 × 667，去掉状态栏 20 与 tabBar 50，
    内容区 597。一屏放不下就得滚，而小程序里「往下还有」没有任何提示。
    量的是最矮那一档 —— 它过了，别的都过。 */
+/* 【在浏览器里量对比度，不靠读 CSS】。
+
+   `scripts/check-contrast.py` 读的是 CSS 文本 —— 它算得出「这条规则的字色
+   压在这条规则自己的底上」是多少，算不出「底写在祖先节点上」的那些，
+   于是给自己开了一个免检口子（未量），而那个口子当场放走了
+   「今天」屏罗盘中心那颗按钮:白字压琥珀 2.15:1，全屏唯一的控件。
+
+   浏览器知道答案。这一支在真实渲染出来的页面上，对每一个有文字的元素:
+     · 取 getComputedStyle 的 color
+     · 往上找第一个不透明的底（transparent 就继续往上）
+     · 底是渐变的话，取渐变里【最不利】的那一站
+   够不着的（背景图 / canvas / 半透明叠加）单独计数，如实报出来，不算过。 */
+function 量对比度() {
+  const 解 = (s) => {
+    const m = String(s).match(/rgba?\(([^)]+)\)/)
+    if (!m) return null
+    const v = m[1].split(',').map((x) => parseFloat(x))
+    return { r: v[0], g: v[1], b: v[2], a: v.length > 3 ? v[3] : 1 }
+  }
+  const 亮 = (c) => {
+    const f = [c.r, c.g, c.b].map((x) => {
+      x = x / 255
+      return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4)
+    })
+    return 0.2126 * f[0] + 0.7152 * f[1] + 0.0722 * f[2]
+  }
+  const 比 = (a, b) => {
+    const [x, y] = [亮(a), 亮(b)].sort((p, q) => q - p)
+    return (x + 0.05) / (y + 0.05)
+  }
+  // 渐变串里的所有颜色站 —— 字要在整条渐变上都读得出来，所以逐站都算
+  const 站 = (s) => {
+    const out = []
+    const re = /rgba?\([^)]+\)/g
+    let m
+    while ((m = re.exec(s))) { const c = 解(m[0]); if (c && c.a > 0.9) out.push(c) }
+    return out
+  }
+
+  const 说不准 = []
+  const 错 = []
+  let 量过 = 0
+
+  for (const el of document.querySelectorAll('*')) {
+    // 只看【自己直接带文字】的元素 —— 容器的 innerText 是子孙的，字色不一定是它的
+    let 字 = ''
+    for (const n of el.childNodes) if (n.nodeType === 3) 字 += n.textContent
+    字 = 字.trim()
+    if (!字) continue
+
+    const st = getComputedStyle(el)
+    if (st.visibility === 'hidden' || st.display === 'none' || parseFloat(st.opacity) === 0) continue
+    const r = el.getBoundingClientRect()
+    if (r.width < 2 || r.height < 2) continue
+    // 屏外的不算 —— 收起来的槽、还没翻到的那一页
+    if (r.bottom < 0 || r.top > (window.innerHeight + document.documentElement.scrollHeight)) continue
+
+    const 前 = 解(st.color)
+    if (!前 || 前.a < 0.9) continue        // 半透明的字另说，这一支不判
+
+    // 往上找底
+    let p = el, 底 = null, 糊 = ''
+    while (p && p !== document.documentElement.parentNode) {
+      const s2 = getComputedStyle(p)
+      const img = s2.backgroundImage
+      if (img && img !== 'none') {
+        if (/gradient/.test(img)) { const zs = 站(img); if (zs.length) { 底 = zs; break } }
+        糊 = '背景图'; break
+      }
+      const bg = 解(s2.backgroundColor)
+      if (bg && bg.a > 0.9) { 底 = [bg]; break }
+      if (p.tagName === 'CANVAS') { 糊 = 'canvas'; break }
+      p = p.parentElement
+    }
+    if (!底) { 说不准.push({ 文: 字.slice(0, 14), 类: String(el.className).slice(0, 24), 因: 糊 || '一路透明到顶' }); continue }
+
+    量过++
+    let 差 = 21, 站色 = ''
+    for (const b of 底) { const c = 比(前, b); if (c < 差) { 差 = c; 站色 = `rgb(${b.r},${b.g},${b.b})` } }
+    if (差 < 3.2) {
+      错.push({ 文: 字.slice(0, 16), 类: String(el.className).slice(0, 28), 比: +差.toFixed(2), 底: 站色 })
+    }
+  }
+  return { 错, 说不准: 说不准.length, 说不准样本: 说不准.slice(0, 4), 量过 }
+}
+
 async function 量一屏(route, params) {
   await p.setViewportSize({ width: 375, height: 667 })
   await open(route, params)
@@ -406,6 +492,11 @@ async function 量一屏(route, params) {
     return (w.__same = (w.__same || 0) + 1) >= 3
   }, null, { timeout: 8000, polling: 120 }).catch(() => {})
   await p.evaluate(() => { delete window.__lastH; delete window.__same })
+  /* 顺路量一遍对比度 —— 每一屏都量，不靠我记得手动量哪几屏。
+     这一支跟 `scripts/check-contrast.py` 不重复:那一支读 CSS 文本，
+     够不着「底写在祖先节点上」的那些（罗盘中心那颗按钮就是这么漏的）;
+     这一支在真实渲染出来的页面上问浏览器，问得到就没有够不着的。 */
+  const 色 = await p.evaluate(量对比度)
   const m = await p.evaluate(() => {
     const d = document.documentElement, b = document.body
     const tab = document.getElementById('wx-tabbar')
@@ -430,7 +521,7 @@ async function 量一屏(route, params) {
      tabBar 是固定定位的，它占的位已经由 body 的 padding-bottom 让出来、
      算在文档高度里了；再减一次就是同一笔减两遍（tab 页凭空多 50px 的欠账）。
      非 tab 页两种算法本来一样,所以这条对所有页都成立。 */
-  return { ...m, 溢出: m.内容 - m.视口 }
+  return { ...m, 溢出: m.内容 - m.视口, 色 }
 }
 
 /* 【集齐那一句】。40/40 是这个产品情感最高的一刻，而原先屏上说的是
@@ -2543,6 +2634,23 @@ console.log('\n── 一屏放得下吗（iPhone SE · 内容区 597）──')
     const m = await 量一屏(r, 要参数[r])
     const 名 = r.replace('pages/', '').replace('/index', '')
     量到[名] = m.溢出
+    /* 【每一屏的字都要读得出来】。判据 3.2:1 跟 `check-contrast.py` 同一条。
+       这一支量的是【真实渲染】:底写在祖先上、写在渐变里、写在按钮上的，
+       它一律问得到浏览器。2026-09-02 接线当天它抓到三处，
+       其中两处是读 CSS 那一支的免检口子放走的:
+       罗盘中心那颗按钮（1.76:1，「今天」屏唯一的控件）、
+       以及 tabBar 选中态那个色（2.86:1，真机上告诉你「你在哪儿」的那行字）。 */
+    if (m.色) {
+      const 坏 = m.色.错
+      ok(坏.length === 0, `${名} 上的字都读得出来（浏览器实测 ${m.色.量过} 处）`,
+         坏.length
+           ? 坏.map((e) => `${e.比}:1 「${e.文}」 .${e.类} 压在 ${e.底}`).join('\n         ')
+           : (m.色.说不准 ? `另有 ${m.色.说不准} 处底够不着（背景图/canvas），没量` : '一处都不欠'))
+      if (m.色.说不准 > 0) {
+        console.log(`    · ${名} 有 ${m.色.说不准} 处底够不着没量:`
+          + m.色.说不准样本.map((x) => `「${x.文}」(${x.因})`).join(' '))
+      }
+    }
     /* 【多页的那一屏，每一页都要量】。说明书有六页，而这里只开了第一页
        （说在前面）—— 它放得下，最后一页（三宫）却超出去 80px，
        翻页那一整行落在折线之外:读到最后的人屏上没有出口。
