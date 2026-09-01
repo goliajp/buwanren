@@ -15,7 +15,9 @@
    于是六间最花力气的房间在视觉上跟这个 app 的其余部分是断开的
    （2026-09-01 五路评审 · 视觉）。
    暗色房间里琥珀比黑方块可读得多 —— 黑压在暗木地板上几乎没有边界。 */
-.cast { margin-left: auto; padding: 14rpx 34rpx; border-radius: 28rpx;
+/* 表演按钮同理:实测 118×36，也在 44 以下。 */
+.cast { margin-left: auto; padding: 0 34rpx; min-height: 88rpx;
+        display: inline-flex; align-items: center; border-radius: 28rpx;
         background: var(--amber); color: var(--on-amber); font-size: 28rpx; font-weight: 600;
         box-shadow: 0 4rpx 0 var(--amber-deep), 0 6rpx 16rpx rgba(232,121,26,.28); }
 .err { padding: 32rpx; color: var(--peach-text); font-size: 26rpx; line-height: 1.7; }
@@ -23,5 +25,11 @@
 /* 出口。名字左边，跟别处的「回去」同一档次要动作。
    【2026-09-01】它压在纸色底栏上，但那一条底栏挨着深色房间 ——
    给它一块浅底，别让它成为深色画面边上的一行浅灰字。 */
-.back { font-size: 26rpx; color: var(--ink-mid); padding: 8rpx 18rpx;
+/* 【按得着】。实测 66×29（CSS px）—— 而它是这一屏【唯一】的出口。
+   触达面积的通行下限是 44×44（iOS HIG / WCAG 2.5.5），29 差得远:
+   在深色房间边上点不中它，人会以为退不出去
+   （2026-09-01 第二轮评审 · 视觉量出来的）。
+   88rpx = 44px。字号与配色不动，只把可点的那块撑到该有的大小。 */
+.back { font-size: 26rpx; color: var(--ink-mid); padding: 0 24rpx;
+        min-height: 88rpx; display: inline-flex; align-items: center;
         background: var(--paper-inset); border-radius: 999rpx; }

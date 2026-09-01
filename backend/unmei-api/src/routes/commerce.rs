@@ -297,6 +297,12 @@ async fn my_orders(
         r#"SELECT o.id, o.channel_origin, o.currency, o.amount_total_minor,
                   o.amount_paid_minor, o.amount_refunded_minor, o.status,
                   o.source_kind, o.expires_at, o.paid_at, o.fulfilled_at, o.created_at,
+                  /* 取消的原因也要给。列表上每一行都写着「已取消」——
+                     而超时取消跟买家自己点「不要了」是两件事，
+                     混成一个词，买家会以为是自己做的（2026-09-02）。
+                     详情那一条走 `SELECT *`，本来就带着它;
+                     两处共用同一个前端类型，少给一个键就是声明落空。 */
+                  o.cancel_reason,
                   l.title, l.line_count
            FROM order_record o
            LEFT JOIN LATERAL (

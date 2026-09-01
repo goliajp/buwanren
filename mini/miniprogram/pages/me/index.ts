@@ -12,7 +12,7 @@ import { natalApi } from '../../services/natal'
 import { commerceApi } from '../../services/commerce'
 import type { ApiError } from '../../services/api'
 import { 一句 } from '../../utils/say'
-import { 状态说法, 该做什么 } from '../../utils/money'
+import { 状态那一词, 该做什么 } from '../../utils/money'
 import type { OrderCard, TraceEvent } from '../../types/commerce'
 
 interface Recent {
@@ -161,7 +161,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
               ? (o.line_count > 1 ? o.title + ' 等 ' + o.line_count + ' 件' : o.title)
               : '单 ' + o.id.slice(0, 8),
             when: (o.created_at || '').slice(5, 10).replace('-', '/') + ' 下单',
-            state: 状态说法[o.status] || o.status,
+            state: 状态那一词(o.status, o.cancel_reason),
             go: 该做什么(o.status),
           },
         })

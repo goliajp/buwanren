@@ -13,7 +13,7 @@ import { 脸 } from '../../utils/face'
 import { storage } from '../../services/storage'
 import type { ApiError } from '../../services/api'
 import type { OrderDetail, Shipment, TraceEvent } from '../../types/commerce'
-import { money, 状态说法 } from '../../utils/money'
+import { money, 状态那一词 } from '../../utils/money'
 import { 一句 } from '../../utils/say'
 
 /** 包裹状态的说法。取值跟后端 `ShipmentStatus` 一一对应，不自创。
@@ -212,7 +212,7 @@ Page({
           loading: false,
           err: '',
           status: o.status,
-          statusText: 状态说法[o.status] || o.status,
+          statusText: 状态那一词(o.status, o.cancel_reason),
           totalText: money(o.amount_total_minor, o.currency),
           paidText: money(o.amount_paid_minor, o.currency),
           paidMinor: Number(o.amount_paid_minor) || 0,
