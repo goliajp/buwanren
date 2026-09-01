@@ -9,9 +9,19 @@
 .bar { display: flex; align-items: center; gap: 24rpx; height: 96rpx;
        padding: 0 32rpx; width: 100%; box-sizing: border-box; flex: 0 0 auto; }
 .who { font-size: 30rpx; color: var(--ink); }
-.cast { margin-left: auto; padding: 12rpx 32rpx; border-radius: 16rpx;
-        background: var(--ink); color: var(--paper); font-size: 28rpx; }
+/* 【2026-09-01 从近黑换成琥珀】。这是六间屋子底下唯一那颗动作按钮，
+   而它原先是 `--ink`（#2B2620）—— 一个黑方块。全 app 的主按钮都是
+   琥珀 + 14px 圆角 + 6rpx 实心厚度，只有这里是另一个物种，
+   于是六间最花力气的房间在视觉上跟这个 app 的其余部分是断开的
+   （2026-09-01 五路评审 · 视觉）。
+   暗色房间里琥珀比黑方块可读得多 —— 黑压在暗木地板上几乎没有边界。 */
+.cast { margin-left: auto; padding: 14rpx 34rpx; border-radius: 28rpx;
+        background: var(--amber); color: #fff; font-size: 28rpx; font-weight: 600;
+        box-shadow: 0 4rpx 0 var(--amber-deep), 0 6rpx 16rpx rgba(232,121,26,.28); }
 .err { padding: 32rpx; color: var(--peach); font-size: 26rpx; line-height: 1.7; }
 
-/* 出口。名字左边，跟别处的「回去」同一档次要动作。 */
-.back { font-size: 26rpx; color: var(--ink-mid); padding: 8rpx 0; }
+/* 出口。名字左边，跟别处的「回去」同一档次要动作。
+   【2026-09-01】它压在纸色底栏上，但那一条底栏挨着深色房间 ——
+   给它一块浅底，别让它成为深色画面边上的一行浅灰字。 */
+.back { font-size: 26rpx; color: var(--ink-mid); padding: 8rpx 18rpx;
+        background: var(--paper-inset); border-radius: 999rpx; }
