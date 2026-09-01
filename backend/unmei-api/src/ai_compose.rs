@@ -232,9 +232,11 @@ pub async fn pick_recommend(
     for (category, tag, 排掉已有) in 候选 {
         rows = sqlx::query(
             r#"SELECT p.id, p.name, p.sub_title, p.hero_image_url,
-                      px.price_minor, px.currency
+                      px.price_minor, px.currency,
+                      v.name AS villager_name
                FROM product p
                JOIN sku s ON s.product_id = p.id AND s.status = 'active'
+               LEFT JOIN villager v ON v.id = s.villager_id
                JOIN LATERAL (
                  SELECT price_minor, currency FROM price_book
                  WHERE sku_id = s.id AND status = 'active'
@@ -293,11 +295,83 @@ pub async fn pick_recommend(
     Ok(Some(RecommendOut {
         kind: "product".into(),
         id: r.get("id"),
-        name: r.get("name"),
+        name: 带上人名(r.get("name"), r.try_get("villager_name").ok().flatten()),
         sub_title: r.get("sub_title"),
         price_display: money_display(minor, &currency),
         image_url: r.get("hero_image_url"),
     }))
+}
+
+/// 按 id 取一件商品的「一句话摘要」—— 名、副标、现在的价、图。
+///
+/// 起卦那一刻由 `pick_recommend` 挑中一件，只把 id 存进
+/// `naji_record.recommended_product_id`。历史详情要把它还原成一张卡，
+/// 就走这里 —— **不存快照**:商品改名、调价、下架之后，
+/// 该显示的是现在那一件，不是当时那份会过期的抄件。
+///
+/// 取不到（下架了、这个区域没有价）就回 `None`，跟「本来就没推荐」
+/// 同一个形状 —— 前端不必分两种。
+pub async fn product_brief(
+    pool: &PgPool,
+    product_id: &str,
+    region: &str,
+    platform: &str,
+) -> Result<Option<RecommendOut>, ApiError> {
+    let row = sqlx::query(
+        r#"SELECT p.id, p.name, p.sub_title, p.hero_image_url,
+                  px.price_minor, px.currency,
+                  v.name AS villager_name
+           FROM product p
+           JOIN sku s ON s.product_id = p.id AND s.status = 'active'
+           LEFT JOIN villager v ON v.id = s.villager_id
+           JOIN LATERAL (
+             SELECT price_minor, currency FROM price_book
+             WHERE sku_id = s.id AND status = 'active'
+               AND region IN ($2, 'global')
+               AND platform IN ($3, 'all')
+               AND effective_from <= NOW()
+               AND (effective_to IS NULL OR effective_to > NOW())
+             ORDER BY effective_from DESC LIMIT 1
+           ) px ON TRUE
+           WHERE p.id = $1 AND p.status = 'listed'
+           ORDER BY px.price_minor
+           LIMIT 1"#,
+    )
+    .bind(product_id).bind(region).bind(platform)
+    .fetch_optional(pool)
+    .await?;
+    let Some(r) = row else { return Ok(None) };
+    let minor: i64 = r.get("price_minor");
+    let currency: String = r.get("currency");
+    Ok(Some(RecommendOut {
+        kind: "product".into(),
+        id: r.get("id"),
+        name: 带上人名(r.get("name"), r.try_get("villager_name").ok().flatten()),
+        sub_title: r.get("sub_title"),
+        price_display: money_display(minor, &currency),
+        image_url: r.get("hero_image_url"),
+    }))
+}
+
+/* 【护身符要说出是谁】（2026-09-02 第三轮评审 · 转化路）。
+   库里全部 888 件 omamori 商品的 `name` 都是「护身符」、`sub_title` 是 null，
+   于是那张推荐卡渲出来是:
+
+       也可以问问 ›
+       护身符
+       ¥99
+
+   而名册上同一位写的是「丹增 · 下山的武僧 · 拨念珠 · 缺静 · ¥99」。
+   复购模型就是四十位 × ¥99，而唯一的推荐位把人名摘掉了。
+
+   拼在这一层，不去改那 888 行商品名:名字是「谁的护身符」这件事，
+   本来就该由 sku 挂的那位村民决定，而不是抄进商品名里 ——
+   商品名抄一份，改名时就有两处会漂（订单快照那一处已经栽过）。 */
+fn 带上人名(名: String, 谁: Option<String>) -> String {
+    match 谁 {
+        Some(w) if !w.is_empty() && !名.contains(&w) => format!("{w}的{名}"),
+        _ => 名,
+    }
 }
 
 /// 分转成一句能直接显示的价格。小数位问 `Currency` 要 —— 它是穷尽的，

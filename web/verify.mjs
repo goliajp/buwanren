@@ -2406,6 +2406,27 @@ if (API) {
   ok(!!r.dir, '这一卦有方位　—— 后端真算过', r.dir || '空的')
   ok((await text()).includes('再问一次'), '落卦之后可以再问一次')
 
+  /* 【那张推荐卡真的在屏上】（2026-09-02 第三轮评审 · 第一次打开的人）。
+     起卦那一刻后端确实回了推荐，但结果屏拿到 id 之后会用 `detail(id)`
+     把整条记录【重取一遍】（ask/index.ts 的 `showWanted`）——
+     而 detail 一直没把 `recommended_product_id` 放进响应体。
+     于是那一瞬间有、页面一渲染就没了，
+     `wx:if="{{result.recommend}}"` 永远不成立。
+
+     后果是 ¥199 的「你的说明书」【全 app 没有一条路走得到】:
+     另外三个入口指向护身符与订阅，而订阅那屏说「村里现在没有可以订的东西」。
+
+     所以这一条不看接口，看【屏上渲出来没有】—— 那才是它当初漏掉的地方。 */
+  const 荐 = await p.evaluate(() => {
+    const d = globalThis.__router.current().data
+    const el = document.querySelector('.recommend')
+    return { 有数据: !!(d.result && d.result.recommend),
+             上屏: !!el, 文: el ? (el.innerText || '').replace(/\n/g, ' ').slice(0, 40) : '' }
+  })
+  ok(荐.有数据 && 荐.上屏, '一卦之后那张「也可以问问」真的渲在屏上',
+     `数据 ${荐.有数据} · 元素 ${荐.上屏} · ${荐.文}`)
+  ok(/[¥￥]\d/.test(荐.文), '那张卡上有价 —— 它是通往掏钱那一步的路', 荐.文)
+
   /* 「再问一次」真按下去。以前只验了这四个字在不在页面上 ——
      字在、按钮点了没反应，是两回事，而后者从没验过。
      卦搬走之后它把人送回我家的罗盘。 */
