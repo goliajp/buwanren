@@ -9341,11 +9341,11 @@ KKBBBBBBKK
       sleepAt: [1208, 508] },   // sprite 13 列 ×8 = 104px,床心 1260 → 左上角 1208   // 床 x1092..1428 中心 1260,sprite 宽 96 → 居中;头挨枕头下沿
     { id: 'tea', node: 'B3',      x: 1046, y: 872,  poses: ['drink1', 'drink2'],   fps: 0.9, dur: [4, 6],  flip: true,  say: '好茶' },
     { id: 'water', node: 'E2',    x: 540,  y: 1746, poses: ['drink1', 'drink2'],   fps: 0.9, dur: [3, 5],  flip: false, say: '咕嘟…' },
-    { id: 'gacha', node: 'D3',    x: 840,  y: 1552, poses: ['divine1', 'divine2'], fps: 1.6, dur: [6, 9],  flip: false, pointer: true, say: '（净手焚香）……此卦大吉' },
+    { id: 'gacha', node: 'D3',    x: 840,  y: 1552, poses: ['divine1', 'divine2'], fps: 1.6, dur: [6, 9],  flip: false, pointer: true, say: '（洗手点香）……这次是好的' },
     { id: 'read', node: 'B1',     x: 380,  y: 982,  poses: ['read'],               fps: 1,   dur: [7, 10], flip: false },
     { id: 'window', node: 'A1',   x: 460,  y: 566,  poses: ['standback'],          fps: 1,   dur: [4, 6],  flip: false },
     { id: 'cat', node: 'A3',      x: 1002, y: 620,  poses: ['standside'],          fps: 1,   dur: [3, 5],  flip: true,  heart: true, say: '乖' },
-    { id: 'pace', node: 'D2',     x: 520,  y: 1548, poses: null, pace: [520, 920], dur: [7, 10], say: '唔……此局何解…' },
+    { id: 'pace', node: 'D2',     x: 520,  y: 1548, poses: null, pace: [520, 920], dur: [7, 10], say: '唔……这局怎么解…' },
     { id: 'ps5', node: 'C3', x: 1160, y: 1162, poses: ['gameback'], fps: 1, dur: [9, 14], flip: false, tv: true, say: '就打一把……就一把' },
   ]
 
@@ -9604,8 +9604,8 @@ KKBBBBBBKK
       button: 'taoCastBtn', labels: ['请桃桃摆个盘', '收了'],
       stateKey: 'casting',                      // 局桌读这个键画九宫与天盘
       lineGap: 4200,                            // 她在算，不是在演 —— 节奏放慢
-      lines: ['三奇六仪……先排地盘', '值符落在哪一宫来着', '别催。催也快不了',
-              '休门在北 —— 我说了算', '哼，果然是这样'],
+      lines: ['先把底下那层摆好……', '那颗该落哪一格来着', '别催。催也快不了',
+              '今天往北边走顺 —— 我说了算', '哼，果然是这样'],
     }
   }
 
@@ -10202,7 +10202,7 @@ KLK.KGGGGK.KLK
   // 路网(绕中央桌)
 
   const ACTS = [
-    { id: 'board',  node: 'L2', x: 400, y: 940,  poses: ['reach1', 'reach2'], fps: 1.2, dur: [6, 9],  flip: true,  w: 3, say: '今日休门在北……嗯' },
+    { id: 'board',  node: 'L2', x: 400, y: 940,  poses: ['reach1', 'reach2'], fps: 1.2, dur: [6, 9],  flip: true,  w: 3, say: '嗯，今天是北边' },
     { id: 'sword',  node: 'L2', x: 260, y: 900,  poses: ['sword1', 'sword2'], fps: 1.8, dur: [5, 8],  flip: false, say: '哈！' },
     { id: 'mirror', node: 'L1', x: 180, y: 600,  poses: ['sit'],              fps: 1,   dur: [6, 9],  flip: false, say: '……还行吧' },
     { id: 'eat',    node: 'L3', x: 170, y: 1300, poses: ['reach1', 'reach2'], fps: 0.8, dur: [4, 7],  flip: false, say: '唔，甜' },
@@ -10223,7 +10223,7 @@ KLK.KGGGGK.KLK
         '这位……你自己心里有数吧',
         '奇门不是算命，是算【时机】。记好了',
         '哎那个刷礼物的，不用刷，说事就行',
-        '今天休门在北。要出门的往那边走',
+        '今天往北走顺。要出门的往那边去',
         '不准？不准你来找我啊，哼',
         '……谢谢。不用谢，我是说下一位',
         '别问感情。感情我不算',
@@ -10516,7 +10516,7 @@ KLK.KGGGGK.KLK
       stateKey: 'casting',                      // 水晶球与五芒星阵读这个键
       lineGap: 7200,
       lines: ['坐近些。雾散得慢，急不得',
-              '我不下断语的。我只说我看见什么',
+              '我不给你下结论的。我只说我看见什么',
               '我看见有人在等你。不说是谁，说了就不准了',
               '这团雾……是好的。我看着像好的',
               '你手上有东西放不下。我不问是什么',
@@ -11107,7 +11107,7 @@ KFKqqqqKKK
        从正面看整个人只剩一个帽尖露在球外面（实测只露出 41%）。
        她坐在桌后是对的，只是不该正对着球坐 —— 往左挪 62，脸就从球边上出来了。 */
     { id: 'read',   node: 'C1', x: 590, y: 964,  poses: ['gaze'],           fps: 1,   dur: [8, 12], flip: false, w: 4,
-      say: ['牌是这么说的哦。信不信在你呀', '我不下断语的。我只说我看见什么', '这张……嗯，不算坏事'] },
+      say: ['牌是这么说的哦。信不信在你呀', '我不给你下结论的。我只说我看见什么', '这张……嗯，不算坏事'] },
     { id: 'drawer', node: 'C1', x: 572, y: 1224, poses: ['sit'],            fps: 1,   dur: [5, 8],  flip: false, w: 1,
       say: '……哎呀，看它做什么' },
     { id: 'stove',  node: 'L1', x: 484, y: 832,  poses: ['stir1', 'stir2'], fps: 1.3, dur: [7, 10], flip: false, w: 3,
@@ -11763,9 +11763,9 @@ KKKyRRRRRRK.
       actor: { x: 673, y: 1091, poses: ['sit'], fps: 1, flip: false, speed: 18 },
       button: 'tenzCastBtn', labels: ['请丹增拨拨念珠', '收起'], stateKey: 'divining',
       lineGap: 5000,
-      lines: ['让贫僧翻翻历书……', '火土相生，是个好日子',
-              '初八不宜动土，改初十', '这个方位，宜。放心去',
-              '嘿哈——包在贫僧身上', '算日子，贫僧最准'],
+      lines: ['我翻翻日子……', '这天的火跟土是搭的，好日子',
+              '初八别开工，改初十', '这个方位，宜。放心去',
+              '嘿哈——交给我', '算日子我最准'],
     },
   }
 
@@ -12214,10 +12214,10 @@ KKKyRRRRRRK.
     button: 'bailuCastBtn', labels: ['请白鹭看看星星', '收起'], stateKey: 'divining',
     lineGap: 5000,
     lines: ['写生辰来。年月日时，要准',
-            '……紫微在命，天府在迁。你天生是要动的',
+            '……你那张图上，主星压在中间，副星在外头。你天生是要动的',
             '盘我念了。信不信，你自己的事',
             '有一颗星犯你今年。我只说到这儿',
-            '改命的话别问我。命盘我只念，不改',
+            '改命的别问我。图我只念，不改',
             '……念准了，也不一定是好事'],
   }
 
@@ -12227,7 +12227,7 @@ KKKyRRRRRRK.
      她话少,pSay 低 —— 大多数时候只是安静地做,不出声。 */
   const ACTS = [
     // ── 排盘(本业)──
-    { id: 'divine', node: 'MID', x: 560, y: 796, poses: ['divine1', 'divine2'], fps: 2, dur: [9, 14], flip: false, w: 3, divining: true, say: '紫微在午', pSay: 0.4 },
+    { id: 'divine', node: 'MID', x: 560, y: 796, poses: ['divine1', 'divine2'], fps: 2, dur: [9, 14], flip: false, w: 3, divining: true, say: '最亮那颗在正南', pSay: 0.4 },
     { id: 'chart',  node: 'MID', x: 660, y: 800, poses: ['sit'],   fps: 1, dur: [7, 11], flip: false, w: 2, say: '……', pSay: 0.3 },
     { id: 'almanac',node: 'NE',  x: 900, y: 560, poses: ['stand'], fps: 1, dur: [4, 7],  flip: true,  w: 1, say: '查一年', pSay: 0.4 },
     // ── 浇水记录(反差爱好)──
@@ -12834,7 +12834,7 @@ KFKWWWWWWKFK
       button: 'shenyanCastBtn', labels: ['请沈砚拆个字', '收起'], stateKey: 'cezi',
       lineGap: 5000,
       lines: ['写一个字来。随手写，别想',
-              '此字左虚右实 —— 恕我直言，你近来外头撑得辛苦',
+              '这个字左边虚右边实 —— 说难听点，你最近在外头撑得挺辛苦',
               '拆字不是算命，是照镜子。你写什么，你心里就有什么',
               '「安」字宝盖底下一个女。家里有人等，就安了',
               '我这门手艺，村里只我一个。倒不是我强，是没人肯学',

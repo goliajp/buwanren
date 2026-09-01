@@ -76,6 +76,10 @@
       <view class="rec-k">也可以问问 <text class="rec-arrow">›</text></view>
       <view class="rec-name">{{result.recommend.name}}</view>
       <view class="rec-sub" wx:if="{{result.recommend.sub_title}}">{{result.recommend.sub_title}}</view>
+      <!-- 【2026-09-01】价。这张卡点下去直奔商品页 —— 掏钱那一路，
+           而这一屏原先一个价都没有。后端本来就给了 `price_display`
+           （ai_compose.rs 的 RecommendOut），只是没人渲染它。 -->
+      <view class="rec-price" wx:if="{{result.recommend.price_display}}">{{result.recommend.price_display}}</view>
     </view>
 
     <view class="cta">

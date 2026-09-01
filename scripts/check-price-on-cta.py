@@ -35,8 +35,13 @@ for ts in sorted(页目.glob('*/index.ts')):
         体 = 体.split('\n  },')[0]
         if not 掏钱.search(体):
             continue
-        # wxml 里绑着它的那颗按钮（整标签，含到闭合）
-        for b in re.finditer(r'<button\b[^>]*bindtap="' + 名 + r'"[^>]*>(.*?)</button>', 页, re.S):
+        # 【不只是 <button>】。六个掏钱入口里只有两个用 <button>，
+        # 另外四个（名册一行、推荐卡、三档香、订阅一条）用的是
+        # `<view bindtap>` —— 原先的正则只认 button，于是它们静默不查，
+        # 而那三屏确实一个价都没有:正是这支门禁立案要防的形状，
+        # 只是上移了一层（2026-09-01 五路评审 · 工程审计抓到）。
+        标签 = r'(?:button|view)'
+        for b in re.finditer(r'<' + 标签 + r'\b[^>]*bindtap="' + 名 + r'"[^>]*>(.*?)</' + 标签 + r'>', 页, re.S):
             查过 += 1
             # 【只认渲染出来的文字】。整页搜的话，`wx:if="{{价 && !没货}}"`
             # 这种【条件】里的价也会算数 —— 变异测试当场抓到:

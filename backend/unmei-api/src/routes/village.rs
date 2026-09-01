@@ -314,9 +314,22 @@ async fn all_villagers(
        跟「我的村子」那一条的分别在【作用域】：你村里没请回来的那一格
        不说是谁（空屋那一屏），因为那是你的村子；而这是目录，
        四十位是公开的事实（设计册 11：官网放四十位档案）。 */
-    let 在卖: std::collections::HashMap<String, String> = sqlx::query(
-        "SELECT DISTINCT ON (k.villager_id) k.villager_id, p.id AS product_id \
+    /* 【价也一起带出来】。名册上点一行直奔商品页 —— 那是掏钱那一路，
+       而这一屏原先一个价都没有。「请回村 ›」按下去要多少钱？不知道就不按。
+       价在 price_book 上按区域/端生效，跟商品页同一套取法。 */
+    // price_minor 在库里是 BIGINT —— 按 i32 取会 panic（sqlx 的解码是强类型的）
+    let 在卖: std::collections::HashMap<String, (String, Option<i64>, Option<String>)> = sqlx::query(
+        "SELECT DISTINCT ON (k.villager_id) k.villager_id, p.id AS product_id, \
+                pb.price_minor, pb.currency \
          FROM sku k JOIN product p ON p.id = k.product_id \
+         LEFT JOIN LATERAL ( \
+            SELECT price_minor, currency FROM price_book \
+             WHERE sku_id = k.id AND status='active' \
+               AND region IN ('cn','global') AND platform IN ('mini','all') \
+               AND effective_from <= NOW() \
+               AND (effective_to IS NULL OR effective_to > NOW()) \
+             ORDER BY effective_from DESC LIMIT 1 \
+         ) pb ON TRUE \
          WHERE k.villager_id IS NOT NULL AND k.status='active' \
            AND p.status='listed' AND p.category = 'omamori' \
          ORDER BY k.villager_id, p.sort_weight DESC, p.id",
@@ -324,14 +337,18 @@ async fn all_villagers(
     .fetch_all(&st.db)
     .await?
     .iter()
-    .map(|r| (r.get::<String, _>("villager_id"), r.get::<String, _>("product_id")))
+    .map(|r| (r.get::<String, _>("villager_id"),
+              (r.get::<String, _>("product_id"),
+               r.get::<Option<i64>, _>("price_minor"),
+               r.get::<Option<String>, _>("currency"))))
     .collect();
 
     let mut out: Vec<(i16, u8, String, J)> = rows
         .iter()
         .map(|r| {
             let id: String = r.get("id");
-            let pid = 在卖.get(&id).cloned();
+            let 卖 = 在卖.get(&id).cloned();
+            let pid = 卖.as_ref().map(|x| x.0.clone());
             let dir: Option<String> = r.get("direction");
             // 主(1) 次(2) 其余(9)。没传用神时全是 9，排序就退回原来的规矩
             let (名次, 为什么) = dir
@@ -350,6 +367,9 @@ async fn all_villagers(
                 "rarity": r.get::<Option<String>, _>("rarity"),
                 // 有就是那件商品的 id；没有就是 null —— 客户端据此写「未上架」
                 "omamori_product_id": pid,
+                // 请他回村要多少钱（分）。没上架 / 没定价是 null，客户端就不写价，不编
+                "omamori_price_minor": 卖.as_ref().and_then(|x| x.1),
+                "omamori_currency": 卖.as_ref().and_then(|x| x.2.clone()),
                 "lack": r.get::<String, _>("lack"),
                 /* 他往哪个方向劝你（`lack_bias`）。客户端拿它给头像配色 ——
                    四十位共用一个琥珀圆牌时，一眼分不出谁是谁，

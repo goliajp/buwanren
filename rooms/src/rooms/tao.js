@@ -45,8 +45,8 @@
       button: 'taoCastBtn', labels: ['请桃桃摆个盘', '收了'],
       stateKey: 'casting',                      // 局桌读这个键画九宫与天盘
       lineGap: 4200,                            // 她在算，不是在演 —— 节奏放慢
-      lines: ['三奇六仪……先排地盘', '值符落在哪一宫来着', '别催。催也快不了',
-              '休门在北 —— 我说了算', '哼，果然是这样'],
+      lines: ['先把底下那层摆好……', '那颗该落哪一格来着', '别催。催也快不了',
+              '今天往北边走顺 —— 我说了算', '哼，果然是这样'],
     }
   }
 
@@ -643,7 +643,7 @@ KLK.KGGGGK.KLK
   // 路网(绕中央桌)
 
   const ACTS = [
-    { id: 'board',  node: 'L2', x: 400, y: 940,  poses: ['reach1', 'reach2'], fps: 1.2, dur: [6, 9],  flip: true,  w: 3, say: '今日休门在北……嗯' },
+    { id: 'board',  node: 'L2', x: 400, y: 940,  poses: ['reach1', 'reach2'], fps: 1.2, dur: [6, 9],  flip: true,  w: 3, say: '嗯，今天是北边' },
     { id: 'sword',  node: 'L2', x: 260, y: 900,  poses: ['sword1', 'sword2'], fps: 1.8, dur: [5, 8],  flip: false, say: '哈！' },
     { id: 'mirror', node: 'L1', x: 180, y: 600,  poses: ['sit'],              fps: 1,   dur: [6, 9],  flip: false, say: '……还行吧' },
     { id: 'eat',    node: 'L3', x: 170, y: 1300, poses: ['reach1', 'reach2'], fps: 0.8, dur: [4, 7],  flip: false, say: '唔，甜' },
@@ -664,7 +664,7 @@ KLK.KGGGGK.KLK
         '这位……你自己心里有数吧',
         '奇门不是算命，是算【时机】。记好了',
         '哎那个刷礼物的，不用刷，说事就行',
-        '今天休门在北。要出门的往那边走',
+        '今天往北走顺。要出门的往那边去',
         '不准？不准你来找我啊，哼',
         '……谢谢。不用谢，我是说下一位',
         '别问感情。感情我不算',

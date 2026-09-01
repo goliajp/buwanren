@@ -274,3 +274,7 @@
   box-shadow: var(--sh-card);
   font-size: 33rpx; line-height: 1.75; color: var(--ink); font-weight: 600;
 }
+
+/* 推荐卡上的价。它决定按不按，所以比副标重一档。 */
+.rec-price { margin-top: 8rpx; font-size: 30rpx; font-weight: 700; color: var(--ink);
+             font-variant-numeric: tabular-nums; }

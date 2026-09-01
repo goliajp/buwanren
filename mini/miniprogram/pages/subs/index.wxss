@@ -59,3 +59,7 @@
 .offers { margin-top: 44rpx; }
 .offers-k { font-size: 26rpx; color: var(--ink-faint); margin-bottom: 16rpx; }
 .offers-err { font-size: 26rpx; color: var(--ink-faint); margin-top: 32rpx; }
+
+/* 能订的那一条右边:价在动作前面 —— 决定按不按的是它。 */
+.item-meta { display: flex; align-items: baseline; gap: 12rpx; }
+.item-price { font-size: 28rpx; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
