@@ -33,6 +33,11 @@ if (!existsSync(join(ENGINE, 'engine.js'))) {
 rmSync(OUT, { recursive: true, force: true })
 mkdirSync(OUT, { recursive: true })
 cpSync(ENGINE, join(OUT, 'engine'), { recursive: true })
+/* 底栏图标。真机从 app.json 的 iconPath 读，镜像也要真渲染它们 ——
+   不拷进去的话镜像上是三个破图，而「底栏有没有图标」这件事
+   在镜像上就永远验不了（2026-09-01 补的图标）。 */
+const IMAGES = join(MINI, 'images')
+if (existsSync(IMAGES)) cpSync(IMAGES, join(OUT, 'images'), { recursive: true })
 
 // ── 入口:注册每一页,再开第一页 ────────────────────────────────
 const lines = [

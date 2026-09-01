@@ -31,22 +31,28 @@
     "backgroundColor": "#FFFCF6"
   },
   "tabBar": {
-    "color": "#a29e97",
-    "selectedColor": "#1a1a1c",
+    "color": "#857B70",
+    "selectedColor": "#E8791A",
     "backgroundColor": "#FFFCF6",
     "borderStyle": "white",
     "list": [
       {
         "pagePath": "pages/village/index",
-        "text": "村子"
+        "text": "村子",
+        "iconPath": "images/tab-village.png",
+        "selectedIconPath": "images/tab-village-on.png"
       },
       {
         "pagePath": "pages/home/index",
-        "text": "今天"
+        "text": "今天",
+        "iconPath": "images/tab-today.png",
+        "selectedIconPath": "images/tab-today-on.png"
       },
       {
         "pagePath": "pages/me/index",
-        "text": "我的"
+        "text": "我的",
+        "iconPath": "images/tab-me.png",
+        "selectedIconPath": "images/tab-me-on.png"
       }
     ]
   },
