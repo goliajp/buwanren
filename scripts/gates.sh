@@ -140,6 +140,12 @@ gate "blobscan"             rooms bun tools/blobscan.js design.html --gate-only
 gate "portlint · 离得开浏览器吗" rooms bun tools/portlint.js design.html
 gate "winlint"              rooms python3 tools/winlint.py src
 gate "regress selfcheck"    rooms bun tools/regress.js design.html selfcheck
+# 【渲染有没有漂】。上面那一支 selfcheck 查的是【工具自己】还好不好使,
+# 不比对任何像素 —— 而基准比对（check）一直没接进来。
+# 2026-09-01 手跑了一次:村图两张早就跟基准对不上，没人知道漂了多久。
+# 漂移不一定是坏事（这一版的取景就是改过的），但它必须【有人看一眼再放行】,
+# 而不是没人看见。判完跑 `bun tools/regress.js design.html save` 重存。
+gate "regress check · 渲染有没有漂" rooms bun tools/regress.js design.html check
 if [ "$QUICK" = 1 ]; then
   skip "build-engine verify" "--quick"
 else
