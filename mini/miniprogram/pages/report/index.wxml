@@ -109,8 +109,12 @@
            花钱买的东西读到底没有落点。这里做两件事:
            告诉他册子不会丢，再给他下一步。 -->
       <view class="fin" wx:if="{{at === tabs.length - 1}}">
-        <view class="fin-p">后面没有了 —— 看不明白的地方，村里人照着这份说明书给你讲</view>
-        <button class="btn fin-b" bindtap="onAskVillage">去问问村里人</button>
+        <!-- 【2026-09-01】原先写「村里人照着这份说明书给你讲」，按钮跳村子主屏。
+             村民问签走的是另一条接口，从头到尾不引用这一册的任何一个字 ——
+             花 199 读到最后一页，产品给的最后一句话是做不到的。
+             接得上那天再写它;现在说的是这一册在哪儿、随时能翻。 -->
+        <view class="fin-p">后面没有了 —— 这一册一直在「我的」里，什么时候翻都行</view>
+        <button class="btn fin-b" bindtap="onAskVillage">回我的</button>
       </view>
     </view>
 

@@ -64,7 +64,9 @@ type SummaryView = NatalSummary & {
 /** 弹性槽里那几行。矮屏看不见，长屏才出现（设计 10.1） */
 // 方位不进这一行 —— 屏上不显示它（见 wxml 里那段），
 // 留个用不上的字段只会让下一个人以为它该显示
-interface RecentRow { id: string; day: string; gate: string }
+// 方位与门名都不进这一行 —— 屏上不显示它们（见 wxml 里那段）。
+// `说` 是那天那句结论的头半句，后端按【现在这一版】的说法给。
+interface RecentRow { id: string; day: string; 说: string }
 
 type Mode = 'idle' | 'spinning'
 
@@ -269,7 +271,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     this.setData({
       recentErr: '',
       recent: list.slice(0, 3).map((r) => ({
-        id: r.id, day: r.date, gate: r.gate,
+        id: r.id, day: r.date, 说: r.说 || '',
       })),
     })
   },

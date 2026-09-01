@@ -194,6 +194,9 @@ gate "屋里的台词说人话" . python3 scripts/check-room-words.py
 # 在架的每一枚徽章，代码里都得真有地方发它。六枚里四枚发不出来活了很久，
 # 而屏上还给每一枚配了 CTA —— 其中一枚直接把人推去掏钱。
 gate "在架徽章发得出来" . python3 scripts/check-badges-earnable.py
+# 签词的落款上不许有古书篇名 —— 「村口的闲话 · 齐物论」两半互相拆台，
+# 而正文本身是改写干净的。
+gate "签词落款没有篇名" . python3 scripts/check-quote-source.py
 if [ "$QUICK" = 1 ]; then
   # `--quick` 跳过变异测试，而变异测试是【钉在具体文件的具体字符串上】的。
   # 你改的要是它盯着的文件，这一跳就正好跳过了唯一会发现「断言漂了」的那支。

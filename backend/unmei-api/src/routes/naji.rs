@@ -134,11 +134,23 @@ async fn history(
     State(st): State<AppState>,
     AuthedUser(c): AuthedUser,
 ) -> Result<Json<serde_json::Value>, ApiError> {
+    /* 【那天问到了什么，按现在这一版的说法讲】。
+       原先这一列返回 `gate`（休门 / 生门），客户端原样印在「近几次」上 ——
+       而结果那一屏明令「门名与方位一个都不留」，同一个词一屏禁一屏留。
+
+       改成取 `gate_word.benefit_text`（现在这一版的人话）而不是记录上
+       存的 `gate_explain` 快照:库里 1600 多条记录里一千多条的快照还是
+       旧文言加半角标点（「休则养正,正则气盈;……」），
+       文案改了、已发出的快照不会跟着改，印出来就是把旧文言又请回来一次。
+       门是同一个门，说法用现在这一版的，才跟结果屏对得上。 */
     let rows = sqlx::query(
-        r#"SELECT id, asked_at, gate, direction, suit_words, avoid_words,
-                  asked_year, asked_month, asked_day, asked_hour, question
-           FROM naji_record WHERE user_id=$1
-           ORDER BY asked_at DESC LIMIT 50"#,
+        r#"SELECT r.id, r.asked_at, r.gate, r.direction, r.suit_words, r.avoid_words,
+                  r.asked_year, r.asked_month, r.asked_day, r.asked_hour, r.question,
+                  gw.benefit_text
+           FROM naji_record r
+           LEFT JOIN gate_word gw ON gw.gate = r.gate
+           WHERE r.user_id=$1
+           ORDER BY r.asked_at DESC LIMIT 50"#,
     ).bind(&c.sub).fetch_all(&st.db).await?;
     let mut v = Vec::with_capacity(rows.len());
     for r in rows {
@@ -153,6 +165,11 @@ async fn history(
             "asked_at": r.get::<DateTime<Utc>, _>("asked_at"),
             "gate": r.get::<String, _>("gate"),
             "direction": r.get::<String, _>("direction"),
+            /* 列表上那一行:结论的头半句（「适合开个头」）。
+               整句带着冒号后面的展开，一行放不下;取不到就是 null，
+               客户端据此少摆一列，不编。 */
+            "说": r.get::<Option<String>, _>("benefit_text")
+                   .and_then(|t| t.split('：').next().map(|x| x.to_string())),
             "question": r.get::<Option<String>, _>("question"),
         }));
     }
@@ -172,13 +189,13 @@ async fn detail(
     let yi: Vec<String> = serde_json::from_value(r.get("suit_words")).unwrap_or_default();
     let ji: Vec<String> = serde_json::from_value(r.get("avoid_words")).unwrap_or_default();
     let q = if let Some(qid) = r.get::<Option<String>, _>("quote_id") {
-        let qr = sqlx::query("SELECT book, chapter, text FROM quote WHERE id=$1")
+        // 落款只留出处，不带篇名 —— 理由见 ai_compose.rs 里那一段。
+        // 两处必须一致:同一句话在结果屏和历史详情里落款不同，比都错更糟。
+        let qr = sqlx::query("SELECT book, text FROM quote WHERE id=$1")
             .bind(&qid).fetch_optional(&st.db).await?;
         qr.map(|q| QuoteOut {
             text: q.get("text"),
-            source: format!("{} · {}",
-                q.get::<String, _>("book"),
-                q.get::<Option<String>, _>("chapter").unwrap_or_default()),
+            source: q.get::<String, _>("book"),
         })
     } else { None };
     Ok(Json(serde_json::json!({

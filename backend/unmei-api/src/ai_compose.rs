@@ -60,10 +60,16 @@ pub async fn pick_quote(
     let mut rng = StdRng::seed_from_u64(seed);
     let idx = rng.gen_range(0..top.len());
     let (_, id, book, chapter, text) = top.swap_remove(idx);
-    let source = match chapter {
-        Some(c) if !c.is_empty() => format!("{book} · {c}"),
-        _ => book,
-    };
+    /* 【落款只留出处，不带篇名】。
+       `chapter` 里存的是「齐物论」「逍遥游」「里仁」「三十三章」这些
+       古书篇名 —— 硬要求写着不许有文言古书的表达，而且它跟 `book`
+       自相矛盾:`book` 是「村口的闲话」，一个自造的现代出处，
+       它不可能有一章叫「齐物论」。屏上渲出来是
+       「— 村口的闲话 · 齐物论」，两半互相拆台。
+       正文本身改写得很好，毁在落款上（2026-09-01 五路评审）。
+       篇名留在库里当索引，不上屏。 */
+    let _ = &chapter;
+    let source = book;
     Ok(ChosenQuote {
         id,
         out: QuoteOut { text, source },
