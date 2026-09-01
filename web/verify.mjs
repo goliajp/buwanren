@@ -353,6 +353,37 @@ if (API) {
 
 
 
+/* 【没有待扫单子的人，扫失败之后屏上有话吗】。
+   这是第一屏第一个按钮，而新用户的 `toScan` 是 false ——
+   而屏上唯一渲染 `codeErr` 的地方曾经挂在 `wx:if="{{toScan}}"` 里:
+   点一下、扫一个不认识的码，**什么都不发生，也没有第二条路**
+   （2026-09-02 第三轮评审 · 第一次打开的人）。
+
+   下面那一段「该扫了」走的是 toScan 为真的路径，够不着这个形状。 */
+async function 扫不出来那一下() {
+  await open('pages/village/index')
+  await p.waitForTimeout(1200)
+  const 有待扫 = await p.evaluate(() => globalThis.__router.current().data.toScan)
+  if (有待扫) {
+    console.log('    · 跳过「新用户扫失败」：这一趟这个用户手上有待扫的单子（不计入通过）')
+    return
+  }
+  await p.evaluate(() => {
+    globalThis.__wxStub('scanCode', () => Promise.resolve({ result: 'NOT-A-REAL-CODE-XYZ' }))
+  })
+  await p.getByText('扫护身符', { exact: true }).click()
+  await p.waitForFunction(() => !!globalThis.__router.current().data.codeErr,
+                          null, { timeout: 15000 }).catch(() => {})
+  const 屏 = await text()
+  ok(屏.includes('对不上任何一枚护身符'),
+     '没有待扫单子的人扫失败，屏上也说得出是哪一种情况',
+     屏.slice(0, 60))
+  ok(屏.includes('扫不出来'),
+     '而且给得出第二条路（手输编号）—— 扫不出来的人正是最需要它的人',
+     屏.slice(0, 60))
+  await p.evaluate(() => globalThis.__router.current().setData({ codeErr: '' }))
+}
+
 /* 打真后端时,用【真的入住路径】把两位请回家:
      发一张御守凭据(库里) → 页面点「扫御守」→ /v1/omamori/scan → 入住
    扫码本身只有真机有,所以这里把 wx.scanCode 桩成「扫到了这串凭据」——
@@ -804,6 +835,10 @@ errs.length = 0
 await open('pages/village/index')
 if (API) {
   console.log('  （打真后端：先用真的入住路径请阿云与陈九回家）')
+  /* 先验「扫不出来」那一下 —— 要趁这个用户手上还没有任何待扫的单子，
+     那正是第一次打开的人所处的状态。 */
+  await 扫不出来那一下()
+  await open('pages/village/index')
   const before = await text()
   const 落到 = await moveIn('ayun')
   /* 这一下是整条链上唯一一次实物变成人 —— 它值一屏，不是一句 toast
@@ -1021,6 +1056,14 @@ if (API) {
                               null, { timeout: 15000 }).catch(() => {})
       const 错话 = await p.evaluate(() => globalThis.__router.current().data.codeErr)
       ok(/对不上任何一枚护身符/.test(错话 || ''), '认不出那串字时说得清是哪一种情况', String(错话))
+      /* 【说出来了不等于看得见】（2026-09-02 第三轮评审 · 第一次打开的人）。
+         上面这一条读的是 `data.codeErr` —— 而屏上唯一渲染它的地方
+         曾经挂在 `wx:if="{{toScan}}"` 里，新用户为 false:
+         话生成了、一个字都没上屏，点第一屏第一个按钮什么都不发生。
+         所以这一条看【屏上的字】，不看 data。 */
+      ok((await text()).includes('对不上任何一枚护身符'),
+         '而且那句话真的在屏上 —— 不是只在 data 里',
+         (await text()).slice(0, 40))
 
       /* 再填一串真的。这一下把婆婆请回家 —— 也就是把上面那条提示消掉。 */
       const 真码 = await mintCredential('popo')

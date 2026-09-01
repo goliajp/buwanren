@@ -74,6 +74,13 @@
   background: var(--ink); color: var(--paper); font-size: 26rpx;
 }
 .manual-go-hover { opacity: .75; }
+/* 扫失败那一句 —— 挂在「扫护身符」底下，不进手输那一块。
+   用桃色字（报错那一档），比手输里那一句醒目一档:
+   它是这一屏此刻唯一的反馈。 */
+.scan-err {
+  margin: 0 32rpx 8rpx; font-size: 24rpx; line-height: 1.6;
+  color: var(--peach-text);
+}
 .manual-err { margin-top: 12rpx; font-size: 24rpx; color: var(--peach-text); line-height: 1.6; }
 
 /* 问候语 + 日期（设计册 V1）。两行，占的是原先那一行副标的位置 */
