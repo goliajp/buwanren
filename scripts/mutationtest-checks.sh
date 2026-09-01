@@ -35,6 +35,7 @@ FILES=(
   mini/miniprogram/pages/name/index.ts
   # 台词那一支的变异对象
   backend/migrations/20260831002_aluo_lines.sql
+  backend/migrations/20260901008_line_fixes2.sql
   # 指代那一支的变异对象
   mini/miniprogram/pages/home/index.wxml
   # 金额那一支的变异对象
@@ -413,8 +414,13 @@ echo
 echo "── check-villager-lines（村民台词的规格）──"
 # 台词一位一位地写。这一支守的是【写出来的那几条合不合规格】,
 # 不是「写了几位」—— 少一条会在轮播里露空当，术语混进来就成了报盘。
+# ★ 变异要植在【真正生效的那一处】。阿罗第 3 条原先是插入语句里的「啊」，
+#   2026-09-01 被 20260901008 的一支 UPDATE 覆盖成「啊，你还在啊」
+#   （单独一个「啊」会作为「今天说」印在村子首页最大的气泡上）。
+#   而门禁读的是覆盖之后的文本 —— 于是植在插入上的变异不再影响结果，
+#   这一条静默逃掉。锚点跟着最后那一手走。
 mutate "台词结尾多了个句号" check-villager-lines \
-  "edit('backend/migrations/20260831002_aluo_lines.sql', \"('aluo', 3, '啊')\", \"('aluo', 3, '啊。')\")"
+  "edit('backend/migrations/20260901008_line_fixes2.sql', \"'啊，你还在啊'\", \"'啊，你还在啊。'\")"
 mutate "台词里混进了术语" check-villager-lines \
   "edit('backend/migrations/20260831002_aluo_lines.sql', '跟鸟说话比较容易', '你日主偏弱')"
 
