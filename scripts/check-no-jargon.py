@@ -41,17 +41,6 @@ for f in 页:
                 错.append(f'{f.parent.name}:{i}　「{词}」—— 行话只能在说明书里')
 
 # art 表:每一门都得有人话
-种 = list((根 / 'backend/migrations').glob('*art_plain*.sql'))
-if not 种:
-    错.append('art 表还没配人话（找不到 *art_plain*.sql）—— 界面会退回行话')
-else:
-    配了 = set(re.findall(r"WHEN '(\w+)'\s+THEN", 种[0].read_text(encoding='utf-8')))
-    全部 = set(re.findall(r"^\s*\('(\w+)',\s*'[^']+',\s*'",
-                         (根 / 'backend/seed/villagers.sql').read_text(encoding='utf-8'), re.M))
-    漏 = 全部 - 配了
-    # 只报真的术（种子里 art 与 villager 两张表都是这个形状，用配过的那批反查）
-    if 漏 and len(漏) < len(全部):
-        pass   # 名单里混着村民 id，不当错报 —— 数目对不上时才提
 
 # 【界面上的字不全在 wxml 里】。「按你的八字单配」是 sku.name ——
 # 数据库给的，从只扫 wxml 的判据眼皮底下整个过去了，靠截图才看见
@@ -70,6 +59,18 @@ def 问库(q):
         print(f'✗ 库问不到，货架上的名字没验成：{r.stderr.strip()[:160]}')
         sys.exit(2)
     return [l for l in r.stdout.strip().split('\n') if l]
+
+# 【每一门术都要配一句人话】。
+# 这一段原先是从迁移文件里 grep `WHEN 'x' THEN`，再拿种子里的 id 反查 ——
+# 而那份 id 名单里混着村民，于是判不准，最后写成了一句 `pass`:
+# 文件顶上承诺的第二条判据【从来没执行过】，唯一还活着的只有
+# 「找不到 *art_plain*.sql」（2026-09-01 五路评审 · 工程审计抓到）。
+#
+# 直接问库就没有这个问题:art 表自己知道有哪些门、哪一门配了 plain。
+缺人话 = 问库("SELECT key, name FROM art WHERE plain IS NULL OR plain = '' ORDER BY key")
+for 行 in 缺人话:
+    键, 名 = (行.split('|', 1) + [''])[:2]
+    错.append(f'术「{名}」（{键}）没配人话 —— 界面会退回显示行话')
 
 货架 = 问库(
     "SELECT 'product', id, name || ' / ' || COALESCE(sub_title,'') FROM product WHERE status='listed'"
