@@ -67,7 +67,10 @@ Page({
     const kind = q.kind === 'terms' ? 'terms' : 'privacy'
     const d = kind === 'terms' ? 协议 : 隐私
     this.setData({ kind, 标题: d.标题, 更新: d.更新, 段: d.段 })
-    wx.setNavigationBarTitle({ title: d.标题 })
+    /* 导航栏【不】写页面名 —— 全 app 统一是「不完人」，页面叫什么由
+       页面自己的大标题说（门禁 check-nav-title 盯着这条）。
+       两处都写等于同一件事说两遍，而顶上那一行还会跟着屏内容变，
+       读的人以为自己换了 app。 */
   },
   onBack() {
     wx.navigateBack({ fail() { wx.switchTab({ url: '/pages/village/index' }) } })
