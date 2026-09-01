@@ -210,6 +210,9 @@ gate "签词落款没有篇名" . python3 scripts/check-quote-source.py
 # 说明书里不许原样转发排盘写的推理 —— 行话在这一册里可以，文言不行，
 # 而上游那句「宜以助身五行扶之」两样都占。
 gate "说明书不转发上游原文" . python3 scripts/check-report-passthrough.py
+# 前端那张「状态怎么说」的表要跟后端枚举对得上 —— 差一个词，
+# `|| status` 兜底就把英文原样印在屏上，而错的跟对的看着一样。
+gate "状态说法对得上枚举" . python3 scripts/check-status-words.py
 if [ "$QUICK" = 1 ]; then
   # `--quick` 跳过变异测试，而变异测试是【钉在具体文件的具体字符串上】的。
   # 你改的要是它盯着的文件，这一跳就正好跳过了唯一会发现「断言漂了」的那支。

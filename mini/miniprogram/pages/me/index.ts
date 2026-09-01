@@ -122,11 +122,23 @@ Page<IData, WechatMiniprogram.IAnyObject>({
       () => this.setData({ badgeText: '看不到' }),
     )
 
-    mineApi.subscriptions().then(
-      (list) => this.setData({ subText: list.length ? list.length + ' 个订着' : '还没有',
-                                  hasSubs: list.length > 0 }),
-      () => this.setData({ subText: '看不到' }),
-    )
+    /* 【门闩挑错了变量】。这一行原先只在「你订过东西」时出现，
+       而「订着的」那一屏的空状态【正是唯一在卖订阅的地方】——
+       两个条件互为反面:订过的人才进得去，而他们进去之后
+       `loadOffers()` 永远不跑;没订过的人根本进不去
+       （2026-09-01 五路评审 · 工程审计）。
+       该看的是【村里有没有可订的】，不是「你订过没有」。
+       两样都取不到就不摆这一行 —— 那时它确实无处可去。 */
+    Promise.all([
+      mineApi.subscriptions().catch(() => null),
+      commerceApi.products('service').catch(() => []),
+    ]).then(([list, 能订的]) => {
+      if (!list) { this.setData({ subText: '看不到' }); return }
+      this.setData({
+        subText: list.length ? list.length + ' 个订着' : (能订的.length ? '还没有' : ''),
+        hasSubs: list.length > 0 || 能订的.length > 0,
+      })
+    })
 
     commerceApi.orders().then(
       (page) => {

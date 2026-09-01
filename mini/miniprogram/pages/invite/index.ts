@@ -27,7 +27,7 @@ import type { VillagerCard } from '../../types/village'
 import { 轻 } from '../../utils/feel'
 import { 一句 } from '../../utils/say'
 
-type 位 = { id: string; name: string; sub: string; onSale: boolean; product: string | null; 价: string; face: string; lack: string; direction: string;
+type 位 = { id: string; name: string; sub: string; onSale: boolean; product: string | null; 价: string; 住着: boolean; face: string; lack: string; direction: string;
             /** 同色之内的脸纹 —— 缺「近人」那一路有十一位，不然十一张一模一样。
                 在【切段之后】发，所以映射那一步它还没有 */
             纹?: string
@@ -76,6 +76,17 @@ Page<IData, WechatMiniprogram.IAnyObject>({
   async load() {
     this.setData({ loading: true, err: '' })
     const 用神 = await this.loadLack()
+    /* 【谁已经住进来了】。这一屏读的是【公开目录】（/v1/villagers），
+       它不认得你 —— 于是婆婆已经住在你村里，名册上照样写「请回村 · ¥99」，
+       而她那一屏上是绿点加「问问婆婆」。同一个人在两屏里是两种身份，
+       第一次用的人会以为自己买错了、或者要再买一次
+       （2026-09-01 五路评审 · 第一次打开的人）。
+       住户名单在「我的村子」那条上，多问一次就知道。
+       问不到就当都没住 —— 那是原来的样子，不会更糟。 */
+    const 住着 = await villageApi.mine().then(
+      (v) => new Set(v.villagers.filter((x) => x.at_home).map((x) => x.id)),
+      () => new Set<string>(),
+    )
     villageApi.all(用神).then(
       (list: VillagerCard[]) => {
         /* 顺序由后端定 —— 按用神排要用 `lack_bias` × `yongshen_bias`
@@ -87,6 +98,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
           sub: [v.title, v.art].filter(Boolean).join(' · '),
           onSale: !!v.omamori_product_id,
           product: v.omamori_product_id,
+          住着: 住着.has(v.id),
           /* 请他回村多少钱。后端按 price_book 算好给的（分）——
              页面不自己换算区域/端，那会拿到别的区的价。
              取不到就是空串:名册上不写价，也不编。 */
@@ -168,6 +180,11 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     轻()
     const id = (e.currentTarget.dataset as { id?: string }).id
     const 那位 = this.data.能请.find((x) => x.id === id)
+    // 已经住进来的:点进去是他本人那一屏，不是商品页 —— 他已经在你村里了
+    if (那位 && 那位.住着) {
+      wx.navigateTo({ url: '/pages/villager/index?id=' + 那位.id })
+      return
+    }
     /* 没上架的点不动。**不是点了再说「买不了」** —— 那是先答应再反悔；
        行上已经写着「未上架」，它就该按不动。 */
     if (那位 && 那位.onSale && 那位.product) {

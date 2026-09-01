@@ -17,11 +17,20 @@ import { money, 状态说法 } from '../../utils/money'
 import { 唤醒, 扫一枚 } from '../../utils/omamori'
 import { 一句 } from '../../utils/say'
 
-/** 包裹状态的说法。取值跟后端 `ShipmentStatus` 一一对应，不自创 */
+/** 包裹状态的说法。取值跟后端 `ShipmentStatus` 一一对应，不自创。
+ *
+ *  【2026-09-01 修】这张表原先写着 `pending`（后端没有这一档），
+ *  却【缺了 `preparing`】—— 而建运单时状态是写死的 'preparing'
+ *  （unmei-app/src/fulfillment.rs），也就是每一单的第一档。
+ *  落点是 `物流说法[s.status] || s.status`，兜底把原始英文原样显示，
+ *  于是订单屏上直接印着 `preparing`。库里当时 744 单在这一档
+ *  （占三成一），跟盘上那个「南 vs 南方」是同一个形状:
+ *  写死的键跟真值差一个词，`||` 兜底，错的跟对的看着一样。
+ *  `returning`（退回中）同样缺，一并补上。 */
 const 物流说法: Record<string, string> = {
-  pending: '待发', picked_up: '已揽收', in_transit: '在途',
+  preparing: '备货中', picked_up: '已揽收', in_transit: '在途',
   out_for_delivery: '派件中', delivered: '已签收', exception: '有异常',
-  returned: '已退回', cancelled: '已取消',
+  returning: '退回中', returned: '已退回', cancelled: '已取消',
   // 轨迹里可能出现的那几种（后端认不出的记 unknown，不编成「在途」）
   departed: '离开集散中心', arrived_at_sort_facility: '到达集散中心',
   failed_delivery: '投递失败', unknown: '承运商没说清',
