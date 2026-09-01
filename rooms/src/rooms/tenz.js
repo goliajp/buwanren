@@ -392,7 +392,16 @@ KKKyRRRRRRK.
   }
 
   const ACTS = [
-    { id: 'medi',   node: 'BT', x: 676,  y: 856,  poses: ['sit'],           fps: 1,   dur: [8, 12],  flip: false, medi: true, say: '唵嘛呢叭咪吽……' },
+    /* 【2026-09-01 从坛城上挪到坛城前面的地板上】。
+       他原先盘坐在坛城正中 —— 而坛城是这间屋最花的一件东西，
+       暗红僧袍压在它的暗红回纹上，人整个陷进地毯:进屋第一眼找不到主人
+       （五路评审 · 视觉那一路指出来的）。
+       「进屋看得见主人」那支门禁量的是【有没有被挡住】（65%，通过），
+       量不到【看不看得见】—— 我试过给它加一条「跟周围的亮度差」，
+       结果它说婆婆反差 2、最低，而婆婆一眼就能找到:那个数量的不是这件事，
+       误报四条的门禁比没有门禁更糟，所以没有留下来。
+       改用有界的办法:把人挪到坛城前那块光地板上，用截图验。 */
+    { id: 'medi',   node: 'BT', x: 676,  y: 1180, poses: ['sit'],           fps: 1,   dur: [8, 12],  flip: false, medi: true, say: '唵嘛呢叭咪吽……' },
     { id: 'pray',   node: 'BT', x: 672,  y: 600,  poses: ['pray'],          fps: 1,   dur: [5, 8],   flip: false, say: '佛祖保佑大家' },
     { id: 'sneak',  node: 'BT', x: 700,  y: 604,  poses: ['stand'],         fps: 1,   dur: [3, 5],   flip: false, say: '（左右看看）佛祖不会介意的', pSay: 0.95 },
     { id: 'fist',   node: 'L2', x: 836,  y: 1596, poses: ['fist1', 'fist2'], fps: 2.4, dur: [7, 11], flip: false, dummy: true, say: '哈！嘿！' },
@@ -411,7 +420,7 @@ KKKyRRRRRRK.
                  hops: [[588, 1648], [646, 1584], [704, 1524], [704, 1648], [588, 1524]] },
   ]
 
-  const st = { mode: 'act', act: ACTS[0], x: 676, y: 856, node: 'BT', path: [],
+  const st = { mode: 'act', act: ACTS[0], x: 676, y: 1180, node: 'BT', path: [],
                until: globalThis.ENGINE_HOST.now() + 5000, frame: 0, tx: 0, ty: 0, sayText: null, sayUntil: 0 }
   let TENZ_PERF = null
   function pick() { return globalThis.pickAct(ACTS, st.act) }
