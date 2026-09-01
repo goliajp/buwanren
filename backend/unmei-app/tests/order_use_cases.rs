@@ -322,6 +322,39 @@ fn new_order(user_id: &str, lines: Vec<(String, i32)>) -> order::NewOrder {
 }
 
 /// 一个用户 + 一笔 unpaid 订单。
+/// 同一个人、同一件东西、已经有一笔没付的 —— 再下一次拿回的是那一笔。
+///
+/// 确认屏每次 `onLoad` 都生成一个新的幂等键（同一屏内连点两次要撞上
+/// 同一个键，那是对的），可【退回上一页再进来】就是一个新键、一张新单。
+/// 库里因此攒着「同一个用户、同一个 sku、四笔未付、合计 796 元」这样的
+/// 记录（2026-09-01 五路评审 · 工程审计查出来的）。
+/// 钱没多扣 —— 未付单不是扣款 —— 但买家在「我买过的」里看见四条一模一样的
+/// 待付，第一反应是自己被重复下单了。
+#[tokio::test]
+async fn ordering_the_same_thing_twice_returns_the_unpaid_order_you_already_have() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 9900).await;
+
+    let 头一次 = order::create(&pool, new_order(&user, vec![(sku.clone(), 1)]))
+        .await.expect("第一张单");
+    let 第二次 = order::create(&pool, new_order(&user, vec![(sku.clone(), 1)]))
+        .await.expect("再下一次");
+
+    assert_eq!(第二次.order_id, 头一次.order_id, "同一件东西不该建出第二张待付单");
+    let 张数: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM order_record o JOIN order_line ol ON ol.order_id=o.id \
+          WHERE o.user_id=$1 AND o.status='unpaid' AND ol.sku_id=$2",
+    ).bind(&user).bind(&sku).fetch_one(&pool).await.expect("数一数");
+    assert_eq!(张数, 1, "库里也只该有一张");
+
+    /* 【数量不同就是另一件事】。真想买两份的人改数量 ——
+       那时不能把他的两份悄悄换回一份。 */
+    let 两份 = order::create(&pool, new_order(&user, vec![(sku.clone(), 2)]))
+        .await.expect("买两份");
+    assert_ne!(两份.order_id, 头一次.order_id, "数量不同，不该复用上一张");
+}
+
 async fn order_fixture(pool: &sqlx::PgPool) -> (String, String) {
     let user = common::user(pool).await;
     let sku = common::sku_with_price(pool, "CNY", 19900).await;
@@ -379,8 +412,16 @@ async fn expiring_unpaid_orders_leaves_the_others_alone() {
         shipping_address: None, contact: None, coupon_codes: vec![], note: None,
         ip: None, ua: None,
     };
+    /* 【两件不同的东西】。原先这里是同一个 sku 下两次 ——
+       而 2026-09-01 起「同一个人、同一件东西、已经有一笔没付的」
+       会把那一笔原样还回来（退回上一页再进来不该再建一张）。
+       于是两个变量指向同一张单，过期与不过期设在同一行上，
+       这条用例自己把自己抵消了。它要验的是「过期的取消、没到期的不动」，
+       跟是不是同一件东西无关。 */
+    let sku2 = common::sku_with_price(&pool, "CNY", 8800).await;
     let overdue = order::create(&pool, mk(user.clone(), sku.clone())).await.expect("单一");
-    let fresh = order::create(&pool, mk(user.clone(), sku)).await.expect("单二");
+    let fresh = order::create(&pool, mk(user.clone(), sku2)).await.expect("单二");
+    assert_ne!(overdue.order_id, fresh.order_id, "夹具要的是两张单");
     sqlx::query("UPDATE order_record SET expires_at = NOW() - INTERVAL '1 hour' WHERE id=$1")
         .bind(&overdue.order_id).execute(&pool).await.expect("摆成已过期");
     sqlx::query("UPDATE order_record SET expires_at = NOW() + INTERVAL '1 hour' WHERE id=$1")
