@@ -137,7 +137,10 @@
       <view class="field">
         <!-- 「备注」是表单话。这一栏的用处是【留几份时分得清谁是谁】，
              所以直接说那件事，占位也给个真例子。 -->
-        <text class="field-k">给它起个名</text>
+        <!-- 【2026-09-01】原先写「给它起个名」——「它」指什么？这一屏从头到尾
+             没有一个叫「它」的东西，读的人得自己猜一次（而这一屏可以留几份，
+             名字正是用来分辨它们的）。说清楚是给哪一份起名。 -->
+        <text class="field-k">这一份叫什么</text>
         <input class="field-input" placeholder="比如 我自己" value="{{form.label}}" bindinput="onLabel"/>
       </view>
     </view>

@@ -25,6 +25,19 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     version: CONFIG.APP_VERSION,
   },
 
+  /* 那串 ID 是给客服念的 —— 它被 `.prof-v` 的 max-width + ellipsis
+     截断了，念不全。长按复制，跟订单号那儿一个做法。
+     浏览器里 `wx.setClipboardData` 是真接上的（走 navigator.clipboard），
+     不是空实现 —— 只是它要 https 或 localhost，被拒时走 fail，跟真机一样。 */
+  onCopyId() {
+    const id = this.data.user && this.data.user.id
+    if (!id) return
+    wx.setClipboardData({
+      data: id,
+      success: () => wx.showToast({ title: '账号复制好了', icon: 'none' }),
+    })
+  },
+
   onShow() { this.pull() },
   onAuthReady() { this.pull() },
 
