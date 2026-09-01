@@ -86,7 +86,9 @@
            以为即时开通、付完发现要等快递的人，第一反应是申请退款）。 -->
       <view class="ships">
         <text class="ships-k">怎么来</text>
-        <text class="ships-v">寄一枚御守到你手上 · 扫开它，{{who.name}}就住进村里</text>
+        <!-- 说「护身符」不说「御守」：从地图上点一位进来的人没经过名册那条
+             三步带，这是他第一次、也是【掏钱前最后一次】看到这件东西。 -->
+        <text class="ships-v">寄一枚护身符到你手上 · 扫开它，{{who.name}}就住进村里</text>
       </view>
       <view class="gets-k">请{{who.name}}回村之后</view>
       <view class="gets-row">

@@ -23,9 +23,16 @@
        多一次「展开」等于让唯一的用途多一道手续。 -->
   <view class="sec-k">这台设备上的账号 · 出问题时把这几行念给我们</view>
   <view class="card" wx:if="{{user}}">
-    <view class="prof-row">
+    <!-- 【2026-09-01】ID 那一行要能复制。
+         上面写着「出问题时把这几行念给我们」，而这一行被 CSS 截成
+         `u_anon_852e88dd…`（`.prof-v` 有 max-width + ellipsis），
+         既念不全也复制不了 —— 这一屏唯一的用途被自己的样式挡死了。
+         订单号那儿早就有长按复制（order/index.wxml），照搬。 -->
+    <view class="prof-row" bindlongpress="onCopyId"
+          hover-class="entry-hover" hover-stay-time="100">
       <text class="prof-k">ID</text>
       <text class="prof-v mono">{{user.id}}</text>
+      <text class="prof-copy">长按复制</text>
     </view>
     <view class="prof-row">
       <text class="prof-k">平台</text>
@@ -67,6 +74,6 @@
   </view>
 
   <view class="foot-hint">
-    不完人 v{{version}} · 仅供研究与娱乐
+    不完人 v{{version}} · 仅供研究与娱乐 · 不构成人生建议
   </view>
 </view>
