@@ -145,6 +145,9 @@ gate "regress selfcheck"    rooms bun tools/regress.js design.html selfcheck
 # 2026-09-01 手跑了一次:村图两张早就跟基准对不上，没人知道漂了多久。
 # 漂移不一定是坏事（这一版的取景就是改过的），但它必须【有人看一眼再放行】,
 # 而不是没人看见。判完跑 `bun tools/regress.js design.html save` 重存。
+# 基准存在 `rooms/.roomwork/baseline/`，按「文档不进 git」那条留在本机 ——
+# 新克隆出来的一份没有基准，这一支会红并叫你先跑 save。那是对的:
+# 基准要由人看过当前渲染之后才算数，不能凭空生成一份。
 gate "regress check · 渲染有没有漂" rooms bun tools/regress.js design.html check
 if [ "$QUICK" = 1 ]; then
   skip "build-engine verify" "--quick"
