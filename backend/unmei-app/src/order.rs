@@ -109,10 +109,36 @@ pub async fn create(pool: &PgPool, req: NewOrder) -> Result<CreatedOrder, Domain
         ).bind(&req.user_id).bind(&l.sku_id).bind(l.qty)
          .fetch_optional(pool).await.db()?;
         if let Some(id) = 已有 {
+            /* 【这一次填的地址要写进去】。
+               复用分支在事务【之前】return，而 `shipping_address` / `contact`
+               / `note` 是在事务里写 order_meta 的 —— 不补这一步，
+               这一次填的东西一个字都不落库，而且不报错:
+                 选地址 A 下单 → 退回去 → 选地址 B 再下单 → 复用命中第一张 →
+                 屏上显示 B，运单收件人快照读 order_meta 拿到 A，包裹寄到 A。
+               运单那一头还套着 `COALESCE(…, '{}')`，连空都不会报。
+               2026-09-01 五路评审 · 工程审计当场抓到 —— 这是我为了消掉
+               「四笔一样的未付单」而引入的。
+               最新填的那个才是他要的，所以覆盖;这一次没填就不动旧的。 */
+            if req.shipping_address.is_some() || req.contact.is_some() {
+                sqlx::query(
+                    r#"INSERT INTO order_meta(order_id, shipping_address_json, contact_json, extra_json)
+                       VALUES ($1, $2, $3, '{}'::jsonb)
+                       ON CONFLICT (order_id) DO UPDATE SET
+                         shipping_address_json = COALESCE(EXCLUDED.shipping_address_json,
+                                                          order_meta.shipping_address_json),
+                         contact_json          = COALESCE(EXCLUDED.contact_json,
+                                                          order_meta.contact_json)"#,
+                ).bind(&id).bind(&req.shipping_address).bind(&req.contact)
+                 .execute(pool).await.db()?;
+            }
+            if let Some(n) = req.note.as_ref() {
+                sqlx::query("UPDATE order_record SET note = $2 WHERE id = $1")
+                    .bind(&id).bind(n).execute(pool).await.db()?;
+            }
             let r = sqlx::query(
                 "SELECT amount_total_minor, currency FROM order_record WHERE id=$1",
             ).bind(&id).fetch_one(pool).await.db()?;
-            tracing::info!(order_id = %id, "同一件东西已经有一笔没付的，把那一笔还回去，不再建一张");
+            tracing::info!(order_id = %id, "同一件东西已经有一笔没付的，把那一笔还回去（地址按这一次的更新）");
             return Ok(CreatedOrder {
                 order_id: id,
                 amount_total_minor: r.get("amount_total_minor"),

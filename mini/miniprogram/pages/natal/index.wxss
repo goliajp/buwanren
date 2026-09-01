@@ -223,7 +223,8 @@
    选择器要写成 `button.btn.btn-wait`:app.wxss 里是 `button.btn`
    （标签 + 类），单个 `.btn-wait` 压不过它 —— 症状是「这条 CSS 像没写」。
    这个坑在这个仓里踩过不止一次。 */
-button.btn.btn-wait { background: #EADFCD; color: #A08E74; box-shadow: none; }
+/* 字色跟 confirm 那一处同步加深:#A08E74 压在 #EADFCD 上只有 2.41:1 */
+button.btn.btn-wait { background: #EADFCD; color: #7A6A52; box-shadow: none; }
 
 /* 章跟着五行色走 —— 橙色边框配冷灰蓝的「金」是两套颜色在打架。
    每个人的结果屏因此各有其色：缺木是绿的章，缺水是蓝的章。 */

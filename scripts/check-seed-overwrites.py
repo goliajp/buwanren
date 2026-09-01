@@ -49,8 +49,16 @@ for 名 in 开机跑:
     # 这张表当场从「查了 4 张」掉成 3 张，而门禁照样报绿。
     # 这跟 check-villager-lines 栽过的那次是同一个形状（那次是全角分号）。
     净 = re.sub(r'--[^\n]*', '', s)
-    表们 = sorted({t.lower() for t in re.findall(
-        r'INSERT INTO\s+(\w+)\b[^;]*?ON CONFLICT[^;]*?DO UPDATE', 净, re.S | re.I)})
+    表们 = {t.lower() for t in re.findall(
+        r'INSERT INTO\s+(\w+)\b[^;]*?ON CONFLICT[^;]*?DO UPDATE', 净, re.S | re.I)}
+    # 【裸 UPDATE 的种子也算】。第一版只认 `INSERT … ON CONFLICT … DO UPDATE`,
+    # 而 `art_leaf.sql` 通篇是一条 `UPDATE art SET mingli_leaf = … FROM (VALUES …)`——
+    # 它在开机名单里、每次重启都跑，却既不含 INSERT 也不含 `DO UPDATE`，
+    # 于是整份不参与，连旁证都不算它。
+    # 也就是说:改 art.mingli_leaf 的迁移会被下次重启静默写回，
+    # 而这一支正是为这件事写的（2026-09-01 五路评审 · 工程审计）。
+    表们 |= {t.lower() for t in re.findall(r'\bUPDATE\s+(\w+)\s+SET\b', 净, re.I)}
+    表们 = sorted(表们)
     if not 表们:
         continue                      # DO NOTHING 的种子写不回去，不用管
     for 表 in 表们:
@@ -79,12 +87,21 @@ for 名 in 开机跑:
 # 2026-09-01 真发生:我往 lack_bias.sql 的注释里写了个半角分号，
 # 上面那条 `[^;]*?` 被截断，那张表整个不参与检查。
 # 旁证:开机跑的那几份种子里，写着 `DO UPDATE` 的文件数应当 ≤ 查过的表数。
-应有文件 = [n for n in 开机跑
-            if (种子目 / n).exists()
-            and 'DO UPDATE' in re.sub(r'--[^\n]*', '', (种子目 / n).read_text(encoding='utf-8'))]
-if 查过 < len(应有文件):
-    print(f'✗ 有 {len(应有文件)} 份开机种子写着 DO UPDATE（{"、".join(应有文件)}），'
-          f'却只查了 {查过} 张表 —— 有表没被扫到，这一支在少报')
+# 旁证按【表】数，不按文件数 —— `villagers.sql` 一份贡献两张表（art / villager），
+# 按文件数的话，那两条里丢掉一条，`3 >= 3` 仍然通过，正好差一格
+# （2026-09-01 五路评审 · 工程审计指出）。
+应有表 = set()
+for n in 开机跑:
+    f = 种子目 / n
+    if not f.exists():
+        continue
+    净 = re.sub(r'--[^\n]*', '', f.read_text(encoding='utf-8'))
+    应有表 |= {t.lower() for t in re.findall(
+        r'INSERT INTO\s+(\w+)\b[^;]*?ON CONFLICT[^;]*?DO UPDATE', 净, re.S | re.I)}
+    应有表 |= {t.lower() for t in re.findall(r'\bUPDATE\s+(\w+)\s+SET\b', 净, re.I)}
+if 查过 < len(应有表):
+    print(f'✗ 开机种子会覆盖 {len(应有表)} 张表（{"、".join(sorted(应有表))}），'
+          f'却只查了 {查过} 张 —— 有表没被扫到，这一支在少报')
     sys.exit(1)
 
 for e in 错:

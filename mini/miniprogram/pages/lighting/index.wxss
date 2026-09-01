@@ -113,7 +113,10 @@
   animation: 落 .5s cubic-bezier(.22,1,.36,1) both;
 }
 .leave {
-  text-align: center; font-size: 24rpx; color: #6b6055;
+  /* 【这是这一屏唯一的出口】。#6b6055 压在这屏的深底 #1a1712 上
+     只有 2.92:1 —— 一个二十五分钟的全屏时刻，退出去那条路读不出来。
+     #8A7E70 是 4.51:1，仍然比正文暗一档（2026-09-01 五路评审 · 工程审计）。 */
+  text-align: center; font-size: 24rpx; color: #8A7E70;
   padding: 12rpx 0;
   animation: 落 .5s cubic-bezier(.22,1,.36,1) .18s both;
 }

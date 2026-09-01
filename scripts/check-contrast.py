@@ -50,6 +50,27 @@ for f in 样式:
     m底 = re.search(r'\.page\s*\{[^}]*background:\s*(#[0-9A-Fa-f]{6})', s)
     底 = m底.group(1) if m底 else 纸
     深底 = 亮(底) < 亮(纸) / 2
+    # 【写死的颜色也要量】。第一版只看 `color: var(…)` —— 于是写死十六进制的
+    # `color:` 整条绕过去，而现役就有比这一支立案时抓的那个（2.55:1）
+    # 还低的两处:`confirm` 的「还没填 ›」#999 是 2.51:1，落在成交路径上;
+    # 点灯那屏唯一的出口「先走一步」#6b6055 压在 #1a1712 上是 2.92:1，
+    # 而这一支专门为那屏加了「按本屏底色算」的分支，一次都没落到它头上
+    # （2026-09-01 五路评审 · 工程审计）。
+    for m in re.finditer(r'color:\s*(#[0-9A-Fa-f]{3,6})\b', s):
+        查过 += 1
+        c = m.group(1)
+        if len(c) == 4:                       # #abc → #aabbcc
+            c = '#' + ''.join(ch * 2 for ch in c[1:])
+        if len(c) != 7:
+            continue
+        比值 = 比(c, 底)
+        # 白字压在实心按钮上是对的 —— 那时底不是页面底色，是按钮自己的色
+        if c.lower() in ('#ffffff', '#fff'):
+            continue
+        if 比值 < 3.2:
+            行 = s[:m.start()].count('\n') + 1
+            错.append(f'{f.parent.name}/{f.name}:{行}　写死的 {c} 压在 {底} 上'
+                      f'只有 {比值:.2f}:1 —— 低于 3.2 就读成「禁用」')
     for m in re.finditer(r'color:\s*var\((--[\w-]+)\)', s):
         查过 += 1
         名 = m.group(1)
