@@ -153,9 +153,23 @@
       for (const it of cfg.list) {
         const b = document.createElement('div')
         b.dataset.tab = it.pagePath
-        b.textContent = it.text
-        b.style.cssText = 'flex:1;display:flex;align-items:center;justify-content:center;' +
-          'font-size:15px;cursor:pointer;user-select:none'
+        b.style.cssText = 'flex:1;display:flex;flex-direction:column;align-items:center;' +
+          'justify-content:center;gap:2px;font-size:10px;cursor:pointer;user-select:none'
+        /* 图标。真机读 app.json 的 iconPath / selectedIconPath，
+           镜像也真渲染它们 —— 不渲染的话「底栏有没有图标」这件事
+           在镜像上永远看不出来，而它正是 2026-09-01 才补上的东西。
+           像素图必须 `image-rendering:pixelated`，不然放到 22px 是一团糊。 */
+        if (it.iconPath) {
+          const img = document.createElement('img')
+          img.dataset.off = it.iconPath
+          img.dataset.on = it.selectedIconPath || it.iconPath
+          img.src = it.iconPath
+          img.style.cssText = 'width:22px;height:22px;image-rendering:pixelated'
+          b.appendChild(img)
+        }
+        const t = document.createElement('span')
+        t.textContent = it.text
+        b.appendChild(t)
         b.addEventListener('click', () => globalThis.__router.open(it.pagePath, {}, 'switchTab'))
         bar.appendChild(b)
       }
@@ -197,8 +211,14 @@
         + '@media (max-height:749px){#app .flexslot{display:none}}'
       : ''
     for (const b of bar.children) {
-      b.style.color = b.dataset.tab === inst.__route
-        ? (cfg.selectedColor || '#000') : (cfg.color || '#888')
+      const 选中 = b.dataset.tab === inst.__route
+      b.style.color = 选中 ? (cfg.selectedColor || '#000') : (cfg.color || '#888')
+      // 图标也要跟着换 —— 只换字色的话，「选中态有没有换图」在镜像上看不出来
+      const img = b.querySelector('img')
+      if (img) {
+        const 要 = 选中 ? img.dataset.on : img.dataset.off
+        if (!img.src.endsWith(要)) img.src = 要
+      }
     }
   }
 
