@@ -585,6 +585,16 @@ input::placeholder, textarea::placeholder { color: var(--stone-label); }
   display: flex; align-items: center; justify-content: center;
 }
 .says-body { flex: 1; min-width: 0; }
+/* 【四处手写同一块气泡，量过了，暂不抽】（2026-09-02）。
+   第二轮评审说「.says 有四份实现」。实情:样式全在这儿（十条规则，
+   一份），重复的只是 wxml 那六行结构，一共四处（村主屏两处、
+   建生辰两处），而且逐字比过 —— 结构完全一致，没有漂。
+
+   抽成 `<template>` 要先给镜像的垫片加 `<template>` / `<import>` 支持，
+   而铁律一是「垫片遇到不认识的东西必须抛」—— 加这个能力有它自己的
+   风险面，换来的只是四处六行的去重，而真正会漂的那一半（样式）
+   本来就已经是一份了。
+   等它真的漂了、或者第五处出现时再抽。 */
 .says-who { font-size: 23rpx; color: var(--ink-faint); }
 .says-text { font-size: 33rpx; font-weight: 600; color: var(--ink); line-height: 1.5; margin-top: 4rpx; }
 .says-foot { display: flex; align-items: baseline; margin-top: 10rpx; }
