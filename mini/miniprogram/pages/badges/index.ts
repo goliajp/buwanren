@@ -31,6 +31,28 @@ const 去处: Record<string, { url: string; 说: string }> = {
 
 /* 同一条路上只给最近的那一枚:按 `去处` 里的 url 分组，
    每条路只留列表里第一枚还没拿到的。 */
+/* 【每一枚配一张像素图】（2026-09-01 第二轮评审 · 视觉）。
+   屏上原先是印刷体汉字（香 / 月 / 七 / 百 / 头）摆在一圈虚线里 ——
+   系统字，而这个产品全身是像素画:四十位村民、六间屋、一整幅村子、
+   底栏三对图标、四张空态道具。混一套系统字进来，那一屏立刻读成
+   「还没做完」。
+
+   图画的是【真正奖的那件事】，不是名字里的那个字:
+   头一回 = 一根刚抽出来的签、一百次 = 一摞签、七天没断 = 七道刻痕、
+   一个月 = 一弯月、闻过香 = 一支点着的香。
+
+   按 `code` 索引，不按 `id`:code 是语义的（`first_naji`），
+   id 是流水号（`b_first`）。
+   图从 `rooms/tools/export-tabicons.mjs` 出，跟底栏图标同一套画法。
+   门禁 check-badge-art 盯着「在发的每一枚都有图、图也都真在磁盘上」。 */
+const 图名: Record<string, string> = {
+  first_naji: 'first',
+  hundred_naji: 'hund',
+  continous_7: 'streak',
+  continous_30: 'moon',
+  first_purchase: 'incense',
+}
+
 function 只留最近(list: Array<{ code: string; earned: boolean }>): Set<string> {
   const 给过 = new Set<string>()
   const 已: Set<string> = new Set()
@@ -98,6 +120,10 @@ Page({
              屏上就是四行一样的橙字，看不出先做哪个。
              后面那几枚留着解锁条件当目录，本来就够。 */
           去: b.earned || 已给过(b.code) ? '' : (去处[b.code] ? 去处[b.code].说 : ''),
+          /* 图名带上得没得到那一档:得到的压在琥珀圆牌上（深棕），
+             没得到的是灰的空圈。取不到图名就留空 —— wxml 那边会退回
+             印刷体那个字，而门禁不许在发的徽章走到那一支。 */
+          图: 图名[b.code] ? `${图名[b.code]}${b.earned ? '' : '-off'}` : '',
         })) })(),
         got: list.filter((b) => b.earned).length,
         all: list.length,

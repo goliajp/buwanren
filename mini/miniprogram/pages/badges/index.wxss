@@ -57,6 +57,9 @@
   color: var(--on-amber);
   box-shadow: 0 4rpx 14rpx rgba(232,121,26,.32);
 }
+/* 像素图要 `pixelated` —— 16×16 放到 56px，不声明就是一团糊。
+   宽度按圆牌（92rpx）的六成留:图本身四周留白已经够，再撑满会顶到圈边。 */
+.badge-img { width: 56rpx; height: 56rpx; image-rendering: pixelated; }
 .badge-n { font-size: 25rpx; font-weight: 600; color: var(--ink); }
 .badge.got .badge-n { color: var(--ink); }
 .badge-d { font-size: 20rpx; color: var(--ink-faint); margin-top: 6rpx; line-height: 1.5; }
