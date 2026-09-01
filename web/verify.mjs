@@ -95,7 +95,12 @@ const FAKE = {
   reading: (id) => ({
     villager_id: id, villager_name: NAMES[id] || id, art: 'liuren', lack: '勤',
     verdict: '该动了', suit: ['问路', '会友'], avoid: ['久坐'],
-    say: '贫道看你今日该动了，宜问路、会友，忌久坐……说完了',
+    /* 【2026-09-01 跟真后端拼出来的形状对齐】。
+       原先写的是「贫道看你今日该动了，宜问路、会友，忌久坐」——
+       文言（贫道 / 今日）加黄历行话（宜 / 忌），而这两样都改掉了。
+       假服务端的响应要照着真后端【现在】拼出来的样子写，不然
+       在这一档上验的是一份早就不存在的输出。 */
+    say: '眯着眼看了一眼……该动了。眼下呢，今天适合问路、会友；先别久坐……就这样。别问了，困',
   }),
 }
 
@@ -636,6 +641,14 @@ if (API) {
                ${有盘 ? 'NOW()' : 'NULL'}
              FROM natal_summary s WHERE s.natal_id='${盘}'
              ON CONFLICT (order_line_id) DO NOTHING`)
+        /* 【种册子的那一单也要标成已付】。
+           册子是【付款履约时】才建的（unmei-app/src/fulfillment.rs）——
+           一张 unpaid 的单子上不可能有一册 ready 的报告。
+           2026-09-01 订单屏把「读你的说明书」收进 `status !== 'unpaid'`
+           之后（待付时那颗按下去只会失望，而且它压在「去支付」上面），
+           这份只种报告、不动订单状态的夹具就跟现实对不上了:
+           断言点不到那颗按钮，而产品是对的。夹具要照着真链造。 */
+        run(`UPDATE order_record SET status='paid' WHERE id='${oid}'`)
         const 真 = sql1(`SELECT id FROM report WHERE order_line_id='${line}'`)
         if (真) {
           册们[st] = { report: 真, order: oid }
@@ -1199,9 +1212,19 @@ if (API) {
     return { 档: (d.skus || []).map((x) => x.name + ' ' + x.priceText), 那句: d.line }
   })
   ok(香.档.length === 3, '三档都在', 香.档.join(' · '))
-  ok(香.档.some((t) => /¥29\b/.test(t)) && 香.档.some((t) => /¥128\b/.test(t))
-     && 香.档.some((t) => /¥268\b/.test(t)),
-     '价钱是设计册上那三档', 香.档.join(' · '))
+  /* 【别钉死具体数字】。原先钉的是 29 / 128 / 268 —— 而 ¥128 那一档
+     2026-09-01 改成了 ¥88:三支 ¥29 是每支 9.67，十支 ¥128 是每支 12.80，
+     买得多反而单价更贵，而同屏还写着「十支约够一个月」。
+     钉数字的断言只能挡住「改了没同步」，挡不住「阶梯是反的」——
+     后者才是真问题。所以这里验的是【单价递减】。 */
+  const 单价 = 香.档.map((t) => {
+    const 支 = /三支/.test(t) ? 3 : /十支/.test(t) ? 10 : 1
+    const 元 = Number((t.match(/¥(\d+(?:\.\d+)?)/) || [0, 0])[1])
+    return { t, 每支: 元 / 支 }
+  }).filter((x) => /三支|十支/.test(x.t))
+  ok(单价.length === 2 && 单价[0].每支 > 单价[1].每支,
+     '买得多，每支更便宜　—— 价格阶梯不是反的',
+     单价.map((x) => `${x.t} = 每支 ¥${x.每支.toFixed(2)}`).join(' · '))
   const 香屏 = await text()
   ok(香屏.includes('乳香 · 安息 · 桂'), '配方写着')
   /* 她那一句要按【你缺什么】来。这一趟没建本命，所以她该说不知道，
@@ -2058,16 +2081,24 @@ if (API && MINGLI) {
       return { 齐了: c.data.齐了, 填了: c.data.填了 }
     })
     if (!空.齐了) {
-      await p.getByText('算一算', { exact: true }).click()
+      /* 【2026-09-01 改了表现】。原先这颗按钮在没填齐时是灰的（btn-wait）、
+         点了在下面冒一句「还差……」。意图对（不禁掉让人猜），
+         但灰色 + 棕字看着就是坏掉的按钮，人不会去按它，那句解释也就
+         永远读不到。现在把话写在按钮上，颜色照常 —— 它一直能按。
+         所以这里验的是【按钮自己说出还差什么】，然后按下去仍然指出栏位。 */
+      const 钮文 = await p.evaluate(() => {
+        const b = [...document.querySelectorAll('button.btn')]
+          .find((x) => /还差|算一算/.test(x.innerText))
+        return b ? b.innerText.trim() : '（没找到那颗按钮）'
+      })
+      ok(/^还差/.test(钮文), '没填齐时，按钮自己说出还差什么　—— 不是灰着让人猜', 钮文)
+      await p.getByText(钮文, { exact: true }).click()
       await p.waitForTimeout(500)
       const 按后 = await text()
-      ok(按后.includes('还差'), '没填齐时按下去，说得出还差什么', (按后.match(/还差[^—]*/) || [''])[0])
+      ok(按后.includes('还差'), '按下去也说得出还差什么', (按后.match(/还差[^—]*/) || [''])[0])
       ok(按后.includes('你是哪天出生的'), '而且表单还在　—— 不是整屏只剩一句话')
       ok(await p.evaluate(() => document.querySelectorAll('.field-miss').length > 0),
          '差的那几栏自己指出来　—— 不必回去数哪一栏是哪一栏')
-      ok(await p.evaluate(() =>
-           !!document.querySelector('button.btn-wait')),
-         '三样没齐时那颗按钮不满橙　—— 它此刻按不出结果')
     } else {
       ok(false, '验得到「没填齐」那一支', '进来时三样已经齐了')
     }
@@ -2078,8 +2109,11 @@ if (API && MINGLI) {
                   填了: { date: true, time: true, gender: true }, 齐了: true, 缺提示: '' })
     })
     await p.waitForTimeout(300)
-    ok(await p.evaluate(() => !document.querySelector('button.btn-wait')),
-       '填齐之后按钮才亮起来')
+    ok(await p.evaluate(() => {
+         const b = [...document.querySelectorAll('button.btn')]
+           .find((x) => /还差|算一算/.test(x.innerText))
+         return !!b && b.innerText.trim() === '算一算'
+       }), '填齐之后按钮就说「算一算」　—— 不再报缺哪一样')
   }
 
   await p.getByText('算一算', { exact: true }).click()
@@ -2529,7 +2563,7 @@ console.log('\n── 一屏放得下吗（iPhone SE · 内容区 597）──')
     { 页: 'pages/order/index', 名: '待付',
       切: () => globalThis.__router.current().setData({ status: 'unpaid', toScan: false, err: '' }),
       凭据: '去支付',
-      为什么: '待付给的是「去支付 / 不要了」，跟已付那组按钮不一样' },
+      为什么: '待付给的是「去支付」加一行「不要这一单了」，跟已付那组按钮不一样' },
     { 页: 'pages/order/index', 名: '该扫了',
       切: () => globalThis.__router.current().setData({ status: 'paid', toScan: true, err: '' }),
       凭据: '收到了，去扫一下',
@@ -2774,17 +2808,23 @@ if (!API) {
     {
       const 有 = await p.evaluate(() => globalThis.__router.current().data.有地址)
       if (!有) {
-        await p.getByText('去付', { exact: true }).click()
-        await p.waitForTimeout(700)
-        const 拦 = await p.evaluate(() => ({
-          route: globalThis.__router.current().__route,
-          note: globalThis.__router.current().data.note || '',
-        }))
-        ok(拦.route === 'pages/confirm/index' && /寄到哪/.test(拦.note),
-           '没填【寄到哪】就按「去付」，它拦住并说清差什么　—— 实物没地址寄不出去',
-           `${拦.route} · ${拦.note.slice(0, 24)}`)
-        ok(await p.evaluate(() => !!document.querySelector('button.btn-wait')),
-           '而且那颗按钮本来就没满橙　—— 它此刻按不出单')
+        /* 【2026-09-01 这颗按钮改成直接做那件该做的事】。
+           原先没地址时它写「去付」、是灰的（btn-wait），按下去在下面
+           冒一句「还差寄到哪」—— 而整屏唯一的成交按钮长得跟禁用一样、
+           只有 87px 宽，人会按几次然后退出去。
+           现在它写着「先填寄到哪儿」，按下去直接弹地址簿。 */
+        const 钮文 = await p.evaluate(() => {
+          const b = [...document.querySelectorAll('button.btn')]
+            .find((x) => /去付|寄到哪/.test(x.innerText))
+          return b ? b.innerText.trim() : '（没找到那颗按钮）'
+        })
+        ok(钮文 === '先填寄到哪儿',
+           '没填【寄到哪】时，成交那颗按钮自己说出下一步　—— 不是灰着让人猜', 钮文)
+        ok(await p.evaluate(() => {
+             const b = [...document.querySelectorAll('button.btn')]
+               .find((x) => /寄到哪/.test(x.innerText))
+             return !!b && !b.disabled
+           }), '而且它是能按的　—— 按下去弹地址簿，不是按了没反应')
       } else {
         ok(false, '验得到「没填寄到哪」那一支', '进来时地址已经有了')
       }
@@ -2877,14 +2917,35 @@ if (!API) {
          '还没付的单子不给「申请退款」',
          String(await p.locator('text=申请退款').count()))
 
-      /* 「不要了」—— 待付的单子要退得掉，不然它就是个只能进不能出的东西。 */
+      /* 「不要这一单了」—— 待付的单子要退得掉，不然它就是个只能进不能出的东西。
+         【2026-09-01 加了二次确认】。取消是不可逆的，而它原先跟旁边的
+         「回去」同色同宽同高，并排摆着，一次误触没掉一张单
+         （同一个仓库里「退出」是有确认的，只有这一处漏了）。
+         所以先验【说「再想想」时它不取消】—— 那才是二次确认的全部意义;
+         再验点确认之后真取消得掉。
+         镜像里 wx.showModal 走的是浏览器 confirm（web/runtime/wx.js），
+         playwright 默认自动关掉它，所以两次都要显式接管。 */
       errs.length = 0
       await open('pages/order/index', { id: await p.evaluate(() => globalThis.__router.current().data.id) })
-      await p.getByText('不要了', { exact: true }).click()
+
+      const 关掉 = (d) => d.dismiss()
+      p.on('dialog', 关掉)
+      await p.getByText('不要这一单了', { exact: true }).click()
+      await p.waitForTimeout(900)
+      ok(await p.evaluate(() => globalThis.__router.current().data.statusText) !== '已取消',
+         '在确认框上说「再想想」，单子还在　—— 取消是不可逆的，不该一按就没',
+         await p.evaluate(() => globalThis.__router.current().data.statusText))
+      p.off('dialog', 关掉)
+
+      const 点头 = (d) => d.accept()
+      p.on('dialog', 点头)
+      await p.getByText('不要这一单了', { exact: true }).click()
       await p.waitForTimeout(1200)
       ok(await p.evaluate(() => globalThis.__router.current().data.statusText) === '已取消',
-         '「不要了」真的把单子取消了',
+         '确认之后真的把单子取消了',
          await p.evaluate(() => globalThis.__router.current().data.statusText))
+      p.off('dialog', 点头)
+
       await p.getByText('回去', { exact: true }).click()
       await p.waitForTimeout(600)
     }
@@ -2909,7 +2970,17 @@ if (!API) {
     await p.locator('input[type=time]').first().fill('09:15')
     await p.getByText('女', { exact: true }).first().click()
     await p.waitForTimeout(200)
-    await p.getByText('算一算', { exact: true }).click()
+    /* 【三样填齐了，按钮才写「算一算」】。2026-09-01 起没填齐时它写的是
+       「还差哪一天出生」这类 —— 所以这里【先断言它已经变成「算一算」】:
+       如果 fill() 没让页面记下「填过了」，从前这一步是静默点不到、
+       整段动线在这儿卡死;现在它会红在一条说得清的断言上。 */
+    const 建钮 = await p.evaluate(() => {
+      const b = [...document.querySelectorAll('button.btn')]
+        .find((x) => /还差|算一算/.test(x.innerText))
+      return b ? b.innerText.trim() : '（没找到那颗按钮）'
+    })
+    ok(建钮 === '算一算', '三样真填过之后，那颗按钮才写「算一算」', 建钮)
+    await p.getByText(建钮, { exact: true }).click()
     /* 建本命要打排盘服务，慢；固定等几秒会时灵时不灵。轮询到档案变长为止，
        等不到就把页面自己那一行错误读出来 —— 「没变长」和「报错了」不是一回事。 */
     let 现有 = 原有
@@ -2931,7 +3002,16 @@ if (!API) {
     await p.getByText('再填一份', { exact: true }).click()
     await p.waitForTimeout(300)
     const 建之前 = await p.evaluate(() => globalThis.__router.current().data.archive.length)
-    await p.getByText('算一算', { exact: true }).click()
+    /* 一个字都没填时按钮上写的是「还差哪一天出生」—— 那本身就是这一条
+       要验的一半:不填不给建，而且【在按之前】就说得出差什么。
+       按下去仍然指出栏位，档案也不该变长。 */
+    const 空钮 = await p.evaluate(() => {
+      const b = [...document.querySelectorAll('button.btn')]
+        .find((x) => /还差|算一算/.test(x.innerText))
+      return b ? b.innerText.trim() : '（没找到那颗按钮）'
+    })
+    ok(/^还差/.test(空钮), '一个字没填时，按钮就写着还差什么', 空钮)
+    await p.getByText(空钮, { exact: true }).click()
     await p.waitForTimeout(800)
     /* 读的是 `缺提示` 不是 `err`：校验错误搬了家 ——
        `err` 会把表单整块顶掉（`wx:elif="{{!err}}"`），而「你回去填」
@@ -3717,7 +3797,7 @@ if (!(CAL > 0)) {
      · 假服务端:整条真链挂在「有真后端」上，只跑得到前端那一侧
      · 真后端:匿名登录 → 扫御守入住 → 问签 → 进屋，全链
    改断言数的时候这两个数要跟着改 —— 它们是账，不是魔法数。 */
-const 基准 = { 假: 111, 真: 312 }
+const 基准 = { 假: 111, 真: 315 }
 const LEAST = Math.floor((API ? 基准.真 : 基准.假) * 0.9)
 
 /* 这一趟到底碰了多少交互。页面上用 bindtap 之类声明的处理器是分母，

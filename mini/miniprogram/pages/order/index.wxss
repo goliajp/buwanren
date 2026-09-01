@@ -13,8 +13,11 @@
 .sum-k { font-size: 26rpx; color: var(--stone-label); }
 .sum-v { font-weight: 600; font-size: 34rpx; color: var(--ink); }
 .note { margin: 28rpx 0; font-size: 26rpx; color: var(--stone-label); }
-.cta { display: flex; gap: 20rpx; margin-top: 40rpx; }
-.cta .btn { flex: 1; }
+/* 一行里的按钮平分宽度。「不要这一单了」是文字链、独占一行（.cta-drop
+   的 flex-basis:100%），所以它下面那颗「回去」会自己占满一行 ——
+   这正是想要的:那一行只剩一颗时它就是整行。 */
+.cta { display: flex; flex-wrap: wrap; gap: 20rpx; margin-top: 40rpx; }
+.cta .btn { flex: 1; min-width: 0; }
 .foot-hint { margin-top: 32rpx; text-align: center; font-size: 22rpx; color: var(--stone-label); }
 
 /* 寄出的那些 —— 买了实物（御守）才有；纯报告的单子这一块整个不出现 */
@@ -83,7 +86,13 @@
 /* 主按钮全宽,次要的两颗并排在它下面。三颗一样大 = 没有主次 */
 .cta .btn { flex: none; width: 100%; box-sizing: border-box; }
 .cta { flex-wrap: wrap; }
-.cta .btn.ghost { width: calc(50% - 10rpx); }
+/* 【2026-09-01】半宽只在【真有两颗次要按钮并排】时才对。
+   「不要了」从按钮降成文字链之后，待付这一屏的次要按钮只剩「回去」一颗，
+   于是它缩成半宽、孤零零占着左半边，像没排完。
+   `:not(:last-child)` 只让【不是最后一颗】的那些收半宽 ——
+   一颗时它是最后一颗，占满整行;两颗时前一颗收半宽，后一颗跟着它并排。 */
+.cta .btn.ghost:not(:last-child) { width: calc(50% - 10rpx); }
+.cta .btn.ghost:not(:last-child) ~ .btn.ghost { width: calc(50% - 10rpx); }
 .cta-read { padding-bottom: 8rpx; }
 /* 写成 `.cta.cta-read`（三个类）才压得过上面的 `.cta .btn.ghost` ——
    否则这一颗降成次要之后会缩成半宽、孤零零占着左半边，像没排完。 */
@@ -139,4 +148,12 @@
   margin-top: 18rpx;
   font-size: 21rpx; color: var(--stone-label);
   font-family: ui-monospace, Menlo, monospace;
+}
+
+/* 取消订单。不可逆，所以【不长成按钮】—— 按钮是给人按的，
+   这一条是给真想放弃的人找的。独占一行、居中、轻一档。 */
+.cta-drop {
+  flex-basis: 100%; width: 100%; text-align: center;
+  margin-top: 6rpx; padding: 12rpx 0;
+  font-size: 24rpx; color: var(--stone-label);
 }

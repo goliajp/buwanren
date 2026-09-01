@@ -318,7 +318,22 @@ Page({
     )
   },
 
-  onCancel() {
+  /* 取消订单是【不可逆】的，而这颗按钮跟旁边的「回去」同色同宽同高 ——
+     一次误触没掉一张单。同一个仓库里「退出」是有二次确认的
+     （settings/index.ts），只是这一处漏了（2026-09-01 五路评审）。
+     样式上也分开:它现在是一行文字链，不是一块跟「回去」一样的木牌。 */
+  async onCancel() {
+    const 答 = await new Promise<boolean>((给) => {
+      wx.showModal({
+        title: '不要这一单了？',
+        content: '取消之后这一单就没了，想要的话得重新下一次',
+        confirmText: '不要了',
+        cancelText: '再想想',
+        success: (r) => 给(!!r.confirm),
+        fail: () => 给(false),
+      })
+    })
+    if (!答) return
     commerceApi.cancelOrder(this.data.id, this.data.cancelKey).then(
       () => this.load(),
       (e: ApiError) => this.setData({ note: 一句(e) }),

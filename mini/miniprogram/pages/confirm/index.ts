@@ -169,6 +169,10 @@ Page<IData, WechatMiniprogram.IAnyObject>({
   go() {
     const { p, qty, buying, buyKey, contact, message } = this.data
     if (buying || !p) return
+    /* 没地址时这颗按钮上写的是「先填寄到哪儿」—— 它就该去做那件事。
+       原先它写「去付」、是灰的，按下去只在底下冒一句「还差寄到哪」:
+       整屏唯一的成交按钮长得跟禁用一样，人按两下没反应就走了。 */
+    if (!(contact && contact.address)) { this.chooseAddr(); return }
     if (!this.data.skuId) { this.setData({ note: '这一件挑不出价，买不了' }); return }
     /* 【寄到哪】是必须的:这是实物,没有地址就寄不出去 ——
        而订单那一屏也没有补填的地方,一单落下去就成了悬案。
