@@ -141,7 +141,9 @@
 
 .acts { display: flex; align-items: center; padding: 20rpx 0 24rpx; }
 .turn { font-size: 26rpx; color: var(--ink-mid); }
-.turn-off { color: var(--stone-line); }
+/* 翻不动那一头。用线的颜色（1.31:1）等于看不见 —— 而「看得见但灰着」
+   跟「不存在」是两回事:前者说得出「这已经是第一页」。 */
+.turn-off { color: var(--ink-faint); opacity: .55; }
 .turn-back { flex: 1; text-align: center; font-size: 24rpx; color: var(--stone-label); }
 
 

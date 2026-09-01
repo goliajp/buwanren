@@ -45,7 +45,9 @@
   /* 没得到的：虚线空圈，像个【待填的位子】—— 实心灰块看着像坏了 */
   background: transparent;
   border: 2rpx dashed var(--stone-line);
-  color: var(--stone-line);
+  /* 字不能用线的颜色:1.31:1，六枚未解锁的徽章在手机上基本看不见，
+     整屏像六张没加载完的骨架屏（2026-09-01 五路评审 · 视觉）。 */
+  color: var(--ink-faint);
 }
 /* 得到了的：琥珀实心 + 一圈光。没得到的：空的灰圈 */
 .badge.got .badge-art {

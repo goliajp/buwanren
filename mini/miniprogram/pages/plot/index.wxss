@@ -5,7 +5,8 @@
 .plot-art {
   background: transparent;
   border: 3rpx dashed var(--stone-line);
-  color: var(--stone-line);
+  /* 同上:那个「?」是这一格的全部内容，用线的颜色写等于没写 */
+  color: var(--ink-faint);
   font-size: 68rpx;
   box-shadow: none;
 }
