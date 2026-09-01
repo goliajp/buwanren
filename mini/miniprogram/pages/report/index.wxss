@@ -89,6 +89,10 @@
    是夹在里面说明「凭什么这么说」的那张纸。
    暖黄底、一点点厚度、斜 0.6° —— 再多就成了装饰，而它是要读的东西。 */
 .quote {
+  /* 正文里的换行要真的换行。这几页的正文是后端写的段落
+     （用神 / 格局 / 大运），里面用 \n 分段 —— 不声明的话它们被压成
+     一整块，一屏三百多字连着读下来很吃力。 */
+  white-space: pre-line;
   margin-top: 28rpx; padding: 24rpx 26rpx;
   background: #FFF8E7;
   border-radius: 8rpx;

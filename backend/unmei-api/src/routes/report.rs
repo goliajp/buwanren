@@ -263,7 +263,17 @@ fn 排页(c: &J, version: Option<&str>, 今: chrono::NaiveDate) -> Vec<J> {
         }));
     }
 
-    // 三 · 用神。reasoning 是排盘自己写的推理，原样给出 —— 不改写、不润色
+    /* 三 · 用神。
+       【2026-09-01 不再原样透传排盘的 reasoning】。那一句是:
+         「日主辛偏弱（综合 36），宜以助身五行扶之；印星土双重作用
+          （生身+化杀）优先，比劫金副选。忌官杀火克身、财木损印。」
+       行话在这一册里是允许的（这是它唯一的家），**文言不是** ——
+       「宜以……扶之」的「之」、「宜以」的句式都是文言，而硬要求写着
+       「完全不允许有任何文言古书的表达」。
+       更要紧的是:这一页正是整个产品挂在上面的那句答案，而它是这一册里
+       唯一一段没被改写过的话 —— 隔壁「格局」「大运」两页都是自己写的
+       （五路评审 · 中文文案抓到）。
+       结构化字段（主用/次用/所忌/身强身弱）都在，自己写得出来。 */
     if let Some(y) = c.get("yongshen") {
         let avoid = y.get("avoid_wuxing").and_then(|a| a.as_array())
             .map(|a| a.iter().filter_map(|x| x.as_str()).collect::<Vec<_>>().join("、"))
@@ -276,7 +286,13 @@ fn 排页(c: &J, version: Option<&str>, 今: chrono::NaiveDate) -> Vec<J> {
                 json!({"k": "次用", "v": format!("{} · {}", 串(y.get("secondary_wuxing")), 串(y.get("secondary_role")))}),
                 json!({"k": "所忌", "v": avoid}),
             ],
-            "quote": 串(y.get("reasoning")),
+            "quote": 用神怎么读(
+                &串(y.get("method")),
+                &串(y.get("primary_wuxing")), &串(y.get("primary_role")),
+                &串(y.get("secondary_wuxing")), &串(y.get("secondary_role")),
+                &avoid,
+                c.get("strength").and_then(|s| s.get("score")).and_then(|v| v.as_i64()),
+            ),
             "source": 出处,
         }));
     }
@@ -452,6 +468,60 @@ fn 这一步怎么读(这格: &J, 下格: Option<&J>, 喜: &str, 不喜: &[Strin
         }
     }
     话.push_str("这里只看这一步带哪一行 —— 它跟盘里其它字怎么牵扯，这一册不做那一层。");
+    话
+}
+
+/// 用神那一页的正文。排盘给的 `reasoning` 是文言（「宜以助身五行扶之」），
+/// 而这一册只许留行话、不许留文言 —— 所以照着结构化字段自己写一段。
+///
+/// 认不出的角色不硬编一句:宁可少说一句，也不给一段跟这张盘无关的话
+/// （跟 `格局怎么读` 同一条规矩）。
+fn 用神怎么读(法: &str, 主行: &str, 主角: &str, 次行: &str, 次角: &str,
+              忌: &str, 分: Option<i64>) -> String {
+    let 一路 = |角: &str| match 角.trim_end_matches('星') {
+        "印" => Some("生你、护你的那一路 —— 长辈、学问、退路。它一边补你，一边替你挡住压你的那一路，一举两得"),
+        "比劫" | "比" => Some("跟你同一路的人和事 —— 同伴、同行、你自己那股劲。它不给你新东西，但能陪你一起扛"),
+        "食伤" | "食" => Some("你往外拿出来的那一路 —— 表达、手艺、做出来的成果。它替你把憋着的劲泄出去"),
+        "财" => Some("你要经手、要守住的那一路 —— 钱、事、答应下来的责任。它耗你，也是你使力的地方"),
+        "官杀" | "官" => Some("压着你的那一路 —— 职位、制度、别人对你的期待，以及突然压到头上的事"),
+        _ => None,
+    };
+    let 弱 = 法.contains("身弱");
+    let mut 话 = String::new();
+    match 分 {
+        Some(n) if 弱 => 话.push_str(&format!("你这张盘偏弱（综合 {n} 分）。偏弱不是不好，是手上的牌需要人搭把手 ——
+
+")),
+        Some(n) => 话.push_str(&format!("你这张盘偏强（综合 {n} 分）。偏强不缺力气，缺的是使出去的地方 ——
+
+")),
+        None if 弱 => 话.push_str("你这张盘偏弱，需要人搭把手 ——
+
+"),
+        None => 话.push_str("你这张盘偏强，缺的是使出去的地方 ——
+
+"),
+    }
+    let 头 = if 弱 { "先找能帮你的" } else { "先找能替你使出去的" };
+    话.push_str(&format!("{头}：{主行}排第一"));
+    if let Some(说) = 一路(主角) { 话.push_str(&format!("，它在你这儿是{说}")); }
+    话.push_str("。");
+    if !次行.is_empty() {
+        话.push_str(&format!("
+{次行}排第二"));
+        if let Some(说) = 一路(次角) { 话.push_str(&format!("，是{说}")); }
+        话.push_str("。");
+    }
+    if !忌.is_empty() {
+        话.push_str(&format!("
+
+要留神的是{忌}。"));
+        话.push_str(if 弱 {
+            "这两行在你这儿是往下扯的那一边 —— 要么压着你，要么把上面那点帮扶抵掉。"
+        } else {
+            "这两行在你这儿是再加码的那一边 —— 你本来就不缺力气，添下去就过了。"
+        });
+    }
     话
 }
 
