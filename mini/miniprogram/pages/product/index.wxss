@@ -86,7 +86,7 @@
 .gets-n {
   flex: none; width: 40rpx; height: 40rpx; margin-top: 2rpx;
   border-radius: 999rpx; background: var(--amber-lite);
-  color: var(--amber-deep); font-size: 23rpx; font-weight: 600;
+  color: var(--amber-text); font-size: 23rpx; font-weight: 600;
   display: flex; align-items: center; justify-content: center;
 }
 .gets-b { flex: 1; min-width: 0; }

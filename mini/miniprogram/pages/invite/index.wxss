@@ -87,7 +87,7 @@
   padding: 3rpx 12rpx; border-radius: 999rpx;
 }
 .item-sub { font-size: 23rpx; color: var(--ink-faint); margin-top: 5rpx; }
-.item-go { flex: none; margin-left: 14rpx; font-size: 25rpx; font-weight: 600; color: var(--amber-deep); }
+.item-go { flex: none; margin-left: 14rpx; font-size: 25rpx; font-weight: 600; color: var(--amber-text); }
 .item-go.off { color: var(--stone-label); font-weight: 400; }
 /* 还没上架的压暗，但【留住卡片的形】—— 背景透明会让它看起来像被裁掉半张。
    四十位都在册上是刻意的，它只是「还没来」，不是「不存在」 */
@@ -165,7 +165,7 @@
 .how-n {
   width: 40rpx; height: 40rpx; margin: 0 auto 12rpx;
   border-radius: 999rpx; background: var(--amber-lite);
-  color: var(--amber-deep); font-size: 23rpx; font-weight: 600;
+  color: var(--amber-text); font-size: 23rpx; font-weight: 600;
   display: flex; align-items: center; justify-content: center;
 }
 .how-t { font-size: 25rpx; font-weight: 600; color: var(--ink-mid); }
@@ -181,4 +181,4 @@
 
 /* 已经住着的那几位。绿是村子的颜色（收集进度条同一支色）——
    它跟琥珀的「请回村」并排时一眼分得开:一个是已经有的，一个是要花钱的。 */
-.item-in { font-size: 24rpx; font-weight: 700; color: var(--moss); }
+.item-in { font-size: 24rpx; font-weight: 700; color: var(--moss-text); }

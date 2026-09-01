@@ -36,7 +36,7 @@
 .quote-mark {
   font-weight: 600;
   font-size: 48rpx;
-  color: var(--stamp);
+  color: var(--amber-text);
   opacity: 0.7;
   line-height: 1;
 }
@@ -82,7 +82,7 @@
 }
 
 /* 取不到时说一句，别渲成「你还没建」—— 那是另一件事 */
-.err { padding: 24rpx 0; color: var(--peach); font-size: 26rpx; line-height: 1.7; }
+.err { padding: 24rpx 0; color: var(--peach-text); font-size: 26rpx; line-height: 1.7; }
 
 /* 没本命时「转一下」不是消失，是灰着 —— 空状态要看得见出口。 */
 /* `.btn-off`（opacity .42）删了：一颗【能按】的按钮长得像禁用的，

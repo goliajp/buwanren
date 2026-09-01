@@ -216,6 +216,7 @@ gate "状态说法对得上枚举" . python3 scripts/check-status-words.py
 # 线的颜色不许当文字色用；次要文字色不许低到看着像禁用。
 # 按每一屏自己的底色算 —— 点灯那一屏是深色的，浅色在那儿才是对的。
 gate "文字读得出来" . python3 scripts/check-contrast.py
+gate "底色没被图顶掉" . python3 scripts/check-bg-layering.py
 # 底栏三项都要有像素图标、选中色是主色 —— 三个纯文字标签加黑色选中，
 # 是「这是个通用小程序」那个印象最直接的来源。
 gate "底栏有图标" . python3 scripts/check-tabbar.py

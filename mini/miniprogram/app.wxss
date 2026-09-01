@@ -36,12 +36,31 @@ page {
   --amber:        #FF9A3C;
   --amber-deep:   #E8791A;
   --amber-lite:   #FFE7CC;
+  /* 【琥珀有两个身份，颜色不能是同一个】（2026-09-01 第二轮评审 · 视觉）。
+     上面三个是【结构色】—— 底、描边、投影、渐变站，那是给眼睛定位用的，
+     多亮都行。下面两个是【字色】，要按对比度定:
+
+       --amber-text  琥珀色的字压在浅底上。--amber-deep 拿来当字是 2.86:1，
+                     全 app 十四处「去看看 ›」「还没填 ›」都是它 ——
+                     换成 #A34700 压纸 5.93:1、压 --amber-lite 5.08:1。
+       --on-amber    字压在琥珀实心上。白字压 --amber 只有 2.11:1，
+                     压 #FFB463 更低（1.76）;#4A2E10 分别是 5.88 和 7.08。
+
+     两个身份共用一个变量，就一定会有一边不合格 —— 这是上一版的实情。 */
+  --amber-text:   #A34700;
+  --on-amber:     #4A2E10;
   /* 副色：苔绿 = 村子、住进来了、已完成 */
   --moss:         #3FAE7A;
   --moss-lite:    #DFF3E8;
   /* 甜色：桃粉 = 喜欢、心动、二次元的那点甜 */
   --peach:        #FF7A8A;
   --peach-lite:   #FFE4E7;
+  /* 【绿和粉也各有一个字色版】，理由同上面的琥珀。
+     --moss 压纸 2.45:1、--peach 压纸 2.20:1 —— 而 --peach 正是所有
+     `.err` 用的颜色:出错那句话是整屏唯一要读的东西，它却是最看不清的
+     （2026-09-01 第二轮评审）。深一档之后仍然是绿是粉，只是读得出来了。 */
+  --moss-text:    #237049;
+  --peach-text:   #B82D45;
   /* 旧名保留：朱印那一处改指琥珀，免得留下一个没人用的红 */
   --stamp:        #FF9A3C;
 
@@ -129,7 +148,13 @@ page {
    这是游戏按钮的经典做法，也是「有手感」最便宜的一处。 */
 button.btn {
   background: var(--amber);
-  color: #fff;
+  /* 【深棕，不是白】。白字压在琥珀 #FF9A3C 上只有 2.11:1 ——
+     30rpx（15px）按正文档要 4.5:1，连大字档的 3:1 都够不到。
+     截图上「问问婆婆」「去支付」的白字整片发虚，像橙色上浮着一层雾，
+     而这是全 app 出现最多的一个元素（2026-09-01 第二轮评审量出来的）。
+     #4A2E10 压在同一个琥珀上是 5.88:1;顺带它更像星露谷那一档 ——
+     暖底深棕字是那类界面的做法，白字是网页的做法。 */
+  color: var(--on-amber);
   border: none;
   border-radius: var(--r-btn);
   font-size: 30rpx;
@@ -332,16 +357,30 @@ button.btn.ghost.btn-hover:not([disabled]) {
   background: linear-gradient(155deg, var(--amber-lite) 0%, #FFF6EA 100%);
   box-shadow: 0 8rpx 24rpx rgba(232,121,26,.12);
   display: flex; align-items: center; justify-content: center;
-  font-size: 64rpx; color: var(--amber-deep); font-weight: 700;
+  font-size: 64rpx; color: var(--amber-text); font-weight: 700;
   margin-bottom: 30rpx;
 }
 /* 有像素图的那几屏:图压在圆牌上，字就不摆了（wxml 里留空）。
-   `pixelated` 是必须的 —— 16×16 放到 84px，不声明就是一团糊。 */
+   `pixelated` 是必须的 —— 16×16 放到 84px，不声明就是一团糊。
+
+   【2026-09-01 第二轮评审：这里犯了跟头像底盘一模一样的错】。
+   上面 `.empty-art` 的底是用简写 `background:` 写的，简写把渐变塞进
+   background-image;这条 `.pix` 再写一次 background-image，就把那圈琥珀
+   整个顶掉了 —— 四屏的圆牌只剩一圈 box-shadow，里头是纸色。
+   取样为证:ask 屏圆牌横向中线上全是 #FFFCF6。
+   同一个坑我今天上午刚在 `.face-*` 上修过，写这一条时又踩了一次。
+   办法:两层一起写在 background-image 里（图在上、渐变在下），
+   再补一个 background-color 兜底。 */
 .empty-art.pix {
-  background-image: var(--pix);
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: 60% auto;
+  background-color: var(--amber-lite);
+  background-image: var(--pix), linear-gradient(155deg, var(--amber-lite) 0%, #FFF6EA 100%);
+  background-repeat: no-repeat, no-repeat;
+  background-position: center, center;
+  /* 【定值不用百分比】。四张图的墨迹占格不同（8×13 到 12×9），
+     按百分比缩放出来一张细高一张扁宽，差 50% —— 正是头像统一画布之前
+     的那个毛病。96rpx = 48px = 16 格 × 3px，DPR2 下每格恰好 6 个设备像素，
+     像素块才齐。 */
+  background-size: 96rpx auto, cover;
   image-rendering: pixelated;
 }
 .empty-t { font-size: 33rpx; font-weight: 600; color: var(--ink); }
@@ -519,7 +558,7 @@ input::placeholder, textarea::placeholder { color: var(--stone-label); }
 .says-text { font-size: 33rpx; font-weight: 600; color: var(--ink); line-height: 1.5; margin-top: 4rpx; }
 .says-foot { display: flex; align-items: baseline; margin-top: 10rpx; }
 .says-id { font-size: 21rpx; color: var(--stone-label); }
-.says-go { margin-left: auto; font-size: 24rpx; color: var(--amber-deep); font-weight: 600; }
+.says-go { margin-left: auto; font-size: 24rpx; color: var(--amber-text); font-weight: 600; }
 /* 村子自己说话时的脸 —— 绿是「这个地方」的颜色，跟四十个人的七色分得开 */
-.intro-face { background: linear-gradient(150deg, var(--moss-lite), #9BD9BA); color: #2E7D5B; }
-.intro-alt { color: var(--amber-deep); font-weight: 600; }
+.intro-face { background: linear-gradient(150deg, var(--moss-lite), #9BD9BA); color: #1F5C40; }
+.intro-alt { color: var(--amber-text); font-weight: 600; }

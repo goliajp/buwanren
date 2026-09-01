@@ -63,4 +63,4 @@
   background: var(--paper-inset); border-radius: var(--r-card);
   font-size: 25rpx; color: var(--ink-mid); line-height: 1.5;
 }
-.nothing-go { flex: none; color: var(--amber-deep); font-weight: 600; }
+.nothing-go { flex: none; color: var(--amber-text); font-weight: 600; }

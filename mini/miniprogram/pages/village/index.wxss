@@ -32,9 +32,9 @@
 .acts { margin-left: auto; display: flex; gap: 16rpx; }
 .act { padding: 12rpx 32rpx; border-radius: 16rpx;
        background: var(--ink); color: var(--paper); font-size: 28rpx; }
-.err { padding: 32rpx; color: var(--peach); font-size: 26rpx; line-height: 1.7; }
+.err { padding: 32rpx; color: var(--peach-text); font-size: 26rpx; line-height: 1.7; }
 .scan { margin-left: 16rpx; padding: 8rpx 20rpx; border-radius: 16rpx;
-        border: none; background: var(--amber-lite); color: var(--amber-deep);
+        border: none; background: var(--amber-lite); color: var(--amber-text);
         font-size: 24rpx; font-weight: 600; border-radius: 999rpx; }
 .hint { color: var(--ink-faint); font-size: 26rpx; }
 .say { margin: 0 32rpx 32rpx; padding: 24rpx 28rpx; border-radius: 20rpx;
@@ -74,7 +74,7 @@
   background: var(--ink); color: var(--paper); font-size: 26rpx;
 }
 .manual-go-hover { opacity: .75; }
-.manual-err { margin-top: 12rpx; font-size: 24rpx; color: var(--peach); line-height: 1.6; }
+.manual-err { margin-top: 12rpx; font-size: 24rpx; color: var(--peach-text); line-height: 1.6; }
 
 /* 问候语 + 日期（设计册 V1）。两行，占的是原先那一行副标的位置 */
 .greet { flex: 1; }
@@ -113,13 +113,13 @@
              overflow: hidden; box-shadow: inset 0 1rpx 3rpx rgba(43,38,32,.08); }
 .bar-fill { height: 100%; border-radius: 999rpx; background: linear-gradient(90deg, var(--moss), #62C795);
             transition: width .5s cubic-bezier(.34,1.2,.64,1); }
-.bar-n { flex: none; font-size: 26rpx; font-weight: 700; color: var(--moss); font-variant-numeric: tabular-nums; }
+.bar-n { flex: none; font-size: 26rpx; font-weight: 700; color: var(--moss-text); font-variant-numeric: tabular-nums; }
 /* 一位都没有时进度条是空的 —— 空条比没有条更让人想填满它 */
 .bar-fill { min-width: 0; }
 
 /* 收集数那一条现在可点（住进第一位之后，它是这一屏唯一通向「谁能来」的路）。
    右边给一条明说的出路 —— 一条能点却看不出能点的进度条等于不能点。 */
-.bar-go { flex: none; margin-left: 16rpx; font-size: 24rpx; font-weight: 600; color: var(--amber-deep); }
+.bar-go { flex: none; margin-left: 16rpx; font-size: 24rpx; font-weight: 600; color: var(--amber-text); }
 .bar-hover { opacity: .72; }
 
 /* 手输编号:一行入口 + 展开。常驻的是那一行，不是整块。 */
