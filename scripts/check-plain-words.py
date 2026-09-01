@@ -21,7 +21,9 @@
   把撤销后的状态一起提交了，门禁连报两轮红我才发现。
   正确做法：先 `cp` 到临时目录，改完再 `cp` 回来。
 """
+import os
 import re
+import subprocess
 import sys
 import pathlib
 
@@ -75,6 +77,41 @@ for f in 文件:
         if w in s:
             错.append(f'{屏} 屏上有术语「{w}」—— 专业细节只许留在「那一份」里')
 
+# ── 库里的称谓与文案 ────────────────────────────────────────────
+# 【屏上的字有一半不在代码里】。村民的身份（`villager.title`）、术的白话名
+# （`art.plain`）、商品名与副标，都从库里来，渲在名册、村主屏、商品卡、
+# 确认屏上 —— 而这一支上一版只扫源码，看不见它们。
+# 2026-09-02 实测:五个身份是文言（落第书生 / 观里的女冠 / 香药娘子 /
+# 看相的婆子 / 隐者），全在第一次来的人最先读到的那几行里，
+# 而这一支一路报绿。
+#
+# 【问库，不读种子文本】。种子改过好几手，只有库知道最后那一版
+# （跟 check-no-jargon 那一支同一个理由）。
+def 问库(q):
+    url = os.environ.get('PSQL_URL') or os.environ.get('DATABASE_URL')
+    cmd = (['psql', url, '-tAc', q] if url
+           else ['docker', 'exec', 'unmei-postgres', 'psql', '-U', 'unmei',
+                 '-d', 'unmei', '-tAc', q])
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    if r.returncode != 0:
+        print(f'✗ 库问不到，屏上那半边没验成：{r.stderr.strip()[:160]}')
+        sys.exit(2)
+    return [l for l in r.stdout.strip().split('\n') if l]
+
+库里的字 = 问库(
+    "SELECT 'villager.title', id, title FROM villager"
+    " UNION ALL SELECT 'art.plain', key, plain FROM art WHERE plain IS NOT NULL"
+    " UNION ALL SELECT 'product', id, name || ' / ' || COALESCE(sub_title,'')"
+    "   FROM product WHERE status='listed'")
+if len(库里的字) < 40:
+    print(f'✗ 库里只读到 {len(库里的字)} 行 —— 四十位村民就不止这个数，这一段多半没扫到东西')
+    sys.exit(1)
+for 行 in 库里的字:
+    表, 编号, 句 = (行.split('|', 2) + ['', ''])[:3]
+    for w in 古词 + 术语:
+        if w in 句:
+            错.append(f'{表} {编号} 里有「{w}」：{句[:28]} —— 库里的字也是屏上的字')
+
 # ── 屋子里与村图上说的话 ────────────────────────────────────────
 # 【这些字也在屏上】。上一版只扫 `pages/**` —— 而村民在自己屋里说的话、
 # 路人在村图上说的话，都是玩家看得见的字，它们住在 `rooms/src/` 里。
@@ -115,4 +152,4 @@ if 错:
     print('\n  规则：2026-08-30 用户定「完全不允许有任何文言古书的表达，'
           '只能是在命理分析中专业细节中有」')
     sys.exit(1)
-print(f'✓ {len(文件)} 屏 + 屋里村里 {len(屋里的话)} 句都没有文言称谓，术语也只留在「那一份」里')
+print(f'✓ {len(文件)} 屏 + 屋里村里 {len(屋里的话)} 句 + 库里 {len(库里的字)} 行都没有文言称谓，术语也只留在「那一份」里')

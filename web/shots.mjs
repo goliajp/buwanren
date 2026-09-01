@@ -262,8 +262,14 @@ writeFileSync(join(OUT, 'measure.json'), JSON.stringify(量, null, 1))
        而屏的条数是会变的:同一天加了御守那两屏之后，它照旧报 28，
        等于把新加的两屏算进了一句它没量过的结论
        （2026-09-01 第二轮评审那一轮自己撞上的）。 */
-    const 屏数 = Object.keys(量).length
-    console.log(`\n  · ${屏数 - 允许滚.size} 屏都一屏放得下（政策那 ${允许滚.size} 屏本就该滚，不计）`)
+    /* 【减的是这一趟里真出现的那几个，不是白名单全集】。
+       `--only=invite,village` 只截两屏，而白名单里有两条 ——
+       减完是 0，屏上写着「0 屏都一屏放得下」（2026-09-02）。
+       又一处「印出来的数不是数出来的」。 */
+    const 这趟豁免 = Object.keys(量).filter((k) => 允许滚.has(k)).length
+    const 屏数 = Object.keys(量).length - 这趟豁免
+    console.log(`\n  · ${屏数} 屏都一屏放得下`
+      + (这趟豁免 ? `（政策那 ${这趟豁免} 屏本就该滚，不计）` : ''))
   }
 }
 {
