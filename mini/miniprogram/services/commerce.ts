@@ -41,6 +41,15 @@ export const commerceApi = {
     api.get<ProductDetail>('/v1/products/' + id + '?' + scope()),
 
   /** 下单。`idemKey` 由调用方生成并在重试时复用 —— 见 `newIdemKey` */
+  /* 【地址要发在发货那一步真读的那个字段上】。
+     原先只发 `contact`，而 `unmei-app/src/fulfillment.rs` 建运单时
+     收件人快照取的是 `order_meta.shipping_address_json`，外面还套着
+     `COALESCE(…, '{}')` —— 于是每一张实物单的面单都是空的:
+     没有姓名、没有电话、没有地址，而买家刚被强制选过一次地址，
+     全程一处不报错。库里 61 单 contact 带地址、shipping_address 全为 NULL。
+     （2026-09-01 五路评审 · 工程审计抓到。`check-bodies.py` 的判据是单向的
+      —— 它只报「前端发了后端不认的字段」，漏发按设计不报。）
+     两个都发:`contact` 是联系人（姓名电话），`shipping_address` 是寄到哪。 */
   createOrder: (
     skuId: string,
     qty: number,
@@ -53,6 +62,7 @@ export const commerceApi = {
         lines: [{ sku_id: skuId, qty }],
         region: CONFIG.DEFAULT_REGION,
         ...(contact ? { contact } : {}),
+        ...(contact && contact.address ? { shipping_address: contact } : {}),
       },
       idem(idemKey),
     ),

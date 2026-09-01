@@ -156,6 +156,12 @@ button.btn.btn-hover:not([disabled]) {
    这一档的可辨识不再靠那圈线，靠的是【它比纸暗一层】这件事本身，
    而这也正是这一类游戏 UI（星露谷 / 动森）的做法:次要动作是一块木牌，
    不是一个线框。文字仍是 `--ink-mid`（5.65:1），够清楚。 */
+/* 【两颗按钮要一样高】。上一版给 ghost 加了 2rpx 边框，而 `.btn` 是
+   默认的 content-box —— 边框加在盒子外面，于是次按钮比主按钮
+   高 2px、宽 2px。实测:问问婆婆 335×43 / 去屋里看看 164×45，
+   并排摆着一眼看得出次的那颗大一圈（2026-09-01 五路评审量出来的）。
+   主按钮也留一圈透明边，两边就落在同一个盒模型上。 */
+button.btn { box-sizing: border-box; border: 2rpx solid transparent; }
 button.btn.ghost {
   background: var(--paper-inset);
   color: var(--ink-mid);
@@ -391,13 +397,13 @@ input::placeholder, textarea::placeholder { color: var(--stone-label); }
    所以颜色本身也在说事。
 
    等 40 张头像画好，这一整套连同 `.face-*` 一起撤掉。 */
-.face-move   { --f1: #FFE0C2; --f2: #FFB067; background: linear-gradient(150deg, var(--f1), var(--f2)); color: #8A4A12; }
-.face-still  { --f1: #DCEEF7; --f2: #9CC9E4; background: linear-gradient(150deg, var(--f1), var(--f2)); color: #2A5C7A; }
-.face-wait   { --f1: #E6E2F5; --f2: #B3AADD; background: linear-gradient(150deg, var(--f1), var(--f2)); color: #4A3F7A; }
-.face-keep   { --f1: #E3EDDC; --f2: #A9C99A; background: linear-gradient(150deg, var(--f1), var(--f2)); color: #3F5F31; }
-.face-let_go { --f1: #F8DFE4; --f2: #E7A8B8; background: linear-gradient(150deg, var(--f1), var(--f2)); color: #7A3448; }
-.face-near   { --f1: #FFE6D2; --f2: #F5A98C; background: linear-gradient(150deg, var(--f1), var(--f2)); color: #8A3F28; }
-.face-ask    { --f1: #FDEDCB; --f2: #E8C878; background: linear-gradient(150deg, var(--f1), var(--f2)); color: #7A5A1A; }
+.face-move   { --f1: #FFE0C2; --f2: #FFB067; background-color: var(--f1); background-image: linear-gradient(150deg, var(--f1), var(--f2)); color: #8A4A12; }
+.face-still  { --f1: #DCEEF7; --f2: #9CC9E4; background-color: var(--f1); background-image: linear-gradient(150deg, var(--f1), var(--f2)); color: #2A5C7A; }
+.face-wait   { --f1: #E6E2F5; --f2: #B3AADD; background-color: var(--f1); background-image: linear-gradient(150deg, var(--f1), var(--f2)); color: #4A3F7A; }
+.face-keep   { --f1: #E3EDDC; --f2: #A9C99A; background-color: var(--f1); background-image: linear-gradient(150deg, var(--f1), var(--f2)); color: #3F5F31; }
+.face-let_go { --f1: #F8DFE4; --f2: #E7A8B8; background-color: var(--f1); background-image: linear-gradient(150deg, var(--f1), var(--f2)); color: #7A3448; }
+.face-near   { --f1: #FFE6D2; --f2: #F5A98C; background-color: var(--f1); background-image: linear-gradient(150deg, var(--f1), var(--f2)); color: #8A3F28; }
+.face-ask    { --f1: #FDEDCB; --f2: #E8C878; background-color: var(--f1); background-image: linear-gradient(150deg, var(--f1), var(--f2)); color: #7A5A1A; }
 
 /* 【铺了真脸的圆牌】。四十位的正面像素图早就画好在设计册里，
    只是从来没接到这一侧 —— 界面上一直是「圆底 + 姓名末字」。
@@ -412,6 +418,14 @@ input::placeholder, textarea::placeholder { color: var(--stone-label); }
    同一个 74% 缩放下，窄的那位被放得更大 —— 并排摆着像素块一个人一个
    大小，看着不是一套画。画布统一之后这一档从 74% 提到 84%:
    人物在圆牌里的占比才跟原先相当（画布宽了两格，人没变大）。 */
+/* 【底盘要用 background-color 画】。方向色原先写成
+   `background: linear-gradient(...)` —— 简写把渐变放进 background-image，
+   而 `utils/face.ts` 内联的 `background-image:url(...)` 把它整个顶掉。
+   于是四十位像素人从头到尾【裸浮在纸上】:截图取色，婆婆圆牌里是
+   #FFFCF6，正是页面纸色（2026-09-01 五路评审抓到）。
+   方向色这套编码——「颜色本身在说他劝你往哪走」——一次都没出现过。
+   下面每个 `.face-<方向>` 因此都补了 `background-color`:
+   有画的人，画压在这块实色上;没画的人，渐变照旧。 */
 .face-art {
   background-repeat: no-repeat;
   background-position: center 58%;

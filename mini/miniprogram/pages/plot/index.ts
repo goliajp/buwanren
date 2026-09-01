@@ -53,8 +53,20 @@ Page({
     if (Number.isInteger(row) && Number.isInteger(col)) {
       this.setData({ 在哪儿: 哪一格(row, col) })
     }
+    this.取收集()
+  },
+
+  /* 登录完了再取一次。这一屏进得来的方式之一是扫码 / 冷启动直接落进来，
+     那时匿名登录还没回来，`onLoad` 那一发必然拿 401 —— 而失败分支是
+     「不摆那一行」，于是屏上永远缺一块，还不报错。
+     门禁 check-auth-ready.py 当场抓到（19 个开屏取数的页，就这一个没接）。 */
+  onAuthReady() {
+    if (!this.data.收集) this.取收集()
+  },
+
+  取收集() {
     villageApi.mine().then(
-      (v) => this.setData({ 收集: `四十格里住了 ${v.found} 位，还空着 ${v.total - v.found} 格` }),
+      (v) => this.setData({ 收集: `四十间里住了 ${v.found} 位，还空着 ${v.total - v.found} 间` }),
       () => {},
     )
   },

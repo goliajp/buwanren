@@ -18,6 +18,8 @@ interface Contact { name?: string; phone?: string; address?: string }
 
 interface IData {
   id: string
+  /** 他在上一屏挑的那一档。空 = 上一屏没让他挑（只有一档的商品） */
+  wantSku: string
   loading: boolean
   err: string
   p: ProductDetail | null
@@ -48,7 +50,7 @@ interface IData {
 
 Page<IData, WechatMiniprogram.IAnyObject>({
   data: {
-    id: '', loading: true, err: '', p: null,
+    id: '', wantSku: '', loading: true, err: '', p: null,
     skuId: '', unit: 0, cur: 'CNY', unitText: '', totalText: '', face: '', 脸样: '', 住进来: false,
     qty: 1, message: '',
     contact: null, addrNote: '', buying: false, note: '', buyKey: '',
@@ -63,6 +65,13 @@ Page<IData, WechatMiniprogram.IAnyObject>({
        点两下就是两个键，也就是两张单（那正是重复扣款的来路）。 */
     this.setData({
       id: q.id || '',
+      /* 【他挑的是哪一档】。香有三档（三支 ¥29 / 十支 ¥128 / 单配 ¥268），
+         点进来时带着 `sku=`，而这一屏原先从头到尾没读过它 —— 自己在
+         `load()` 里挑「第一个有价的」。于是想买 ¥128 的人落到一屏写着
+         「一共 ¥29」的确认页，下单建的是三支那一档。
+         哪一档排第一由 `ORDER BY s.created_at` 定，而三档是同一条 INSERT
+         种下去的、时间戳相同 —— 也就是说买到哪一档没有定则。 */
+      wantSku: q.sku || '',
       buyKey: 'confirm-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
     })
   },
@@ -81,7 +90,18 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     this.setData({ loading: true, err: '' })
     commerceApi.product(id).then(
       (p) => {
-        const sku = p.skus.find((x) => x.current_price_minor !== null && x.current_price_minor !== undefined)
+        const 有价 = (x: { current_price_minor?: number | null }) =>
+          x.current_price_minor !== null && x.current_price_minor !== undefined
+        /* 他挑过就用他挑的。挑的那一档没了价（下架、改价）就说不出来，
+           不悄悄换一档给他 —— 换了他也看不出来，直到收到货。 */
+        const 想要 = this.data.wantSku
+          ? p.skus.find((x) => x.id === this.data.wantSku)
+          : undefined
+        if (this.data.wantSku && (!想要 || !有价(想要))) {
+          this.setData({ loading: false, err: '这一档现在买不了了 —— 回去挑一档别的' })
+          return
+        }
+        const sku = 想要 || p.skus.find(有价)
         const unit = sku ? (sku.current_price_minor || 0) : 0
         const cur = (sku && sku.current_currency) || 'CNY'
         this.setData({
