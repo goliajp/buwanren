@@ -29,6 +29,9 @@ Page<IData, WechatMiniprogram.IAnyObject>({
      截断了，念不全。长按复制，跟订单号那儿一个做法。
      浏览器里 `wx.setClipboardData` 是真接上的（走 navigator.clipboard），
      不是空实现 —— 只是它要 https 或 localhost，被拒时走 fail，跟真机一样。 */
+  goPrivacy() { wx.navigateTo({ url: '/pages/policy/index?kind=privacy' }) },
+  goTerms() { wx.navigateTo({ url: '/pages/policy/index?kind=terms' }) },
+
   onCopyId() {
     const id = this.data.user && this.data.user.id
     if (!id) return

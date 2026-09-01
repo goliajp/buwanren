@@ -3319,7 +3319,59 @@ if (!API) {
   const 明细 = await text()
   // 0830:标签里的疏排空格收掉了（「I D」「平 台」是 v1 的排版手法）
   ok(明细.includes('ID') && 明细.includes('平台'),
-     '账号那五行不用点就在 —— 念给客服听的东西不该再藏一层', 明细.slice(0, 40))
+     '账号那几行不用点就在 —— 念给客服听的东西不该再藏一层', 明细.slice(0, 40))
+
+  /* ── 客服与两份文件（2026-09-02 加）─────────────────────────
+     这三样原先一处都没有:出了事没人可找，收了钱没有交代，
+     而小程序过审这三样是硬门槛。 */
+  ok(明细.includes('联系我们') && 明细.includes('隐私政策') && 明细.includes('用户协议'),
+     '设置里找得到客服、隐私政策、用户协议', 明细.slice(-60))
+
+  /* 【客服那颗按钮在网页版上必须抛】。它靠的是微信的 `open-type="contact"`，
+     浏览器里没有对应物 —— 静默无反应就是「空实现」，而三条铁律的第二条
+     写着:只有真机才有的能力，抛，不给空实现。
+     上一版垫片不认 `open-type`，属性原样落到 DOM 上，浏览器当没有，
+     于是那是一颗【长得完全正常、点了什么都不发生】的按钮。 */
+  {
+    const 之前 = await p.evaluate(() => (globalThis.__DEVICE_ONLY || []).length)
+    await p.getByText('联系我们', { exact: true }).click().catch(() => {})
+    await p.waitForTimeout(400)
+    const 记下 = await p.evaluate(() => globalThis.__DEVICE_ONLY || [])
+    const 提示 = await p.evaluate(() => {
+      const n = document.getElementById('wx-note')
+      return n && n.style.display === 'block' ? n.textContent : ''
+    })
+    ok(记下.length > 之前 || /真机/.test(提示),
+       '「联系我们」在网页版上如实抛 —— 不是一颗点了没反应的按钮',
+       `记下的 ${JSON.stringify(记下.slice(-2))} · 提示条「${提示.slice(0, 30)}」`)
+  }
+
+  /* 两份文件真的打得开、真的有内容、也走得出去。
+     一个「点进去是空白页」的隐私政策比没有更糟 —— 它看着像有。 */
+  for (const [叫, 参, 要有] of [['隐私政策', 'privacy', '我们收什么'],
+                                 ['用户协议', 'terms', '退款']]) {
+    await open('pages/settings/index')
+    await p.waitForTimeout(500)
+    await p.getByText(叫, { exact: true }).click()
+    await p.waitForFunction(
+      () => globalThis.__router.current().__route === 'pages/policy/index',
+      null, { timeout: 15000 },
+    ).catch(() => {})
+    ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/policy/index',
+       `设置里点得开「${叫}」`, await p.evaluate(() => globalThis.__router.current().__route))
+    const 文 = await text()
+    ok(文.includes(叫) && 文.includes(要有),
+       `「${叫}」里真的有内容 —— 不是一页空白`, 文.slice(0, 40))
+    ok(await p.evaluate(() => globalThis.__router.current().data.kind) === 参,
+       `「${叫}」开的是它自己那一份，不是另一份`,
+       String(await p.evaluate(() => globalThis.__router.current().data.kind)))
+    await p.getByText('回去', { exact: true }).click()
+    await p.waitForTimeout(600)
+    ok(await p.evaluate(() => globalThis.__router.current().__route) !== 'pages/policy/index',
+       `「${叫}」不是死路 —— 退得出去`,
+       await p.evaluate(() => globalThis.__router.current().__route))
+  }
+
   await open('pages/me/index')
 
   /* 【一个都没订的时候，那一行不摆出来】。村里现在没有可订的东西，

@@ -175,6 +175,11 @@ const 屏 = [
   ['room-tao', 'pages/room/index', { room: 'tao' }],
   ['room-tenz', 'pages/room/index', { room: 'tenz' }],
   ...(单子 ? [['order', 'pages/order/index', { id: 单子 }]] : []),
+  /* 两份文件各一张。它们【是唯一允许滚的两屏】—— 政策就是长，
+     把它压进一屏等于把字压到读不动。所以下面那一支「一屏放得下」
+     对它们不成立，也不该成立;截图仍然要拍，因为要看排版读不读得下去。 */
+  ['policy-privacy', 'pages/policy/index', { kind: 'privacy' }],
+  ['policy-terms', 'pages/policy/index', { kind: 'terms' }],
 ]
 
 const 量 = {}
@@ -241,7 +246,11 @@ writeFileSync(join(OUT, 'measure.json'), JSON.stringify(量, null, 1))
    而 2026-09-01 名册超了 6px —— 从那个容差底下溜过去，
    是这一份实测数据翻出来的。数据在没人看等于没量。 */
 {
-  const 滚的 = Object.entries(量).filter(([, v]) => v.要不要滚)
+  /* 政策那两屏不进这一账。它们是文件，长是本分 —— 把它们算进来
+     只会逼人把条款塞进一屏，而那正是「不想让人读」的做法。
+     写成明确的白名单，不是悄悄跳过:名单在这儿，谁都看得见。 */
+  const 允许滚 = new Set(['policy-privacy', 'policy-terms'])
+  const 滚的 = Object.entries(量).filter(([k, v]) => v.要不要滚 && !允许滚.has(k))
   if (滚的.length) {
     console.log('\n  ⚠ 这几屏一屏放不下（超出多少）：')
     for (const [名, v] of 滚的) console.log(`      ${名}　超 ${v.内容高 - v.视口.高}px`)
@@ -251,7 +260,7 @@ writeFileSync(join(OUT, 'measure.json'), JSON.stringify(量, null, 1))
        等于把新加的两屏算进了一句它没量过的结论
        （2026-09-01 第二轮评审那一轮自己撞上的）。 */
     const 屏数 = Object.keys(量).length
-    console.log(`\n  · ${屏数} 屏都一屏放得下`)
+    console.log(`\n  · ${屏数 - 允许滚.size} 屏都一屏放得下（政策那 ${允许滚.size} 屏本就该滚，不计）`)
   }
 }
 {

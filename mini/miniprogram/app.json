@@ -21,7 +21,8 @@
     "pages/settings/index",
     "pages/bind/index",
     "pages/incense/index",
-    "pages/lighting/index"
+    "pages/lighting/index",
+    "pages/policy/index"
   ],
   "window": {
     "backgroundTextStyle": "light",

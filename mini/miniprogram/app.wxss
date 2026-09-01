@@ -281,6 +281,18 @@ button.btn.ghost.btn-hover:not([disabled]) {
 }
 /* 最后一行不要分隔线 —— 卡片的下边缘已经在那儿了 */
 .entry:last-child { border-bottom: none; }
+/* 【客服那一行必须是 button】—— 微信的客服会话只认 `open-type="contact"`，
+   而那个属性只在 button 上生效。button 自带一身样式（背景、边框、圆角、
+   居中、行高），全部清掉，让它跟旁边两行 view 长得一模一样:
+   同一张卡里三行，其中一行因为标签不同而高半格、字偏一点，
+   人第一眼看不出为什么，只觉得这里没做完。 */
+button.entry-btn {
+  width: 100%; margin: 0; padding: 0 26rpx;
+  background: transparent; border: none; border-radius: 0;
+  font-size: inherit; line-height: inherit; color: inherit;
+  text-align: left;
+}
+button.entry-btn::after { border: none; }
 .entry-hover { background: var(--paper-inset); }
 .entry-k {
   flex: none;
