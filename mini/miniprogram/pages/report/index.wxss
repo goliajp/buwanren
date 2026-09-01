@@ -171,11 +171,17 @@
   transform: translateY(-6rpx);
   padding: 18rpx 0 14rpx;
 }
-.tl-now .tl-gz { color: #fff; font-size: 28rpx; font-weight: 700; }
-.tl-now .tl-age { color: rgba(255,255,255,.9); font-weight: 600; }
+/* 【白字压琥珀，1.91:1】（2026-09-02 第三轮评审 · 视觉实测取样）。
+   跟罗盘中心那颗按钮是同一个错法 —— 那一处修过并写了注释，这一处漏了。
+   而这一格是【付费交付物上最要紧的一格】:它标着「你现在走到哪」。
+   `--on-amber` 压这条渐变的三站是 7.08 / 5.88 / 4.25。 */
+.tl-now .tl-gz { color: var(--on-amber); font-size: 28rpx; font-weight: 700; }
+.tl-now .tl-age { color: rgba(74,46,16,.82); font-weight: 600; }
+/* 那颗「现在」的点原先是 `--amber` 压在末端已经是 `--amber` 的渐变上 ——
+   1.04:1，等于没画。它是这一屏唯一标记位置的记号。 */
 .tl-now .tl-dot {
   display: block; width: 8rpx; height: 8rpx; border-radius: 999rpx;
-  background: var(--amber); margin: 8rpx auto 0;
+  background: var(--on-amber); margin: 8rpx auto 0;
 }
 
 /* 结尾那一行的出口。做成文字链而不是整行按钮 —— 那颗按钮让最后一页
