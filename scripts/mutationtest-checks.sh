@@ -116,17 +116,49 @@ if [ -n "$DIRTY" ]; then
 fi
 
 BAK=$(mktemp -d)
+
+# 【备份路径预先算好，trap 里不做任何命令替换】。
+#
+# 2026-09-02 第三轮评审 · 工程审计复现了三次:
+#   bash scripts/mutationtest-checks.sh | head -20 >/dev/null
+#   git status --porcelain
+#    M rooms/src/engine/village.js      ← 变异永久留在源码里
+#
+# 上一版的 EXIT trap 里写的是 `cp "$BAK/$(echo "$f" | tr / _)" "$f"` ——
+# `| head` 掐断时发 SIGPIPE，而那个命令替换的子进程继承了【还没刷出去的
+# stdout 缓冲】，printf 的文本被 `tr` 当成输入译进了文件名，于是
+#   cp: /var/…/tmp.XXXX/  ✓ drawHouse 改名（核对失效） check-plots 抓到
+#   mini_miniprogram_pages_plot_index.wxml: No such file or directory
+# ——【还原循环里每一次 cp 都失败】，紧接着 `rm -rf "$BAK"` 照常执行:
+# 备份没了，变异留下了。而留下的是一处会弄坏村图渲染的改动，
+# 下一轮还会报「植不进去」，把人指向完全相反的方向。
+#
+# 两道防线:
+#   一、把 `原文件 → 备份文件` 的映射【在这儿算好】存进数组，
+#      trap 只做数组下标查表，不再有子进程、不再碰 stdout。
+#   二、trap 头一句先把自己的输出丢掉 —— 还原是收尾动作，
+#      它不该因为下游管道关了而受影响。
+BAKS=()
+for f in "${FILES[@]}"; do BAKS+=("$BAK/$(echo "$f" | tr / _)"); done
+
 # 一个 trap 做两件事。分两个 `trap ... EXIT` 的话后一个会把前一个【覆盖掉】——
 # 2026-08-18 就是这么把十几处变异留在工作区的:锁清了,文件没还原。
-trap 'for f in "${FILES[@]}"; do cp "$BAK/$(echo "$f" | tr / _)" "$f"; done; rm -rf "$BAK" "$LOCK"' EXIT
+trap 'exec >/dev/null 2>&1; i=0; for f in "${FILES[@]}"; do [ -f "${BAKS[$i]}" ] && cp "${BAKS[$i]}" "$f"; i=$((i+1)); done; rm -rf "$BAK" "$LOCK"' EXIT
 # 信号先转成退出,好让上面那个 EXIT 跑到（`| head` 掐断时发的 SIGPIPE 也算）
 trap 'exit 130' INT TERM PIPE
 # 文档 2026-08-24 起不进 git,所以名单里有几个在 CI 上根本不存在。
 # 缺了就跳过 —— 但**它锚着的那几条变异也要跟着跳过**(见下面的 if 守卫),
 # 不能让「植不进去」被当成「门禁没抓到」。
-for f in "${FILES[@]}"; do [ -f "$f" ] && cp "$f" "$BAK/$(echo "$f" | tr / _)"; done
+i=0; for f in "${FILES[@]}"; do [ -f "$f" ] && cp "$f" "${BAKS[$i]}"; i=$((i+1)); done
 
-restore() { for f in "${FILES[@]}"; do [ -f "$BAK/$(echo "$f" | tr / _)" ] && cp "$BAK/$(echo "$f" | tr / _)" "$f"; done; true; }
+restore() {
+  local i=0
+  for f in "${FILES[@]}"; do
+    [ -f "${BAKS[$i]}" ] && cp "${BAKS[$i]}" "$f"
+    i=$((i+1))
+  done
+  true
+}
 
 pass=0; fail=0
 

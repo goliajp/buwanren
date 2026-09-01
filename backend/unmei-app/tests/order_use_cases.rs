@@ -416,6 +416,57 @@ async fn reusing_an_unpaid_order_keeps_both_notes() {
     assert!(串.contains("头一遍"), "上一次那句不该被抹掉，实际是：{串}");
 }
 
+/// 【同一位不能请两回】。
+///
+/// `residency::move_in_from_line` 是 `ON CONFLICT DO NOTHING`，第二次回
+/// `AlreadyHome`；而 `fulfillment.rs` 只把 `is_new()` 写进 `fulfillment_ref`，
+/// 行照样标 `done` —— 也就是钱收了、什么都没发生，而订单屏还会写
+/// 「他已经在村里那一格住下了 —— 这单到此为止」。
+/// 拦在建单这一层：那时钱还没动。
+/// （2026-09-02 第三轮评审 · 转化路实跑出来的。）
+#[tokio::test]
+async fn cannot_buy_a_villager_who_already_lives_with_you() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let (sku, villager) = common::residency_sku(&pool, "CNY", 9900).await;
+
+    // 头一次:建得出来
+    let 头 = order::create(&pool, new_order(&user, vec![(sku.clone(), 1)])).await;
+    assert!(头.is_ok(), "第一次该建得出来，实际 {:?}", 头.err());
+
+    // 他住进来了（履约那一步的效果，这里直接种，测的是建单这一层）
+    sqlx::query(
+        "INSERT INTO villager_residency(id,user_id,villager_id,source_kind) \
+         VALUES ($1,$2,$3,'grant') ON CONFLICT DO NOTHING",
+    ).bind(format!("res-t{}", &uuid::Uuid::new_v4().to_string()[..8]))
+     .bind(&user).bind(&villager)
+     .execute(&pool).await.expect("种入住");
+
+    let 再来 = order::create(&pool, new_order(&user, vec![(sku, 1)])).await;
+    match 再来 {
+        Err(DomainError::Conflict(m)) => assert!(m.contains(&villager), "话要说清是谁:{m}"),
+        other => panic!("已经住着的那位不该再卖一次，实际 {other:?}"),
+    }
+}
+
+/// 【一条行只出一册，所以说明书的数量只能是 1】。
+///
+/// `report::ensure_for_line` 从头到尾没读过 `qty`（grep 可验），
+/// 而确认屏对非 residency 的商品照常摆数量 —— 买两份，按两份收钱，出一份。
+#[tokio::test]
+async fn a_report_line_cannot_be_bought_twice_in_one_line() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::report_sku(&pool, "CNY", 19900).await;
+
+    assert!(order::create(&pool, new_order(&user, vec![(sku.clone(), 1)])).await.is_ok(),
+            "一份该建得出来");
+    match order::create(&pool, new_order(&user, vec![(sku, 2)])).await {
+        Err(DomainError::Validation(m)) => assert!(m.contains("qty"), "话里要说是数量的事:{m}"),
+        other => panic!("说明书买两份该被拒 —— 收两份钱只出一册，实际 {other:?}"),
+    }
+}
+
 async fn order_fixture(pool: &sqlx::PgPool) -> (String, String) {
     let user = common::user(pool).await;
     let sku = common::sku_with_price(pool, "CNY", 19900).await;

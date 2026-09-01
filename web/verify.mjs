@@ -677,17 +677,33 @@ if (API) {
      设计 10.3 说一页五笔、多了左右翻，而五笔以内那两个翻页处理器
      一次也按不到：那一段就会靠「从不运行」保持绿色。
 
-     【每张的数量不同】。2026-09-01 起「同一个人、同一件东西、
+     【每张换一件商品】。2026-09-01 起「同一个人、同一件东西、
      已经有一笔没付的」会把那一笔原样还回来（退回上一页再进来
      不该再建一张，库里为此攒过同一个 sku 的四笔待付）——
-     六次一模一样的请求现在只会得到同一张单，夹具就造不出六张了。
-     换数量是最小的改法:它仍然是六张真单，走的仍是真接口。 */
-  const 单们 = await p.evaluate(async (base) => {
+     六次一模一样的请求只会得到同一张单，夹具就造不出六张了。
+
+     【2026-09-02 从「换数量」改成「换商品」】。上一版是拿同一个
+     `sku-naji-deep` 下 qty=1..6。而说明书是【一条行出一册】
+     （report.rs 的 `ensure_for_line` 从不读 qty），所以建单那一层
+     现在拒绝 async_compute 的 qty≠1 —— 收两份钱出一册那件事，
+     是第三轮评审实跑出来的。夹具跟着改:换商品，数量恒为 1。
+     六个 sku 从库里现取，不写死 —— 写死的 id 会在目录重建之后
+     指向一件不存在的东西，而那时截出来的是「取不到」那一屏。 */
+  const 六件 = sql1(
+    "SELECT string_agg(id, ',') FROM ("
+    + " SELECT s.id FROM sku s JOIN product p ON p.id = s.product_id"
+    + "  WHERE s.status='active' AND p.status='listed'"
+    + "    AND p.fulfillment_kind <> 'residency'"   // 护身符要挑没住过的人，另一套判据
+    + "  ORDER BY p.sort_weight DESC, s.id LIMIT 6) t").split(',').filter(Boolean)
+  if (六件.length < 6) {
+    ok(false, '夹具:库里挑不出六件在售商品来建六张单', `只挑到 ${六件.length} 件`)
+  }
+  const 单们 = await p.evaluate(async ([base, 六件]) => {
     const raw = localStorage.getItem('unmei:buwanren:token')
     if (!raw) return []
     const token = JSON.parse(raw)
     const out = []
-    for (let i = 0; i < 6; i++) {
+    for (const sku of 六件) {
       const r = await fetch(base + '/v1/orders', {
         method: 'POST',
         headers: {
@@ -695,14 +711,14 @@ if (API) {
           authorization: 'Bearer ' + token,
           'idempotency-key': 'mirror-sweep-' + Math.random().toString(36).slice(2),
         },
-        body: JSON.stringify({ lines: [{ sku_id: 'sku-naji-deep', qty: i + 1 }], region: 'cn' }),
+        body: JSON.stringify({ lines: [{ sku_id: sku, qty: 1 }], region: 'cn' }),
       })
       if (!r.ok) break
       const j = await r.json()
       if (j.order_id) out.push(j.order_id)
     }
     return out
-  }, API)
+  }, [API, 六件])
   const 单 = 单们[0] || null
   if (单) 要参数['pages/order/index'] = { id: 单 }
 

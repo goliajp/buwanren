@@ -74,6 +74,64 @@ pub async fn create(pool: &PgPool, req: NewOrder) -> Result<CreatedOrder, Domain
         return Err(DomainError::Validation(format!("qty {} ≤ 0", bad.qty)));
     }
 
+    /* ── 收了钱交不出东西的两笔，在这儿拦住 ────────────────────────
+       两笔都不需要任何异常条件，正常点几下就到，而屏上还会告诉买家
+       「这单到此为止」（2026-09-02 第三轮评审 · 转化路实跑到的）。
+
+       一、【同一位不能请两回】。`residency::move_in_from_line` 是
+          `ON CONFLICT (user_id, villager_id) DO NOTHING`，第二次回
+          `AlreadyHome`;而 fulfillment.rs 只把 `is_new()` 写进
+          `fulfillment_ref`，行照样标 `done` —— 钱收了，什么都没发生。
+
+       二、【一条行只出一册，所以数量只能是 1】。`report::ensure_for_line`
+          从头到尾没读过 `qty`。而确认屏对非 residency 的商品照常摆数量 ——
+          说明书买两份，按两份收钱，出一份。
+
+       【为什么在这儿，不在下面的定价循环里】。定价循环在事务里，
+       而它前面还有一段「同一件东西已经有一笔没付的就还回去」的复用分支 ——
+       写在循环里的话，已经住着的人再下单会被**还回一张旧的未付单**，
+       守卫一次都不会跑到（这是写完第一版、测试当场红出来的）。
+       拦截要在任何一条早退之前。
+
+       为什么不在履约那一侧兜:那时钱已经收了，剩下的只有退款，而退款要人工。
+       能在收钱之前说清楚的事，不该留到收钱之后。 */
+    for l in &req.lines {
+        let 这一件 = sqlx::query(
+            "SELECT p.fulfillment_kind, s.villager_id,
+                    EXISTS (SELECT 1 FROM villager_residency r
+                             WHERE r.user_id = $2 AND r.villager_id = s.villager_id)
+                      AS already_home
+               FROM sku s JOIN product p ON p.id = s.product_id
+              WHERE s.id = $1",
+        )
+        .bind(&l.sku_id)
+        .bind(&req.user_id)
+        .fetch_optional(pool)
+        .await.db()?;
+        // 认不出这个 sku 的事交给下面的定价循环报（那儿的话更准）
+        let Some(这一件) = 这一件 else { continue };
+        let kind: String = 这一件.try_get("fulfillment_kind").unwrap_or_default();
+        if kind == "residency" {
+            if 这一件.try_get::<Option<bool>, _>("already_home").ok().flatten().unwrap_or(false) {
+                let who: Option<String> = 这一件.try_get("villager_id").ok().flatten();
+                return Err(DomainError::Conflict(format!(
+                    "villager {} already lives with this user",
+                    who.unwrap_or_else(|| l.sku_id.clone())
+                )));
+            }
+            if l.qty != 1 {
+                return Err(DomainError::Validation(
+                    "residency line qty must be 1 — one villager, one house".into(),
+                ));
+            }
+        }
+        if kind == "async_compute" && l.qty != 1 {
+            return Err(DomainError::Validation(
+                "report line qty must be 1 — one line produces one report".into(),
+            ));
+        }
+    }
+
     // 风控(台账 D7)。默认观察模式:规则照跑、事件照落、一单不拦 ——
     // 开关在 `risk::enforcing()`,由运营看过真实命中率之后再翻。
     crate::risk::gate(pool, &crate::risk::RiskEvalContext {

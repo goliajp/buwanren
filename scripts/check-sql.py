@@ -98,6 +98,36 @@ for n, (_, _, sql) in enumerate(queries):
     parts.append(f'PREPARE _p{n} AS {sql};')
 out = psql('\n'.join(parts) + '\n')
 
+# ── 【先确认它真的连上了库】──────────────────────────────────────
+# 【2026-09-02 第三轮评审 · 工程审计当场复现】。上一版从不看 psql 的退出码，
+# 只靠 stdout 里的 ⟪n⟫ 记号配对报错 —— 连不上时一个记号都没有，
+# 于是「报错 0 条」，然后打一句「✓ 每一条都过得了 Postgres」并退 0：
+#
+#     DATABASE_URL='…/no_such_db' python3 scripts/check-sql.py
+#     SQL 412 条 · 报错 0 条 …
+#     ✓ 每一条都过得了 Postgres        ← 一次连接都没建立过
+#
+# 而本仓【禁用 `query!` 宏】，这一支是那个决定的唯一补偿。库改名、
+# 口令轮换、`unmei` 被 drop —— 它会天天绿，而 412 条 SQL 一条没 PREPARE。
+# gates.sh 那边的 `pg_isready` 只探端口，探不到库名和口令。
+#
+# 两道判据，缺一不可:
+#   · psql 自己的退出码
+#   · 【真的回来了多少个记号】—— 退出码为 0 但一条都没执行（比如权限不足
+#     导致每条都跳过）同样是假绿，所以数记号，不数我们发出去多少条。
+认回来的 = {int(m.group(1)) for m in
+            (re.match(r'⟪(\d+)⟫', l.strip()) for l in out.stdout.split('\n')) if m}
+if out.returncode != 0 and not 认回来的:
+    print(f'✗ psql 没跑成（退出码 {out.returncode}）—— 这一支【什么都没验】。')
+    print('  本仓禁用 query! 宏，SQL 只有这里能验;它连不上时必须红，不能报「全过」。')
+    print('  ' + ' '.join(out.stdout.split())[:200])
+    sys.exit(1)
+if len(认回来的) < len(queries):
+    print(f'✗ 发出去 {len(queries)} 条，psql 只回了 {len(认回来的)} 个记号 ——')
+    print('  中间断了，剩下的一条都没验。当作没验，不当作通过。')
+    print('  ' + ' '.join(out.stdout.split())[-200:])
+    sys.exit(1)
+
 # 记号与它后面的报错配对
 errs = {}
 cur = None

@@ -316,8 +316,23 @@ gate "开局站位对得上第一件事吗" . python3 scripts/check-room-start.p
 # 只是正对着水晶球坐，从正面看整个人只剩一个帽尖（实测露出 41%）。
 # 这一支把主人染成品红重渲一次，数画面上还剩多少 —— 那就是没被挡住的部分。
 gate "进屋看得见主人吗" . bun web/see-host.mjs
-# 镜像自己会先组装。动线要真跑一遍浏览器,几十秒
-gate "web verify · 动线"  . bash web/run-verify.sh
+# 镜像自己会先组装。动线要真跑一遍浏览器,几十秒。
+#
+# 【后端在就打真链】（2026-09-02 第三轮评审 · 工程审计）。
+# 上一版这一行不带 `--api`，于是门禁跑的一直是【假服务端】那一档 ——
+# 按 verify.mjs 自己的记账是 111 / 323 条，**三分之二的断言写了但从不运行**。
+# 而 .claude/CLAUDE.md 白纸黑字写着「改完前端别只跑假服务端那一档 ——
+# 便宜，但它够不到真链」，唯一的判据却恰恰在跑那一档。
+#
+# 后端不在就【明说跳过】，不偷偷降档:有跳过就是没验，不是通过。
+# 排盘服务（6027）由 run-verify.sh 自己探测，探到就接上（那 17 条
+# 「建本命 → 用神」的断言只在那时才跑得到）。
+if curl -s -m 2 -o /dev/null "http://127.0.0.1:6028/v1/health" 2>/dev/null; then
+  gate "web verify · 动线（真后端）" . bash web/run-verify.sh --api=http://127.0.0.1:6028
+else
+  skip "web verify · 动线（真后端）" "6028 上没有后端 —— 只跑假服务端那一档够不到真链，不算数"
+  gate "web verify · 动线（只前端那一侧）" . bash web/run-verify.sh
+fi
 
 echo
 echo "── 部署配置 ──"
