@@ -64,6 +64,58 @@ async fn paid_shipping_order(pool: &sqlx::PgPool, with_meta: bool) -> (String, S
     (created.order_id, line_id)
 }
 
+/// 买东西那一类徽章，付款履约时真的发得出来 —— 而且只发给买对了东西的人。
+///
+/// 在这之前全仓只有一处发徽章（unmei-api 的 naji.rs），而它只认
+/// `action == "naji.spin"`：「闻过香」（规则 `order.paid`）永远发不出来，
+/// 而「我得到的」那一屏还给它配了一条通往 ¥29–268 的路。
+/// 收了钱不兑现一条明写的承诺，是最伤信任的一种 bug，
+/// 而它在屏上长得跟「你还没拿到」一模一样 —— 只能靠这里钉住。
+#[tokio::test]
+async fn paying_awards_the_purchase_badge_and_only_for_the_right_product() {
+    let pool = db_or_skip!();
+    let 记 = format!("bt{}", &uuid::Uuid::new_v4().to_string()[..8]);
+
+    // 两枚:一枚不限商品，一枚限定到一件【别的】商品
+    for (id, 限定) in [(format!("{记}_any"), None), (format!("{记}_other"), Some("prod-别的"))] {
+        let mut rule = serde_json::json!({"type":"count","action":"order.paid","threshold":1});
+        if let Some(p) = 限定 { rule["product"] = serde_json::json!(p) }
+        sqlx::query(
+            "INSERT INTO badge (id, code, name, description, rule_dsl, points, status, glyph) \
+             VALUES ($1, $1, '验', '验', $2, 0, 'active', '验')",
+        ).bind(&id).bind(&rule).execute(&pool).await.expect("种徽章");
+    }
+
+    let (order_id, _) = paid_shipping_order(&pool, true).await;
+    let user: String = sqlx::query_scalar("SELECT user_id FROM order_record WHERE id=$1")
+        .bind(&order_id).fetch_one(&pool).await.expect("user");
+    // 夹具只走到「付过了」；履约是另一步，别处的用例也都显式调它
+    unmei_app::fulfillment::apply_order_paid(&pool, &order_id).await.expect("履约");
+
+    let 有 = |后缀: &str| {
+        let id = format!("{记}_{后缀}");
+        let pool = pool.clone();
+        let user = user.clone();
+        async move {
+            let n: i64 = sqlx::query_scalar(
+                "SELECT COUNT(*) FROM user_badge WHERE user_id=$1 AND badge_id=$2",
+            ).bind(&user).bind(&id).fetch_one(&pool).await.expect("数徽章");
+            n
+        }
+    };
+    assert_eq!(有("any").await, 1, "不限商品的那一枚该发出来");
+    assert_eq!(有("other").await, 0, "限定到别的商品的那一枚不该发 —— 名字与条件得是同一件事");
+
+    // 重放一次履约不该发第二枚（apply_order_paid 会被事件重放）
+    unmei_app::fulfillment::apply_order_paid(&pool, &order_id).await.expect("重放");
+    assert_eq!(有("any").await, 1, "重放不该发出第二枚");
+
+    sqlx::query("DELETE FROM user_badge WHERE badge_id LIKE $1")
+        .bind(format!("{记}%")).execute(&pool).await.ok();
+    sqlx::query("DELETE FROM badge WHERE id LIKE $1")
+        .bind(format!("{记}%")).execute(&pool).await.ok();
+}
+
 async fn shipment_count(pool: &sqlx::PgPool, order_id: &str) -> i64 {
     common::scalar_i64(pool, "SELECT COUNT(*) FROM shipment WHERE order_id=$1", order_id).await
 }
