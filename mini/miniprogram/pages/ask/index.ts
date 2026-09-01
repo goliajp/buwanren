@@ -44,7 +44,15 @@ function detailToResult(d: NajiDetail): NajiResult {
     suit: d.suit,
     avoid: d.avoid,
     question: d.question ?? null,
-    recommend: null,
+    /* 【2026-09-02:接住后端给的推荐】。这里原先写死 `null`，
+       而当时后端的 detail 确实不回它 —— 写死是诚实的。
+       但这一屏拿到 id 之后会用 `detail(id)` 把整条记录【重取一遍】，
+       于是起卦那一瞬间的推荐一渲染就没了:
+       `wx:if="{{result.recommend}}"` 永远不成立，
+       而那是 ¥199「你的说明书」全 app 唯一一条路
+       （第三轮评审 · 第一次打开的人实跑到的）。
+       后端补上了 `recommend`（routes/naji.rs 的 detail），这里跟上。 */
+    recommend: d.recommend ?? null,
   }
 }
 

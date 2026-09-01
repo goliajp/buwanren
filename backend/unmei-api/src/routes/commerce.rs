@@ -306,10 +306,30 @@ async fn my_orders(
                   l.title, l.line_count
            FROM order_record o
            LEFT JOIN LATERAL (
-             SELECT (array_agg(ol.sku_snapshot_json->>'sku_name'
-                               ORDER BY ol.line_no))[1] AS title,
+             /* 【护身符那一笔要说出是谁】（2026-09-02 第三轮评审 · 转化路）。
+                快照名是「护身符 · 单枚」，于是从商品页的「丹增」、
+                确认屏的「丹增的护身符」、订单详情的「丹增的护身符」，
+                一走到清单就变回一件匿名货 —— 买满三位之后
+                「我买过的」是三行一模一样的「护身符 · 单枚 ¥99」。
+                详情那一条早就为此专门解析了村民名（本文件下面那段），
+                列表没有。
+
+                名字取【现在库里的】而不是快照:村民改名是极少的事，
+                而认不出是谁的代价比名字晚一天更新大得多 ——
+                这跟详情那一处的取舍是同一句话。
+                只对【会有人住进来】的那种拼（`fulfillment_kind='residency'`）:
+                香也挂着苏合，但买香不是请她搬进来。 */
+             SELECT (array_agg(
+                       CASE WHEN p.fulfillment_kind = 'residency' AND v.name IS NOT NULL
+                            THEN v.name || '的护身符'
+                            ELSE ol.sku_snapshot_json->>'sku_name' END
+                       ORDER BY ol.line_no))[1] AS title,
                     COUNT(*)::int AS line_count
-             FROM order_line ol WHERE ol.order_id = o.id
+             FROM order_line ol
+             LEFT JOIN sku k ON k.id = ol.sku_id
+             LEFT JOIN product p ON p.id = k.product_id
+             LEFT JOIN villager v ON v.id = k.villager_id
+             WHERE ol.order_id = o.id
            ) l ON TRUE
            WHERE o.user_id=$1 AND ($2::text IS NULL OR o.status=$2)
            ORDER BY o.created_at DESC OFFSET $3 LIMIT $4"#,

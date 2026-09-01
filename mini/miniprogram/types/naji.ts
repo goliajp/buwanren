@@ -57,7 +57,13 @@ export interface NajiHistoryRow {
 
 /**
  * GET /v1/naji/:id · detail
- * 后端不返 time_label 与 recommend,前端从 asked_at 派生 time_label
+ * 后端不返 time_label,前端从 asked_at 派生。
+ *
+ * 【2026-09-02:`recommend` 从「不返」变成「返」】。这一屏拿到 id 之后
+ * 会用 detail 把整条记录重取一遍，而它当时不带推荐 —— 于是起卦那一刻
+ * 的推荐一渲染就没了，¥199 那件商品在 app 里没有任何入口
+ * （第三轮评审 · 第一次打开的人）。后端补上了（routes/naji.rs 的 detail
+ * 按 `recommended_product_id` 现取一次商品，不存快照）。
  */
 export interface NajiDetail {
   id: string
@@ -69,4 +75,5 @@ export interface NajiDetail {
   avoid: string[]
   quote: QuoteOut | null
   question?: string | null
+  recommend?: RecommendOut | null
 }

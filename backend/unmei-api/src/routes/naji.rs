@@ -198,6 +198,35 @@ async fn detail(
             source: q.get::<String, _>("book"),
         })
     } else { None };
+
+    /* 【推荐也要回】（2026-09-02 第三轮评审 · 第一次打开的人）。
+       上面那条 SELECT 一直在取 `recommended_product_id`，但它从来没进过
+       响应体 —— 而结果屏（pages/ask）拿到 id 之后会用 `detail(id)`
+       把整条记录【重取一遍】（ask/index.ts 的 `showWanted`）。
+       于是转完卦那一瞬间有推荐、页面一渲染就没了:
+       `ask/index.wxml` 的 `wx:if="{{result.recommend}}"` 永远不成立。
+
+       后果是 ¥199 的「你的说明书」【全 app 没有一条路能走到】——
+       另外三个入口分别指向护身符与订阅，而订阅那屏说「村里现在没有
+       可以订的东西」。直接敲地址进得去，页面也写得好，只是没人到得了。
+
+       这里按 id 现取一次商品与价 —— 不存 name/价 的快照:
+       商品改了名、调了价、下了架，历史详情该显示的是【现在的那件】，
+       而不是当时那份会过期的抄件。取不到（下架了）就回 null，
+       跟「本来就没推荐」同一个形状，前端不必分两种。 */
+    let rec = match r.get::<Option<String>, _>("recommended_product_id") {
+        Some(pid) => {
+            // 区域与平台决定看哪一份价目表 —— 跟起卦那一侧同一个来源
+            let u = sqlx::query("SELECT platform, region FROM app_user WHERE id=$1")
+                .bind(&c.sub).fetch_one(&st.db).await?;
+            crate::ai_compose::product_brief(
+                &st.db, &pid,
+                &u.get::<String, _>("region"), &u.get::<String, _>("platform"),
+            ).await?
+        }
+        None => None,
+    };
+
     Ok(Json(serde_json::json!({
         "id": r.get::<String, _>("id"),
         "asked_at": r.get::<DateTime<Utc>, _>("asked_at"),
@@ -208,6 +237,7 @@ async fn detail(
         "avoid": ji,
         "quote": q,
         "question": r.get::<Option<String>, _>("question"),
+        "recommend": rec,
     })))
 }
 
