@@ -2243,8 +2243,15 @@ if (API && MINGLI) {
   }
 
   await p.getByText('算一算', { exact: true }).click()
+  /* 【这一步比别处慢，余量要给够】。建本命是这条链上最重的一次:
+     写 natal → 调排盘服务 → 存 summary → 出一册报告，四件事串着。
+     本机上门禁（cargo 构建）跟镜像常常同时在跑，实测这一步整段
+     花过十几秒（API 日志里单条 UPDATE 就 10.1s）——
+     20 秒的余量于是偶发地不够，屏上停在表单，四条断言一起红。
+     而【偶发的红比常红更糟】:它教人把每一次真红都当成噪音。
+     45 秒对一次真排盘仍然是「不该超过」的量级，超了就是真慢。 */
   await p.waitForFunction(() => globalThis.__router.current().data.mode === 'summary', null,
-                          { timeout: 20000 }).catch(() => {})
+                          { timeout: 45000 }).catch(() => {})
   const n = await p.evaluate(() => {
     const d = globalThis.__router.current().data
     return { mode: d.mode, id: d.natal && d.natal.id, ys: d.summary && d.summary.primary_yongshen }
