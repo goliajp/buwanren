@@ -119,7 +119,7 @@ out = psql('\n'.join(parts) + '\n')
             (re.match(r'⟪(\d+)⟫', l.strip()) for l in out.stdout.split('\n')) if m}
 if out.returncode != 0 and not 认回来的:
     print(f'✗ psql 没跑成（退出码 {out.returncode}）—— 这一支【什么都没验】。')
-    print('  本仓禁用 query! 宏，SQL 只有这里能验;它连不上时必须红，不能报「全过」。')
+    print('  本仓禁用 query! 宏，SQL 只有这里能验；它连不上时必须红，不能报「全过」。')
     print('  ' + ' '.join(out.stdout.split())[:200])
     sys.exit(1)
 if len(认回来的) < len(queries):

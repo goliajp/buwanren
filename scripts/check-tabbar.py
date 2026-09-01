@@ -20,6 +20,60 @@ if not t or not t.get('list'):
     print('✗ app.json 里没有 tabBar —— 这一支够不着要验的东西')
     sys.exit(1)
 
+def 图里有色(raw, 十六进制):
+    """这张 PNG 里出现过这个颜色吗。
+
+    自己解 PNG（zlib + 逐行 unfilter）—— 为这点事装图像库不值得，
+    而这几张图是本仓自己生成的，格式固定（8 位 RGBA，无隔行）。
+    格式对不上就返回 None，调用方当作「说不准」放过 —— 不假装量过。
+    """
+    import zlib
+    try:
+        if raw[:8] != b'\x89PNG\r\n\x1a\n':
+            return None
+        w, h = struct.unpack('>II', raw[16:24])
+        深, 型 = raw[24], raw[25]
+        if 深 != 8 or 型 != 6 or raw[28] != 0:      # 只认 8 位 RGBA、非隔行
+            return None
+        数据 = b''.join(raw[i + 8:i + 8 + struct.unpack('>I', raw[i:i + 4])[0]]
+                        for i in 块位置(raw, b'IDAT'))
+        像素 = zlib.decompress(数据)
+        目标 = tuple(int(十六进制.lstrip('#')[i:i + 2], 16) for i in (0, 2, 4))
+        每行 = w * 4
+        上一行 = bytearray(每行)
+        off = 0
+        for _ in range(h):
+            f = 像素[off]; off += 1
+            行 = bytearray(像素[off:off + 每行]); off += 每行
+            for x in range(每行):                    # 逐行反滤波
+                a = 行[x - 4] if x >= 4 else 0
+                b = 上一行[x]
+                c = 上一行[x - 4] if x >= 4 else 0
+                if f == 1: 行[x] = (行[x] + a) & 255
+                elif f == 2: 行[x] = (行[x] + b) & 255
+                elif f == 3: 行[x] = (行[x] + (a + b) // 2) & 255
+                elif f == 4:
+                    pp = a + b - c
+                    pa, pb, pc = abs(pp - a), abs(pp - b), abs(pp - c)
+                    行[x] = (行[x] + (a if pa <= pb and pa <= pc else b if pb <= pc else c)) & 255
+            for x in range(0, 每行, 4):
+                if 行[x + 3] > 8 and (行[x], 行[x + 1], 行[x + 2]) == 目标:
+                    return True
+            上一行 = 行
+        return False
+    except Exception:
+        return None
+
+
+def 块位置(raw, 类型):
+    i = 8
+    while i + 8 <= len(raw):
+        n = struct.unpack('>I', raw[i:i + 4])[0]
+        if raw[i + 4:i + 8] == 类型:
+            yield i
+        i += 12 + n
+
+
 样式 = (根 / 'mini/miniprogram/app.wxss').read_text(encoding='utf-8')
 变量 = dict(re.findall(r'(--[\w-]+):\s*(#[0-9A-Fa-f]{6})\s*;', 样式))
 错 = []
@@ -59,6 +113,16 @@ for it in t['list']:
         if w % 16 or h % 16:
             错.append(f'{路} 是 {w}×{h} —— 像素画要整数倍放大，边长得能被 16 整除，'
                       f'否则每个源像素的宽窄不一')
+        # 【图里得真有那个色】。上一版只比对 app.json 里的两个字符串 ——
+        # 于是 2026-09-01 把选中色从 --amber-deep 改钉 --amber-text 之后，
+        # 字变成了 #A34700 而图标还是 #FF9A3C:同一格里两个橙，
+        # 而 `#A34700` 在六张图里【一个像素都没有】，图比字浅了近三倍
+        # （2026-09-02 第三轮评审 · 视觉逐张取色发现）。
+        # 判据:选中态的图里必须出现选中色，未选中态的图里必须出现未选中色。
+        想要 = (t.get('selectedColor') if k == 'selectedIconPath' else t.get('color')) or ''
+        if 想要 and 图里有色(raw, 想要) is False:
+            错.append(f'{路} 里没有 {想要} —— 那是同一格里那行字的颜色。'
+                      f'图跟字不是一个色，选中态就成了两个橙')
 
 for e in 错:
     print('  ✗ ' + e)
