@@ -99,9 +99,18 @@
        不是每次打开都要先读的东西 —— 头一眼该是有人在跟你打招呼。 -->
   <!-- 收集进度。常驻 —— 它是这个产品的核心反馈（还差多少人），
        不是「删掉这一屏仍然成立」的那种补充，所以不进弹性槽 -->
-  <view class="bar">
+  <!-- 【2026-09-01 这一条变成常驻的入口】。
+       顶上那张「四十间屋子，还都空着」的卡在【住进第一位的那一刻消失】
+       （它是开场白，说完退场）—— 而它是这一屏唯一一条通向「谁能来」的路。
+       于是买了第一枚的人（也就是最可能买第二枚的人）回到主屏，
+       屏上没有任何东西告诉他往哪走:真正的路是在那幅 292px 宽的像素地图上
+       盲点中一间【空】屋。复购是这个模型的全部（四十位 × ¥99），
+       而复购入口不存在（2026-09-01 五路评审 · 转化那一路）。
+       收集数本来就是「还差多少人」的反馈，它就是那条路。 -->
+  <view class="bar" bindtap="goInvite" hover-class="bar-hover" hover-stay-time="100">
     <view class="bar-track"><view class="bar-fill" style="width:{{lived * 100 / total}}%"></view></view>
     <text class="bar-n">{{lived}} / {{total}}</text>
+    <text class="bar-go" wx:if="{{lived > 0 && lived < total}}">再请一位 ›</text>
   </view>
 
   <view class="flexslot tally">
@@ -125,15 +134,26 @@
        槽的判据就是「删掉这一屏仍然成立」，而扫御守那颗按钮一直在上面。
        只在「该扫了」的时候出现：平时挂着一个输入框，是在问一个
        没人要答的问题。 -->
-  <view wx:if="{{toScan}}" class="manual flexslot">
-    <view class="manual-k">扫不出来？在这儿手输编号</view>
-    <view class="manual-row">
+  <!-- 【2026-09-01 从弹性槽里拿出来】。槽在 ≤699px 上整块隐藏，
+       而参照机 iPhone SE 正好在那以下 —— 也就是说【扫不出来的人在最需要
+       这条路的那台机器上看不见它】。槽的判据是「删掉这一屏仍然成立」，
+       而这一条不满足:扫码失败之后，屏上再没有第二条路。
+       它本来就只在「该扫了」的时候出现，不常驻，不占地方。 -->
+  <view wx:if="{{toScan}}" class="manual">
+    <!-- 一行入口，点开才展开。整块常驻会把村子挤出屏 55px（实测），
+         而它又不能回弹性槽 —— 槽在矮屏上整块隐藏，正好把这条出路
+         从最需要它的那台机器上拿掉。一行的代价换一条永远在的路。 -->
+    <view class="manual-k" bindtap="onManualToggle"
+          hover-class="manual-k-hover" hover-stay-time="100">
+      扫不出来？在这儿手输编号 <text class="manual-caret">{{手输开着 ? '⌃' : '⌄'}}</text>
+    </view>
+    <view class="manual-row" wx:if="{{手输开着}}">
       <input class="manual-input" placeholder="御守背面那串字"
              value="{{code}}" maxlength="40" bindinput="onCodeInput"/>
       <view class="manual-go" bindtap="onCodeSubmit" hover-class="manual-go-hover" hover-stay-time="100">
         {{codeBusy ? '找着…' : '请出来'}}
       </view>
     </view>
-    <view wx:if="{{codeErr}}" class="manual-err">{{codeErr}}</view>
+    <view wx:if="{{codeErr && 手输开着}}" class="manual-err">{{codeErr}}</view>
   </view>
 </view>

@@ -841,15 +841,27 @@ if (API) {
         return e.scrollHeight > e.clientHeight ? e.scrollHeight - e.clientHeight : 0
       })
       ok(滚了 === 0, '多了这一条，村子那一屏仍然放得下', 滚了 ? `超 ${滚了}px` : '不滚')
-      /* 而且是靠【槽收起】放下的，不是靠把画布缩小换来的 ——
-         两种都能让这一屏不滚，但它们是两件事：槽的判据是「删掉这一屏
-         仍然成立」，画布是这一屏的主体。分不清的话，哪天画布被悄悄缩掉
-         一半，上面那条照样绿。 */
-      const 槽收了 = await p.evaluate(() => {
-        const el = document.querySelector('.manual')
-        return !el || getComputedStyle(el).display === 'none'
+      /* 【2026-09-01 这一条反过来了】。
+         原先「手输编号」整块放在弹性槽里，靠矮屏收起来腾地方，而这一条
+         验的正是「它收起了」。可槽在 ≤699px 上整块隐藏，参照机 iPhone SE
+         正好在那以下 —— 也就是说【扫码失败之后唯一那条出路，在最需要它的
+         那台机器上不存在】。槽的判据是「删掉这一屏仍然成立」，它不满足。
+         现在它是一行入口、点开才展开:路一直在，代价是一行。
+         所以这里验的是【那一行在】而【输入框默认不占地方】。 */
+      const 手输 = await p.evaluate(() => {
+        const 块 = document.querySelector('.manual')
+        const 行 = document.querySelector('.manual-k')
+        const 框 = document.querySelector('.manual-input')
+        return {
+          在: !!块 && getComputedStyle(块).display !== 'none',
+          入口: 行 ? (行.innerText || '').slice(0, 12) : '',
+          默认展开: !!框,
+        }
       })
-      ok(槽收了, '矮屏上「手输编号」那一槽是收起的')
+      ok(手输.在 && /手输编号/.test(手输.入口),
+         '矮屏上「扫不出来？手输编号」那一行还在　—— 扫码失败之后唯一的出路，不能被收起来',
+         `在=${手输.在} 文=${手输.入口}`)
+      ok(!手输.默认展开, '而输入框默认不摊开　—— 一行的代价，不是整块')
       /* 画布【还在画上】。改画布尺寸的代码最容易的坏法就是把画面弄没了,
          而「一片空白」在截图之外没有任何东西会红 —— 上面那条「村子真的
          画上去了」跑在这一段【之前】，够不着这一刻。 */
@@ -879,7 +891,15 @@ if (API) {
       await p.waitForFunction(() => globalThis.__router.current().data.toScan === true,
                               null, { timeout: 15000 }).catch(() => {})
       const 槽 = await text()
-      ok(槽.includes('扫不出来？在这儿手输编号'), '长屏上有「手输编号」那一槽')
+      ok(槽.includes('扫不出来？在这儿手输编号'), '有「手输编号」那一行')
+
+      /* 【它现在是折叠的】。整块常驻会把村主屏在 iPhone SE 上挤出屏，
+         而放回弹性槽等于在最需要它的机器上把它藏起来 —— 所以是
+         一行入口、点开才展开。先点开。 */
+      await p.getByText('扫不出来？在这儿手输编号', { exact: false }).first().click()
+      await p.waitForTimeout(300)
+      ok(await p.locator('.manual-input').count() === 1,
+         '点那一行，输入框就展开了', String(await p.locator('.manual-input').count()))
 
       /* 先填一串对不上的：话要说清是哪一种情况，不是一句「失败」。 */
       await p.locator('.manual-input').fill('NOT-A-REAL-CODE')
@@ -3797,7 +3817,7 @@ if (!(CAL > 0)) {
      · 假服务端:整条真链挂在「有真后端」上，只跑得到前端那一侧
      · 真后端:匿名登录 → 扫御守入住 → 问签 → 进屋，全链
    改断言数的时候这两个数要跟着改 —— 它们是账，不是魔法数。 */
-const 基准 = { 假: 111, 真: 315 }
+const 基准 = { 假: 111, 真: 317 }
 const LEAST = Math.floor((API ? 基准.真 : 基准.假) * 0.9)
 
 /* 这一趟到底碰了多少交互。页面上用 bindtap 之类声明的处理器是分母，

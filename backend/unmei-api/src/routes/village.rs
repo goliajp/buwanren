@@ -68,8 +68,12 @@ async fn my_village(
     // 连没找回的一起返回。**空屋不消失是世界观,不是待办** ——
     // 前端要能把空屋画出来、点得到、让它说「这间空着,等人」。
     let rows = sqlx::query(
+        /* `b.note` 是【这个「缺」自己那一句】——「下过山才知道停不下来是什么滋味」
+           这样的，四十个各不相同。村民那一屏原先四十位共用一句
+           「缺过才懂，所以才这样劝你」，看第二个人就露出模板
+           （2026-09-01 五路评审）。这句话本来就写好了，只是没人接。 */
         "SELECT v.id, v.name, v.title, v.art_key, COALESCE(a.plain, a.name) AS art_name, v.lack, v.rarity, \
-                b.direction \
+                b.direction, b.note AS lack_note \
          FROM villager v \
          LEFT JOIN art a ON a.key = v.art_key \
          LEFT JOIN lack_bias b ON b.lack = v.lack \
@@ -142,6 +146,8 @@ async fn my_village(
                 "title": r.get::<Option<String>, _>("title"),
                 "art": r.get::<Option<String>, _>("art_name"),
                 "lack": r.get::<String, _>("lack"),
+                // 这个「缺」自己那一句。取不到就是 null，客户端退回通用那句
+                "lack_note": r.get::<Option<String>, _>("lack_note"),
                 // 头像配色用它 —— 见名册那一处的说明
                 "direction": r.get::<Option<String>, _>("direction"),
                 "rarity": r.get::<Option<String>, _>("rarity"),
