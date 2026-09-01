@@ -170,6 +170,7 @@ const 屏 = [
   ...(单子 ? [['order', 'pages/order/index', { id: 单子 }]] : []),
 ]
 
+const 量 = {}
 let n = 0
 for (const [名, 路, q] of 屏) {
   if (ONLY.length && !ONLY.includes(名)) continue
@@ -187,6 +188,27 @@ for (const [名, 路, q] of 屏) {
     }
   }
   const 文 = await p.evaluate(() => (document.querySelector('#app') || {}).innerText || '')
+  /* 【连量数一起留下】。评审读的是截图，而截图是 @2x 的 ——
+     照着图上量出来的「115px」其实是 57.5 个 CSS 像素，据此下的结论全错
+     （2026-08-31 真发生过:两条最狠的意见就是这么废掉的）。
+     所以量在浏览器里做:CSS 像素、真的 innerText、这一屏滚不滚。 */
+  量[名] = await p.evaluate((文) => {
+    const 取 = (sel) => [...document.querySelectorAll(sel)].map((e) => {
+      const r = e.getBoundingClientRect()
+      return { 类: e.className, 文: (e.innerText || '').slice(0, 24),
+               左: Math.round(r.left), 顶: Math.round(r.top),
+               宽: Math.round(r.width), 高: Math.round(r.height) }
+    })
+    const doc = document.documentElement
+    return {
+      文,
+      视口: { 宽: innerWidth, 高: innerHeight },
+      要不要滚: doc.scrollHeight > doc.clientHeight + 1,
+      内容高: doc.scrollHeight,
+      按钮: 取('button'),
+      主块: 取('.page > *, .hd, .acts, .cta, .empty-state'),
+    }
+  }, 文)
   const 坏 = /取不到|失败|出错|unauthorized/.test(文)
   console.log(`  ${坏 ? '⚠' : '·'} ${名.padEnd(9)} ${OUT}/${名}.png${坏 ? '　← 停在错误态' : ''}`)
   n++
@@ -194,6 +216,20 @@ for (const [名, 路, q] of 屏) {
 /* 一页索引 —— 截出来的图散在一个目录里，验收的时候得一张张开。
    排成一页就能横着翻，也看得出哪几屏挨在一起是什么感觉。
    写成本地文件，`open` 打开就是（这个项目不产出外链）。 */
+writeFileSync(join(OUT, 'measure.json'), JSON.stringify(量, null, 1))
+/* 【要滚的屏，每次都说出来】。measure.json 里一直记着这件事，
+   可没人会去读它。动线那一支的容差是 8px（给亚像素舍入留的），
+   而 2026-09-01 名册超了 6px —— 从那个容差底下溜过去，
+   是这一份实测数据翻出来的。数据在没人看等于没量。 */
+{
+  const 滚的 = Object.entries(量).filter(([, v]) => v.要不要滚)
+  if (滚的.length) {
+    console.log('\n  ⚠ 这几屏一屏放不下（超出多少）：')
+    for (const [名, v] of 滚的) console.log(`      ${名}　超 ${v.内容高 - v.视口.高}px`)
+  } else {
+    console.log('\n  · 28 屏都一屏放得下')
+  }
+}
 {
   const 图 = readdirSync(OUT).filter((f) => f.endsWith('.png')).sort()
   const 卡 = 图.map((f) => `<figure><img src="./${f}" loading="lazy"><figcaption>${f.replace(/\.png$/, '')}</figcaption></figure>`).join('\n')
