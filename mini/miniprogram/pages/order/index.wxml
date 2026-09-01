@@ -139,7 +139,11 @@
          报告是履约之后才建的（unmei-app/src/report.rs），付款之前
          这颗按钮按下去只会失望;而它原先【压在主按钮「去支付」的上面】,
          次要动作排在主动作前面。付过了才摆它。 -->
-    <view class="cta cta-read" wx:if="{{report && status !== 'unpaid'}}">
+    <!-- 还要 `!toScan`：包裹到了没扫开的时候，这一屏的主按钮是
+         「收到了，去扫一下」（扫码率是整条链上最敏感的数）。
+         两颗实心按钮并排，等于让人自己挑先做哪件。
+         那时这一册照样从「我的 › 我买过的」进得去，只是不占这一屏的主位。 -->
+    <view class="cta cta-read" wx:if="{{report && status !== 'unpaid' && !toScan}}">
       <button class="btn" bindtap="onRead">
         {{report.status === 'ready' ? '读你的说明书' : '这份说明书还差你的出生时间'}}
       </button>
