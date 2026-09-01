@@ -8,7 +8,7 @@
 
 判据:
   · 每一项都得有 iconPath 与 selectedIconPath，且文件真的在
-  · 选中色必须是色板里的主色，未选中色必须是次要文字色 —— 不许自创
+  · 选中色必须是色板里的【琥珀字色】，未选中色必须是次要文字色 —— 不许自创
   · 图标是像素画，边长得能被 16 整除（放大倍数是整数，才不会糊）
 """
 import json, re, struct, sys, pathlib
@@ -23,11 +23,19 @@ if not t or not t.get('list'):
 样式 = (根 / 'mini/miniprogram/app.wxss').read_text(encoding='utf-8')
 变量 = dict(re.findall(r'(--[\w-]+):\s*(#[0-9A-Fa-f]{6})\s*;', 样式))
 错 = []
-主色 = (变量.get('--amber-deep') or '').lower()
+# 【底栏那两个色是【字】色，不是结构色】（2026-09-02）。
+# 这一支原先钉的是 `--amber-deep`（#E8791A）—— 那是结构色:底、描边、
+# 投影、渐变站。它压在纸底上只有 2.86:1，而底栏选中态那行字
+# 正是告诉你「你在哪儿」的那一句，它由微信按 app.json 画，
+# 任何样式表门禁都够不着（是镜像里那支浏览器实测的对比度抓到的）。
+# 色板早已把两个身份拆开（app.wxss 里 --amber-text / --on-amber 那一段），
+# 这一支跟着改钉 `--amber-text`(#A34700，压纸 5.93:1)。
+# 「不许自创」那条不变 —— 变的只是钉哪一个变量。
+主色 = (变量.get('--amber-text') or '').lower()
 次色 = (变量.get('--ink-faint') or '').lower()
 
 if (t.get('selectedColor') or '').lower() != 主色:
-    错.append(f'选中色是 {t.get("selectedColor")}，而主色是 {变量.get("--amber-deep")} —— '
+    错.append(f'选中色是 {t.get("selectedColor")}，而琥珀字色是 {变量.get("--amber-text")} —— '
               f'导航里不该出现色板外的颜色')
 if (t.get('color') or '').lower() != 次色:
     错.append(f'未选中色是 {t.get("color")}，而次要文字色是 {变量.get("--ink-faint")}')

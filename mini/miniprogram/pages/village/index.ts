@@ -317,7 +317,12 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
           if (this.handle) { this.handle.stop(); this.handle = null }
           this.handle = mountVillage(node, TILES, (s) => this.setData({ sub: s }))
         } catch (e) {
-          this.setData({ err: String((e as Error).message || e) })
+          /* 【原文进控制台，屏上说人话】。引擎挂不上时它报的是
+             「房间没拆出宿主那一段」「声明了按钮而这一页没给」——
+             那两句是写给改代码的人看的，玩家读到只会更困惑，
+             而且它是构建出了问题，不是他做错了什么。 */
+          console.error('引擎挂不上：', e)
+          this.setData({ err: '村子一时打不开 —— 退回去再进来试试' })
         }
       })
   },

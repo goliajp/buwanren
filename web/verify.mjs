@@ -2647,7 +2647,7 @@ console.log('\n── 一屏放得下吗（iPhone SE · 内容区 597）──')
            ? 坏.map((e) => `${e.比}:1 「${e.文}」 .${e.类} 压在 ${e.底}`).join('\n         ')
            : (m.色.说不准 ? `另有 ${m.色.说不准} 处底够不着（背景图/canvas），没量` : '一处都不欠'))
       if (m.色.说不准 > 0) {
-        console.log(`    · ${名} 有 ${m.色.说不准} 处底够不着没量:`
+        console.log(`    · ${名} 有 ${m.色.说不准} 处底够不着没量：`
           + m.色.说不准样本.map((x) => `「${x.文}」(${x.因})`).join(' '))
       }
     }
@@ -2998,6 +2998,18 @@ if (!API) {
       ).catch(() => {})
       const 说了啥 = await p.evaluate(() => globalThis.__router.current().data.err || '')
       ok(!!说了啥, '确认那一屏取不到商品时说得出话　—— 不是空着一屏', String(说了啥).slice(0, 40))
+      /* 【技术原文不许上屏】（2026-09-02）。
+         `utils/say.ts` 原先的判据是「有汉字就是写给人看的，原样显示」——
+         而用户自己输的字被回显进错误串时它当场失效:
+         上面这一屏开的是 `p_不存在的商品`，后端回的是
+         `{"error":"not found: product","code":"not_found"}`;
+         把 id 换成中文的（真实用户输的名字、地址、问的那句话全是中文），
+         回的就是 `not found: sku 没这个` —— 整句推到屏上。
+         判据换成后端明确给的 `code`。这条断言钉住结果:
+         屏上那一句里不许出现英文技术词。 */
+      ok(!/not found|unauthorized|forbidden|validation|conflict|internal|[a-z_]{4,}:/i
+           .test(String(说了啥)),
+         '出错那一句是人话，不是后端原文', String(说了啥))
       await p.getByText('回去', { exact: true }).click()
       await p.waitForTimeout(600)
       ok(await p.evaluate(() => globalThis.__router.current().__route) !== 'pages/confirm/index',

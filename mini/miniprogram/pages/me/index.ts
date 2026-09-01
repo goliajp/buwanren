@@ -10,6 +10,8 @@ import { storage } from '../../services/storage'
 import { mineApi } from '../../services/mine'
 import { natalApi } from '../../services/natal'
 import { commerceApi } from '../../services/commerce'
+import type { ApiError } from '../../services/api'
+import { 一句 } from '../../utils/say'
 import { 状态说法, 该做什么 } from '../../utils/money'
 import type { OrderCard, TraceEvent } from '../../types/commerce'
 
@@ -167,7 +169,8 @@ Page<IData, WechatMiniprogram.IAnyObject>({
       },
       (e: { message?: string }) => this.setData({
         recent: null, recentEmpty: false, orderText: '看不到',
-        recentNote: e && e.message ? e.message : '取不到单子',
+        // 一律走 `一句` —— 直接摆 e.message 就是把技术原文推到屏上
+        recentNote: 一句(e as ApiError),
       }),
     )
   },

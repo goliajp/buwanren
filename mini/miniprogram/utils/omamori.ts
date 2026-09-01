@@ -12,6 +12,7 @@
 import { villageApi } from '../services/village'
 import { 重 } from './feel'
 import type { ApiError } from '../services/api'
+import { 一句 } from './say'
 
 export type 唤醒结果 = { ok: true } | { ok: false; msg: string }
 
@@ -43,7 +44,7 @@ export function 唤醒(carrier: 'qr' | 'nfc', credential: string): Promise<唤�
         ok: false,
         msg: err.status === 404
           ? '这串字对不上任何一枚护身符 —— 再看一眼背面，别漏字母'
-          : (err.message || '一时问不到，待会儿再试'),
+          : 一句(err),   // 不摆技术原文 —— 判据见 utils/say.ts 顶上那段
       } as 唤醒结果
     },
   )
