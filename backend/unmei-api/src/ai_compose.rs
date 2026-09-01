@@ -172,11 +172,12 @@ fn shuffle_take<'a>(v: &'a [&'a str], n: usize, rng: &mut StdRng) -> Vec<&'a str
 ///
 /// **不按用神选**：商品上根本没有五行字段（`tags` 是 八字 / 本命 / 问事 /
 /// 实物 / 配饰 …，`category` 是 report / omamori / service / charm），
-/// 硬凑一个五行对应出来是假的。按**这个人走到哪儿了**选：
+/// 硬凑一个五行对应出来是假的。按**这个人走到哪儿了**选，
+/// 而且【按顺序试，第一个真选得出来的就是它】：
 ///
 /// 1. 还没有本命 → 本命那一类报告（下一步本来就是建本命）
-/// 2. 有本命、村里一个人都没有 → 一枚御守（买了才有人入住）
-/// 3. 其余 → 问事那一类报告
+/// 2. 有本命 → 还没请回来的那几位里挑一位（复购就是这一条:四十位 × ¥99）
+/// 3. 都请齐了、或者没有在售的 → 一件配饰（香 / 玉）
 ///
 /// 三条都受 `available_regions` / `available_platforms` 约束，价格取
 /// `price_book` 里 active 的那条。**一条都选不出来就回 None** —— 宁可这一卦
@@ -194,50 +195,92 @@ pub async fn pick_recommend(
         "SELECT active_natal_id IS NOT NULL FROM app_user WHERE id=$1",
     ).bind(user_id).fetch_optional(pool).await?.unwrap_or(false);
 
-    let village_empty: bool = if has_natal {
-        let n: i64 = sqlx::query_scalar(
-            "SELECT count(*) FROM villager_residency WHERE user_id=$1",
-        ).bind(user_id).fetch_one(pool).await?;
-        n == 0
+    /* 【按【这个人走到哪儿了】选，而且要选得出来】。
+       上一版是三选一:
+
+         1. 还没有本命            → 本命那一类报告
+         2. 有本命、村里一个人都没 → 一枚护身符
+         3. 其余                  → 问事那一类报告
+
+       第三支【永远选不出东西】:唯一一件「问事」商品（prod-naji-single）
+       是 draft，而它 draft 是对的 —— `report::出得了的册子` 里只有
+       `bazi_deep`，那一种册子这个仓还出不来，上架它等于卖一件交付不了的东西。
+       于是「有本命 + 村里有人」的人 —— 也就是【已经付过一次钱、最可能再付
+       第二次】的那一批 —— 每一卦的 `recommend` 都是 null
+       （2026-09-01 第二轮评审 · 转化路）。
+
+       而这一版的复购模型就是四十位 × ¥99:请回第一位之后，下一步本来就是
+       请第二位。上一版恰好反过来 —— 只在村里【空】的时候推护身符。
+
+       改成【按顺序试，第一个选得出来的就是它】:
+
+         没有本命 → 本命报告（下一步本来就是建本命）
+         有本命   → 还没请回来的那几位里挑一位
+                  → 都请齐了（或者没有在售的）就挑一件配饰（香 / 玉）
+                  → 再选不出来就 None
+
+       「一条都选不出来就回 None」那条不变:宁可这一卦没有下一步，
+       也不硬塞一件买不到的东西。 */
+    let 候选: Vec<(&str, Option<&str>, bool)> = if has_natal {
+        // 第三个字段:要不要把【已经住进来的那几位】排掉
+        vec![("omamori", None, true), ("charm", None, false)]
     } else {
-        false
+        vec![("report", Some("本命"), false)]
     };
 
-    // (category, 必须带的 tag)
-    let (category, tag): (&str, Option<&str>) = match (has_natal, village_empty) {
-        (false, _) => ("report", Some("本命")),
-        (true, true) => ("omamori", None),
-        (true, false) => ("report", Some("问事")),
-    };
+    let mut rows = Vec::new();
+    for (category, tag, 排掉已有) in 候选 {
+        rows = sqlx::query(
+            r#"SELECT p.id, p.name, p.sub_title, p.hero_image_url,
+                      px.price_minor, px.currency
+               FROM product p
+               JOIN sku s ON s.product_id = p.id AND s.status = 'active'
+               JOIN LATERAL (
+                 SELECT price_minor, currency FROM price_book
+                 WHERE sku_id = s.id AND status = 'active'
+                   AND region IN ($3, 'global')
+                   AND platform IN ($4, 'all')
+                   AND effective_from <= NOW()
+                   AND (effective_to IS NULL OR effective_to > NOW())
+                 ORDER BY effective_from DESC LIMIT 1
+               ) px ON TRUE
+               WHERE p.status = 'listed'
+                 AND p.category = $1
+                 AND ($2::text IS NULL OR $2 = ANY(p.tags))
+                 AND $3 = ANY(p.available_regions)
+                 AND $4 = ANY(p.available_platforms)
+                 /* 已经住进来的那一位不再推 —— 推一个「他已经在你村里了」
+                    比不推更糟。只对护身符成立:香也挂着苏合，
+                    而苏合住没住进来跟买不买香没关系。
 
-    let rows = sqlx::query(
-        r#"SELECT p.id, p.name, p.sub_title, p.hero_image_url,
-                  px.price_minor, px.currency
-           FROM product p
-           JOIN sku s ON s.product_id = p.id AND s.status = 'active'
-           JOIN LATERAL (
-             SELECT price_minor, currency FROM price_book
-             WHERE sku_id = s.id AND status = 'active'
-               AND region IN ($3, 'global')
-               AND platform IN ($4, 'all')
-               AND effective_from <= NOW()
-               AND (effective_to IS NULL OR effective_to > NOW())
-             ORDER BY effective_from DESC LIMIT 1
-           ) px ON TRUE
-           WHERE p.status = 'listed'
-             AND p.category = $1
-             AND ($2::text IS NULL OR $2 = ANY(p.tags))
-             AND $3 = ANY(p.available_regions)
-             AND $4 = ANY(p.available_platforms)
-           ORDER BY p.sort_weight DESC, p.id
-           LIMIT 50"#,
-    )
-    .bind(category)
-    .bind(tag)
-    .bind(region)
-    .bind(platform)
-    .fetch_all(pool)
-    .await?;
+                    同一个开关还管一件事:护身符【必须绑着人】。
+                    没绑人的那种履约时会卡在 pending（fulfillment.rs 的
+                    residency 分支明写着「SKU 没有 villager_id，行留在 pending」），
+                    也就是【买了也交付不了】。开发库里 888 件压测护身符
+                    有 884 件是这样，于是「村里请齐了」的人照样被推一件
+                    永远不会有人搬进来的东西（2026-09-02 实测撞到）。
+                    这跟本函数开头那条「宁可没有下一步，也不硬塞一件买不到的」
+                    是同一条。 */
+                 AND ($5 = FALSE OR (
+                       s.villager_id IS NOT NULL
+                       AND NOT EXISTS (
+                         SELECT 1 FROM villager_residency r
+                          WHERE r.user_id = $6 AND r.villager_id = s.villager_id)))
+               ORDER BY p.sort_weight DESC, p.id
+               LIMIT 50"#,
+        )
+        .bind(category)
+        .bind(tag)
+        .bind(region)
+        .bind(platform)
+        .bind(排掉已有)
+        .bind(user_id)
+        .fetch_all(pool)
+        .await?;
+        if !rows.is_empty() {
+            break;
+        }
+    }
 
     if rows.is_empty() {
         return Ok(None);
