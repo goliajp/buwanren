@@ -223,9 +223,32 @@ async fn call_qimen(
 }
 
 async fn check_badges(st: &AppState, user_id: &str) -> Result<(), ApiError> {
-    // 仅检查 count 类徽章(streak 类需更精细日历比对,留 worker)
+    /* 【2026-09-01 streak 也在这儿发了】。这里原先只发 `count` 类，
+       注释写着「streak 类需更精细日历比对,留 worker」—— 而那个 worker
+       从来没做出来。后果是六枚徽章里「七天没断」「一个月」两枚
+       【永远拿不到】，而屏上还给了 CTA 催人去做。
+       库里的账:b_first 发出去 1314 次，其余五枚全是 0
+       （2026-09-01 五路评审，两路各自独立抓到）。
+
+       连续天数不需要 worker:问签记录上有日期，一句 SQL 就数得出来。
+       按上海时区算「哪一天」—— 跟村子首页那句「今天说」同一个口径，
+       不然晚上八点之后两处对不上。 */
     let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM naji_record WHERE user_id=$1")
         .bind(user_id).fetch_one(&st.db).await?;
+    // 到今天为止连着问了多少天。`gap` 那一列是「日期减掉序号」——
+    // 连续的日子减出来是同一个值，一组就是一段连击。
+    let streak: i64 = sqlx::query_scalar(
+        r#"WITH d AS (
+             SELECT DISTINCT ((asked_at AT TIME ZONE 'Asia/Shanghai')::date) AS day
+               FROM naji_record WHERE user_id = $1
+           ), g AS (
+             SELECT day, day - (ROW_NUMBER() OVER (ORDER BY day))::int AS gap FROM d
+           )
+           SELECT COALESCE(MAX(n), 0) FROM (
+             SELECT COUNT(*) AS n, MAX(day) AS last_day FROM g GROUP BY gap
+           ) s
+           WHERE s.last_day >= ((NOW() AT TIME ZONE 'Asia/Shanghai')::date - 1)"#,
+    ).bind(user_id).fetch_one(&st.db).await.unwrap_or(0);
     let badges = sqlx::query("SELECT id, code, rule_dsl FROM badge WHERE status='active'")
         .fetch_all(&st.db).await?;
     for b in badges {
@@ -233,7 +256,13 @@ async fn check_badges(st: &AppState, user_id: &str) -> Result<(), ApiError> {
         let typ = rule.get("type").and_then(|x| x.as_str()).unwrap_or("");
         let action = rule.get("action").and_then(|x| x.as_str()).unwrap_or("");
         let threshold = rule.get("threshold").and_then(|x| x.as_i64()).unwrap_or(0);
-        if typ == "count" && action == "naji.spin" && count >= threshold {
+        let days = rule.get("days").and_then(|x| x.as_i64()).unwrap_or(0);
+        let 够了 = match (typ, action) {
+            ("count", "naji.spin") => count >= threshold,
+            ("streak", "naji.spin") => days > 0 && streak >= days,
+            _ => false,                      // 别的规则由别处发（买东西那一类在 fulfillment）
+        };
+        if 够了 {
             // 已持有则跳过
             let badge_id: String = b.get("id");
             let exists: Option<String> = sqlx::query_scalar(

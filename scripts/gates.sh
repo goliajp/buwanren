@@ -191,6 +191,9 @@ gate "地址落到发货读的那一列" . python3 scripts/check-address-lands.p
 # 屋里的台词是第三套源（rooms/src/rooms/*.js），另外两支文言门禁够不着它 ——
 # 而它恰恰是看得最久的:点进屋子，村民头顶一句一句地冒。
 gate "屋里的台词说人话" . python3 scripts/check-room-words.py
+# 在架的每一枚徽章，代码里都得真有地方发它。六枚里四枚发不出来活了很久，
+# 而屏上还给每一枚配了 CTA —— 其中一枚直接把人推去掏钱。
+gate "在架徽章发得出来" . python3 scripts/check-badges-earnable.py
 if [ "$QUICK" = 1 ]; then
   # `--quick` 跳过变异测试，而变异测试是【钉在具体文件的具体字符串上】的。
   # 你改的要是它盯着的文件，这一跳就正好跳过了唯一会发现「断言漂了」的那支。
