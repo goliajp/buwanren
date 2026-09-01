@@ -1246,7 +1246,16 @@ if (API) {
      '买得多，每支更便宜　—— 价格阶梯不是反的',
      单价.map((x) => `${x.t} = 每支 ¥${x.每支.toFixed(2)}`).join(' · '))
   const 香屏 = await text()
-  ok(香屏.includes('乳香 · 安息 · 桂'), '配方写着')
+  /* 【2026-09-01 方子只在算过之后才给】。同一屏上半苏合刚说完
+     「你缺什么，我还不知道 —— 先把出生时间填了，我才配得准」，
+     往下一行却写着一个写死的方子:填不填都是它。两行自相矛盾，
+     而底下还挂着一档 ¥268 的「按你缺的那味单配」。
+     所以现在验的是【这两件事对得上】:她说得出话时才有方子。
+     另外「安息」写全成「安息香」—— 单独两个字第一眼像丧仪用语。 */
+  const 说了话 = await p.evaluate(() => !!globalThis.__router.current().data.line)
+  ok(说了话 ? 香屏.includes('乳香 · 安息香 · 桂') : !香屏.includes('乳香'),
+     '方子跟「我还不知道你缺什么」对得上　—— 说得出话才给方子',
+     `说了话=${说了话}`)
   /* 她那一句要按【你缺什么】来。这一趟没建本命，所以她该说不知道，
      **而不是编一句** —— 说错了比不说更伤。 */
   ok(!香.那句, '没建本命时她不编一句', String(香.那句 || '(空)'))
@@ -1501,9 +1510,10 @@ if (API) {
       if (!册.展开) {
         ok(await p.evaluate(() => document.querySelectorAll('.soon-item').length) === 0,
            '收着的时候没来的那些一行都不占 —— 改结构买的就是这个')
-        ok((await text()).includes(`另外 ${册.共 - 册.在卖} 位还在路上`),
+        // 「还在路上」听着像「快上架了」，而它们一直都在、只是还没请
+        ok((await text()).includes(`另外 ${册.共 - 册.在卖} 位，还没请`),
            '没来的那些收成一行，数目照实报', `${册.共 - 册.在卖} 位`)
-        await p.getByText('还在路上', { exact: false }).first().click()
+        await p.getByText('还没请', { exact: false }).first().click()
         await p.waitForTimeout(500)
       }
       const 摊开后 = await p.evaluate(() => ({

@@ -22,9 +22,16 @@
     </view>
   </view>
 
-  <view class="recipe">
+  <!-- 【没填出生时间就不给方子】。
+       这一屏上半苏合刚说完「你缺什么，我还不知道 —— 先把出生时间填了，
+       我才配得准」，往下一行却写着一个写死的方子「乳香 · 安息 · 桂」——
+       填不填都是它，填完了也不变。同一屏上下两行自相矛盾，
+       而下面还挂着一档 ¥268 的「按你缺的那味单配」（2026-09-01 五路评审）。
+       填过之后 `line` 有值 —— 那时她说得出话，方子才算数。
+       顺带:「安息」两个字单独摆着第一眼像丧仪用语，写全「安息香」。 -->
+  <view class="recipe" wx:if="{{line}}">
     <text class="recipe-k">这一味</text>
-    <text class="recipe-v">乳香 · 安息 · 桂</text>
+    <text class="recipe-v">乳香 · 安息香 · 桂</text>
   </view>
 
   <view class="sk-rows" wx:if="{{loading}}">
