@@ -2,8 +2,14 @@
   <!-- 标题是这一册算的是谁，不是「八字深度报告」——
        买家知道自己买了什么，他想确认的是「这算的是我吗」 -->
   <view class="hd">
-    <view class="title">{{whose || '你的说明书'}}</view>
-    <view class="sub" wx:if="{{birthLine}}">{{birthLine}}</view>
+    <!-- 【2026-09-01】标题是这一册自己的名字，不是那份档案叫什么。
+         原先大字写的是 `whose` —— 用户给出生时间起的名，默认就是「我」。
+         于是一份 ¥199 的东西，页顶写着一个「我」字，而「我」还是底部
+         那个 tab 的名字（五路评审 · 第一次打开的人）。
+         档案名退到副标里跟生辰并排 —— 它回答的是「这是谁的那一份」，
+         那正是副标该干的事。 -->
+    <view class="title">你的说明书</view>
+    <view class="sub" wx:if="{{birthLine}}">{{whose ? whose + ' · ' : ''}}{{birthLine}}</view>
     <view class="hr"></view>
   </view>
 

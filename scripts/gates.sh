@@ -219,6 +219,9 @@ gate "文字读得出来" . python3 scripts/check-contrast.py
 # 底栏三项都要有像素图标、选中色是主色 —— 三个纯文字标签加黑色选中，
 # 是「这是个通用小程序」那个印象最直接的来源。
 gate "底栏有图标" . python3 scripts/check-tabbar.py
+# 在卖御守的那几位必须答得上话 —— 那一屏写着「有事可以问 X」，
+# 而问签走口气模板，没模板的直接报错，可买家已经付过钱了。
+gate "在卖的都答得上话" . python3 scripts/check-can-answer.py
 if [ "$QUICK" = 1 ]; then
   # `--quick` 跳过变异测试，而变异测试是【钉在具体文件的具体字符串上】的。
   # 你改的要是它盯着的文件，这一跳就正好跳过了唯一会发现「断言漂了」的那支。
