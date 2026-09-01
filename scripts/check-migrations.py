@@ -86,7 +86,15 @@ for n in gone:
 print()
 print(f'迁移 {len(files)} 个 · 改动 {len(changed)} 个 · 消失 {len(gone)} 个 · 新增 {len(added)} 个')
 if added:
-    print('  新增的（跑 --record 收进基准）：' + ' '.join(added))
-if changed or gone:
+    print('  没收进基准的（跑一次 `python3 scripts/check-migrations.py --record`）：')
+    for n in added:
+        print('    ' + n)
+# 【新增的也要红】。原先 `added` 只打印、不参与判定 ——
+# 于是 41 个迁移里 26 个从来没有校验和，包括这一版天天在改的那批文案迁移。
+# 改动它们中任何一个，这支门禁全绿，而任何跑过旧版的环境启动时会报
+# 「previously applied but has been modified」。
+# 这跟本文件开头写的立意正好相反:没收进基准 = 没有保护，
+# 而「没有保护」不该长得跟「通过」一样（2026-09-01 五路评审抓到）。
+if changed or gone or added:
     sys.exit(1)
-print('✓ 已有的迁移一个都没被改过')
+print(f'✓ {len(files)} 个迁移都有校验和，一个都没被改过')

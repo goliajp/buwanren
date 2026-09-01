@@ -181,6 +181,13 @@ gate "掏钱那一屏看得见价" . python3 scripts/check-price-on-cta.py
 # 「它停在哪儿」就没法用眼睛检验了 —— 四个正方向的角度查不到、
 # 每次都兜底停在正上方，活了很久没人发现。
 gate "盘停得对吗" . python3 scripts/check-dial-angles.py
+# 开机种子里有几段是 ON CONFLICT DO UPDATE —— 那几张表的源头是种子，
+# 不是迁移。在迁移里改它们，下一次重启就被写回去，而且不报错。
+# 这一支直接问库:现在重启一次，会不会有东西被改回去。
+gate "重启不会把库写回去" . python3 scripts/check-seed-overwrites.py
+# 收货地址要发在发货那一步真读的那一列上 —— 发错列的话面单是空的，
+# 而买家刚被强制选过一次地址，全程一处不报错。
+gate "地址落到发货读的那一列" . python3 scripts/check-address-lands.py
 if [ "$QUICK" = 1 ]; then
   # `--quick` 跳过变异测试，而变异测试是【钉在具体文件的具体字符串上】的。
   # 你改的要是它盯着的文件，这一跳就正好跳过了唯一会发现「断言漂了」的那支。
