@@ -229,6 +229,22 @@
         continue
       }
       if (k in NATIVE_ONLY) { v.attrs['data-native-only'] = k; continue }
+      /* 【`open-type` 也只有真机才有】。它是 button 上的开放能力:
+         `contact` 开微信客服会话、`share` 转发、`getPhoneNumber` 取手机号 ——
+         浏览器里一个都没有对应物。
+         上一版这里没认它:属性原样落到 DOM 上，浏览器不认识就当没有，
+         于是屏上是一颗【长得完全正常、点了什么都不发生】的按钮，
+         而那正是三条铁律里最忌讳的一种 ——「验过了」变成空话
+         （2026-09-01 加「联系我们」时发现的）。
+         按 `bind*` 那一批同样办法:渲得出来，点了明说。 */
+      if (k === 'open-type') {
+        /* 不往 `NATIVE_ONLY` 里塞 —— 那张表是给 `bind*` 用的，按【属性名】
+           索引;塞进去之后上面那条分支会抢先命中，记下来的就只剩
+           「open-type」，而具体是 contact 还是 getPhoneNumber 没了。
+           出事时要知道的恰恰是哪一种能力。 */
+        v.attrs['data-native-only'] = 'open-type=' + interp(a[k], scope)
+        continue
+      }
       const val = interp(a[k], scope)
       /* 【布尔属性按 WXML 的真假算，不按 HTML 的「在不在」算】。
          WXML 里 `disabled="{{x}}"` 看的是 x 的真假;而 HTML 里
@@ -367,10 +383,20 @@
         if (v.attrs['data-native-only']) {
           const k = v.attrs['data-native-only']
           const fn = () => {
-            throw new Error(
+            const e = new Error(
               k + ' 只有真机才有(微信原生能力),移动网页版走不到这一步。' +
               '这不是镜像坏了 —— 是这条动线的这一段本来就得上真机验'
             )
+            /* 【打上跟 `wx.*` 那批同一个记号】。原先这里抛的是一个白板 Error，
+               于是它走的是「镜像坏了」那条路:整屏红。
+               而模板上的原生能力（`bindchooseavatar`、`open-type="contact"`）
+               跟 `wx.login` 是同一类东西 —— 在网页上被点到是【预期之内】的，
+               该落在底部那条提示上，并记进 `__DEVICE_ONLY` 供门禁核对。
+               不打记号还有一个更坏的后果:验证脚本没法区分
+               「如实抛了」和「什么都没发生」（2026-09-02 加客服入口时发现）。 */
+            e.deviceOnly = true
+            e.wxApi = k
+            throw e
           }
           el.addEventListener('click', fn)
           el.__off.push(() => el.removeEventListener('click', fn))

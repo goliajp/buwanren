@@ -1,9 +1,18 @@
+/* 【底部留白收一半】。全局 `.page` 给的是 96rpx（48px）—— 那是给
+   有 tab 栏、或者底下压着一颗大按钮的屏留的。这一屏最后一样东西是
+   一行 12px 的小字（版本号 + 免责），48px 的空白摆在它下面是白扔的，
+   而这一屏正好差 12px 才放得下。 */
+.page { padding-bottom: 48rpx; }
 .hd { padding: 24rpx 0 28rpx; }
 .hd .title { font-size: 50rpx; line-height: 1; }
 .hd .sub { font-size: 26rpx; color: var(--ink-faint); margin-top: 10rpx; }
 
+/* 【小节标题之间收紧一档】。这一屏现在有两组（账号 / 有事找我们），
+   两个 40rpx 的上留白加起来就是 40px —— 而它超出一屏 22px。
+   一屏放不下的时候，先收留白，再考虑少放东西:
+   32rpx 仍然分得开两组，而两组之间本来就有一颗按钮隔着。 */
 .sec-k {
-  padding: 40rpx 4rpx 14rpx;
+  padding: 32rpx 4rpx 12rpx;
   font-size: 22rpx;
   color: var(--stone-label);
   letter-spacing: 0.02em;

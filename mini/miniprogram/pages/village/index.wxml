@@ -115,6 +115,13 @@
        收集数本来就是「还差多少人」的反馈，它就是那条路。 -->
   <view class="bar" bindtap="goInvite" hover-class="bar-hover" hover-stay-time="100">
     <view class="bar-track"><view class="bar-fill" style="width:{{lived * 100 / total}}%"></view></view>
+    <!-- 【这个数要说清它数的是什么】。地图上同时走着【路人】——
+         引擎里写着「路人一直在场，村子的生气归他们」，四十位里的
+         请回家之后才现身。设计是对的，但屏上只写「3 / 40」，
+         而地图上有八九个人在走:读的人第一反应是这个数错了，
+         或者「那另外几个是谁」（2026-09-01 第二轮评审 · 视觉）。
+         加两个字就没有这个歧义:数的是【住下的】那几位。 -->
+    <text class="bar-k">住下</text>
     <text class="bar-n">{{lived}} / {{total}}</text>
     <text class="bar-go" wx:if="{{lived > 0 && lived < total}}">再请一位 ›</text>
   </view>
