@@ -61,18 +61,26 @@
          底下半屏空着。摊开三条 —— 买之前该知道的就这三件。 -->
     <view class="gets" wx:if="{{fulfillment === 'residency' && villager}}">
       <view class="gets-k">你会收到</view>
+    <!-- 【三步说的是今天真会发生的事】（2026-09-01 第二轮评审 · 转化路）。
+         上一版写的是「请一位 › 收到护身符 › 扫开它」——
+         而后端在【付款那一刻】就让他搬进村里了（fulfillment.rs 的
+         residency 分支直接 move_in，既不建包裹也不发凭据）。
+         那三步一步都不会发生:没有东西寄出，没有东西可扫，
+         订单进度条永远停在「寄出」。
+         按今天真做的事说:付完他就搬进来。
+         扫护身符那条路仍然在（村子右上角），那是线下拿到实体御守的人走的。 -->
       <view class="gets-row">
         <view class="gets-n">1</view>
         <view class="gets-b">
-          <view class="gets-t">一枚御守</view>
-          <view class="gets-s">实物，寄到你手上</view>
+          <view class="gets-t">{{villager.name}}搬进你的村子</view>
+          <view class="gets-s">四十间屋子里的那一间，从此有人</view>
         </view>
       </view>
       <view class="gets-row">
         <view class="gets-n">2</view>
         <view class="gets-b">
-          <view class="gets-t">扫开它，{{villager.name}}住进你的村子</view>
-          <view class="gets-s">四十间屋子里的那一间，从此有人</view>
+          <view class="gets-t">付完就能去{{villager.name}}屋里</view>
+          <view class="gets-s">不用等，也不用等谁寄</view>
         </view>
       </view>
       <view class="gets-row">
@@ -83,8 +91,15 @@
         </view>
       </view>
     </view>
+    <!-- 【说今天真会发生的事】。这句原先写「寄一枚御守到你手上 · 扫开它，
+         人就住进你的村子」—— 而后端在【付款那一刻】就让他住进来了
+         （fulfillment.rs 的 residency 分支直接 move_in），没有包裹、
+         没有单号、没有要扫的东西。一整条转化路上每一屏都在许一个
+         不会发生的诺（2026-09-01 第二轮评审 · 转化路）。
+         扫护身符那条路仍然在，那是【线下拿到实体御守的人】走的，
+         入口在村子右上角，跟买这件事无关。 -->
     <view class="ship" wx:elif="{{fulfillment === 'residency'}}">
-      寄一枚御守到你手上 · 扫开它，人就住进你的村子
+      付完就搬进你的村子 · 有屋子、有名字、每天说一句
     </view>
     <view class="ship" wx:elif="{{fulfillment === 'shipping'}}">实物，会寄给你</view>
     <view class="ship" wx:elif="{{fulfillment === 'async_compute'}}">下单后算，算完在这里看</view>

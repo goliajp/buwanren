@@ -42,7 +42,7 @@ export function 唤醒(carrier: 'qr' | 'nfc', credential: string): Promise<唤�
       return {
         ok: false,
         msg: err.status === 404
-          ? '这串字对不上任何一枚御守 —— 再看一眼背面，别漏字母'
+          ? '这串字对不上任何一枚护身符 —— 再看一眼背面，别漏字母'
           : (err.message || '一时问不到，待会儿再试'),
       } as 唤醒结果
     },

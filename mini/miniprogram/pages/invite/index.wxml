@@ -112,10 +112,17 @@
       </view>
     </view>
 
-    <!-- 「请回家」按下去会发生什么。原先这里只有一行 22rpx 的灰字
-         —— 而这是第一次来的人最需要知道的一件事:这东西是实物,
-         寄到手上,扫一下人才住进村里。三步摆开,不必读那一长句。
-         摊开名单的时候它让位:那时人在看名单,不是在看怎么买。 -->
+    <!-- 「请回家」按下去会发生什么。原先这里只有一行 22rpx 的灰字，
+         而这是第一次来的人最需要知道的一件事。三步摆开，不必读那一长句。
+         摊开名单的时候它让位:那时人在看名单，不是在看怎么买。 -->
+    <!-- 【三步说的是今天真会发生的事】（2026-09-01 第二轮评审 · 转化路）。
+         上一版写的是「请一位 › 收到护身符 › 扫开它」——
+         而后端在【付款那一刻】就让他搬进村里了（fulfillment.rs 的
+         residency 分支直接 move_in，既不建包裹也不发凭据）。
+         那三步一步都不会发生:没有东西寄出，没有东西可扫，
+         订单进度条永远停在「寄出」。
+         按今天真做的事说:付完他就搬进来。
+         扫护身符那条路仍然在（村子右上角），那是线下拿到实体御守的人走的。 -->
     <view class="how" wx:if="{{能请.length > 0 && !展开}}">
       <view class="how-step">
         <view class="how-n">1</view>
@@ -125,19 +132,14 @@
       <view class="how-arrow">›</view>
       <view class="how-step">
         <view class="how-n">2</view>
-        <!-- 【就地说清它是什么】。「御守」在全 app 出现九处以上，
-             没有一处解释过 —— 而村主屏右上角第一颗按钮就叫「扫御守」，
-             第一次打开的人不知道要扫什么、扫哪儿、自己手上有没有
-             （2026-09-01 五路评审 · 第一次打开的人）。
-             这一格是它第一次出现的地方，那就在这儿说。 -->
-        <view class="how-t">收到护身符</view>
-        <view class="how-s">实物寄到你手上</view>
+        <view class="how-t">住进村里</view>
+        <view class="how-s">付完就搬来</view>
       </view>
       <view class="how-arrow">›</view>
       <view class="how-step">
         <view class="how-n">3</view>
-        <view class="how-t">扫开它</view>
-        <view class="how-s">就住进村里</view>
+        <view class="how-t">每天说一句</view>
+        <view class="how-s">也替你看事</view>
       </view>
     </view>
 

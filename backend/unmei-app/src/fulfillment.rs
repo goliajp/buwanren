@@ -217,7 +217,15 @@ async fn 发买东西的徽章(
     let user_id: String = 单.get("user_id");
     let 买了: Vec<String> = 单.get("product_ids");
 
-    let badges = sqlx::query("SELECT id, rule_dsl FROM badge WHERE status='active'")
+    /* `FOR SHARE`:读出来的这几枚，在这笔事务提交之前不许被删掉。
+       没有它就有一道缝 —— SELECT 之后、INSERT user_badge 之前，
+       另一头把 badge 删了，外键当场炸，整笔履约回滚，
+       而买家看到的是「订单停在处理中」，屏上没有任何线索。
+       2026-09-01 全量门禁里偶发红了一次（并行跑的另一个用例种了枚
+       临时徽章又删掉），而【偶发的红比常红更糟】:它让每一次真红
+       都能被当成噪音。这不是给测试打的补丁 —— 后台下架一枚徽章
+       跟一笔正在履约的订单撞上，是同一个竞态。 */
+    let badges = sqlx::query("SELECT id, rule_dsl FROM badge WHERE status='active' FOR SHARE")
         .fetch_all(&mut **tx).await.db()?;
     for b in badges {
         let rule: serde_json::Value = b.get("rule_dsl");

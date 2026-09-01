@@ -391,7 +391,7 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
 
   onCodeSubmit() {
     const code = this.data.code.trim()
-    if (!code) { this.setData({ codeErr: '把御守背面那串字填进来' }); return }
+    if (!code) { this.setData({ codeErr: '把护身符背面那串字填进来' }); return }
     this.setData({ codeBusy: true, codeErr: '' })
     唤醒('qr', code).then((r) => {
       this.setData({ codeBusy: false, codeErr: r.ok ? '' : r.msg, code: r.ok ? '' : code })

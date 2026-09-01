@@ -39,7 +39,8 @@ Page<IData, WechatMiniprogram.IAnyObject>({
           say: '' },
 
   onLoad(q: Record<string, string | undefined>) {
-    const name = q.name || '他'
+    // 取不到名字时不猜性别 —— 四十位里男女都有。「这一位」对谁都成立
+    const name = q.name || '这一位'
     this.setData({
       name,
       face: name.slice(-1),

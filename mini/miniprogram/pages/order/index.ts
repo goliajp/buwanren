@@ -14,7 +14,6 @@ import { storage } from '../../services/storage'
 import type { ApiError } from '../../services/api'
 import type { OrderDetail, Shipment, TraceEvent } from '../../types/commerce'
 import { money, 状态说法 } from '../../utils/money'
-import { 唤醒, 扫一枚 } from '../../utils/omamori'
 import { 一句 } from '../../utils/say'
 
 /** 包裹状态的说法。取值跟后端 `ShipmentStatus` 一一对应，不自创。
@@ -48,21 +47,34 @@ const 物流说法: Record<string, string> = {
 function 这一单走到哪儿(status: string, d: OrderDetail): Array<{ t: string; s: string }> {
   const 住 = (d.lines || []).some((l) => l.becomes_resident)
   const 册 = (d.reports || [])[0]
+  /* 【御守只有三步】（2026-09-01 第二轮评审 · 转化路）。
+     原先画的是「下单 › 付款 › 寄出 › 住进来」，而这一单里【没有包裹】——
+     后端的 residency 分支在付款那一刻直接 move_in，从不建 shipment。
+     于是「做好了」判的 `shipments.length > 0` 对御守永远是 false:
+     进度条永远停在「寄出」，底下那句永远是「已经付过了，等寄出」，
+     而那位其实已经在村里住着了。
+     三步说的是真会发生的:下单 → 付款 → 住进来。 */
   const 名: string[] = 住
-    ? ['下单', '付款', '寄出', '住进来']
+    ? ['下单', '付款', '住进来']
     : (册 ? ['下单', '付款', '算好', '读过'] : ['下单', '付款', '寄出', '收到'])
 
   const 付了 = status !== 'unpaid' && status !== 'draft' && status !== 'cancelled'
-  const 做好了 = (住 || !册)
-    ? (d.shipments || []).length > 0
-    : 册.status === 'ready'
-  const 完了 = status === 'done' || (住 && 付了 && !d.to_scan && 做好了)
+  /* 住进来了没:看这一单的御守行履约完了没，不看有没有包裹。
+     `to_scan` 是「这一单里还有没有没扫开的御守」—— 付了钱而它还是 true，
+     说明履约还没跑到（事件是异步派发的），那就还没住进来。 */
+  const 住下了 = 付了 && !d.to_scan &&
+    (d.lines || []).filter((l) => l.becomes_resident)
+                   .every((l) => l.fulfillment_status === 'done')
+  const 做好了 = 住 ? 住下了
+    : (!册 ? (d.shipments || []).length > 0 : 册.status === 'ready')
+  const 完了 = status === 'done' || (住 && 住下了)
 
   /* 【走过的必须是连着的一段】。分开判各步的话会出现「还没付款、
      但算好那一步亮着」——本机的册子是验证脚本直接种成 ready 的，
      真实链路里也可能因为补偿任务先跑而短暂出现。
      所以取【从头连续成立】的那一段，遇到第一个没成立的就停。 */
-  const 成了 = [true, 付了, 做好了, 完了]
+  // 御守只有三格，第四个判据用不上 —— slice 到步数，免得 while 越界读 undefined
+  const 成了 = [true, 付了, 做好了, 完了].slice(0, 名.length)
   let 走过 = 0
   while (走过 < 名.length && 成了[走过]) 走过++
 
@@ -81,11 +93,14 @@ function 下一步等什么(status: string, d: OrderDetail): string {
   const 住 = (d.lines || []).some((l) => l.becomes_resident)
   const 册 = (d.reports || [])[0]
   if (status === 'unpaid' || status === 'draft') {
-    return 住 ? '付完就把御守寄给你 —— 收到扫一下，他就住进村里那一格'
+    return 住 ? '付完就搬进村里那一格 —— 不用等'
          : 册 ? '付完马上开始算 —— 算好了这一屏会告诉你'
               : '付完就寄给你 —— 到了这一屏会告诉你'
   }
-  if (住) return d.to_scan ? '御守在路上。收到之后扫一下，他就住进来' : '已经付过了，等寄出'
+  /* 【付了之后的两种】。上一版这里是 `d.to_scan ? '御守在路上…' : '已经付过了，等寄出'`
+     —— 两支都在说一件不会发生的事（这一单从来没有包裹）。
+     真实的两种是:履约跑完了（他住下了），或者还没跑到（正在收拾）。 */
+  if (住) return d.to_scan ? '正在收拾屋子 —— 一会儿就好' : '已经住进来了 —— 上面那颗按钮进得去'
   if (册) return 册.status === 'ready' ? '算好了 —— 上面那颗按钮打得开' : '在算了 —— 算好会告诉你'
   return '已经付过了，等寄出'
 }
@@ -123,15 +138,12 @@ Page({
     refundKey: '',
     /** 这一单里还有没有没扫开的御守（设计册 M3）。
      *  有 → 这一屏的主按钮是「收到了，去扫开它」。 */
-    who: null as null | { name: string; face: string; direction: string; 脸样: string },
-    toScan: false,
+    who: null as null | { name: string; face: string; direction: string; id: string; 脸样: string },
+    住下了: false,
     走到哪儿: [] as Array<{ t: string; s: string }>,
     下一步: '',
     /** 这一单买的那一册（设计册 M2「看 ›」）。null = 这单没买报告 */
     report: null as { id: string; status: string } | null,
-    waking: false,
-    code: '',
-    wakeErr: '',
   },
 
   onLoad(q: Record<string, string | undefined>) {
@@ -176,7 +188,7 @@ Page({
             // 香也挂着苏合，写成「苏合的御守」的话，同一屏上明细叫一个名字、
             // 底下总计那行叫另一个，看着像买了两样东西。
             name: (l.becomes_resident && l.villager_name)
-              ? l.villager_name + '的御守'
+              ? l.villager_name + '的护身符'
               : (l.sku_name || l.sku_id),
             qty: l.qty,
             sub: money(l.line_subtotal_minor, o.currency),
@@ -186,14 +198,29 @@ Page({
              到了订单详情人就消失了。
              只在【会住进来】的那种单上摆:买香买报告没有「那个人」。 */
           who: (() => {
-            const l = (d.lines || [])[0]
+            /* 取【那条御守行】，不是第一行 —— 一单里买了别的又买了御守时，
+               `lines[0]` 可能是那盒香，于是这一屏认不出人来，而
+               「去他屋里看看」正是靠它出现的（2026-09-01 第二轮评审）。 */
+            const l = (d.lines || []).find((x) => x.becomes_resident && x.villager_name)
+                   || (d.lines || [])[0]
             return l && l.becomes_resident && l.villager_name
               ? { name: l.villager_name, face: l.villager_name.slice(-1),
                   direction: l.villager_direction || '',
+                  id: l.villager_id || '',
                   脸样: 脸(l.villager_id || '') }
               : null
           })(),
-          toScan: !!d.to_scan,
+          /* 【住下了没】。这一屏原先摆的是「收到了，去扫一下」——
+             而买御守从来不会寄出任何东西、也不会发凭据（后端付款那一刻
+             直接 move_in），那颗按钮在这一屏按下去只会扫无可扫。
+             扫护身符那条路仍在村子主屏上，那是线下拿到实体的人走的。
+             这里换成真实的完成态:他住进来了，去他屋里。
+             判据跟进度条同源（`这一单走到哪儿`），不各写一套。 */
+          住下了: !!(d.lines || []).some((l) => l.becomes_resident) &&
+                  !d.to_scan &&
+                  ['paid', 'fulfilling', 'done'].indexOf(o.status) >= 0 &&
+                  (d.lines || []).filter((l) => l.becomes_resident)
+                                 .every((l) => l.fulfillment_status === 'done'),
           走到哪儿: 这一单走到哪儿(o.status, d),
           下一步: 下一步等什么(o.status, d),
           /* 这一单买的册子。御守的完成态是住进村里，报告的完成态是
@@ -207,7 +234,7 @@ Page({
              从商品页那一屏的「丹增 · 下山的武僧」走过来，人不该在结账时消失。 */
           headline: d.lines.length
             ? (((d.lines[0].becomes_resident && d.lines[0].villager_name)
-                 ? d.lines[0].villager_name + '的御守'
+                 ? d.lines[0].villager_name + '的护身符'
                  : (d.lines[0].sku_name || d.lines[0].sku_id))
                + (d.lines.length > 1 ? ' 等 ' + d.lines.length + ' 件' : ''))
             : '单 ' + this.data.id.slice(0, 8),
@@ -219,29 +246,14 @@ Page({
     this.loadShipments()
   },
 
-  /* 「收到了，去扫开它」（设计册 M3）。跟村子主屏共用 `utils/omamori` ——
-     两份实现会漂，而漂的那天村子上催你去扫、点进单子却是另一套话。 */
-  onWake() {
-    if (this.data.waking) return
-    this.setData({ waking: true, wakeErr: '' })
-    扫一枚().then((r) => {
-      this.setData({ waking: false, wakeErr: r && !r.ok ? r.msg : '' })
-      if (r && r.ok) this.load()
-    })
-  },
-
-  onCodeInput(e: WechatMiniprogram.CustomEvent<{ value: string }>) {
-    this.setData({ code: e.detail.value, wakeErr: '' })
-  },
-
-  onCodeSubmit() {
-    const code = this.data.code.trim()
-    if (!code) { this.setData({ wakeErr: '把御守背面那串字填进来' }); return }
-    this.setData({ waking: true, wakeErr: '' })
-    唤醒('qr', code).then((r) => {
-      this.setData({ waking: false, wakeErr: r.ok ? '' : r.msg, code: r.ok ? '' : code })
-      if (r.ok) this.load()
-    })
+  /* 这一单真正的完成态:他住进来了，去他屋里坐坐。
+     原先这个位置是「收到了，去扫一下」+ 一个手输编号的输入框 ——
+     两样都够不着任何东西:买御守不寄实物、不发凭据。
+     扫护身符仍在村子主屏（连手输那条路一起），那是线下拿到实体的人走的。 */
+  onVisit() {
+    const w = this.data.who
+    if (!w || !w.id) return
+    wx.navigateTo({ url: '/pages/room/index?room=' + w.id })
   },
 
   /* 物流单独取。订单详情里其实也带 `shipments`，但轨迹要另一条接口，
