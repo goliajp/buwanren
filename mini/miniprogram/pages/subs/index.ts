@@ -13,6 +13,7 @@ import { mineApi } from '../../services/mine'
 import type { ProductCard } from '../../types/commerce'
 import type { Subscription } from '../../types/mine'
 import { 一句 } from '../../utils/say'
+import { money } from '../../utils/money'
 
 interface IData {
   loading: boolean
@@ -64,11 +65,9 @@ Page<IData, WechatMiniprogram.IAnyObject>({
       (list) => this.setData({
         offers: list.map((x) => ({
           ...x,
+          // 格式化只有一支（utils/money.ts）—— 自己抄一份会在非 CNY 上出错
           价: typeof x.from_price_minor === 'number'
-            ? (x.from_currency === 'CNY' ? '¥' : '')
-              + (x.from_price_minor % 100 === 0
-                 ? String(x.from_price_minor / 100)
-                 : (x.from_price_minor / 100).toFixed(2))
+            ? money(x.from_price_minor, x.from_currency || 'CNY')
             : '',
         })),
         offersErr: '',

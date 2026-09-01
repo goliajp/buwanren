@@ -17,6 +17,7 @@ import { commerceApi } from '../../services/commerce'
 import type { ApiError } from '../../services/api'
 import type { VillagerInVillage } from '../../types/village'
 import { 一句 } from '../../utils/say'
+import { money } from '../../utils/money'
 
 /* 哪几间房搬进来了 —— 由 engine/rooms/index.js 报，不在这手写一份。
    手写的话：rooms/ 那边新做一间房，这里忘了加，那间房永远进不去而且不报错。
@@ -131,8 +132,11 @@ Page<IData, WechatMiniprogram.IAnyObject>({
         }
         const 分 = list[0].from_price_minor
         if (typeof 分 !== 'number') return
-        const 元 = 分 % 100 === 0 ? String(分 / 100) : (分 / 100).toFixed(2)
-        this.setData({ 价: (list[0].from_currency === 'CNY' ? '¥' : '') + 元 })
+        /* 【格式化只有一支】:`utils/money.ts` 的 `money()`。
+           这里原先自己抄了一份 —— 非 CNY 不写符号，JPY 还会被多除一次 100
+           （日元没有分）。库里 region=cn 有 202 个 sku 同时挂着两种币的在售价，
+           显示什么币种是数据说了算，不是代码说了算。 */
+        this.setData({ 价: money(分, list[0].from_currency || 'CNY') })
       },
       () => {},                                   // 取不到价就不写价，页面照常
     )

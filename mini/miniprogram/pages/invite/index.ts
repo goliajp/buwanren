@@ -20,6 +20,7 @@
  */
 
 import { villageApi } from '../../services/village'
+import { money } from '../../utils/money'
 import { 一列脸纹, 脸 } from '../../utils/face'
 import { natalApi } from '../../services/natal'
 import type { ApiError } from '../../services/api'
@@ -101,12 +102,15 @@ Page<IData, WechatMiniprogram.IAnyObject>({
           住着: 住着.has(v.id),
           /* 请他回村多少钱。后端按 price_book 算好给的（分）——
              页面不自己换算区域/端，那会拿到别的区的价。
+             【格式化只有一支】:`utils/money.ts` 的 `money()`。
+             这里原先自己抄了一份 `/100 + toFixed(2)`，跟它有两处真分歧 ——
+             非 CNY 一个符号都不写，而 JPY 还会被多除一次 100（日元没有分）。
+             库里 region=cn 有 202 个 sku 同时挂着 CNY 与 JPY 的在售价，
+             谁赢由生效时间定 —— 也就是说显示什么币种是数据说了算
+             （2026-09-01 五路评审 · 工程审计）。
              取不到就是空串:名册上不写价，也不编。 */
           价: typeof v.omamori_price_minor === 'number'
-            ? (v.omamori_currency === 'CNY' ? '¥' : '')
-              + (v.omamori_price_minor % 100 === 0
-                 ? String(v.omamori_price_minor / 100)
-                 : (v.omamori_price_minor / 100).toFixed(2))
+            ? money(v.omamori_price_minor, v.omamori_currency || 'CNY')
             : '',
           // 头像占位:姓名末字。等 40 张画好换成图片地址,版式不动
           face: v.name.slice(-1),
