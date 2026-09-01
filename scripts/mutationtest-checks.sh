@@ -354,8 +354,13 @@ echo
 echo "── check-reachable-pages（每一页都得走得到）──"
 # 村从 tab 上摘掉,屋子跟着一起孤立 —— 这正是 2026-08-19 之前的真实状态:
 # 全应用唯一的扫码入口在村里,而村谁也进不去,门禁全绿。
+# ★ 锚点【只钉那一行 pagePath】，不钉整块。整块钉法这一年里跟着改了三次:
+#   tab 从五个减到三个、村改叫村子、2026-09-01 又给每一项加了
+#   iconPath / selectedIconPath —— 每加一个字段，这条变异就静默植不进去。
+#   `check-reachable-pages` 问的是「有没有人指向这一页」，
+#   把 pagePath 改成别的名字就够了，跟同一块里有几个字段无关。
 mutate "把村从 tab 上摘了" check-reachable-pages \
-  "edit('mini/miniprogram/app.json', '      {\n        \"pagePath\": \"pages/village/index\",\n        \"text\": \"村子\"\n      },\n', '')"
+  "edit('mini/miniprogram/app.json', '\"pagePath\": \"pages/village/index\"', '\"pagePath\": \"pages/__gone__/index\"')"
 # 2026-08-22:tab 从五个减到三个（docs/REDESIGN.md R0），村改叫村子，
 # app.json 也从单行重排成多行 —— 这条锚点跟着改了两处。
 # 它当时报的是「变异没植进去（基准源码变了？）」而不是假绿，这一点是对的。

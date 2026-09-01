@@ -86,6 +86,42 @@ pub async fn create(pool: &PgPool, req: NewOrder) -> Result<CreatedOrder, Domain
         extras: serde_json::json!({ "lines": req.lines.len(), "region": req.region }),
     }).await?;
 
+    /* 【同一个人、同一件东西，已经有一笔没付的，就把那一笔还给他】。
+       在这之前:确认屏每次 `onLoad` 都生成一个新的幂等键（那是对的 ——
+       同一屏内连点两次要撞上同一个键），可【退回上一页再进来】就是
+       一个新键、一张新单。库里因此攒着「同一个用户、同一个 sku、
+       四笔未付、合计 796 元」这样的记录（2026-09-01 五路评审 · 工程审计）。
+       钱没多扣 —— 未付单不是扣款 —— 但买家在「我买过的」里看见四条
+       一模一样的待付，第一反应是自己被重复下单了。
+
+       判据是【行完全一样】:同样的 sku、同样的数量、同样多的行。
+       真想买两份的人改数量，不是下两张一模一样的单。
+       只认 unpaid —— 已付、已取消、已过期的都不算。 */
+    if req.lines.len() == 1 {
+        let l = &req.lines[0];
+        let 已有: Option<String> = sqlx::query_scalar(
+            r#"SELECT o.id FROM order_record o
+                 JOIN order_line ol ON ol.order_id = o.id
+                WHERE o.user_id = $1 AND o.status = 'unpaid'
+                  AND ol.sku_id = $2 AND ol.qty = $3
+                  AND (SELECT count(*) FROM order_line x WHERE x.order_id = o.id) = 1
+                ORDER BY o.created_at DESC LIMIT 1"#,
+        ).bind(&req.user_id).bind(&l.sku_id).bind(l.qty)
+         .fetch_optional(pool).await.db()?;
+        if let Some(id) = 已有 {
+            let r = sqlx::query(
+                "SELECT amount_total_minor, currency FROM order_record WHERE id=$1",
+            ).bind(&id).fetch_one(pool).await.db()?;
+            tracing::info!(order_id = %id, "同一件东西已经有一笔没付的，把那一笔还回去，不再建一张");
+            return Ok(CreatedOrder {
+                order_id: id,
+                amount_total_minor: r.get("amount_total_minor"),
+                currency: r.get("currency"),
+                status: "unpaid".into(),
+            });
+        }
+    }
+
     let mut tx = pool.begin().await.db()?;
     let order_id = new_id("ord");
     let now = Utc::now();

@@ -584,7 +584,13 @@ if (API) {
   await open(routes[0])
   /* 建【六张】。一张是订单页要的，六张是「我买过的」翻页要的 ——
      设计 10.3 说一页五笔、多了左右翻，而五笔以内那两个翻页处理器
-     一次也按不到：那一段就会靠「从不运行」保持绿色。 */
+     一次也按不到：那一段就会靠「从不运行」保持绿色。
+
+     【每张的数量不同】。2026-09-01 起「同一个人、同一件东西、
+     已经有一笔没付的」会把那一笔原样还回来（退回上一页再进来
+     不该再建一张，库里为此攒过同一个 sku 的四笔待付）——
+     六次一模一样的请求现在只会得到同一张单，夹具就造不出六张了。
+     换数量是最小的改法:它仍然是六张真单，走的仍是真接口。 */
   const 单们 = await p.evaluate(async (base) => {
     const raw = localStorage.getItem('unmei:buwanren:token')
     if (!raw) return []
@@ -598,7 +604,7 @@ if (API) {
           authorization: 'Bearer ' + token,
           'idempotency-key': 'mirror-sweep-' + Math.random().toString(36).slice(2),
         },
-        body: JSON.stringify({ lines: [{ sku_id: 'sku-naji-deep', qty: 1 }], region: 'cn' }),
+        body: JSON.stringify({ lines: [{ sku_id: 'sku-naji-deep', qty: i + 1 }], region: 'cn' }),
       })
       if (!r.ok) break
       const j = await r.json()
