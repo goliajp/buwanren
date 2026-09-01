@@ -90,8 +90,18 @@ FAILED=()
 # gate <名字> <在哪个目录> <命令...>
 gate() {
   local name="$1" dir="$2"; shift 2
-  local out
-  if ! out=$(cd "$dir" && "$@" 2>&1); then
+  local out rc
+  out=$(cd "$dir" && "$@" 2>&1); rc=$?
+  # 【退 3 = 这一支自己说「我跳过了」】。
+  # 一条永远跳过的核对就是一条永远绿的核对，比没有更糟 ——
+  # 而在这之前，脚本里那种「缺依赖就 return 0」会在总账上算成「过」，
+  # 跳过计数不涨，没人知道它其实什么都没核
+  # （2026-09-01 五路评审 · 工程审计在 check-art-leaf 上抓到）。
+  if [ "$rc" = 3 ]; then
+    skip "$name" "$(printf '%s' "$out" | tail -1)"
+    return 0
+  fi
+  if [ "$rc" != 0 ]; then
     printf '  ✗ %-34s\n' "$name"
     # `LC_ALL=C` 让 sed 按【字节流】处理 —— 不然它对中文报
     # "RE error: illegal byte sequence"，失败摘要就成了乱码:

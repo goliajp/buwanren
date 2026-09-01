@@ -53,9 +53,14 @@ def registered_leaves(mingli: Path):
 
 def main():
     if not (MINGLI / 'crates/mingli-registry/src/lib.rs').is_file():
-        print(f'· 本机没有 mingli 仓库（{MINGLI}），跳过校验')
-        print('  这不是失败 —— 但也就没人替你核过叶名。有仓库的机器上跑一次。')
-        return 0
+        # 【退 3，不退 0】。本文件开头写着「一条永远跳过的核对就是一条永远绿的
+        # 核对，比没有更糟」，然后这里对着「缺仓库」的情况 return 0 ——
+        # 而 gates.sh 用 `gate` 注册它，退 0 就打 ✓、跳过计数不涨。
+        # 换一台没有 mingli 的机器跑门禁，这一支会在总账上算「过」，
+        # 而 18 条 art.mingli_leaf 映射一条都没核（2026-09-01 五路评审 · 工程审计）。
+        # 3 是「跳过」的约定码，gates.sh 认它。
+        print(f'本机没有 mingli 仓库（{MINGLI}）—— 叶名没人核过')
+        return 3
 
     leaves = registered_leaves(MINGLI)
     if not leaves:

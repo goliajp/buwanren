@@ -10,11 +10,24 @@ import re, sys, pathlib
 
 房 = sorted(pathlib.Path('rooms/src/rooms').glob('*.js'))
 错 = []
+# 【没参与检查的要点名】。目录里 7 个文件只查了 6 个，那第 7 个是什么？
+# 报出来才不用下一个人再去查一遍（2026-09-01 五路评审 · 工程审计问到）。
+不适用 = []
 查过 = 0
 for f in 房:
     s = f.read_text(encoding='utf-8')
     m = re.search(r"mode: 'act', act: ACTS\[0\],\s*x: ([\w\[\]\.]+), y: ([\w\[\]\.]+),", s)
     if not m:
+        # 【匹配不上要说出来，不能静默跳过】。7 间房里 ayun-plan.js 的主角起手
+        # 写法是 `actor: { x: …, y: … }`，跟这条正则对不上 —— 于是它不参与检查，
+        # 而报出来的是「查了 6 间房」，看着跟通过一模一样。
+        # 这正是这个仓库栽过的那个形状（那次是文件名，这次是写法）。
+        # 只有【真的没有 ACTS】才算不适用;有 ACTS 却读不出起手位置，就是漏。
+        if 'const ACTS' in s:
+            错.append(f'{f.name} 有 ACTS，却读不出开局站位 —— 它没参与检查，'
+                      f'而这一支照样报绿。起手位置的写法变了？')
+        else:
+            不适用.append(f.name)
         continue
     x, y = m.group(1), m.group(2)
     查过 += 1
@@ -35,5 +48,6 @@ if 查过 == 0:
     print('✗ 一间房都没查到 —— 检查器自己失效了'); sys.exit(1)
 for e in 错:
     print('  ✗ ' + e)
-print(('✗ ' if 错 else '✓ ') + f'开局站位 · 查了 {查过} 间房')
+尾 = f'（{"、".join(不适用)} 是布局文件，没有 ACTS，不适用）' if 不适用 else ''
+print(('✗ ' if 错 else '✓ ') + f'开局站位 · 查了 {查过} 间房' + 尾)
 sys.exit(1 if 错 else 0)
