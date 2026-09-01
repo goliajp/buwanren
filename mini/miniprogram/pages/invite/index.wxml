@@ -130,8 +130,8 @@
              第一次打开的人不知道要扫什么、扫哪儿、自己手上有没有
              （2026-09-01 五路评审 · 第一次打开的人）。
              这一格是它第一次出现的地方，那就在这儿说。 -->
-        <view class="how-t">收到御守</view>
-        <view class="how-s">一枚护身符 · 实物寄到你手上</view>
+        <view class="how-t">收到护身符</view>
+        <view class="how-s">实物寄到你手上</view>
       </view>
       <view class="how-arrow">›</view>
       <view class="how-step">
