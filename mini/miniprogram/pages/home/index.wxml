@@ -99,13 +99,11 @@
         <view class="ring ring-3"></view>
         <view class="ring ring-4"></view>
 
-        <!-- 盘上只留【一圈刻度】。原先还有八卦符（☲☷☱☰☵☶☳☴）与八个方位
-             （南 / 西南 / 西 …）—— 那是全屏最玄的两样东西，而且方位在结果那一屏
-             早就按规则拿掉了（术语只留在「你的说明书」里），盘上摆着就更没道理。
-             转的时候要看得出在转，靠的是这一圈点在动，不是靠认得出哪个卦。 -->
-        <!-- 8 金点 · 中圈 -->
-        <view wx:for="{{[0,1,2,3,4,5,6,7]}}" wx:key="*this"
-              class="dot dot-{{item}}"></view>
+        <!-- 【2026-09-01 八颗点也拿掉了】。上一轮拿掉的是八卦符与方位名，
+             留下八颗均布在 45° 上的点 —— 而那正是「八方位」本身，
+             删掉字反而更像一个没有刻度标注的式盘。
+             而且那颗高亮的点跟着盘转、指针不转，八个方位里七个指错。
+             现在看得出在转，靠的是盘面那五格不等分的深浅（index.wxss）。 -->
 
 
       </view>
@@ -137,7 +135,6 @@
         <view class="ring ring-2"></view>
         <view class="ring ring-3"></view>
         <view class="ring ring-4"></view>
-        <view wx:for="{{[0,1,2,3,4,5,6,7]}}" wx:key="*this" class="dot dot-{{item}}"></view>
       </view>
 
       <view class="compass-btn compass-btn-lit">
@@ -151,8 +148,13 @@
 
   <!-- 没本命时压在罗盘下面的那一句 + 出口。罗盘照样能转。 -->
   <block wx:if="{{!summary && !err}}">
-    <view class="foot-hint">还没填出生时间，转出来的还不算你的</view>
-    <button class="btn" bindtap="goNatal">填出生时间</button>
+    <!-- 【2026-09-01】这一句原先写「转出来的还不算你的」—— 免费体验
+         主动承认自己不作数，而它是这个产品唯一的免费钩子。
+         说清楚差别就够了:现在转的是通用的，填完是按你的。 -->
+    <view class="foot-hint">现在转的是通用的一句 · 填了出生时间才是按你排的</view>
+    <!-- 降成次一档:主动作是中间那颗（每天要做的那件事），
+         这一颗是补一份资料。原先反过来，全屏最重的是「去填表」。 -->
+    <button class="btn ghost" bindtap="goNatal">填出生时间</button>
   </block>
   </view>
 

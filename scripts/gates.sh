@@ -188,6 +188,9 @@ gate "重启不会把库写回去" . python3 scripts/check-seed-overwrites.py
 # 收货地址要发在发货那一步真读的那一列上 —— 发错列的话面单是空的，
 # 而买家刚被强制选过一次地址，全程一处不报错。
 gate "地址落到发货读的那一列" . python3 scripts/check-address-lands.py
+# 屋里的台词是第三套源（rooms/src/rooms/*.js），另外两支文言门禁够不着它 ——
+# 而它恰恰是看得最久的:点进屋子，村民头顶一句一句地冒。
+gate "屋里的台词说人话" . python3 scripts/check-room-words.py
 if [ "$QUICK" = 1 ]; then
   # `--quick` 跳过变异测试，而变异测试是【钉在具体文件的具体字符串上】的。
   # 你改的要是它盯着的文件，这一跳就正好跳过了唯一会发现「断言漂了」的那支。

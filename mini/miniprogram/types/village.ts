@@ -60,6 +60,9 @@ export interface VillagerCard {
   /** 他的御守在不在卖。在 → 那件商品的 id；不在 → null，页面写「未上架」。
    *  设计册 10.8：「没上架的也列出来 …… 照实说，不拿别人顶上」。 */
   omamori_product_id: string | null
+  /** 请他回村多少钱（分）。没上架 / 没定价是 null —— 名册上就不写价，不编 */
+  omamori_price_minor?: number | null
+  omamori_currency?: string | null
   /** 他缺什么。名册上写出来 —— 「缺 X 的人反过来劝你 Y」是这套推荐的依据 */
   lack?: string
   /** 他往哪个方向劝你（move / still / wait / keep / let_go / near / ask）。

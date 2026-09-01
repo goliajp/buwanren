@@ -19,7 +19,8 @@ interface IData {
   err: string
   subs: Subscription[]
   /** 空的时候摆出来的出口：村里现在有什么可以订 */
-  offers: ProductCard[]
+  /** 还能订什么。`价` 是本页算出来的显示串 —— 取不到就是空串，屏上不写价 */
+  offers: Array<ProductCard & { 价: string }>
   offersErr: string
 }
 
@@ -54,7 +55,20 @@ Page<IData, WechatMiniprogram.IAnyObject>({
      「你订着两个」这件事跟「还能订什么」不互为前提。 */
   loadOffers() {
     commerceApi.products('service').then(
-      (list) => this.setData({ offers: list, offersErr: '' }),
+      /* 列表接口带着 `from_price_minor`（这件商品最便宜那一档现价）——
+         订阅那一条点下去就是掏钱，屏上得有价。取不到就留空，不编。 */
+      (list) => this.setData({
+        offers: list.map((x) => ({
+          ...x,
+          价: typeof x.from_price_minor === 'number'
+            ? (x.from_currency === 'CNY' ? '¥' : '')
+              + (x.from_price_minor % 100 === 0
+                 ? String(x.from_price_minor / 100)
+                 : (x.from_price_minor / 100).toFixed(2))
+            : '',
+        })),
+        offersErr: '',
+      }),
       () => this.setData({ offers: [], offersErr: '一时取不到能订的' }),
     )
   },

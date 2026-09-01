@@ -62,8 +62,14 @@
           </view>
           <view class="item-sub" wx:if="{{item.sub}}">{{item.sub}}</view>
         </view>
-        <!-- 「请他来」对婆婆是错的 —— 四十位里男女都有。不带代词 -->
-        <text class="item-go">请回村 ›</text>
+        <!-- 「请他来」对婆婆是错的 —— 四十位里男女都有。不带代词。
+             【2026-09-01】价写在这儿。点一行直奔商品页，那是掏钱那一路，
+             而这一屏原先一个价都没有 —— 按下去要多少钱，人得先知道。
+             取不到价就只写「请回村」，不编一个数字出来。 -->
+        <view class="item-go">
+          <text class="item-price" wx:if="{{item.价}}">{{item.价}}</text>
+          <text>请回村 ›</text>
+        </view>
       </view>
     </view>
 

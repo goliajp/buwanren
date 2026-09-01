@@ -27,7 +27,7 @@ import type { VillagerCard } from '../../types/village'
 import { 轻 } from '../../utils/feel'
 import { 一句 } from '../../utils/say'
 
-type 位 = { id: string; name: string; sub: string; onSale: boolean; product: string | null; face: string; lack: string; direction: string;
+type 位 = { id: string; name: string; sub: string; onSale: boolean; product: string | null; 价: string; face: string; lack: string; direction: string;
             /** 同色之内的脸纹 —— 缺「近人」那一路有十一位，不然十一张一模一样。
                 在【切段之后】发，所以映射那一步它还没有 */
             纹?: string
@@ -87,6 +87,15 @@ Page<IData, WechatMiniprogram.IAnyObject>({
           sub: [v.title, v.art].filter(Boolean).join(' · '),
           onSale: !!v.omamori_product_id,
           product: v.omamori_product_id,
+          /* 请他回村多少钱。后端按 price_book 算好给的（分）——
+             页面不自己换算区域/端，那会拿到别的区的价。
+             取不到就是空串:名册上不写价，也不编。 */
+          价: typeof v.omamori_price_minor === 'number'
+            ? (v.omamori_currency === 'CNY' ? '¥' : '')
+              + (v.omamori_price_minor % 100 === 0
+                 ? String(v.omamori_price_minor / 100)
+                 : (v.omamori_price_minor / 100).toFixed(2))
+            : '',
           // 头像占位:姓名末字。等 40 张画好换成图片地址,版式不动
           face: v.name.slice(-1),
           脸样: 脸(v.id),

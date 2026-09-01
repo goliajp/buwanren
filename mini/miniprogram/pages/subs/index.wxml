@@ -44,7 +44,12 @@
               hover-class="item-hover" hover-stay-time="100">
           <view class="item-name">{{item.name}}</view>
           <view class="item-sub" wx:if="{{item.sub_title}}">{{item.sub_title}}</view>
-          <view class="item-meta">看看 <text class="arrow">›</text></view>
+          <!-- 价写在这儿:点一条直奔商品页，那是掏钱那一路。
+               取不到价就不写，不编（2026-09-01）。 -->
+          <view class="item-meta">
+            <text class="item-price" wx:if="{{item.价}}">{{item.价}}</text>
+            <text>看看 ›</text>
+          </view>
         </view>
       </view>
       <view class="offers-err" wx:elif="{{offersErr}}">{{offersErr}}</view>

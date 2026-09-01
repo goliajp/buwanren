@@ -637,11 +637,11 @@ KKBBBBBBKK
       sleepAt: [1208, 508] },   // sprite 13 列 ×8 = 104px,床心 1260 → 左上角 1208   // 床 x1092..1428 中心 1260,sprite 宽 96 → 居中;头挨枕头下沿
     { id: 'tea', node: 'B3',      x: 1046, y: 872,  poses: ['drink1', 'drink2'],   fps: 0.9, dur: [4, 6],  flip: true,  say: '好茶' },
     { id: 'water', node: 'E2',    x: 540,  y: 1746, poses: ['drink1', 'drink2'],   fps: 0.9, dur: [3, 5],  flip: false, say: '咕嘟…' },
-    { id: 'gacha', node: 'D3',    x: 840,  y: 1552, poses: ['divine1', 'divine2'], fps: 1.6, dur: [6, 9],  flip: false, pointer: true, say: '（净手焚香）……此卦大吉' },
+    { id: 'gacha', node: 'D3',    x: 840,  y: 1552, poses: ['divine1', 'divine2'], fps: 1.6, dur: [6, 9],  flip: false, pointer: true, say: '（洗手点香）……这次是好的' },
     { id: 'read', node: 'B1',     x: 380,  y: 982,  poses: ['read'],               fps: 1,   dur: [7, 10], flip: false },
     { id: 'window', node: 'A1',   x: 460,  y: 566,  poses: ['standback'],          fps: 1,   dur: [4, 6],  flip: false },
     { id: 'cat', node: 'A3',      x: 1002, y: 620,  poses: ['standside'],          fps: 1,   dur: [3, 5],  flip: true,  heart: true, say: '乖' },
-    { id: 'pace', node: 'D2',     x: 520,  y: 1548, poses: null, pace: [520, 920], dur: [7, 10], say: '唔……此局何解…' },
+    { id: 'pace', node: 'D2',     x: 520,  y: 1548, poses: null, pace: [520, 920], dur: [7, 10], say: '唔……这局怎么解…' },
     { id: 'ps5', node: 'C3', x: 1160, y: 1162, poses: ['gameback'], fps: 1, dur: [9, 14], flip: false, tv: true, say: '就打一把……就一把' },
   ]
 
