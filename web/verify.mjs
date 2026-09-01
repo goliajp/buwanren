@@ -2361,12 +2361,22 @@ await p.evaluate(() => globalThis.__router.current().setData({ summary: null, er
 await p.waitForTimeout(300)
 const look = await p.evaluate(() => {
   const pg = document.querySelector('.page')
-  const btn = document.querySelector('button.btn')
+  /* 【要取【主】按钮，不是屏上第一颗按钮】。
+     2026-09-01 这一屏的主次调过来了:主动作是盘中心那颗（每天要做的事），
+     「填出生时间」降成了 ghost —— 而 `button.btn` 选到的正是后者，
+     于是这条断言开始报「主按钮不是琥珀」，而它其实是对的。
+     `:not(.ghost)` 选不到（这一屏没有实心 .btn）就退回盘中心那颗，
+     它才是这一屏的主按钮。 */
+  const btn = document.querySelector('button.btn:not(.ghost)')
+             || document.querySelector('button.compass-btn')
   const cs = pg && getComputedStyle(pg)
   return {
     左留白: cs ? parseFloat(cs.paddingLeft) : 0,
     墨色: getComputedStyle(document.body).getPropertyValue('--ink').trim(),
-    按钮底: btn ? getComputedStyle(btn).backgroundColor : '没有按钮',
+    // 盘中心那颗的琥珀在渐变里（backgroundImage），实心按钮在 backgroundColor 上
+    按钮底: btn
+      ? (getComputedStyle(btn).backgroundColor + ' ' + getComputedStyle(btn).backgroundImage)
+      : '没有按钮',
   }
 })
 ok(look.左留白 > 10, 'app.wxss 生效了　—— .page 的左右留白来自它', look.左留白 + 'px')
@@ -2376,7 +2386,7 @@ ok(look.左留白 > 10, 'app.wxss 生效了　—— .page 的左右留白来自
 ok(look.墨色 === '#2B2620', '`page` 上的颜色变量映到了根元素', look.墨色 || '落空了')
 // 只问「透不透明」的话,浏览器默认那个灰底 #efefef 照样算过 ——
 // 而那正是 app.wxss 没生效时的样子(变异测出来的)
-ok(look.按钮底 === 'rgb(255, 154, 60)', '主按钮是 0830 的琥珀', look.按钮底)
+ok(/rgb\(255,\s*154,\s*60\)/.test(look.按钮底), '主按钮是 0830 的琥珀', look.按钮底.slice(0, 70))
 
 // ⑪-b 一条完整用例 · 我 → 铺 → 一件 ────────────────────────────
 /* 「所有资源都要有出入口」：商品详情原先只有问签那张推荐卡一个入口，

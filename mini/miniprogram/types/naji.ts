@@ -43,10 +43,15 @@ export interface NajiResult {
 /** history list item · 后端 naji.rs 简化投影 */
 export interface NajiHistoryRow {
   id: string
-  date: string          // "07·11 酉时"(时时 bug 已修)
+  date: string          // 「8月30日 下午 1 点」
   asked_at: string
+  /** 门名（休门 / 生门）。**屏上不显示** —— 结果那一屏明令一个都不留。
+   *  留着是因为接口给，不是因为要用。 */
   gate: string
   direction: string
+  /** 那天那句结论的头半句（「适合开个头」）。后端按【现在这一版】的
+   *  说法给 —— 不是记录上存的快照，那些快照有一千多条还是旧文言。 */
+  说?: string | null
   question?: string | null
 }
 

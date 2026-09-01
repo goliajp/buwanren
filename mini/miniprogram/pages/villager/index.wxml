@@ -58,7 +58,11 @@
     <view class="reading daily" wx:elif="{{who.at_home && who.line}}">
       <view class="reading-k">{{who.name}}今天说</view>
       <view class="reading-v">{{who.line}}</view>
-      <view class="reading-hint">想问一件具体的事，按下面那颗 · 一天一次</view>
+      <!-- 【2026-09-01】原先写「想问一件具体的事」—— 而按下去调的
+           `villageApi.ask(id)` 不带任何问题参数，后端也不收。
+           人被明确告知可以问一件具体的事，产品收不到那件事。
+           跟首页统一成「装在心里」——那句是诚实的。 -->
+      <view class="reading-hint">心里装着一件事，按下面那颗 · 一天一次</view>
     </view>
     <view class="reading daily" wx:elif="{{who.at_home}}">
       <view class="reading-v dim">今天还没问过{{who.name}}</view>
