@@ -19,7 +19,8 @@
 .grid .badge { width: calc((100% - 32rpx) / 3); box-sizing: border-box; padding: 16rpx 12rpx; margin: 0; }
 .grid .badge-name { font-size: 24rpx; font-weight: 600; line-height: 1.35; }
 .grid .badge-desc { font-size: 20rpx; color: var(--ink-faint); margin-top: 8rpx; line-height: 1.4; }
-.grid .badge-when { font-size: 18rpx; color: #999; margin-top: 8rpx; }
+/* #999 在纸底上只有 2.51:1 —— 比色板里最淡那一档还低。用体系里的次要色 */
+.grid .badge-when { font-size: 18rpx; color: var(--ink-faint); margin-top: 8rpx; }
 
 
 /* ── 0830：徽章要有徽章的样子 ──────────────────────────────────

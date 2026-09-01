@@ -12,7 +12,10 @@
 .row.col { display: block; }
 .row-k { font-size: 28rpx; }
 .row-v { font-size: 26rpx; color: #555; max-width: 60%; text-align: right; }
-.dim { color: #999; }
+/* 【这一行是结账屏唯一的拦路条件】（「寄到　还没填 ›」）。
+   写死的 #999 在卡片底上只有 2.51:1 —— 读成「已填的灰值」，
+   而它其实是「你还得点一下」（2026-09-01 五路评审 · 工程审计）。 */
+.dim { color: var(--ink-faint); }
 .stepper { display: flex; align-items: center; gap: 24rpx; }
 .step { font-size: 34rpx; width: 56rpx; text-align: center; }
 .step-off { opacity: .3; }
@@ -56,4 +59,6 @@
 /* 没填「寄到哪」时按钮待命 —— 满橙的大按钮长得跟能按一样。
    要写成 `button.btn.btn-wait`：app.wxss 里是 `button.btn`（标签 + 类），
    单个 `.btn-wait` 压不过它，症状是「这条 CSS 像没写」。 */
-button.btn.btn-wait { background: #EADFCD; color: #A08E74; box-shadow: none; }
+/* 等待态按钮的字:#A08E74 压在 #EADFCD 上只有 2.41:1 —— 那不是「轻」，
+   那是看不见。加深到 3.97:1，仍然明显轻于常态。 */
+button.btn.btn-wait { background: #EADFCD; color: #7A6A52; box-shadow: none; }

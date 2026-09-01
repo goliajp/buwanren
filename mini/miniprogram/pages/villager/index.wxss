@@ -13,7 +13,7 @@
 .reading-k { font-size: 24rpx; color: var(--ink-faint); }
 .reading-v { font-size: 30rpx; line-height: 1.7; margin-top: 12rpx; }
 .acts { margin-top: 40rpx; display: flex; gap: 20rpx; flex-wrap: wrap; }
-.hint { font-size: 24rpx; color: #999; align-self: center; }
+.hint { font-size: 24rpx; color: var(--ink-faint); align-self: center; }
 .cta { margin-top: 48rpx; }
 .loading, .err-msg { font-size: 28rpx; color: var(--ink-faint); }
 

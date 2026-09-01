@@ -355,6 +355,39 @@ async fn ordering_the_same_thing_twice_returns_the_unpaid_order_you_already_have
     assert_ne!(两份.order_id, 头一次.order_id, "数量不同，不该复用上一张");
 }
 
+/// 复用未付单时，**这一次填的地址要覆盖上一次的**。
+///
+/// 复用分支在事务之前 return，而地址是在事务里写 order_meta 的 ——
+/// 不补这一步，第二次填的东西一个字都不落库，而且不报错:
+/// 选地址 A 下单 → 退回去 → 选地址 B 再下单 → 复用命中第一张 →
+/// 屏上显示 B，运单收件人快照读 order_meta 拿到 A，包裹寄到 A。
+/// 运单那一头还套着 `COALESCE(…, '{}')`，连空都不会报。
+/// （2026-09-01 五路评审 · 工程审计抓到 —— 这是为了消掉「四笔一样的
+/// 未付单」引入的，一个修复自己带出来的洞。）
+#[tokio::test]
+async fn reusing_an_unpaid_order_takes_the_address_you_just_typed() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 9900).await;
+    let 下单 = |地址: &'static str| order::NewOrder {
+        user_id: user.clone(), region: "cn".into(), channel_origin: "web".into(),
+        lines: vec![order::NewOrderLine { sku_id: sku.clone(), qty: 1 }],
+        shipping_address: Some(serde_json::json!({ "address": 地址 })),
+        contact: Some(serde_json::json!({ "name": "验", "address": 地址 })),
+        coupon_codes: vec![], note: None, ip: None, ua: None,
+    };
+
+    let 头一次 = order::create(&pool, 下单("甲地")).await.expect("第一张");
+    let 第二次 = order::create(&pool, 下单("乙地")).await.expect("再下一次");
+    assert_eq!(第二次.order_id, 头一次.order_id, "同一件东西该复用那一张");
+
+    let 存的: Option<serde_json::Value> = sqlx::query_scalar(
+        "SELECT shipping_address_json FROM order_meta WHERE order_id=$1",
+    ).bind(&头一次.order_id).fetch_one(&pool).await.expect("读 order_meta");
+    assert_eq!(存的.as_ref().and_then(|v| v["address"].as_str()), Some("乙地"),
+               "库里存的该是他【这一次】填的那个地址，不是上一次的");
+}
+
 async fn order_fixture(pool: &sqlx::PgPool) -> (String, String) {
     let user = common::user(pool).await;
     let sku = common::sku_with_price(pool, "CNY", 19900).await;

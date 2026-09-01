@@ -18,10 +18,18 @@ import re, sys, pathlib
 根 = pathlib.Path(__file__).resolve().parent.parent
 错, 查过 = [], 0
 
+# 【每一张这种表都要在名单里】。第一版只列了 `物流说法`，
+# 而同一个形状的第二张 —— `状态说法`（utils/money.ts，对 OrderStatus）——
+# 铺在订单页、订单列表、「我的」三块屏上，同样是 `表[status] || status`
+# 兜底，一支门禁都没核过。今天九个键恰好对得上，所以看不出来;
+# OrderStatus 加一档，三块屏同时开始印英文原文，而这一支照样打 ✓
+# 并说「查了 1 张表」——「1」这个数没人会去对
+# （2026-09-01 五路评审 · 工程审计）。
 对 = [
     ('ShipmentStatus', 'mini/miniprogram/pages/order/index.ts', '物流说法',
      # 轨迹里承运商推来的那几种不在枚举里，表里允许多出来
      {'departed', 'arrived_at_sort_facility', 'failed_delivery', 'unknown'}),
+    ('OrderStatus', 'mini/miniprogram/utils/money.ts', '状态说法', set()),
 ]
 枚举源 = (根 / 'backend/unmei-domain/src/commerce/enums.rs').read_text(encoding='utf-8')
 
@@ -48,6 +56,22 @@ for 枚举名, 前端路径, 表名, 额外 in 对:
 
 if 查过 == 0:
     print('✗ 一张表都没核到 —— 这一支在空转')
+    sys.exit(1)
+# 【别漏表】。判据是:凡是「中文说法表 + `表[x] || x` 兜底」这个形状的，
+# 都得在上面的名单里。靠 grep 找出所有 `Record<string, string>` 的说法表，
+# 名单少了就报 —— 计数「查了 N 张」读起来像满覆盖，那是这一支的老毛病。
+候选 = set()
+for f in sorted((根 / 'mini/miniprogram').rglob('*.ts')):
+    src = f.read_text(encoding='utf-8')
+    for 名 in re.findall(r'(?:const|export const)\s+([\u4e00-\u9fa5\w]+)\s*:\s*Record<string,\s*string>', src):
+        if 名.endswith('说法'):
+            候选.add((str(f.relative_to(根)), 名))
+名单 = {(路, 名) for _, 路, 名, _ in 对}
+漏 = 候选 - 名单
+if 漏:
+    for 路, 名 in sorted(漏):
+        print(f'  ✗ {路} 里的 `{名}` 是同一个形状的说法表，却不在这一支的名单里')
+    print(f'✗ 说法表漏了 {len(漏)} 张 —— 「查了 {查过} 张」读起来像满覆盖')
     sys.exit(1)
 for e in 错:
     print('  ✗ ' + e)
