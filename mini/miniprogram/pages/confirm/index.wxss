@@ -22,7 +22,7 @@
 .step-n { font-size: 30rpx; min-width: 48rpx; text-align: center; }
 .msg { margin-top: 16rpx; font-size: 28rpx; padding: 12rpx 0; border-bottom: 1rpx solid var(--stone-line-x); }
 .sum-k { font-size: 24rpx; color: var(--ink-faint); margin-bottom: 8rpx; }
-.note { font-size: 26rpx; color: var(--peach); margin-top: 16rpx; }
+.note { font-size: 26rpx; color: var(--peach-text); margin-top: 16rpx; }
 .pay { display: flex; justify-content: space-between; align-items: center; margin-top: 40rpx; }
 .pay-total { font-size: 34rpx; font-weight: 700; }
 .foot { font-size: 24rpx; color: var(--ink-faint); margin-top: 20rpx; }

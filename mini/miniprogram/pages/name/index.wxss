@@ -4,7 +4,7 @@
 .name-input { margin-top: 40rpx; padding: 24rpx 0; font-size: 36rpx;
               border-bottom: 2rpx solid var(--ink); }
 .hint { font-size: 24rpx; color: var(--ink-faint); margin-top: 12rpx; }
-.note { font-size: 26rpx; color: var(--peach); margin-top: 20rpx; }
+.note { font-size: 26rpx; color: var(--peach-text); margin-top: 20rpx; }
 .hr { height: 1rpx; background: var(--stone-line-x); margin: 40rpx 0 28rpx; }
 .preview-k { font-size: 24rpx; color: var(--ink-faint); margin-bottom: 16rpx; }
 .preview { background: var(--paper-inset); padding: 24rpx; }

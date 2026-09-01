@@ -131,9 +131,18 @@ pub async fn create(pool: &PgPool, req: NewOrder) -> Result<CreatedOrder, Domain
                 ).bind(&id).bind(&req.shipping_address).bind(&req.contact)
                  .execute(pool).await.db()?;
             }
-            if let Some(n) = req.note.as_ref() {
-                sqlx::query("UPDATE order_record SET note = $2 WHERE id = $1")
-                    .bind(&id).bind(n).execute(pool).await.db()?;
+            /* note 落在 `audit_note` 上 —— 建单那条路（本文件下面那条 INSERT）
+               就是这么写的，复用这一支不该另找一个地方。
+               上一版这里写的是 `SET note = $2`，而 order_record 【没有】note 这一列:
+               它编译得过（本仓禁用 query! 宏，SQL 是运行期才解析的），
+               一跑就是 500。`check-sql · 每条 SQL 过一遍 Postgres` 抓到的
+               （2026-09-01）—— 这正是那一支存在的理由。
+               覆盖改成追加:第一次下单写的那句是审计串的一部分，不该被后来的抹掉。 */
+            if let Some(n) = req.note.as_ref().filter(|n| !n.trim().is_empty()) {
+                sqlx::query(
+                    "UPDATE order_record SET audit_note = COALESCE(audit_note, '') || E'\\n' || $2
+                      WHERE id = $1",
+                ).bind(&id).bind(n).execute(pool).await.db()?;
             }
             let r = sqlx::query(
                 "SELECT amount_total_minor, currency FROM order_record WHERE id=$1",

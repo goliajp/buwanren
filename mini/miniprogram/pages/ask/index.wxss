@@ -54,7 +54,7 @@
   padding: 12rpx 32rpx 20rpx;
 }
 .q-echo .q-mark {
-  color: var(--stamp);
+  color: var(--amber-text);
   opacity: 0.7;
   font-size: 26rpx;
   margin: 0 4rpx;
@@ -73,7 +73,7 @@
   font-weight: 600;
   font-size: 60rpx;
   font-weight: 500;
-  color: var(--stamp);
+  color: var(--amber-text);
   margin-left: 16rpx;
   letter-spacing: 0.08em;
 }
@@ -103,7 +103,7 @@
   color: var(--ink);
 }
 .suit-k { color: var(--wx-mu-fg); }
-.avoid-k { color: var(--stamp); }
+.avoid-k { color: var(--amber-text); }
 .dual-chips {
   display: flex; flex-direction: column;
   align-items: center; gap: 12rpx;
@@ -115,14 +115,14 @@
   letter-spacing: 0.02em;
 }
 .suit-chip { color: var(--wx-mu-fg); }
-.avoid-chip { color: var(--stamp); }
+.avoid-chip { color: var(--amber-text); }
 .dual-empty { color: var(--stone-label); font-size: 24rpx; }
 
 .quote-block { padding: 32rpx 24rpx; }
 .quote-mark {
   font-weight: 600;
   font-size: 40rpx;
-  color: var(--stamp);
+  color: var(--amber-text);
   opacity: 0.7;
   line-height: 1;
 }
@@ -198,7 +198,7 @@
   letter-spacing: 0.14em;
   margin: 16rpx 0 24rpx;
 }
-.hist-chip::first-letter { color: var(--stamp); }
+.hist-chip::first-letter { color: var(--amber-text); }
 
 .hist-k {
   color: var(--stone-label);

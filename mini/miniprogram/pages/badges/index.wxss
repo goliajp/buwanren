@@ -54,7 +54,7 @@
 .badge.got .badge-art {
   border: none;
   background: linear-gradient(150deg, #FFB463, var(--amber));
-  color: #fff;
+  color: var(--on-amber);
   box-shadow: 0 4rpx 14rpx rgba(232,121,26,.32);
 }
 .badge-n { font-size: 25rpx; font-weight: 600; color: var(--ink); }
@@ -79,6 +79,6 @@
 
 /* 还没拿到的那几枚点得动 —— 通到能拿到它的地方。
    原先六枚全灰、一个都点不动，这一屏唯一能做的事是「回去」。 */
-.badge-go { font-size: 21rpx; color: var(--amber-deep); margin-top: 8rpx; font-weight: 600; }
+.badge-go { font-size: 21rpx; color: var(--amber-text); margin-top: 8rpx; font-weight: 600; }
 .badge-hover { transform: scale(.97); }
 .badge { transition: transform .12s cubic-bezier(.34,1.56,.64,1); }

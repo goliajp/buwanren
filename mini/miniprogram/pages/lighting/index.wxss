@@ -102,8 +102,12 @@
 .meta-t { font-family: "SF Mono", "Menlo", monospace; }
 
 .acts { flex: none; margin-top: 48rpx; display: flex; flex-direction: column; gap: 20rpx; }
-.acts .btn.lit { background: var(--amber-deep); color: #fff; border: none; }
-.acts .btn.lit[disabled] { background: #55483a; color: var(--stone-label); opacity: 1; }
+.acts .btn.lit { background: var(--amber-deep); color: var(--on-amber); border: none; }
+/* 【禁用态的字要亮，不是暗】。`--stone-label` 压在 #55483a 上只有 2.13:1 ——
+   而这一屏是夜里那二十五分钟，整屏都是暗的，暗字压暗底等于没有字:
+   「烧着呢，二十五分钟」这句是用户在这一屏唯一能读到的状态
+   （2026-09-01 第二轮评审）。#D8CCB8 压同一个底是 5.58:1。 */
+.acts .btn.lit[disabled] { background: #55483a; color: #D8CCB8; opacity: 1; }
 
 /* 点上之后：没有按钮。一颗灰掉的大按钮会把屏上最重的一块地方
    留给一个按不动的东西，而此刻该被看的是那支香。 */

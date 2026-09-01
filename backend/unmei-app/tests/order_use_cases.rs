@@ -388,6 +388,34 @@ async fn reusing_an_unpaid_order_takes_the_address_you_just_typed() {
                "库里存的该是他【这一次】填的那个地址，不是上一次的");
 }
 
+/// 复用未付单时，这一次写的备注也要落库 —— 而且是**追加**不是覆盖。
+///
+/// 上一版这里写的是 `UPDATE order_record SET note = $2`，而 order_record
+/// 没有 note 这一列:本仓禁用 `query!` 宏，SQL 是运行期才解析的，所以它
+/// 编译得过，一跑就是 500。`check-sql` 抓到之后改成落 `audit_note` ——
+/// 跟建单那条路同一个去处。这个测试钉住「落哪儿」和「追加不覆盖」两件事。
+#[tokio::test]
+async fn reusing_an_unpaid_order_keeps_both_notes() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 9900).await;
+    let 下单 = |备注: &'static str| order::NewOrder {
+        user_id: user.clone(), region: "cn".into(), channel_origin: "web".into(),
+        lines: vec![order::NewOrderLine { sku_id: sku.clone(), qty: 1 }],
+        shipping_address: None, contact: None,
+        coupon_codes: vec![], note: Some(备注.into()), ip: None, ua: None,
+    };
+
+    let 头一次 = order::create(&pool, 下单("头一遍")).await.expect("第一张");
+    let 第二次 = order::create(&pool, 下单("第二遍")).await.expect("再下一次");
+    assert_eq!(第二次.order_id, 头一次.order_id, "同一件东西该复用那一张");
+
+    let 串: String = sqlx::query_scalar("SELECT audit_note FROM order_record WHERE id=$1")
+        .bind(&头一次.order_id).fetch_one(&pool).await.expect("读 audit_note");
+    assert!(串.contains("第二遍"), "这一次写的备注得在里头，实际是:{串}");
+    assert!(串.contains("头一遍"), "上一次那句不该被抹掉，实际是:{串}");
+}
+
 async fn order_fixture(pool: &sqlx::PgPool) -> (String, String) {
     let user = common::user(pool).await;
     let sku = common::sku_with_price(pool, "CNY", 19900).await;

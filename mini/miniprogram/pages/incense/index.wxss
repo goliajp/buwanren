@@ -62,7 +62,7 @@
   border-right: 12rpx solid var(--paper-panel);
 }
 .say-go { display: block; margin-top: 10rpx; font-size: 25rpx;
-          font-weight: 600; color: var(--amber-deep); }
+          font-weight: 600; color: var(--amber-text); }
 
 .recipe { display: flex; align-items: baseline; gap: 18rpx; margin-top: 26rpx; }
 .recipe-k { font-size: 23rpx; color: var(--stone-label); }
@@ -88,7 +88,7 @@
 .pick-go {
   margin: 18rpx -10rpx -20rpx; padding: 14rpx 0;
   border-radius: 0 0 var(--r-card) var(--r-card);
-  background: var(--amber); color: #fff;
+  background: var(--amber); color: var(--on-amber);
   font-size: 26rpx; font-weight: 700; letter-spacing: 0.08em;
 }
 .pick-hover .pick-go { background: var(--amber-deep); }
@@ -100,12 +100,12 @@
    为什么荐最便宜那一档:见 index.ts 里 `标出最便宜那一档` 上面那段。 */
 .pick-go {
   background: var(--paper-inset);
-  color: var(--amber-deep);
+  color: var(--amber-text);
   border-top: 2rpx solid #EDE3D2;
 }
 .pick-rec .pick-go {
   background: var(--amber);
-  color: #fff;
+  color: var(--on-amber);
   border-top: none;
 }
 .pick-rec { border-color: var(--amber); box-shadow: 0 4rpx 14rpx rgba(232,121,26,.14); }
@@ -113,7 +113,7 @@
   position: absolute; top: -16rpx; left: 50%; transform: translateX(-50%);
   white-space: nowrap;
   padding: 4rpx 14rpx; border-radius: 999rpx;
-  background: var(--amber); color: #fff;
+  background: var(--amber); color: var(--on-amber);
   font-size: 19rpx; font-weight: 600; letter-spacing: .02em;
 }
 .pick { position: relative; }

@@ -78,6 +78,6 @@
               font-variant-numeric: tabular-nums; }
 .item-bot { display: flex; align-items: baseline; margin-top: 8rpx; }
 .item-when { flex: 1; font-size: 23rpx; color: var(--ink-faint); }
-.item-go { flex: none; font-size: 24rpx; font-weight: 600; color: var(--amber-deep); }
+.item-go { flex: none; font-size: 24rpx; font-weight: 600; color: var(--amber-text); }
 /* 「去村里看看谁能来」是这一屏的出口，给它卡片的分量 */
 .page { display: flex; flex-direction: column; }
