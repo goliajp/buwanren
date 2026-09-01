@@ -85,6 +85,10 @@ export interface OrderCard {
   created_at: string
   paid_at?: string | null
   expires_at?: string | null
+  /** 取消的原因。`expired` = 超时没付，系统自己取消的 ——
+   *  跟「买家自己点了不要」是两件事，屏上不能都写「已取消」。
+   *  后端一直在给（`SELECT *`），只是没人声明、也没人渲染。 */
+  cancel_reason?: string | null
   fulfilled_at?: string | null
 }
 

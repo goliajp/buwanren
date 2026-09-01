@@ -3113,6 +3113,35 @@ if (!API) {
          `商品页 ${标价} · 单子 ${单.合计}`)
       ok(单.行数 === 1, '单子上有一行', String(单.行数))
 
+      /* 【这一单有三十分钟的时限，屏上要说】（2026-09-02）。
+         建单时后端写 `expires_at = NOW() + 30 分钟`，到点 payment_sweep
+         把它取消掉。屏上原先一个字都没说 —— 而「不要这一单了」那条
+         文字链就在旁边，过期之后状态变「已取消」，买家最容易的理解是
+         「我手滑点了它」。 */
+      const 时限 = await p.evaluate(() => globalThis.__router.current().data.还有多久)
+      ok(/分钟/.test(String(时限)), '待付的单子说得出还有多久会自己取消', String(时限))
+
+      /* 另一半:【超时取消要说清是超时】。都写「已取消」的话，
+         买家会以为是自己点的。判据是后端给的 `cancel_reason`。
+         这一态造不出来（要等三十分钟），所以直接改库 —— 夹具写在明处。 */
+      {
+        const 单号 = await p.evaluate(() => globalThis.__router.current().data.id)
+        run(`UPDATE order_record SET status='cancelled', cancel_reason='expired',`
+          + ` cancel_actor='system', cancelled_at=NOW() WHERE id='${单号}'`)
+        await p.evaluate(() => globalThis.__router.current().load())
+        await p.waitForFunction(() => globalThis.__router.current().data.status === 'cancelled',
+                                null, { timeout: 15000 }).catch(() => {})
+        const 说的 = await p.evaluate(() => globalThis.__router.current().data.下一步)
+        ok(/超过三十分钟没付/.test(String(说的)),
+           '超时取消的单子说得出是超时，不是「你取消了」', String(说的))
+        ok(!/你取消|已取消这一单/.test(String(说的)),
+           '而且不把它说成买家自己做的', String(说的))
+        run(`UPDATE order_record SET status='unpaid', cancel_reason=NULL,`
+          + ` cancel_actor=NULL, cancelled_at=NULL WHERE id='${单号}'`)
+        await p.evaluate(() => globalThis.__router.current().load())
+        await p.waitForTimeout(600)
+      }
+
       /* 「去支付」：打后端拿 prepay 参数（真跑），然后 requestPayment 抛。
          **抛到哪儿去看**：`deviceOnly` 是故意不走整屏红的 —— 「这一步只有真机有」
          跟「镜像坏了」不是一回事，它落在底部那条提示上，并记进 `__DEVICE_ONLY`。

@@ -88,8 +88,39 @@ function 这一单走到哪儿(status: string, d: OrderDetail): Array<{ t: strin
 /* 【下一步等什么】。进度线说得出「在哪儿」，说不出「接下来会怎样」。
    按这一单买了会发生什么分三种:会住进村里的、要算的、寄东西的。
    已经走完的不说 —— 那时该说的话在按钮上。 */
+/* 【还剩多少时间】。建单时后端写的是 `NOW() + 30 分钟`
+   （unmei-app/src/order.rs），到点由 payment_sweep 把它取消掉，
+   `cancel_reason='expired'`。
+
+   这件事屏上原先【一个字都没说】:待付的单子看不出有时限，
+   过期之后状态变成「已取消」—— 而买家没有取消过任何东西，
+   偏偏「不要这一单了」那条文字链就在旁边，最容易的理解是
+   「我是不是手滑点了它」（2026-09-01 第二轮评审 · 转化路）。
+
+   不用计时器。计时器要在 onHide / onUnload 里清，漏一个就是个
+   常驻的 zombie;而这一屏本来就在 `onShow` 重取（付款回来要刷新状态），
+   顺手重算就够。「约」字担着不精确那一档:分钟级的数不需要秒级的真。 */
+function 还有多久(status: string, d: OrderDetail): string {
+  if (status !== 'unpaid' && status !== 'draft') return ''
+  const t = d.order && d.order.expires_at
+  if (!t) return ''
+  const 剩 = Math.round((new Date(String(t).replace(' ', 'T')).getTime() - Date.now()) / 60000)
+  if (!isFinite(剩)) return ''
+  // 已经过点了但还没被扫到 —— 说「就要取消了」，不说负数
+  if (剩 <= 0) return '超时了 —— 这一单一会儿会自己取消'
+  if (剩 > 120) return ''            // 时限改长了的话这一句就没必要
+  return `还有约 ${剩} 分钟没付，这一单会自己取消`
+}
+
 function 下一步等什么(status: string, d: OrderDetail): string {
-  if (status === 'cancelled' || status === 'done') return ''
+  /* 【超时取消要说是超时】。都写「已取消」的话，买家会以为是自己点的。
+     判据是后端给的 `cancel_reason`，不猜。 */
+  if (status === 'cancelled') {
+    return d.order && d.order.cancel_reason === 'expired'
+      ? '超过三十分钟没付，这一单自己取消了 —— 想要的话再下一单就行'
+      : ''
+  }
+  if (status === 'done') return ''
   const 住 = (d.lines || []).some((l) => l.becomes_resident)
   const 册 = (d.reports || [])[0]
   if (status === 'unpaid' || status === 'draft') {
@@ -142,6 +173,8 @@ Page({
     住下了: false,
     走到哪儿: [] as Array<{ t: string; s: string }>,
     下一步: '',
+    /** 待付时的时限提示。空 = 不摆 */
+    还有多久: '',
     /** 这一单买的那一册（设计册 M2「看 ›」）。null = 这单没买报告 */
     report: null as { id: string; status: string } | null,
   },
@@ -223,6 +256,7 @@ Page({
                                  .every((l) => l.fulfillment_status === 'done'),
           走到哪儿: 这一单走到哪儿(o.status, d),
           下一步: 下一步等什么(o.status, d),
+          还有多久: 还有多久(o.status, d),
           /* 这一单买的册子。御守的完成态是住进村里，报告的完成态是
              **你读到了** —— 所以它跟「去扫开它」一样是主按钮。
              还没出的那些（还差生辰）也给出来：它是这一单真实的状态，

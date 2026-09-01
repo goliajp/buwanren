@@ -136,6 +136,9 @@
   background: var(--paper-panel); border-radius: 14rpx;
   font-size: 26rpx; line-height: 1.7; color: var(--ink);
 }
+/* 时限那一句比「下一步」轻一档:它是个提醒，不是这一屏要你做的事。
+   用琥珀字色 —— 它有紧迫感，但不是报错（报错是桃色那一档）。 */
+.ttl { margin-top: 8rpx; font-size: 24rpx; color: var(--amber-text); line-height: 1.6; }
 /* 订单号。给客服念的，不是给买家读的 —— 最轻的一档，等宽字。 */
 .ordno {
   margin-top: 18rpx;
