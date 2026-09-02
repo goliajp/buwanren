@@ -162,6 +162,41 @@ mutate "命中与绘制的排序线不一致" roomaudit \
   "s = s.replace('return p[2] + (a.foot && a.foot[3] > 0 ? a.foot[1] : a.base)', 'return p[2] + a.base', 1); assert 'return p[2] + a.base' in s"
 
 echo
+# ── winlint 单独一条 ──────────────────────────────────────────
+# 上面那些变异都作用在 design.html 的【副本】上，而 winlint 扫的是
+# `rooms/src/{engine,assets,rooms}/*.js` —— 形状不同，套不进 mutate()。
+# 于是它从来只在对照组里跑过（「干净源码上要绿」），
+# 【没有一条用例问过它抓不抓得住】—— 它是 rooms 这批里唯一这样的一支
+# （2026-09-03 第四轮评审 · 工程审计）。
+#
+# 往一支真源码里塞一个 `window.`，跑完还原。改的是工作区里的真文件，
+# 所以 trap 里也要还原 —— 中途被打断不能把它留在源码里。
+echo "── winlint:往可移植核心里塞一个 window ──"
+# 挑一支【真受管】的。第一版挑了 `engine/village.js` —— 它在 SKIP 名单里
+# （设计页专用），于是变异植进去了、门禁也确实不该报，
+# 打出来却是「winlint 没抓到 —— 这就是下一个假绿」，指错了方向。
+# 这跟本文件上面 walklint 那段注释记的是同一个坑:变异挑错对象时，
+# 报出来的是「门禁没抓到」，而实际是这条变异压根没碰到它管的东西。
+WL="rooms/src/engine/actors.js"
+WLBAK="$WORK/winlint.bak"
+cp "$WL" "$WLBAK"
+trap 'cp "$WLBAK" "$WL" 2>/dev/null || true' EXIT
+printf '\n// 变异:可移植核心里不许有 window\nconst 变异探针 = typeof window\n' >> "$WL"
+if python3 rooms/tools/winlint.py >/dev/null 2>&1; then
+  printf '  ✗ %-34s winlint 没抓到 —— 这就是下一个假绿\n' "可移植核心里出现 window"; fail=$((fail+1))
+else
+  printf '  ✓ %-34s winlint 抓到\n' "可移植核心里出现 window"; pass=$((pass+1))
+fi
+cp "$WLBAK" "$WL"
+# 覆盖下限那一条也验一次:目录换个名字，它该说自己什么都没在看
+mkdir -p /tmp/winlint-empty
+# 根目录是【位置参数】，不是环境变量
+if python3 rooms/tools/winlint.py /tmp/winlint-empty >/dev/null 2>&1; then
+  printf '  ✗ %-34s 对着空目录也报绿\n' "winlint 的覆盖下限"; fail=$((fail+1))
+else
+  printf '  ✓ %-34s 空目录会红\n' "winlint 的覆盖下限"; pass=$((pass+1))
+fi
+
 echo "── 对照:未变异的源码,同一批门禁必须全绿 ──"
 for g in assetlint roomaudit hardcodelint pathlint walklint regress blobscan buildsync selfcheck portlint winlint buildengine; do
   if gate "$g" "$SRC"; then printf '  ✓ %-14s 绿\n' "$g"; pass=$((pass+1))

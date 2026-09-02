@@ -76,7 +76,7 @@ natal_resp=$(curl -fsS -X POST "$API_BASE/v1/user/natals" \
     -H "authorization: Bearer $client_tok" \
     -d '{"label":"e2e","year":1998,"month":3,"day":5,"hour":14,"minute":30,"tz":8,"gender":"male"}')
 natal_id=$(echo "$natal_resp" | jq -r '.id')
-[[ "$natal_id" != "null" && -n "$natal_id" ]] || { red "建本命失败: $natal_resp"; exit 1; }
+[[ "$natal_id" != "null" && -n "$natal_id" ]] || { red "建本命失败 —— $natal_resp"; exit 1; }
 curl -fsS -X POST "$API_BASE/v1/user/natals/$natal_id/activate" \
     -H "authorization: Bearer $client_tok" >/dev/null
 green "  ✓ natal_id=${natal_id} 已设为当前"
