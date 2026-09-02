@@ -307,6 +307,10 @@ gate "屏上说的是人话吗" . python3 scripts/check-plain-words.py
 #（一单那屏没有他的脸、两颗主按钮结构上能同时出现）。
 gate "五行色文字用 -fg"       . python3 scripts/check-wuxing-fg.py
 gate "村民台词合规格"        . python3 scripts/check-villager-lines.py
+# 村主屏一天只显示一条，从住着那位的四条里挑 —— 所以要紧的不是
+# 「整批里某个句式占几成」，是【一个人身上的密度】:四条同形，
+# 你连着四天听到同一个节奏。上一支管每条本身，这一支管四条之间。
+gate "没人四条一个调吗" . env DATABASE_URL='postgres://unmei:unmei_dev_pwd@localhost:6032/unmei' python3 scripts/check-line-rhythm.py
 gate "屏上不拿指代当名字"     . python3 scripts/check-no-deixis.py
 gate "技术原文不上屏"        . python3 scripts/check-no-raw-error.py
 gate "一件事一个名字"        . python3 scripts/check-one-name.py
