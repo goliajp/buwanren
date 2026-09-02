@@ -325,6 +325,29 @@ button.entry-btn {
   text-align: left;
 }
 button.entry-btn::after { border: none; }
+/* ── 按下去要有回应 ─────────────────────────────────────────
+   【三种，就三种】（2026-09-02 第四轮评审 · 视觉）。
+   评审量到:23 屏里 12 屏一处按压反馈都没有 —— 点「就要这个」花 ¥398、
+   点「问问婆婆」、点「存下」，屏幕纹丝不动;而有反馈的那 11 屏用了
+   13 个类名、6 种效果，其中 `.item-hover` 在名册里是变底色、
+   在订单列表里是缩放（同一个名字两种意思）。
+
+   按什么东西决定用哪一种，不按它在哪一屏:
+   · `.press-card` 整块可点的卡片 / 行 —— 底色沉一档
+   · `.press-btn`  按钮状的东西 —— 缩一点点，像被按下去
+   · `.press-text` 文字链 —— 淡一档
+   微信的 `<button>` 自带按压态，不用再挂。
+
+   数值只在这里出现一次。改这三行等于改全 app —— 那正是它们存在的理由。 */
+.press-card { background: var(--paper-inset); }
+.press-btn  { transform: scale(.97); }
+.press-text { opacity: .55; }
+
+/* 旧名字保留成同义词 —— 十六处 `entry-hover` 一次性改名会让这个 diff
+   淹掉真正的改动;它们指向同一件事，下一次经过时顺手换掉即可。
+   （`.item-hover` 没留:它在名册与订单列表里【各定义了两次】，
+   一次变底色一次缩放，后者悄悄覆盖前者 —— 一个名字两种意思，
+   留着只会继续骗人。三处用的都是「整块可点的行」，已改成 press-card。） */
 .entry-hover { background: var(--paper-inset); }
 .entry-k {
   flex: none;

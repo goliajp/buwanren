@@ -33,7 +33,7 @@
       <view wx:for="{{page}}" wx:key="id" class="item enter"
             style="animation-delay:{{index * 40}}ms"
             data-id="{{item.id}}" bindtap="onTap"
-            hover-class="item-hover" hover-stay-time="100">
+            hover-class="press-card" hover-stay-time="100">
         <view class="item-top">
           <text class="item-name">{{item.title}}</text>
           <text class="item-total">{{item.totalText}}</text>
@@ -47,7 +47,7 @@
 
     <!-- 翻页代替竖向滚动：一页五笔，一屏放得下（设计 10.3） -->
     <view class="pager" wx:if="{{pageCount > 1}}">
-      <view class="pg {{pageNo === 0 ? 'pg-off' : ''}}" bindtap="onPrev">‹ 上一页</view>
+      <view class="pg {{pageNo === 0 ? 'pg-off' : ''}}" bindtap="onPrev" hover-class="press-btn" hover-stay-time="80">‹ 上一页</view>
       <text class="pg-n">{{pageNo + 1}} / {{pageCount}}</text>
       <view class="pg {{pageNo + 1 >= pageCount ? 'pg-off' : ''}}" bindtap="onNext">下一页 ›</view>
     </view>

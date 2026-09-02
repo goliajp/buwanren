@@ -50,7 +50,7 @@
       <view wx:for="{{能请}}" wx:key="id"
             class="item enter" style="animation-delay:{{index * 40}}ms"
             data-id="{{item.id}}" bindtap="onTap"
-            hover-class="item-hover" hover-stay-time="100">
+            hover-class="press-card" hover-stay-time="100">
         <!-- 脸。四十位原先是四十行文字 —— 一个靠角色立身的产品，
              最不该没有角色的就是这一屏。没有美术之前用姓名末字，
              等头像画好换这一处即可。 -->
@@ -154,6 +154,6 @@
          而「一屏不是死路」那支门禁把「有翻页」也算成出口,于是它一直绿。
          翻页不离开这一屏,那是个假出口(判据同日一并改掉)。
          真机上原生导航栏是有返回箭头的,但别的屏都摆了这一行,该一样。 -->
-    <view class="back" bindtap="onBack">回村里</view>
+    <view class="back" bindtap="onBack" hover-class="press-text" hover-stay-time="80">回村里</view>
   </block>
 </view>

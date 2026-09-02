@@ -5,7 +5,7 @@
        而这一页下面还有一条名字栏。 -->
   <view class="stage">
     <!-- type="2d" 是必须的:旧版 canvas 拿不到 node,也就没有 requestAnimationFrame -->
-    <canvas
+    <canvas data-no-press="点的是画面里的东西，不是整块画布"
       type="2d"
       id="room"
       class="room"
@@ -19,10 +19,10 @@
          真机上有原生返回栏，但这个 app 每一屏底下都摆着「回去」，
          唯独这里没有;而它是引擎屏，尺子那一支按「有没有 canvas」豁免了它，
          于是「不是死路」那一条从没在这一屏上验过。 -->
-    <view class="back" bindtap="onBack">‹ 回村里</view>
+    <view class="back" bindtap="onBack" hover-class="press-text" hover-stay-time="80">‹ 回村里</view>
     <view class="who">{{name}}</view>
     <!-- 表演态那颗按钮。文案由引擎写回来,不由这里点了几下决定 -->
-    <view wx:if="{{castLabel}}" class="cast" bindtap="onCast">{{castLabel}}</view>
+    <view wx:if="{{castLabel}}" class="cast" bindtap="onCast" hover-class="press-btn" hover-stay-time="80">{{castLabel}}</view>
   </view>
 
   <view wx:if="{{err}}" class="err">{{err}}</view>

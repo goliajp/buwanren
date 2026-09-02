@@ -17,7 +17,7 @@
          扫哪儿、自己手上有没有（五路评审 · 第一次打开的人）。
          「护身符」是中文里现成的词，不用学。
          其余各屏仍然叫御守 —— 那时他手上已经有一枚，名字才立得住。 -->
-    <view class="scan" bindtap="onScan">扫护身符</view>
+    <view class="scan" bindtap="onScan" hover-class="press-btn" hover-stay-time="80">扫护身符</view>
   </view>
 
   <!-- 「该扫了」（设计册 E2）。**只在「有单已签收、还没扫」时出现** ——
@@ -103,14 +103,14 @@
       <view class="says-foot">
         <!-- 跟「他今天说」同构、同高：整张卡可点，右下角一条出路。
              卡再高一点村子就被挤出屏，而村子是这一屏的主体。 -->
-        <text class="says-id intro-alt" catchtap="goNatal">谁来住你说了算 · 填出生时间 ›</text>
+        <text class="says-id intro-alt" catchtap="goNatal" hover-class="press-text" hover-stay-time="80">谁来住你说了算 · 填出生时间 ›</text>
         <text class="says-go">看看谁能来 ›</text>
       </view>
     </view>
   </view>
 
   <!-- type="2d" 是必须的：旧版 canvas 拿不到 node，也就没有 requestAnimationFrame -->
-  <canvas
+  <canvas data-no-press="点的是画面里的东西，不是整块画布"
     type="2d"
     id="village"
     class="village"
@@ -166,7 +166,7 @@
          这一态从没人看过：开发库里最多住着几位，走查也走不到。 -->
     <text class="tally-n" wx:if="{{lived > 0 && lived >= total}}">四十位都回来了</text>
     <text class="tally-n" wx:elif="{{lived > 0}}">还差 {{total - lived}} 位就集齐了</text>
-    <text wx:if="{{tonight}}" class="tally-go" bindtap="goTonight">今晚九点在苏合院子里 ›</text>
+    <text wx:if="{{tonight}}" class="tally-go" bindtap="goTonight" hover-class="press-text" hover-stay-time="80">今晚九点在苏合院子里 ›</text>
     <text wx:else class="tally-dim">周四晚九点，苏合在院子里点香</text>
   </view>
 

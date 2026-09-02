@@ -43,7 +43,7 @@
          两样都没有包裹 —— 而上一版对每一件都要地址，等于在主推的那一件前面
          摆了一道跟它无关的坎（2026-09-01 第二轮评审 · 转化路）。 -->
     <block wx:if="{{要寄}}">
-      <view class="row" bindtap="chooseAddr">
+      <view class="row" bindtap="chooseAddr" hover-class="press-card" hover-stay-time="80">
         <text class="row-k">寄到</text>
         <text class="row-v" wx:if="{{contact}}">{{contact.name}} · {{contact.phone}} · {{contact.address}}</text>
         <text class="row-v dim" wx:else>还没填 ›</text>
@@ -58,9 +58,9 @@
     <view class="row" wx:if="{{!住进来}}">
       <text class="row-k">数量</text>
       <view class="stepper">
-        <text class="step {{qty <= 1 ? 'step-off' : ''}}" bindtap="minus">−</text>
+        <text class="step {{qty <= 1 ? 'step-off' : ''}}" bindtap="minus" hover-class="press-btn" hover-stay-time="80">−</text>
         <text class="step-n">{{qty}}</text>
-        <text class="step" bindtap="plus">＋</text>
+        <text class="step" bindtap="plus" hover-class="press-btn" hover-stay-time="80">＋</text>
       </view>
     </view>
 

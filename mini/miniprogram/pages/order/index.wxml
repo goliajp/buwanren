@@ -90,7 +90,7 @@
     <view class="ship" wx:if="{{shipErr}}">
       <view class="ship-k">寄出</view>
       <view class="pkg-no">{{shipErr}}</view>
-      <text class="pkg-arrow" bindtap="loadShipments">再试一次</text>
+      <text class="pkg-arrow" bindtap="loadShipments" hover-class="press-text" hover-stay-time="80">再试一次</text>
     </view>
 
     <view class="ship" wx:elif="{{shipments.length}}">
@@ -167,7 +167,7 @@
            并排摆着 —— 一次误触没掉一张单。破坏性动作不该长得像
            旁边那颗无害的按钮:降成一行文字链，并且点下去有二次确认
            （order/index.ts 的 onCancel）。 -->
-      <view wx:if="{{status === 'unpaid'}}" class="cta-drop" bindtap="onCancel">不要这一单了</view>
+      <view wx:if="{{status === 'unpaid'}}" class="cta-drop" bindtap="onCancel" hover-class="press-text" hover-stay-time="80">不要这一单了</view>
       <button wx:if="{{status === 'paid' || status === 'fulfilling' || status === 'done'}}"
               class="btn ghost" bindtap="onRefund" disabled="{{refunding}}">
         {{refunding ? '申请中……' : '申请退款'}}

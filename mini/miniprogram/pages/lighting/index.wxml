@@ -49,7 +49,7 @@
       <!-- 点上了之后这儿【不再有按钮】。一颗灰掉的大按钮会把屏上最重的
            一块地方留给一个按不动的东西，而此刻该被看的是那支香。 -->
       <view class="done">你点上了 · 坐一会儿</view>
-      <view class="leave" bindtap="onLeave">先走一步</view>
+      <view class="leave" bindtap="onLeave" hover-class="press-text" hover-stay-time="80">先走一步</view>
     </block>
   </view>
 </view>

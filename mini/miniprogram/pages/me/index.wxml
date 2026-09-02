@@ -84,7 +84,7 @@
   </view>
 
   <!-- 弹性槽 · 矮屏收起：下一站在哪儿。删掉它这一屏仍然成立 -->
-  <view class="flexslot" wx:if="{{nextStop}}" bindtap="goRecent">
+  <view class="flexslot" wx:if="{{nextStop}}" bindtap="goRecent" hover-class="press-card" hover-stay-time="80">
     <text class="slot-k">下一站</text>
     <text class="slot-v">{{nextStop}}</text>
     <text class="entry-arrow">›</text>

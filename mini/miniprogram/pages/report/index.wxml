@@ -129,20 +129,20 @@
              花 199 读到最后一页，产品给的最后一句话是做不到的。
              接得上那天再写它;现在说的是这一册在哪儿、随时能翻。 -->
         <view class="fin-p">读完了 —— 这一册一直在「我的」里<text
-              class="fin-go" bindtap="onAskVillage">回我的 ›</text></view>
+              class="fin-go" bindtap="onAskVillage" hover-class="press-text" hover-stay-time="80">回我的 ›</text></view>
       </view>
     </view>
 
     <!-- 页名一排。想看用神就点「用神」—— 比一路翻过去快 -->
     <view class="tabs">
       <view wx:for="{{tabs}}" wx:key="*this" class="tab {{index === at ? 'tab-on' : ''}}"
-            data-i="{{index}}" bindtap="onTab">{{item}}</view>
+            data-i="{{index}}" bindtap="onTab" hover-class="press-card" hover-stay-time="80">{{item}}</view>
     </view>
 
     <view class="acts">
-      <text class="turn {{at === 0 ? 'turn-off' : ''}}" bindtap="onPrev">‹ 上一页</text>
-      <text class="turn-back" bindtap="onBack">回去</text>
-      <text class="turn {{at === tabs.length - 1 ? 'turn-off' : ''}}" bindtap="onNext">下一页 ›</text>
+      <text class="turn {{at === 0 ? 'turn-off' : ''}}" bindtap="onPrev" hover-class="press-text" hover-stay-time="80">‹ 上一页</text>
+      <text class="turn-back" bindtap="onBack" hover-class="press-text" hover-stay-time="80">回去</text>
+      <text class="turn {{at === tabs.length - 1 ? 'turn-off' : ''}}" bindtap="onNext" hover-class="press-text" hover-stay-time="80">下一页 ›</text>
     </view>
 
     <!-- 摆在【翻页那一行之后】，整册一次:放进 `.pg` 里就是六页各一份，
