@@ -353,6 +353,36 @@ if (API) {
 
 
 
+/* 【取不到村子的时候，屏上不许说「还都空着」】（2026-09-02 第三轮评审）。
+   那张开场白卡原先只看 `!lived`，而取不到时 `lived` 停在 0 ——
+   断网冷启动看到的是一个「正常的空村子」，然后被引去花 ¥99;
+   已经有村民的人断网重进，屏上写的跟他昨天看到的正好相反。
+   真话被挤到画布下面、字号最小、还没有重试。 */
+async function 断网那一下() {
+  await p.route('**/v1/village*', (r) => r.abort())
+  try {
+    await open('pages/village/index')
+    await p.waitForTimeout(2200)
+    const 屏 = await text()
+    ok(!/还都空着/.test(屏), '取不到村子时，屏上不说「还都空着」—— 那是把不知道说成空的',
+       屏.slice(0, 50))
+    ok(/没连上|看不到/.test(屏), '而是说得出「一时看不到」', 屏.slice(0, 50))
+    ok(/再试一次/.test(屏), '并且给得出一颗重试 —— 不是一行读不见的小字', 屏.slice(0, 50))
+    /* 【重试真的能把村子带回来】。上面三条验的是「说了实话」，
+       这一条验的是「那颗按钮不是摆设」—— 放开拦截再点一次，
+       画布要重新挂上。不验这一条的话，一个永远点不动的重试
+       也能让上面三条全绿。 */
+    await p.unroute('**/v1/village*')
+    await p.getByText('再试一次', { exact: false }).click().catch(() => {})
+    await p.waitForFunction(() => globalThis.__router.current().data.取到过 === true,
+                            null, { timeout: 15000 }).catch(() => {})
+    const 回来了 = await p.evaluate(() => globalThis.__router.current().data.取到过)
+    ok(回来了 === true, '点那颗「再试一次」，村子真的回来了', String(回来了))
+  } finally {
+    await p.unroute('**/v1/village*').catch(() => {})
+  }
+}
+
 /* 【没有待扫单子的人，扫失败之后屏上有话吗】。
    这是第一屏第一个按钮，而新用户的 `toScan` 是 false ——
    而屏上唯一渲染 `codeErr` 的地方曾经挂在 `wx:if="{{toScan}}"` 里:
@@ -837,6 +867,7 @@ if (API) {
   console.log('  （打真后端：先用真的入住路径请阿云与陈九回家）')
   /* 先验「扫不出来」那一下 —— 要趁这个用户手上还没有任何待扫的单子，
      那正是第一次打开的人所处的状态。 */
+  await 断网那一下()
   await 扫不出来那一下()
   await open('pages/village/index')
   const before = await text()
