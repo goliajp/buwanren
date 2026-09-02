@@ -357,6 +357,9 @@ gate "截屏 · 33 屏（顺带量触达面积）" . bash -c \
      curl -s -m 2 -o /dev/null http://127.0.0.1:6028/v1/health 2>/dev/null \
        && echo --api=http://127.0.0.1:6028) >/dev/null"
 gate "点得到的东西够 44px 吗" . env SHOTS_DIR=$TAPDIR python3 scripts/check-tap-size.py
+# 解析 wxss 那一支在「底色写在祖先上」时够不着（如实报了 7 处没量）。
+# 这一支量渲染完的事实:字色、往上第一个不透明祖先的底色、字号字重。
+gate "渲染后的字都读得出来吗" . env SHOTS_DIR=$TAPDIR python3 scripts/check-contrast-live.py
 
 echo
 echo "── 部署配置 ──"

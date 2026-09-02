@@ -255,31 +255,19 @@ button.btn.ghost.btn-hover:not([disabled]) {
    用它做主按钮的地方（绑定微信）压不住，看着像个促销标签。
    留着一条没人用的按钮样式，只会诱使下一个人用它。 */
 
-/* ── 五行药丸 ──────────────────────────────────────────────
-   五行是【内容标签】，第一要务是一眼分得开。
-   旧做法是拿五行色当文字色 —— 对比度随背景漂，小字号下木和金几乎同色。
-   改成浅底深字的药丸：对比度稳、色盲友好(形状+文字仍可读),
-   而且它把「辛亥」这种行话包装成了看得懂的物件，像游戏里的属性徽章。 */
-.pill {
-  display: inline-block;
-  padding: 4rpx 16rpx;
-  border-radius: 999rpx;
-  font-size: 23rpx;
-  font-weight: 600;
-  line-height: 1.5;
-}
-.pill.mu   { background: var(--wx-mu-bg);   color: var(--wx-mu-fg);   }
-.pill.huo  { background: var(--wx-huo-bg);  color: var(--wx-huo-fg);  }
-.pill.tu   { background: var(--wx-tu-bg);   color: var(--wx-tu-fg);   }
-.pill.jin  { background: var(--wx-jin-bg);  color: var(--wx-jin-fg);  }
-.pill.shui { background: var(--wx-shui-bg); color: var(--wx-shui-fg); }
-.pill.plain{ background: var(--paper-inset); color: var(--ink-mid);   }
+/* 【五行药丸那一套删了】（2026-09-02 第三轮评审 · 视觉）。
+   那六条规则（药丸本体 + 五行五色 + plain）全 app **一处都没用过** ——
+   类名在二十三个 wxml 里零命中，`.ts` 里也不拼它。
+   删它不只是清死码:六种配色实测 3.28–4.43:1，而评审在讨论
+   「五行怎么上屏」时反复拿它当好例子引用 —— 一段谁都没在看的代码
+   在替产品发言，且说的是错的。真正在用的是下面那两套。
+   （`--wx-*-bg` / `--wx-*-fg` 那十个变量留着:分布条与那个大字在用。） */
 
 /* 五行前景色 · 用 class wx-{五行拼音} 挂大字/chip */
 /* 【文字用 -fg 那一套】。`--wx-jin` 这类是【底色】版：金 #8FA4C4、
    水 #4FA8E8 摆在纸色底上对比度只有 2.5:1 左右，而「你缺的是「金」」
    里那个字是这一屏最重要的一个字 —— 看不清就等于没说。
-   药丸（`.pill.*`）一直用的就是 -fg，只有这一套落在了底色版上。 */
+   分布条用的是底色版（`--wx-*`），那是块面，够大;而这里是字。 */
 .wx-mu   { color: var(--wx-mu-fg);   }
 .wx-huo  { color: var(--wx-huo-fg);  }
 .wx-tu   { color: var(--wx-tu-fg);   }
