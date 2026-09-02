@@ -1947,8 +1947,14 @@ const t3 = await text()
    「今天适合 / 先别」，而这里的断言把村民问签那一侧钉死在黄历腔上。
    护栏钉在要被淘汰的东西上，就会替它挡住改动。 */
 const 开场 = '眯着眼看了一眼'
-const said = t3.slice(t3.indexOf(开场))
-ok(t3.includes(开场), '出的是阿云的口气', said.slice(0, 24))
+/* 【找不到时别 slice(-1)】。`indexOf` 找不到返回 -1，
+   `slice(-1)` 取的是最后一个字符 —— 于是失败信息是「里」这么一个字，
+   看着像页面上真的只有那一个字，而实际是整段都不在。
+   报信错了，查起来会走到完全错的方向（2026-09-03 真花了一轮）。 */
+const 位 = t3.indexOf(开场)
+const said = 位 >= 0 ? t3.slice(位) : ''
+ok(位 >= 0, '出的是阿云的口气',
+   位 >= 0 ? said.slice(0, 24) : `没找到「${开场}」；屏上是：${t3.slice(0, 60).replace(/\s+/g, ' ')}`)
 ok(said.includes('今天适合') && said.includes('先别'),
    '签里说得出今天适合什么、先别什么　—— 而且是人话，不是「宜/忌」', said.slice(0, 40))
 await shot('03-reading')
