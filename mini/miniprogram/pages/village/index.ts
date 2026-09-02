@@ -88,6 +88,10 @@ interface VillageData {
   tonight: boolean
   lived: number
   total: number
+  /** 村子那份数据【取到过】吗。没取到时 `lived` 停在 0，
+   *  而屏上那张「四十间屋子，还都空着」只看 `!lived` —— 于是断网时
+   *  它会把「不知道」说成「空的」。这两件事必须分开。 */
+  取到过: boolean
   /** 他刚说的那一句 */
   /** 这一格能不能进屋(房间搬进小程序了没) */
   err: string
@@ -107,7 +111,7 @@ interface VillageData {
 }
 
 Page<VillageData, WechatMiniprogram.IAnyObject>({
-  data: { 手输开着: false, cssW: 0, cssH: 0, sub: '', greet: '', today: '', tonight: false, lived: 0, total: 40, err: '', toScan: false, code: '', codeErr: '', codeBusy: false,
+  data: { 手输开着: false, cssW: 0, cssH: 0, sub: '', greet: '', today: '', tonight: false, lived: 0, total: 40, err: '', 取到过: false, toScan: false, code: '', codeErr: '', codeBusy: false,
     says: null },
 
   handle: null as { stop(): void } | null,
@@ -203,11 +207,37 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
         /* 「有没有那一格」才是判据 —— 说话卡与开场白二选一，都占 90px。
            只比 `says` 的有无，会漏掉「第一位住进来那天开场白让位给说话卡」
            这一种：两块都在，高度没变，不必重算；而 0→1 那一下 lived 也变了。 */
-        const 有那格 = (x: { says: unknown; lived: number }) => !!x.says || !x.lived
+        /* 【判的是「哪一张卡」，不是「有没有卡」】（2026-09-02）。
+           这一格现在有三张卡:说话卡 / 出错卡 / 开场白。
+           上一版的判据是「那一格在不在」—— 而换卡时那一格一直在，
+           于是 `变了` 为假、画布不重挂。
+
+           这本来就是脆的:换一张卡会让垫片重建那一段节点，
+           而画布是它后面的兄弟节点，跟着被替换 —— 引擎还握着旧的那个，
+           新画布是空的、像素退回默认的 300×150（跟这个函数上面
+           那段 2026-08-26 的注释是同一件事）。开场白 → 说话卡
+           这一跳一直靠「垫片恰好复用了节点」侥幸活着;
+           我加了出错卡这第三个分支，位置一移，它当场露出来
+           （镜像里画布那三条一起红）。
+
+           判据改成比【卡的身份】。顺带它天然覆盖了
+           「从取不到回来」那一下 —— 那时引擎从没被喂过数据
+           （`VILLAGE_SET_HOME` 在这个 then 里，失败时走不到）。 */
+        const 哪张卡 = (x: { says: unknown; lived: number; err: string }) =>
+          x.says ? '说话' : (x.err ? '出错' : (x.lived ? '无' : '开场'))
         const 变了 = 该扫 !== this.data.toScan
-          || 有那格({ says: 说的, lived: v.found }) !== 有那格(this.data)
-        this.setData({ lived: v.found, total: v.total, err: '', toScan: 该扫, says: 说的 })
-        if (变了 && this.data.cssW) { this.fitCanvas(); this.mount() }
+          || 哪张卡({ says: 说的, lived: v.found, err: '' })
+             !== 哪张卡({ says: this.data.says, lived: this.data.lived, err: this.data.err })
+        this.setData(
+          { lived: v.found, total: v.total, err: '', toScan: 该扫, says: 说的, 取到过: true },
+          /* 同上:重挂要等这一次渲染真的落地。`fitCanvas` 会再 setData 一次
+             （改 cssW/cssH），所以 mount 排在它后面那一拍。 */
+          () => {
+            if (!变了 || !this.data.cssW) return
+            this.fitCanvas()
+            this.setData({}, () => this.mount())
+          },
+        )
       },
       /* 【还没登录完】不等于【取不到】。匿名登录是 app.ts 异步做的，
          而这一页 onShow 立刻就取一次 —— 冷启动那一次必然 401，
@@ -218,7 +248,29 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
          有 token 之后还失败，才是真取不到。 */
       (e) => {
         if (!storage.getToken()) return
-        this.setData({ err: '取不到村子：' + (一句(e)) })
+        /* 【出错卡也会换掉那一格，画布跟着被替换】。
+           设计册 10.7 那条写死的规则:**任何一屏都不许整屏换成错误页，
+           错误只替换取不到的那一段，其余照常可用** —— 村子那幅画是
+           本地的，不该因为一句话没取到就消失。
+           而换卡会让垫片重建那一段节点，画布是它后面的兄弟，
+           跟着被换成一个空的（成功那一支里的 `哪张卡` 说的是同一件事）。
+           所以这一支也要判一次:卡换了就把画重挂上去。 */
+        /* 【判的是「这一格从哪一张换成哪一张」】。
+           上一版写的是「原本有说话卡、或者有住户」—— 而后端全挂那一趟
+           `取到过` 是 false、`lived` 是 0、`says` 是空:
+           屏上原本是【开场白】，现在换成【出错卡】，两张都占那一格，
+           这个判据却说「没换」，于是画布不重挂、村子那幅画没了
+           （设计册 10.7:任何一屏都不许整屏换成错误页 —— 画是本地的）。
+           判据跟成功那一支对齐:比【是哪一张卡】。 */
+        const 原来那张 = this.data.says ? '说话' : (this.data.err ? '出错' : (this.data.lived ? '无' : '开场'))
+        const 换卡 = 原来那张 !== '出错'
+        /* 【在 setData 的回调里挂，不是紧跟着挂】。紧跟着调的话
+           重渲染还没发生，`createSelectorQuery` 拿到的是【旧节点】——
+           挂上去了，然后连节点带画一起被换掉。
+           第二个参数是渲染完的回调（真机与垫片都支持）。 */
+        this.setData({ err: '取不到村子：' + (一句(e)) }, () => {
+          if (换卡 && this.data.cssW) this.mount()
+        })
       },
     )
   },

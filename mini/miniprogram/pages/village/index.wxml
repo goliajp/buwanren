@@ -66,7 +66,31 @@
        所以补的不是占位，是叙事：村子先自我介绍，再给一条不花钱就能走的路。
        等第一位住进来，它自动让位给「他今天说」——
        开场白只说一次，说完就该退场。 -->
-  <view wx:elif="{{!lived}}" class="says intro" bindtap="goInvite"
+  <!-- 【取不到的时候不许说「空着」】（2026-09-02 第三轮评审 · 第一次打开的人）。
+       上一版这张卡的条件只是 `!lived`，而取不到时 `lived` 停在 0 ——
+       于是断网冷启动看到的是一个「正常的空村子」，然后被引去花 ¥99;
+       已经有村民的人断网重进，屏上写的是「四十间屋子，还都空着」，
+       跟他昨天看到的正好相反。真话被挤到画布下面、字号最小、还没有重试。
+
+       屏上的三态本来就不是两态:
+         取到了 · 有人   → 「他今天说」
+         取到了 · 没人   → 「还都空着」+ 两条路
+         **没取到**      → 说不知道，并给一颗重试
+       第三态原先被折进了第二态，那正是它说假话的地方。 -->
+  <view wx:elif="{{err}}" class="says intro" bindtap="reload"
+        hover-class="says-hover" hover-stay-time="100">
+    <view class="says-face intro-face">村</view>
+    <view class="says-body">
+      <view class="says-who">你的村子</view>
+      <view class="says-text">一时看不到 —— 没连上</view>
+      <view class="says-foot">
+        <text class="says-id">{{err}}</text>
+        <text class="says-go">再试一次 ›</text>
+      </view>
+    </view>
+  </view>
+
+  <view wx:elif="{{取到过 && !lived}}" class="says intro" bindtap="goInvite"
         hover-class="says-hover" hover-stay-time="100">
     <view class="says-face intro-face">村</view>
     <view class="says-body">
@@ -98,7 +122,10 @@
        问签、进屋、请他来都搬到 `pages/villager`，空屋搬到 `pages/plot` ——
        留着一个永远不会被填充的卡片，就是「实现完整、零调用方」。 -->
 
-  <view wx:if="{{err}}" class="err">{{err}}</view>
+  <!-- 这条小字只服务【取到过、而这一次刷新失败】那一种:
+       屏上还摆着上一次的村子，它说明为什么没更新。
+       一次都没取到的那一种在上面那张卡里说，不在这儿。 -->
+  <view wx:if="{{err && 取到过}}" class="err">{{err}}</view>
 
   <!-- 弹性槽（设计册 V1）：住着几位、还空几间，以及今晚那一场。
        收集数放这儿而不是头顶：它是「回来看看又多了谁」的信息，
