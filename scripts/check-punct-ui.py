@@ -120,6 +120,10 @@ def rust_strings(src):
         for t in re.findall(r'"([^"\n]{1,300})"', line):
             if SQLISH.match(t) or '$1' in t:
                 continue
+            # 【格式化占位符先挖掉】。`{名:?}` / `{x:.2}` 里的冒号是 Rust 语法，
+            # 不是中文标点 —— 不挖的话 `assert!(…, "实际 {出:?}")` 会被报成
+            # 「汉字后面跟半角冒号」，而那是误报。会误报的门禁，人很快就开始无视。
+            t = re.sub(r'\{[^{}]*\}', '{}', t)
             out.append(t)
     return out
 
