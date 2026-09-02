@@ -562,9 +562,29 @@ input::placeholder, textarea::placeholder { color: var(--stone-label); }
 .face-art {
   background-repeat: no-repeat;
   background-position: center center;
-  background-size: 68% auto;
+  /* 【尺寸必须是 14 的整数倍，不能用百分比】。脸是 14×16 的像素画，
+     `pixelated` 不补间 —— 它把每一列【取整】到整数个设备像素。
+     宽度不是 14 的整数倍时，十四列里就有几列比别的宽一格:
+     源图左右对称，屏上却歪。2026-09-02 放大对比过 29px 与 28px 两版，
+     29px 那版一侧的肩比另一侧宽一格，一眼看得出来。
+
+     百分比做不到这件事:同一条 68% 落在十一种容器上，得出
+     1.07 到 4.86 十一个不同的非整数倍，最小的那个（名册预告那颗
+     22px 的小圆牌）等于十四列里有一列是双宽 —— 脸直接歪掉。
+
+     写成 14 的整数倍 CSS 像素（28rpx = 14px 一档），DPR2 与 DPR3
+     的真机上每列都是整数个设备像素。默认 56rpx = 28px = 14×2，
+     配 84rpx（42px）的圆牌正好 66.7%，跟原先那 68% 几乎一样大。
+     圆牌尺寸另有几种的，各自在下面按同一条规矩配一档。 */
+  background-size: 56rpx auto;
   image-rendering: pixelated;
 }
+/* 特别尺寸的圆牌，各配一档 14 的整数倍 */
+.peek-face.face-art,
+.soon-face.face-art { background-size: 28rpx auto; }   /* 14px —— 名册上那两排小预告 */
+.product-face.face-art { background-size: 84rpx auto; } /* 42px = 14×3 */
+.villager-face.face-art { background-size: 112rpx auto; } /* 56px = 14×4 */
+.moved-face.face-art { background-size: 140rpx auto; }  /* 70px = 14×5 */
 
 /* 【同一路人别长成同一张脸】。方向色是有意的（颜色本身在说「他劝你往哪走」），
    不能打乱;但缺「近人」那一路有十一位，名册上十一个一模一样的粉橙圆牌

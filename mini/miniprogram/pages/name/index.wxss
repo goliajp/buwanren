@@ -23,7 +23,10 @@
    于是婆婆在这一屏是琥珀、苏合是绿，而她们在别处都是粉的。
    页面样式在 app.wxss 之后加载，写了就盖掉，症状是「这一屏的人换了个颜色」。 */
 .say-face {
-  flex: none; width: 64rpx; height: 64rpx; border-radius: 999rpx;
+  /* 84rpx = 42px —— 圆牌尺寸统一到这一档:脸是 14 的整数倍时最接近
+     原先那 68% 的一档正是 28px（14×2），配 42px 的圆牌是 66.7%。
+     顺带一件好处:同一个人在名册、确认、订单、点香几处一样大。 */
+  flex: none; width: 84rpx; height: 84rpx; border-radius: 999rpx;
   font-size: 28rpx; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
 }

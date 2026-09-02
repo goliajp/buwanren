@@ -57,9 +57,15 @@
   color: var(--on-amber);
   box-shadow: 0 4rpx 14rpx rgba(232,121,26,.32);
 }
-/* 像素图要 `pixelated` —— 16×16 放到 56px，不声明就是一团糊。
-   宽度按圆牌（92rpx）的六成留:图本身四周留白已经够，再撑满会顶到圈边。 */
-.badge-img { width: 56rpx; height: 56rpx; image-rendering: pixelated; }
+/* 像素图要 `pixelated` —— 不声明就是一团糊。
+   【尺寸必须是 16 的整数倍】。原先写的 56rpx = 28px，一格 1.75px ——
+   `pixelated` 不会补间，它只会把每一格【取整】到 1 或 2 个像素，
+   于是相邻两格一宽一窄，差到 50%:那枚月牙的内弧一边厚一边薄，
+   七道刻痕看着有粗有细。这不是渲染糊，是格子本身不等宽。
+   64rpx = 32px = 16 格 × 2px。DPR2 的真机上每格 4 个设备像素，
+   整幅图任意两格一样宽。圆牌 92rpx，64rpx 仍留得下四周那一圈。
+   （同一个道理写在 app.wxss 的 `.empty-state` 上，那处一直是对的。） */
+.badge-img { width: 64rpx; height: 64rpx; image-rendering: pixelated; }
 .badge-n { font-size: 25rpx; font-weight: 600; color: var(--ink); }
 .badge.got .badge-n { color: var(--ink); }
 .badge-d { font-size: 20rpx; color: var(--ink-faint); margin-top: 6rpx; line-height: 1.5; }
