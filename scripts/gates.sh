@@ -366,6 +366,9 @@ gate "渲染后的字都读得出来吗" . env SHOTS_DIR=$TAPDIR python3 scripts
 # 钉在屏上的块各算各的位置，谁也不知道谁多高 —— 确认屏上那一行
 # 被成交栏压掉 10px，就在付款那一屏，报过两轮还在。
 gate "钉住的那几块没互相压吗" . env SHOTS_DIR=$TAPDIR python3 scripts/check-fixed-overlap.py
+# 画布的 CSS 尺寸与像素尺寸是两回事 —— 引擎没挂上时后者停在 300×150，
+# 屏上一整块空白而 err 是空的、没有任何东西会红。
+gate "画布都真的铺开了吗" . env SHOTS_DIR=$TAPDIR python3 scripts/check-canvas-mounted.py
 
 echo
 echo "── 部署配置 ──"

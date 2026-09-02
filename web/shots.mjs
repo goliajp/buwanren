@@ -252,6 +252,15 @@ for (const [名, 路, q0] of 屏) {
          那一行拿 `bottom: 112rpx` 去躲成交栏，而成交栏实测 66px 高，
          下半截被压掉 10px，就在付款那一屏上（第三轮报过、第四轮两路
          各自又量到一次，靠人是挡不住的）。 */
+      /* 【画布真的铺开了吗】。`<canvas>` 的 CSS 尺寸和它的【像素尺寸】
+         是两回事:引擎挂上去才会把后者设成村子/屋子的真实大小。
+         没挂上时它停在浏览器默认的 300×150 —— 屏上是一整块空白，
+         而 `err` 是空的、没有任何东西会红。 */
+      画布: [...document.querySelectorAll('canvas')].map((c) => {
+        const r = c.getBoundingClientRect()
+        return { 类: c.className, 像素: `${c.width}x${c.height}`,
+                 屏上: `${Math.round(r.width)}x${Math.round(r.height)}` }
+      }),
       钉住的: [...document.querySelectorAll('#app *')]
         .filter((e) => {
           const p = getComputedStyle(e).position

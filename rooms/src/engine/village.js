@@ -1965,7 +1965,7 @@ KLRLJJJRqK
     { s:'tao', p:'home', l:'哼，才没在等谁' },
     { s:'tao', p:'home', l:'我的房间不许乱进' },
     { s:'tao', p:'road', l:'走路要有仪态，懂？' },
-    { s:'tao', cd:25, w:0.4, l:'哼。' },
+    { s:'tao', cd:25, w:0.4, l:'哼' },
     { s:'tao', cd:25, w:0.4, l:'（甩了下头发）' },
     { s:'tao', cd:30, w:0.5, l:'……看什么看' },
     { s:'popo', t:'night', x:'rain', p:'home', cd:180, l:'雨夜里，壁炉、热茶、小可爱们，齐了' },
@@ -1980,11 +1980,11 @@ KLRLJJJRqK
     { s:'popo', t:'morn', p:'market', cd:90, l:'早上的市集，果子最新鲜' },
     { s:'popo', t:'night', p:'plaza', cd:90, l:'夜里的广场，适合摆摊算命' },
     { s:'popo', x:'rain', p:'home', cd:90, l:'雨天的水晶球，看得更清' },
-    { s:'popo', t:'morn', l:'小可爱们，开饭啦～' },
+    { s:'popo', t:'morn', l:'开饭啦，小可爱们～' },
     { s:'popo', t:'morn', l:'露水最适合调药' },
     { s:'popo', t:'morn', l:'早呀，睡得好吗' },
     { s:'popo', t:'morn', l:'扫帚今天也要擦一擦' },
-    { s:'popo', t:'noon', l:'在线占卜，好评返现' },
+    { s:'popo', t:'noon', l:'在线占卜，好评返现哦～' },
     { s:'popo', t:'noon', l:'扫帚该保养了' },
     { s:'popo', t:'noon', l:'午后来杯花茶？' },
     { s:'popo', t:'noon', l:'单子有点多，慢慢来' },
@@ -2096,15 +2096,15 @@ KLRLJJJRqK
     { s:'villm', p:'river', l:'水涨了' },
     { s:'villm', p:'home', l:'到家了' },
     { s:'villm', p:'road', l:'走咯' },
-    { s:'villm', cd:25, w:0.4, l:'嗯。' },
+    { s:'villm', cd:25, w:0.4, l:'嗯' },
     { s:'villm', cd:25, w:0.4, l:'（点了点头）' },
     { s:'vfruit', x:'rain', p:'market', cd:120, l:'雨天果子降价，进棚里躲躲雨' },
     { s:'vfruit', t:'night', p:'market', cd:120, l:'夜市也开张！灯下看果子更好看' },
-    { s:'vfruit', t:'morn', cd:90, l:'清晨刚摘的果子，还带露水' },
+    { s:'vfruit', t:'morn', cd:90, l:'清晨刚摘的，还带着露水' },
     { s:'vfruit', t:'morn', l:'新鲜果子嘞！' },
     { s:'vfruit', t:'morn', l:'天没亮就摘的' },
-    { s:'vfruit', t:'noon', l:'来看看，果子甜得很' },
-    { s:'vfruit', t:'noon', l:'两文一斤，不贵' },
+    { s:'vfruit', t:'noon', l:'来看看，甜得很' },
+    { s:'vfruit', t:'noon', l:'三块一斤，不贵' },
     { s:'vfruit', t:'dusk', l:'最后两斤，便宜卖' },
     { s:'vfruit', t:'dusk', l:'收摊咯' },
     { s:'vfruit', t:'night', l:'夜里的果子更甜' },
@@ -2112,34 +2112,34 @@ KLRLJJJRqK
     { s:'vfruit', p:'market', l:'自家种的，不甜不要钱' },
     { s:'vfruit', p:'market', l:'尝一个？' },
     { s:'vfruit', cd:25, w:0.6, l:'走过路过别错过' },
-    { s:'vveg', x:'rain', p:'market', cd:120, l:'雨天青菜降价，进棚里躲躲雨' },
-    { s:'vveg', t:'night', p:'market', cd:120, l:'夜市也开张！灯下看青菜更好看' },
-    { s:'vveg', t:'morn', cd:90, l:'清晨刚摘的青菜，还带露水' },
-    { s:'vveg', t:'morn', l:'新鲜青菜嘞！' },
-    { s:'vveg', t:'morn', l:'天没亮就摘的' },
-    { s:'vveg', t:'noon', l:'来看看，青菜甜得很' },
-    { s:'vveg', t:'noon', l:'两文一斤，不贵' },
-    { s:'vveg', t:'dusk', l:'最后两斤，便宜卖' },
+    { s:'vveg', x:'rain', p:'market', cd:120, l:'下雨天菜嫩，进棚里躲躲雨' },
+    { s:'vveg', t:'night', p:'market', cd:120, l:'夜市也开张！这筐留到最后' },
+    { s:'vveg', t:'morn', cd:90, l:'天蒙蒙亮就割的，还挺着' },
+    { s:'vveg', t:'morn', l:'青菜嘞，刚割的！' },
+    { s:'vveg', t:'morn', l:'露水还没干' },
+    { s:'vveg', t:'noon', l:'这把够炒一盘' },
+    { s:'vveg', t:'noon', l:'两块钱三把' },
+    { s:'vveg', t:'dusk', l:'剩这些了，算你便宜' },
     { s:'vveg', t:'dusk', l:'收摊咯' },
-    { s:'vveg', t:'night', l:'夜里的青菜更甜' },
-    { s:'vveg', x:'rain', l:'雨天不加价' },
-    { s:'vveg', p:'market', l:'自家种的，不甜不要钱' },
-    { s:'vveg', p:'market', l:'尝一个？' },
-    { s:'vveg', cd:25, w:0.6, l:'走过路过别错过' },
-    { s:'vpeach', x:'rain', p:'market', cd:120, l:'雨天桃子降价，进棚里躲躲雨' },
-    { s:'vpeach', t:'night', p:'market', cd:120, l:'夜市也开张！灯下看桃子更好看' },
-    { s:'vpeach', t:'morn', cd:90, l:'清晨刚摘的桃子，还带露水' },
-    { s:'vpeach', t:'morn', l:'新鲜桃子嘞！' },
+    { s:'vveg', t:'night', l:'夜里的菜蔫得慢' },
+    { s:'vveg', x:'rain', l:'下雨不涨价' },
+    { s:'vveg', p:'market', l:'自家地里的，不新鲜不要钱' },
+    { s:'vveg', p:'market', l:'要不要搭把葱？' },
+    { s:'vveg', cd:25, w:0.6, l:'走过路过看一眼' },
+    { s:'vpeach', x:'rain', p:'market', cd:120, l:'雨天桃子容易烂，进棚里躲躲雨' },
+    { s:'vpeach', t:'night', p:'market', cd:120, l:'夜市也开张！这筐是硬的' },
+    { s:'vpeach', t:'morn', cd:90, l:'清晨摘的，还带着毛' },
+    { s:'vpeach', t:'morn', l:'桃子嘞，刚下树！' },
     { s:'vpeach', t:'morn', l:'天没亮就摘的' },
-    { s:'vpeach', t:'noon', l:'来看看，桃子甜得很' },
-    { s:'vpeach', t:'noon', l:'两文一斤，不贵' },
-    { s:'vpeach', t:'dusk', l:'最后两斤，便宜卖' },
+    { s:'vpeach', t:'noon', l:'这筐软，那筐硬，看你爱哪种' },
+    { s:'vpeach', t:'noon', l:'五块一斤，挑好的' },
+    { s:'vpeach', t:'dusk', l:'最后几个，便宜卖' },
     { s:'vpeach', t:'dusk', l:'收摊咯' },
-    { s:'vpeach', t:'night', l:'夜里的桃子更甜' },
+    { s:'vpeach', t:'night', l:'放到明天就更甜了' },
     { s:'vpeach', x:'rain', l:'雨天不加价' },
-    { s:'vpeach', p:'market', l:'自家种的，不甜不要钱' },
-    { s:'vpeach', p:'market', l:'尝一个？' },
-    { s:'vpeach', cd:25, w:0.6, l:'走过路过别错过' },
+    { s:'vpeach', p:'market', l:'自家树上的，不甜不要钱' },
+    { s:'vpeach', p:'market', l:'要不要挑一个？' },
+    { s:'vpeach', cd:25, w:0.6, l:'走过路过尝一口' },
   ]
   // CONVOS:碰面触发的多轮对话 · a 开场 · L=[[a|b, 台词]…]
   const CONVOS = [
@@ -2309,7 +2309,7 @@ KLRLJJJRqK
        没标的那些是路人（villm），村子的生气归他们，不受此限。 */
     mkV('ayun', 'WN', ['今天云不错', '就打一把……就一把', '课上说什么来着'], { cast: true }),
     mkV('tao', 'WM', ['今日局不错哦', '家人们，点个小红心', '哼，才没在等谁'], { cast: true }),
-    mkV('popo', 'PZ', ['在线占卜，好评返现', '乖，吃糖', '快递到了没？'], { fly: true, cast: true }),
+    mkV('popo', 'PZ', ['在线占卜，好评返现哦～', '乖，吃糖', '快递到了没？'], { fly: true, cast: true }),
     mkV('tenz', 'N1', ['一百零八式，走起', '今晚摇滚法会！', '酥油茶，巴适'], { cast: true }),
     mkV('villm', 'EN2', ['今儿天气真好', '去买个菜', '早啊'], { remap: { h: '#5a4028', b: '#5a8a44' } }),
     mkV('villm', 'EM', ['听说要来新住户', '这瓜甜', '回见'], { remap: { h: '#3a2c20', b: '#c85a48' } }),
@@ -2318,7 +2318,7 @@ KLRLJJJRqK
     mkV('villm', 'S2', ['河边风凉快', '钓两条鱼', '你也来啦'], { remap: { h: '#5a4028', b: '#e8b23d' } }),
     // 摊贩：站着不动，位置跟着 renderStatic 里那两个摊子走
     mkV('villm', 'PZ', ['新鲜果子嘞！', '来看看', '甜得很'], { remap: { h: '#3a2c20', b: '#c85a48' }, stationary: true, x: 214, y: 486, lk: 'vfruit' }),
-    mkV('villm', 'PZ', ['时令青菜！', '刚摘的', '两文一斤'], { remap: { h: '#6e5236', b: '#5a9438' }, stationary: true, x: 476, y: 490, lk: 'vveg' }),
+    mkV('villm', 'PZ', ['时令青菜！', '刚摘的', '两块钱三把'], { remap: { h: '#6e5236', b: '#5a9438' }, stationary: true, x: 476, y: 490, lk: 'vveg' }),
     mkV('villm', 'WS', ['桃子便宜卖', '走过路过别错过', '尝一个？'], { remap: { h: '#3a2c20', b: '#e8b23d' }, stationary: true, x: 168, y: 616, lk: 'vpeach' }),
   ]
 
@@ -2343,7 +2343,7 @@ KLRLJJJRqK
   const ducks = [{ x: 120, dir: 1, ph: 0 }, { x: 500, dir: -1, ph: 3 }]
   const pets = [
     { spr: 'dog', x: 258, y: 622, tx: 258, ty: 622, dir: 1, mode: 'act', until: 0, sc: 3, say: '汪！', barkUntil: 0, nextBark: 6000, sp: 2.4 },
-    { spr: 'cat', x: 462, y: 764, tx: 462, ty: 764, dir: 1, mode: 'act', until: 0, sc: 3, say: '喵~', barkUntil: 0, nextBark: 11000, sp: 1.6 },
+    { spr: 'cat', x: 462, y: 764, tx: 462, ty: 764, dir: 1, mode: 'act', until: 0, sc: 3, say: '喵～', barkUntil: 0, nextBark: 11000, sp: 1.6 },
   ]
   const petPts = [[196, 502], [326, 636], [458, 604], [242, 758], [418, 822], [562, 684]]
   const birds = [{ x: -40, y: 122, ph: 0 }, { x: -220, y: 78, ph: 2 }, { x: -380, y: 168, ph: 4 }]
@@ -2481,29 +2481,29 @@ KLRLJJJRqK
     }
     mainG.drawImage(bg, 0, 0)
     drawPlotMarks(mainG, t)
+    /* 【云是地上的影子，不是天上的块】（2026-09-02 第四轮评审 · 视觉 + 用户）。
+       这一屏是【俯视】的草地村子 —— 画面里没有天，所以「天上有一朵云」
+       这件事画不出来。原先画的是七块浅米色的半透明方块飘在屋顶上，
+       两路评审各自读成同一件事:渲染残留 / 没加载完的贴图。
+       （更早那一版是不透明的实色块，被读成「七个没有字的台词气泡」——
+       调透明度治不了它，因为错的不是透明度，是【画的是什么】。）
+
+       俯视图上，云present 的方式只有一种:它在地上的影子。
+       形状原样保留（同一批矩形、同样的飘动），只把颜色从「浅米色的云」
+       换成「压暗一档的草地」。这样它压过屋顶时读作阴影掠过，
+       而不是一块贴在屋顶上的板子;顺带把「这村子在户外、天在动」
+       这件事说出来了 —— 那正是当初加云要买的东西。 */
     for (const c2 of clouds) {
       const cs = c2.s * 2
-      // 变色:白 → 粉霞 → 金霞 缓慢循环(每朵相位不同)
+      // 每朵深浅略不同、缓慢起伏 —— 太阳被云边缘挡住的程度在变
       const ph = Math.sin(frame / 90 + c2.tint * 2.1) * 0.5 + 0.5
-      const rr2 = 255, gg2 = (245 - ph * 40) | 0, bb2 = (250 - ph * 90) | 0
-      mainG.fillStyle = 'rgba(40,60,20,0.10)'
-      mainG.fillRect(c2.x + 8, c2.y + 8 * cs, 36 * cs, 6)
-      /* 半透明。云原先是不透明的实色方块，跟台词气泡（白底圆角块）
-         在同一屏上撞了形状——七朵没有字的方块飘在房顶上，一眼看过去
-         像是七个没加载出来的气泡。透了之后房子从底下透出来，
-         它才读得成「天上的东西」。0.72 是让房顶的瓦纹刚好看得见的那一档。 */
-      mainG.globalAlpha = 0.72
-      mainG.fillStyle = 'rgb(' + rr2 + ',' + gg2 + ',' + bb2 + ')'
+      mainG.globalAlpha = 0.13 + ph * 0.05
+      mainG.fillStyle = '#26301a'          // 压暗的草色，不是灰 —— 灰会读成脏
       mainG.fillRect(c2.x, c2.y, 14 * cs, 9 * cs)
       mainG.fillRect(c2.x + 12 * cs, c2.y, 14 * cs, 9 * cs)
       mainG.fillRect(c2.x + 25 * cs, c2.y + 1 * cs, 11 * cs, 8 * cs)
       mainG.fillRect(c2.x + 8 * cs, c2.y - 6 * cs, 13 * cs, 8 * cs)
       mainG.fillRect(c2.x + 20 * cs, c2.y - 5 * cs, 10 * cs, 7 * cs)
-      // 顶高光 + 底影
-      mainG.fillStyle = 'rgba(255,255,255,0.7)'
-      mainG.fillRect(c2.x + 6 * cs, c2.y - 6 * cs, 10 * cs, 3)
-      mainG.fillStyle = 'rgba(' + rr2 + ',' + ((gg2 - 24) | 0) + ',' + ((bb2 - 30) | 0) + ',0.9)'
-      mainG.fillRect(c2.x + 3, c2.y + 8 * cs, 32 * cs, 3 * cs)
       mainG.globalAlpha = 1
     }
     mainG.fillStyle = 'rgba(255,255,255,0.45)'
@@ -2966,11 +2966,24 @@ KLRLJJJRqK
 
            第一版画的是靠在门边的木板,木色。渲出来一看:褐色的墙(谷仓、
            河边那间木屋)上整块糊掉,根本认不出。所以改成【浅底 + 深描边】——
-           像素画里让一件小东西在深浅两种背景上都立得住,只有描边这一条路。 */
-        px2(g2, dx - 1, dy - 31, 13, 24, '#3a2c20')            // 描边
-        px2(g2, dx, dy - 30, 11, 22, '#efe6d0')                // 牌面(空白)
-        px2(g2, dx + 2, dy - 27, 7, 1, '#d8ccae')              // 一道浅压痕,免得像纸片
-        px2(g2, dx + 4, dy - 7, 3, 6, '#6e5236')               // 挂钩
+           像素画里让一件小东西在深浅两种背景上都立得住,只有描边这一条路。
+
+           【但空白的浅色块正是「贴图没渲出来」的样子】
+           （2026-09-02 第四轮评审:第一次来的人与视觉两路各自读成
+           「40 个白斑」「渲染残留」）。问题不在浅色，在【里面什么都没有】——
+           一块没有内部细节的纯色矩形，在任何画面里都读作「这里缺了东西」，
+           何况它重复四十次。
+
+           补的是内部结构，不是换个颜色:牌面压暗成米黄纸色（不再是近白，
+           在绿草上不再是个亮斑）、加两道等距的横线（一张等着写名字的卡片
+           本来就有格线）、挂钩改成两点一线的绳结。
+           这三样加起来让它读成【一件挂着的东西】，而不是一个洞。 */
+        px2(g2, dx - 1, dy - 30, 12, 21, '#3a2c20')            // 描边
+        px2(g2, dx, dy - 29, 10, 19, '#e0d2ac')                // 牌面:米黄纸色，不是近白
+        px2(g2, dx + 2, dy - 25, 6, 1, '#b8a67e')              // 格线一
+        px2(g2, dx + 2, dy - 21, 6, 1, '#b8a67e')              // 格线二 —— 等着写名字
+        px2(g2, dx + 4, dy - 33, 1, 4, '#6e5236')              // 绳
+        px2(g2, dx + 3, dy - 34, 3, 1, '#6e5236')              // 绳结
       }
     }
   }

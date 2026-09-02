@@ -25,7 +25,9 @@
     <!-- 空不是问题，说不清哪儿能有才是 -->
     <view class="empty" wx:if="{{total === 0}}">
       <view class="empty-art pix" style="--pix:url('/images/empty-orders.png')"></view>
-      <view class="empty-t">钱包还是满的呢</view>
+      <!-- 「呢」是婆婆的口气（她的 voice 写着尾音上扬带「哦」「呀」），
+           而这是一个没有人在说话的系统列表页。 -->
+      <view class="empty-t">钱包还是满的</view>
       <view class="empty-sub">村里每位都带着自己的东西 —— 先去看看谁能来</view>
     </view>
 
