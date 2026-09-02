@@ -4,7 +4,7 @@
    而这一屏正好差 12px 才放得下。 */
 .page { padding-bottom: 48rpx; }
 .hd { padding: 24rpx 0 28rpx; }
-.hd .title { font-size: 50rpx; line-height: 1; }
+.hd .title { line-height: 1; }
 .hd .sub { font-size: 26rpx; color: var(--ink-faint); margin-top: 10rpx; }
 
 /* 【小节标题之间收紧一档】。这一屏现在有两组（账号 / 有事找我们），

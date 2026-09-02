@@ -498,8 +498,11 @@ echo "── check-screen-ruler（每一屏对得上尺子吗）──"
 # `name` 这一屏只有 onBack 会跳（save 不跳），它才是单出口。
 mutate "唯一的出口空有其名（函数体里不跳了）" check-screen-ruler \
   "sub('mini/miniprogram/pages/name/index.ts', r'\n  onBack\(\).*?\n  \},', '\n  onBack() {\n    // 变异:掏空\n  },')"
+# 锚在 `class="title` 这半截（不带右引号）—— 屏名的尺寸档
+# （`title-lg` / `title-sm`）是后加的，锚死整个属性值就会在加档那天
+# 变成「变异没植进去」，而那读起来像门禁坏了。2026-09-02 真踩到一次。
 mutate "一屏连标题都没有" check-screen-ruler \
-  "edit('mini/miniprogram/pages/badges/index.wxml', 'class=\"title\"', 'class=\"tiitle\"')"
+  "edit('mini/miniprogram/pages/badges/index.wxml', 'class=\"title', 'class=\"tiitle')"
 
 echo
 echo "── check-design-css（设计文档里的 var 真定义过吗）──"

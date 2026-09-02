@@ -80,8 +80,14 @@ for f in 文件:
     # 空状态的 `empty-t` / 确认屏那张卡的 `card-name`。
     # **tab 屏不判**：底栏上就写着它叫什么，页面里再写一遍是同一个词出现两次
     # （「我家」正是刻意去掉大标题的，而它吃掉的是罗盘要的空间）。
-    if 屏 not in TAB屏 and not re.search(
-            r'class="[^"]*\b(title|says-text|line1|empty-t|card-name)\b', s):
+    # 【认完整类名，不认子串】。`\btitle\b` 在 `class="title-lg"` 上也匹配
+    # （连字符是词边界）—— 于是把屏名的类名打错成 `tiitle-lg` 之后，
+    # 这一支照样报绿:变异测试当场抓到（2026-09-02，尺寸档位是那天加的）。
+    # 拆成一个个完整的 class token 再比，子串就骗不过去了。
+    标题类 = {'title', 'says-text', 'line1', 'empty-t', 'card-name'}
+    有标题 = any(标题类 & set(m.split())
+                 for m in re.findall(r'class="([^"]*)"', s))
+    if 屏 not in TAB屏 and not 有标题:
         错.append(f'{屏} 没有标题 —— 三秒内答不出「我在哪儿」')
 
     # C 唯一的主按钮。`class="btn"` 不带 ghost 的就是主按钮
