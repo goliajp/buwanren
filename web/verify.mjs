@@ -1160,8 +1160,18 @@ if (API) {
       const 下步 = await p.evaluate(() => globalThis.__router.current().data.下一步)
       ok(!!下步 && 下步.length > 6, '这一单说得出下一步等什么', String(下步))
       const 单文 = await text()
-      ok(单文.includes('单号') && 单文.includes('ord-'),
-         '屏上有能念给客服的单号', (单文.match(/单号 \S+/) || ['（没有）'])[0])
+      /* 【只露前八位】（2026-09-02 第四轮评审 · 第一次来的人）。
+         整串是 `ord-` 加一个 uuid，四十个字符;原样摆在屏上，
+         人读到的是「开发者的东西漏出来了」，而这一屏是催他付钱的。
+         八位十六进制够客服定位到唯一一单，长按复制的仍然是整串 ——
+         所以这一条验的是「有一个念得出口的短号」，不再要求 `ord-`。 */
+      /* 别把它写死成十六进制 —— 种子里的单 id 是 `ord-t79678-24` 这种，
+         短号取出来是 `t7967824`，带字母。这一条要验的是「短且念得出口」，
+         不是「长得像 uuid」。 */
+      const 短号 = (单文.match(/单号\s*([0-9a-z]{6,12})(?![0-9a-z-])/) || [])[1]
+      ok(单文.includes('单号') && !!短号, '屏上有能念给客服的单号', 短号 || '（没有）')
+      ok(!/ord-[0-9a-f]{8}-/.test(单文), '整串 uuid 不上屏',
+         (单文.match(/ord-\S+/) || ['（没有，对）'])[0])
 
       const 路 = await p.evaluate(() => globalThis.__router.current().data.走到哪儿)
       ok(Array.isArray(路) && 路.length === 3 && 路[2].t === '住进来',
@@ -2508,6 +2518,40 @@ if (API) {
   ok(荐.有数据 && 荐.上屏, '一卦之后那张「也可以问问」真的渲在屏上',
      `数据 ${荐.有数据} · 元素 ${荐.上屏} · ${荐.文}`)
   ok(/[¥￥]\d/.test(荐.文), '那张卡上有价 —— 它是通往掏钱那一步的路', 荐.文)
+
+  /* 【问的那件事得影响答案】（2026-09-02 第四轮评审 · 产品完整性）。
+     起卦的种子原先只有「谁 + 哪一天 + 哪一小时」，问题只落库、
+     不参与任何一次挑选 —— 同一小时里问「我该结婚吗」「明天会下雨吗」
+     「这只股票能买吗」，返回的是【逐字相同】的一签。
+     而这个产品卖的正是「替你看一件事」，起卦又没有日限，
+     所以用户问第二件事就看得见。
+
+     两头都要验:不同的事给不同的答案，同一件事再问还是同一句
+     （后者是「不能反复摇到满意为止」那条，不能为了前者丢掉）。
+     这里直接打后端 —— 页面上一次只问得了一件事，而要比的是三件。 */
+  if (API) {
+    const 问 = async (q) => await p.evaluate(async ([base, q]) => {
+      // token 存在 localStorage 的 `unmei:buwanren:token`（跟这一支别处一致）
+      const raw = localStorage.getItem('unmei:buwanren:token')
+      if (!raw) return 'NO_TOKEN'
+      const r = await fetch(base + '/v1/naji/spin', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json',
+                   authorization: 'Bearer ' + JSON.parse(raw) },   // 存的是 JSON 串
+        body: JSON.stringify({ question: q }),
+      })
+      if (!r.ok) return 'HTTP_' + r.status
+      const d = await r.json()
+      return [d.gate, d.direction, (d.quote && (d.quote.text || d.quote)) || ''].join('|')
+    }, [API, q])
+    const 甲 = await 问('我该结婚吗')
+    const 乙 = await 问('明天会下雨吗')
+    const 甲又 = await 问('我该结婚吗')
+    ok(甲 !== 乙, '两件不同的事，给的不是同一签　—— 问题要进种子',
+       `${甲.slice(0, 30)} / ${乙.slice(0, 30)}`)
+    ok(甲 === 甲又, '同一件事再问，还是同一句　—— 不能反复摇到满意为止',
+       `${甲.slice(0, 30)} / ${甲又.slice(0, 30)}`)
+  }
 
   /* 「再问一次」真按下去。以前只验了这四个字在不在页面上 ——
      字在、按钮点了没反应，是两回事，而后者从没验过。

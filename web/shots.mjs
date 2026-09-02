@@ -247,6 +247,23 @@ for (const [名, 路, q0] of 屏) {
          那就是这段字真正压着的颜色，罗盘中心那颗按钮也量得到。
          只收【自己直接带字】的元素:容器的 color 会被子元素盖掉，
          把它算进来就是在量一段没人看的颜色。 */
+      /* 【钉在屏上的那几块，两两不许压着】。`position: fixed` 的块
+         各自算各自的位置，谁也不知道谁多高 —— 确认屏上「付完会怎样」
+         那一行拿 `bottom: 112rpx` 去躲成交栏，而成交栏实测 66px 高，
+         下半截被压掉 10px，就在付款那一屏上（第三轮报过、第四轮两路
+         各自又量到一次，靠人是挡不住的）。 */
+      钉住的: [...document.querySelectorAll('#app *')]
+        .filter((e) => {
+          const p = getComputedStyle(e).position
+          return p === 'fixed' || p === 'sticky'
+        })
+        .map((e) => {
+          const r = e.getBoundingClientRect()
+          return { 类: e.className, 文: (e.innerText || '').slice(0, 18),
+                   左: Math.round(r.left), 顶: Math.round(r.top),
+                   宽: Math.round(r.width), 高: Math.round(r.height) }
+        })
+        .filter((x) => x.宽 > 0 && x.高 > 0),
       字: (() => {
         const 不透明 = (c) => c && c !== 'transparent' && !/rgba\(0,\s*0,\s*0,\s*0\)/.test(c)
         const 出 = []

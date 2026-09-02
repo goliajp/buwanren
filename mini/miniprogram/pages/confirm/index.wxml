@@ -89,10 +89,18 @@
 
     <view class="note" wx:if="{{note}}">{{note}}</view>
 
-    <!-- 底下这两块钉在屏底（见 wxss 里 `.pay`）。
-         读的顺序跟看到的顺序一致:先「付完会怎样」，再「一共多少 · 去付」。 -->
-    <view class="foot">{{付完呢}}</view>
+    <!-- 底下这一块钉在屏底（见 wxss 里 `.pay`）。
+         读的顺序跟看到的顺序一致:先「付完会怎样」，再「一共多少 · 去付」。
+
+         【两块合成一块】（2026-09-02 第四轮评审 · 两路各自量到）。
+         原先「付完会怎样」是另一个 `position: fixed`，靠
+         `bottom: 112rpx` 去躲成交栏 —— 而成交栏实测高 66px（132rpx），
+         于是那行字的下半截被压掉 10px，就在付款那一屏上。
+         偏移量写死就一定会跟另一块的高度失联;放进同一个容器，
+         它自己堆在成交栏上面，两块怎么长都不会打架。 -->
     <view class="pay">
+      <view class="foot">{{付完呢}}</view>
+      <view class="pay-row">
       <view class="pay-total">一共 {{totalText}}</view>
       <!-- 没填【寄到哪】时按钮待命。满橙的大按钮长得跟能按一样，
            而这是实物：没有地址寄不出去。仍然可以按 —— 按了就地说差什么，
@@ -113,6 +121,7 @@
         <block wx:elif="{{!要寄 || 有地址}}">去付</block>
         <block wx:else>先填寄到哪儿</block>
       </button>
+      </view>
     </view>
   </block>
 </view>
