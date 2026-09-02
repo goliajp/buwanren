@@ -76,7 +76,7 @@
   })
 
   def("ayun_screen_panel", {
-    clickable: true, say: '挡什么？挡贫道不想见的人',
+    clickable: true, say: '挡什么？挡我不想见的人',
     scope: 'generic', fromRoom: 'ayun',
     name: '屏风 · 单扇绘竹', cat: '隔断', tags: ['木', '纸', '可拼接'],
     w: 108, h: 352, base: 352, foot: [0, 292, 108, 60], repeat: true,
@@ -296,7 +296,7 @@
   })
 
   def("ayun_cabinet_herb2", {
-    clickable: true, say: '抓药的时候，手比起课稳',
+    clickable: true, say: '抓药的时候，手比掐指头还稳',
     scope: 'character',
     name: '药柜 · 六列七行（原件）', cat: '收纳', tags: ["木", "抽屉", "靠墙", "中药"],
     w: 316, h: 524, base: 524, foot: [0,464,316,60], fromRoom: 'ayun',
@@ -355,7 +355,7 @@
   })
 
   def("ayun_bed_couch", {
-    clickable: true, say: '贫道昨夜观星，（其实在打游戏）',
+    clickable: true, say: '我昨晚观星，（其实在打游戏）',
     scope: 'generic',
     name: '睡榻', cat: '坐卧', tags: ["木", "布", "可卧"],
     w: 328, h: 384, base: 384, foot: [0,0,328,384], sleep:true,fromRoom: 'ayun',
@@ -430,7 +430,7 @@
   })
 
   def("ayun_bonsai_pine", {
-    clickable: true, say: '养了两年，它比贫道勤快',
+    clickable: true, say: '养了两年，它比我勤快',
     scope: 'generic',
     name: '盆景 · 松', cat: '装饰', tags: ["陶", "绿植"],
     w: 104, h: 186, base: 186, foot: [0,126,104,60], fromRoom: 'ayun',
@@ -483,7 +483,7 @@
   })
 
   def("ayun_table_shipan", {
-    clickable: true, say: '天盘一转，人事就动了', sayDeep: '十六岁那年……断准了，可贫道自己不信',
+    clickable: true, say: '天盘一转，人事就动了', sayDeep: '十六岁那年……断准了，可我自己不信',
     say: '师父留下的那面盘',
     scope: 'character',
     name: '式盘桌 · 大六壬', cat: '桌案', tags: ["木", "法器", "英雄件"],
@@ -765,7 +765,7 @@ def("ayun_qing_bowl", {
     }
   })
   def("ayun_bellows_set", {
-    clickable: true, say: '拉两下火就旺，道理跟起课一样',
+    clickable: true, say: '拉两下火就旺，跟掐指头一个道理',
     scope: 'character',
     name: '风箱 + 炉台', cat: '器物', tags: ["木", "鼓风"],
     w: 384, h: 140, base: 140, foot: [0,80,384,60], zLayer: 'low', fromRoom: 'ayun',
@@ -965,7 +965,7 @@ def("ayun_qing_bowl", {
   })
 
   def("ayun_plaque_hall", {
-    clickable: true, say: '贫道亲笔……写了三天', sayDeep: '师父说贫道缺的不是本事……他说对了',
+    clickable: true, say: '我亲笔……写了三天', sayDeep: '师父说我缺的不是本事……他说对了',
     scope: 'character',
     name: '匾额 · 六壬堂', cat: '墙面', tags: ["木", "金字", "招牌"],
     w: 312, h: 116, base: 0, foot: [0,116,312,0], wall:true,fromRoom: 'ayun',
@@ -997,7 +997,7 @@ def("ayun_qing_bowl", {
     }
   })
   def("ayun_scroll_starchart", {
-    clickable: true, say: '天盘星图，越看越困，贫道承认',
+    clickable: true, say: '天盘星图，越看越困，我承认',
     scope: 'character',
     name: '挂轴 · 天盘星图', cat: '墙面', tags: ["纸", "术数", "可换字"],
     w: 168, h: 198, base: 0, foot: [0,198,168,0], wall:true,fromRoom: 'ayun',
@@ -1028,7 +1028,7 @@ def("ayun_qing_bowl", {
     }
   })
   def("ayun_wall_mirror_sword", {
-    clickable: true, say: '剑？摆着的，真出事贫道跑得比谁都快',
+    clickable: true, say: '剑？摆着的，真出事我跑得比谁都快',
     scope: 'character',
     name: '铜镜 + 剑架桃木剑', cat: '墙面', tags: ["铜", "木", "法器", "组合件"],
     w: 814, h: 104, base: 0, foot: [0,104,814,0], wall:true,composite:true,fromRoom: 'ayun',
@@ -1113,7 +1113,7 @@ def("ayun_qing_bowl", {
     }
   })
   def("ayun_water_vat", {
-    clickable: true, say: '接雨水的，天给的水，贫道乐得省事',
+    clickable: true, say: '接雨水的，天给的水，我乐得省事',
     scope: 'generic',
     name: '水缸 + 瓢', cat: '器物', tags: ["陶", "水", "生活"],
     w: 144, h: 144, base: 144, foot: [0,104,144,40], zLayer: 'low', fromRoom: 'ayun',
@@ -1135,7 +1135,7 @@ def("ayun_qing_bowl", {
     }
   })
   def("ayun_tv_stand", {
-    clickable: true, say: '贫道也是要看番的',
+    clickable: true, say: '我也是要看番的',
     scope: 'generic',
     name: '电视柜', cat: '桌案', tags: ["木", "现代"],
     w: 152, h: 36, base: 36, foot: [0,16,152,20], zLayer: 'low', fromRoom: 'ayun',
@@ -1235,7 +1235,7 @@ def("ayun_qing_bowl", {
     }
   })
   def("ayun_poster_idol", {
-    clickable: true, say: '星海铃……你懂什么', sayDeep: '她唱的时候，贫道不困',
+    clickable: true, say: '星海铃……你懂什么', sayDeep: '她唱的时候，我不困',
     fx(g, t, X, Y, inst) {
       // 纸张感:下 40% 逐行横向摆动,越接近下缘幅度越大(上缘被钉住)
       const cv = inst.cv, h = cv.height, w = cv.width, top = Math.round(h * 0.6)
@@ -1246,7 +1246,7 @@ def("ayun_qing_bowl", {
         g.drawImage(cv, 0, i, w, 1, X + dx, Y + i, w, 1)
       }
     },
-    say: '星海铃新卡池，贫道算过了',
+    say: '星海铃新卡池，我算过了',
     scope: 'character',
     name: '海报 · 虚拟歌姬', cat: '墙面', tags: ["纸", "爱好", "宅", "角色识别"],
     w: 122, h: 220, base: 0, foot: [0,220,122,0], wall:true,clickable:true,fromRoom: 'ayun',
@@ -1379,7 +1379,7 @@ def("ayun_qing_bowl", {
     }
   })
   def("ayun_figure_shelf", {
-    clickable: true, say: '……摆得比法器整齐，贫道知道',
+    clickable: true, say: '……摆得比法器整齐，我知道',
     scope: 'character',
     name: '手办展示架 · 三层 + 扭蛋', cat: '收纳', tags: ["木", "爱好", "宅", "摆得比法器整齐"],
     w: 334, h: 178, base: 178, foot: [0,158,334,20], fromRoom: 'ayun',
@@ -1529,7 +1529,7 @@ def("ayun_qing_bowl", {
     }
   })
   def("ayun_windchime", {
-    clickable: true, say: '响得好听，就是吵醒过贫道',
+    clickable: true, say: '响得好听，就是吵醒过我',
     scope: 'generic',
     name: '风铃', cat: '器物', tags: ["铜", "声", "挂墙"],
     w: 14, h: 50, base: 0, foot: [0,49,13,0], wall:true,fromRoom: 'ayun',
@@ -1574,7 +1574,7 @@ def("ayun_qing_bowl", {
     }
   })
   def("ayun_divine_sticks", {
-    clickable: true, say: '给别人起课用的，自己的？不起', sayDeep: '不给自己起……怕真算准了',
+    clickable: true, say: '给别人算用的，自己的？不算', sayDeep: '不给自己算……怕真算准了',
     scope: 'character',
     name: '卦筹散棍 ×5', cat: '器物', tags: ["竹", "法器", "桌面"],
     w: 50, h: 30, base: 30, foot: [0,18,50,12], zLayer:'low',fromRoom: 'ayun',
@@ -1692,7 +1692,7 @@ def("ayun_qing_bowl", {
     }
   })
   def("ayun_candle_snuffer", {
-    clickable: true, say: '灭烛用，吹会呛，别问贫道怎么知道的',
+    clickable: true, say: '灭烛用，吹会呛，别问我怎么知道的',
     scope: 'generic',
     name: '烛剪', cat: '器物', tags: ["铁", "灯下"],
     w: 26, h: 10, base: 9, foot: [0,0,26,9], zLayer:'low',fromRoom: 'ayun',
@@ -1713,7 +1713,7 @@ def("ayun_qing_bowl", {
     }
   })
   def("ayun_tea_washer", {
-    clickable: true, say: '洗茶的，贫道一般不洗',
+    clickable: true, say: '洗茶的，我一般不洗',
     scope: 'generic',
     name: '茶洗', cat: '器物', tags: ["陶", "茶具"],
     w: 26, h: 12, base: 12, foot: [0,0,26,12], zLayer:'low',fromRoom: 'ayun',
@@ -1789,7 +1789,7 @@ def("ayun_qing_bowl", {
     scope: 'generic',
     name: '历书 · 翻卷起毛', cat: '器物', tags: ['纸','术数','桌面','天天翻'],
     w: 68, h: 48, base: 48, foot: [0, 34, 68, 14], zLayer: 'low',
-    clickable: true, say: '今日甲子……月将在亥', fromRoom: 'ayun',
+    clickable: true, say: '每天头一件事是翻它，第二件是接着睡', fromRoom: 'ayun',
     draw(g) {
       g.save(); g.setTransform(1, 0, 0, 1, 0, 0)
       // 起课第一步是查当日干支与月将,所以这本是天天翻的:卷边、起毛、夹条

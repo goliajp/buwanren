@@ -28,7 +28,7 @@
   })
 
   def("bailu_desk_chart", {
-    clickable: true, say: '排盘的案。东西的位置不动',
+    clickable: true, say: '看星的案。东西的位置不动',
     sayDeep: ['尺在左，笔在右，纸居中', '……不为讲究，为快', '手不用找，眼睛就能一直在盘上'],
     name: "排盘长案", cat: "桌案", tags: ["长案", "一切对齐", "紫微斗数"],
     scope: "character", fromRoom: 'bailu',
@@ -193,7 +193,7 @@
   })
 
   def("bailu_dial_star", {
-    clickable: true, say: '紫微在午。今年',
+    clickable: true, say: '那颗星今年在正南',
     sayDeep: ['盘不会错', '……错的是读盘的人', '所以我只念。念完就收'],
     name: "星盘", cat: "法器", tags: ["紫微斗数", "十二宫", "有状态件"],
     scope: "character", fromRoom: 'bailu',
@@ -1317,7 +1317,7 @@
   })
 
   def("bailu_scroll_star", {
-    clickable: true, say: '紫微垣。我照它排',
+    clickable: true, say: '北边那一圈星。我照它摆',
     name: "星图挂轴", cat: "墙面", tags: ["紫微垣", "三垣二十八宿"], scope: "character", fromRoom: 'bailu', wall: true,
     w: 120, h: 284, base: 284, foot: [0, 284, 120, 0], zLayer: 'sort',
     draw(g) {
@@ -1594,7 +1594,7 @@
   })
 
   def("bailu_lamp_desk", {
-    clickable: true, say: '灯。只排盘时点',
+    clickable: true, say: '灯。只看星时点',
     sayDeep: ['天光够就不点', '……灯油要钱，也要人添', '一个人的屋子，越少要打理越好'],
     name: "排盘灯", cat: "灯火", tags: ["只排盘时点", "唯一会点的灯"], scope: "character", fromRoom: 'bailu',
     w: 76, h: 148, base: 148, foot: [8, 120, 60, 28], zLayer: 'sort',
