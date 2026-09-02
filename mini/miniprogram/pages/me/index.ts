@@ -14,6 +14,7 @@ import type { ApiError } from '../../services/api'
 import { 一句 } from '../../utils/say'
 import { 状态那一词, 该做什么 } from '../../utils/money'
 import type { OrderCard, TraceEvent } from '../../types/commerce'
+import { 台账那天 } from '../../utils/day'
 
 interface Recent {
   id: string
@@ -160,7 +161,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
             title: o.title
               ? (o.line_count > 1 ? o.title + ' 等 ' + o.line_count + ' 件' : o.title)
               : '单 ' + o.id.slice(0, 8),
-            when: (o.created_at || '').slice(5, 10).replace('-', '/') + ' 下单',
+            when: 台账那天(String(o.created_at || '')) + ' 下单',
             state: 状态那一词(o.status, o.cancel_reason),
             go: 该做什么(o.status),
           },

@@ -15,6 +15,7 @@ import type { ApiError } from '../../services/api'
 import type { OrderDetail, Shipment, TraceEvent } from '../../types/commerce'
 import { money, 状态那一词 } from '../../utils/money'
 import { 一句 } from '../../utils/say'
+import { 台账那天 } from '../../utils/day'
 
 /** 包裹状态的说法。取值跟后端 `ShipmentStatus` 一一对应，不自创。
  *
@@ -272,7 +273,7 @@ Page({
                  : (d.lines[0].sku_name || d.lines[0].sku_id))
                + (d.lines.length > 1 ? ' 等 ' + d.lines.length + ' 件' : ''))
             : '单 ' + this.data.id.slice(0, 8),
-          whenText: (String(o.created_at || '')).slice(5, 10).replace('-', '/'),
+          whenText: 台账那天(String(o.created_at || '')),
         })
       },
       (e: ApiError) => this.setData({ loading: false, err: 一句(e) }),
@@ -349,7 +350,13 @@ Page({
     const openid = (u && u.wx_mp_openid) || ''
     commerceApi.pay(this.data.id, openid, this.data.payKey).then(
       (r) => {
-        this.setData({ paying: false, note: '已发起支付 · ' + r.outcome.kind })
+        /* 【不把枚举名摆到屏上】。原先拼的是 `'已发起支付 · ' + r.outcome.kind`，
+           屏上就成了「已发起支付 · Jsapi」—— `Jsapi` 是后端的接口枚举名，
+           对买家没有意义，读起来像哪里漏出来的东西
+           （2026-09-02 第三轮评审 · 第一次打开的人）。
+           走到这一支说明微信那一头已经收下了这笔，接下来在微信里完成 ——
+           那才是要告诉他的事。 */
+        this.setData({ paying: false, note: '去微信里付吧 —— 付完回来这一屏会自己更新' })
         /* 真机走这一步；网页版上它会抛，而那是对的 —— 浏览器里没有微信收银台。
            抛出来会被垫片的全屏报错接住，动线脚本据此知道「到这儿为止」。 */
         const q = (r.outcome.params || {}) as Record<string, unknown>

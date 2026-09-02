@@ -49,13 +49,6 @@
   letter-spacing: 0.04em;
 }
 
-.foot-hint {
-  padding: 40rpx 0 20rpx;
-  text-align: center;
-  font-size: 25rpx;
-  color: var(--ink-faint);
-  letter-spacing: 0.01em;
-}
 
 /* empty · 无本命 */
 .empty {

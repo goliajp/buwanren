@@ -139,6 +139,20 @@ page {
   letter-spacing: 0.02em;
 }
 
+/* 【免责那一句，一份定义】（2026-09-02）。
+   「仅供研究与娱乐 · 不构成人生建议」出现在问签、建生辰、设置三屏，
+   而三处各写了一份样式:字号 20 / 20 / 25，颜色 --stone-label / --ink-faint，
+   内距三种 —— 同一句话在三屏是三个大小。
+   第三轮评审又发现【收 ¥199 的那一册压根没有这一句】，
+   加第四处之前先把定义收成一份。 */
+.foot-hint {
+  text-align: center;
+  font-size: 20rpx;
+  color: var(--stone-label);
+  letter-spacing: 0.02em;
+  padding: 24rpx 0;
+}
+
 .hr {
   height: 1rpx;
   background: var(--stone-line-x);
