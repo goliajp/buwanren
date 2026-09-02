@@ -67,8 +67,15 @@ pub async fn start(
         extras: serde_json::json!({ "channel": channel }),
     }).await?;
 
+    /* 【region 从订单继承】（2026-09-03 第四轮评审 · 工程审计）。
+       `payment` / `refund` / `shipment` 三张表都有 region 一列，
+       而写它们的七个模块里六个【一次都没提过】这个字段 ——
+       库里那一列有默认值 `'cn'`，于是从不报错、永远是 cn。
+       后台每条查询按它过滤、11 个 KPI 与月报都按它分组，
+       结果是 jp/kr/sea/na 四个区永远是 0，而没有任何东西会红。
+       订单是唯一知道这笔生意属于哪个区的地方，从它那儿取。 */
     let order = sqlx::query(
-        "SELECT user_id, status, amount_total_minor, amount_paid_minor, currency
+        "SELECT user_id, status, amount_total_minor, amount_paid_minor, currency, region
          FROM order_record WHERE id=$1",
     )
     .bind(order_id)
@@ -92,6 +99,7 @@ pub async fn start(
         return Err(DomainError::Validation(format!("应付余额 {due} ≤ 0")));
     }
     let currency: String = order.get("currency");
+    let region: String = order.get("region");
 
     let mut tx = pool.begin().await.db()?;
 
@@ -157,8 +165,8 @@ pub async fn start(
 
     sqlx::query(
         r#"INSERT INTO payment(id, order_id, user_id, channel, amount_minor, currency, status,
-                               channel_user_ref, expires_at, metadata_json)
-           VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8, '{}'::jsonb)"#,
+                               channel_user_ref, expires_at, metadata_json, region)
+           VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8, '{}'::jsonb, $9)"#,
     )
     .bind(&payment_id)
     .bind(order_id)
@@ -168,6 +176,7 @@ pub async fn start(
     .bind(&currency)
     .bind(channel_user_ref)
     .bind(expires_at)
+    .bind(&region)
     .execute(&mut *tx)
     .await.db()?;
 
@@ -222,16 +231,32 @@ pub async fn mark_failed(
     if !["pending", "processing", "cancelling"].contains(&cur.as_str()) {
         return Err(DomainError::Conflict(format!("payment status={cur}，不可置失败")));
     }
-    sqlx::query(
+    /* 【状态条件要写进 UPDATE 里】（2026-09-03 第四轮评审 · 工程审计）。
+       上面那句 SELECT 判完状态，这句 UPDATE 却不带任何状态条件，
+       两句之间也没有事务 —— 中间渠道回调把它推成 success，
+       这句照样把它改成 failed。同一个文件里 `apply_failed`、
+       `apply_expired`、`apply_succeeded` 三条都写着 `AND status IN (…)`，
+       只有这一条没有。
+
+       条件跟上面那句判据一字对齐;影响行数为 0 就是「中间被人改过了」，
+       如实报冲突，不假装成功。 */
+    let n = sqlx::query(
         "UPDATE payment SET status='failed', failure_code=$1, failure_msg=$2,
-           audit_note = audit_note || E'\\n' || $3 WHERE id=$4",
+           audit_note = audit_note || E'\\n' || $3
+         WHERE id=$4 AND status IN ('pending','processing','cancelling')",
     )
     .bind(code)
     .bind(msg)
     .bind(format!("{} mark_failed", actor.label()))
     .bind(payment_id)
     .execute(pool)
-    .await.db()?;
+    .await.db()?
+    .rows_affected();
+    if n == 0 {
+        return Err(DomainError::Conflict(format!(
+            "payment {payment_id} 在这两步之间被改过了 —— 没有置成失败"
+        )));
+    }
     Ok(())
 }
 

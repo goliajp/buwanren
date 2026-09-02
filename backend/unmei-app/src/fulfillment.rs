@@ -128,12 +128,14 @@ pub async fn apply_order_paid(pool: &PgPool, order_id: &str) -> Result<Fulfillme
             }
             "shipping" => {
                 sqlx::query(
+                    // region 从订单取 —— 见 payment.rs 里那段注释
                     r#"INSERT INTO shipment(id, order_id, order_line_ids, carrier_code, status,
-                                            recipient_snapshot_json, shipping_method)
+                                            recipient_snapshot_json, shipping_method, region)
                        SELECT $1, $2, ARRAY[$3]::text[], 'manual', 'preparing',
                               COALESCE((SELECT shipping_address_json FROM order_meta
                                         WHERE order_id=$2), '{}'::jsonb),
-                              'standard'
+                              'standard',
+                              COALESCE((SELECT region FROM order_record WHERE id=$2), 'cn')
                        WHERE NOT EXISTS (
                          SELECT 1 FROM shipment
                          WHERE order_id=$2 AND $3 = ANY(order_line_ids)

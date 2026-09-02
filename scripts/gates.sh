@@ -483,6 +483,9 @@ gate "依赖方向 · domain 不许碰基础设施" . bash scripts/check-domain-
 # 行锁跑在连接池上是空转的 —— 锁在语句结束时就释放，而要护住的那段
 # 代码在那之后才跑。这一支不用起库，纯读源码。
 gate "行锁都在事务里吗" . python3 scripts/check-row-locks.py
+# region 那一列有默认值 cn —— 不写永远不报错，而后台按区分的账
+# 会永远只看得见一个区。实测四张表全库都只有一个值。
+gate "插行都写了 region 吗" . env DATABASE_URL='postgres://unmei:unmei_dev_pwd@localhost:6032/unmei' python3 scripts/check-region-written.py
 
 if [ "$QUICK" = 1 ]; then
   skip "cargo check · 全部 target" "--quick"
