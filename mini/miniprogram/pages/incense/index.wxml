@@ -19,7 +19,7 @@
       <block wx:if="{{line}}">{{line}}</block>
       <block wx:else>
         你缺什么，我还不知道 —— 先把出生时间填了，我才配得准
-        <text class="say-go" bindtap="goNatal">去填出生时间 ›</text>
+        <text class="say-go" bindtap="goNatal" hover-class="press-text" hover-stay-time="80">去填出生时间 ›</text>
       </block>
     </view>
   </view>

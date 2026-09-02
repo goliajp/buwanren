@@ -49,9 +49,9 @@
         <text class="arch-label">{{item.label || '没写名'}}</text>
         <text class="arch-when">{{item.year}}·{{item.month}}·{{item.day}}</text>
         <text wx:if="{{item.id === natal.id}}" class="arch-now">在用</text>
-        <text wx:else class="arch-act" data-id="{{item.id}}" bindtap="onUse">换成它</text>
+        <text wx:else class="arch-act" data-id="{{item.id}}" bindtap="onUse" hover-class="press-text" hover-stay-time="80">换成它</text>
         <text wx:if="{{item.id !== natal.id}}" class="arch-act arch-del"
-              data-id="{{item.id}}" bindtap="onDrop">删</text>
+              data-id="{{item.id}}" bindtap="onDrop" hover-class="press-text" hover-stay-time="80">删</text>
       </view>
       <view class="archive-note">在用的那一份删不掉 —— 先换成别的</view>
     </view>
@@ -129,8 +129,8 @@
           <!-- 原先是「乾/M」「坤/F」—— 拿卦名当性别选项，把一个最普通的
                表单字段变成了术数考试，而它也不准确。排盘那一侧照旧收 M/F -->
           <!-- 没选过时两边都不高亮 —— 预选一个等于替他答了 -->
-          <view class="seg-item {{填了.gender && form.gender === 'M' ? 'on' : ''}}" bindtap="setMale">男</view>
-          <view class="seg-item {{填了.gender && form.gender === 'F' ? 'on' : ''}}" bindtap="setFemale">女</view>
+          <view class="seg-item {{填了.gender && form.gender === 'M' ? 'on' : ''}}" bindtap="setMale" hover-class="press-btn" hover-stay-time="80">男</view>
+          <view class="seg-item {{填了.gender && form.gender === 'F' ? 'on' : ''}}" bindtap="setFemale" hover-class="press-btn" hover-stay-time="80">女</view>
         </view>
       </view>
 

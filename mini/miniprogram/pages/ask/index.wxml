@@ -15,7 +15,7 @@
        原先是 `wx:elif`，那时上面还有 idle / spinning 两支。 -->
   <block wx:if="{{(mode === 'result' || mode === 'history-detail') && result}}">
 
-    <view class="hist-chip" wx:if="{{mode === 'history-detail'}}" bindtap="closeHist">
+    <view class="hist-chip" wx:if="{{mode === 'history-detail'}}" bindtap="closeHist" hover-class="press-card" hover-stay-time="80">
       ← 之前问的 · {{result.time_label}}
     </view>
 

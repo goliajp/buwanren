@@ -39,7 +39,6 @@
   border-top: 1rpx solid var(--stone-line);
   padding: 28rpx 0;
 }
-.item-hover { background: var(--paper-inset); }
 .item-name { font-weight: 600; font-size: 36rpx; color: var(--ink); }
 .item-sub { font-size: 26rpx; color: var(--stone-label); margin-top: 10rpx; line-height: 1.6; }
 .item-meta { font-size: 22rpx; color: var(--stone-label); margin-top: 12rpx; }

@@ -41,7 +41,7 @@
         <view class="offers-k">村里现在有这些可以订</view>
         <view wx:for="{{offers}}" wx:key="id" class="item"
               data-id="{{item.id}}" bindtap="onTap"
-              hover-class="item-hover" hover-stay-time="100">
+              hover-class="press-card" hover-stay-time="100">
           <view class="item-name">{{item.name}}</view>
           <view class="item-sub" wx:if="{{item.sub_title}}">{{item.sub_title}}</view>
           <!-- 价写在这儿:点一条直奔商品页，那是掏钱那一路。

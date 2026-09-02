@@ -312,6 +312,9 @@ gate "像素画都是整数倍吗" . python3 scripts/check-pixel-scale.py
 # 分隔线可以浅，圈出控件的那圈线不行 —— 它是「这能点」的唯一信号。
 # 只判可点、且没有一块看得见的底色的那些（WCAG 1.4.11 的 3:1）。
 gate "控件轮廓看得见吗" . python3 scripts/check-ui-outline.py
+# 点得动的东西按下去要有回应 —— 12 屏一处都没有，包括花 ¥398 那颗。
+# 顺带管住类名:只许那三种，不然过一阵又会长出第十四个。
+gate "点得动的都有回应吗" . python3 scripts/check-press-feedback.py
 gate "村民台词合规格"        . python3 scripts/check-villager-lines.py
 # 村主屏一天只显示一条，从住着那位的四条里挑 —— 所以要紧的不是
 # 「整批里某个句式占几成」，是【一个人身上的密度】:四条同形，

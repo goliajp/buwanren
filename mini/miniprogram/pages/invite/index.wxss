@@ -21,7 +21,6 @@
   border-top: 1rpx solid var(--stone-line);
   padding: 28rpx 0;
 }
-.item-hover { background: var(--paper-inset); }
 .item-name { font-weight: 600; font-size: 36rpx; color: var(--ink); }
 .item-sub { font-size: 26rpx; color: var(--stone-label); margin-top: 10rpx; line-height: 1.6; }
 .item-meta { font-size: 22rpx; color: var(--stone-label); margin-top: 12rpx; }
@@ -68,7 +67,6 @@
   border-bottom: none;
   transition: transform .12s cubic-bezier(.34,1.56,.64,1);
 }
-.item-hover { transform: scale(.985); }
 .item-face {
   /* 84rpx = 42px —— 圆牌尺寸统一到这一档:脸是 14 的整数倍时最接近
      原先那 68% 的一档正是 28px（14×2），配 42px 的圆牌是 66.7%。

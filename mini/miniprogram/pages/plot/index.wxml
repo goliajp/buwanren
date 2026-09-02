@@ -20,6 +20,6 @@
          这一屏原先说的两句他点进来之前就知道 —— 他点的正是一格空屋。 -->
     <view class="empty-tally" wx:if="{{收集}}">{{收集}}</view>
     <button class="btn" bindtap="goInvite">看看谁能来</button>
-    <view class="back" bindtap="onBack">回村里</view>
+    <view class="back" bindtap="onBack" hover-class="press-text" hover-stay-time="80">回村里</view>
   </view>
 </view>
