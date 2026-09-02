@@ -125,6 +125,23 @@ if not 开得通:
 elif not 订阅在售:
     print('  · 履约开得通订阅，但没有在售的订阅商品')
 
+# ── 实物:寄到家的东西要有商品图 ────────────────────────────
+# 「¥398 的和田玉葫芦坠，整页唯一的图是店主头像」——
+# 电商漏斗里最该有图的地方是空的，比任何排版问题都更像「没做完」
+# （2026-09-02 第四轮评审，第一次来的人与视觉两路各自报了同一条）。
+# 判据只管【实物】:数字内容配张图反而是在暗示会寄东西给你。
+没图 = psql(
+    "SELECT id FROM product WHERE status='listed' AND fulfillment_kind='shipping' "
+    "  AND (hero_image_url IS NULL OR hero_image_url='') ORDER BY id")
+for pid in 没图:
+    print(f'✗ {pid} 是寄到家的实物且在架，而它没有商品图（hero_image_url 空）')
+    print(f'   买家看不见自己要买的东西长什么样。图画在')
+    print(f'   rooms/tools/export-tabicons.mjs 的「商品」那一段，跟徽章一处。')
+    bad += 1
+实物在架 = psql(
+    "SELECT count(*) FROM product WHERE status='listed' AND fulfillment_kind='shipping'")
+n实物 = int(实物在架[0]) if 实物在架 else 0
+
 # ── 御守:在架的居住 SKU 都得说出搬谁进来 ────────────────────
 没挂人 = psql(
     "SELECT s.id FROM sku s JOIN product p ON p.id = s.product_id "
@@ -144,7 +161,8 @@ if n居住 == 0:
     sys.exit(1)
 
 print()
-print(f'在售 · 报告 {len(在售)} 件、订阅 {len(订阅在售)} 件、御守 {n居住} 件 · '
+print(f'在售 · 报告 {len(在售)} 件、订阅 {len(订阅在售)} 件、御守 {n居住} 件、'
+      f'实物 {n实物} 件 · '
       f'做得出来的册子 {len(认识的)} 种 · 问题 {bad} 处')
 if bad:
     sys.exit(1)

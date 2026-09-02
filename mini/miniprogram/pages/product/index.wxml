@@ -45,6 +45,13 @@
   <block wx:else>
     <view class="sub" wx:if="{{subTitle}}">{{subTitle}}</view>
 
+    <!-- 【实物要有实物的样子】。¥29 的香、¥398 的玉坠是寄到家的东西，
+         而这一屏原先唯一的图是店主的头像。有图才显 ——
+         说明书那一档没有实物，给它配张图反而是在暗示会寄东西给你。 -->
+    <view class="goods" wx:if="{{货图}}">
+      <image class="goods-img" src="{{货图}}" mode="aspectFit"></image>
+    </view>
+
     <view class="price-row">
       <text class="price" wx:if="{{price}}">{{price}}</text>
       <text class="price-none" wx:else>这个区暂时没有定价</text>

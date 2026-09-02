@@ -14,6 +14,18 @@
   margin-bottom: 28rpx;
 }
 
+/* 商品图。像素画要 `pixelated`，尺寸取 24 格的整数倍 ——
+   源图是 24×24 的网格（导出时已经 ×5 成 120×120），
+   屏上 144rpx = 72px = 24 格 ×3，每格三个 CSS 像素、DPR2 下六个设备像素。
+   （这一条由 check-pixel-scale 盯着，它的格数表里要记一笔。） */
+.goods {
+  display: flex; justify-content: center;
+  padding: 8rpx 0 4rpx;
+}
+.goods-img {
+  width: 144rpx; height: 144rpx;
+  image-rendering: pixelated;
+}
 .price-row { margin: 8rpx 0 28rpx; }
 .price {
   font-weight: 600;
