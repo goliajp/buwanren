@@ -461,6 +461,12 @@ else
   gate "check-sql · 每条 SQL 过一遍 Postgres" . env \
     DATABASE_URL='postgres://unmei:unmei_dev_pwd@localhost:6032/unmei' \
     python3 scripts/check-sql.py
+  # 这个仓禁用了 `query!` 宏（编译期核对 schema），于是「读到 NULL 会 panic」
+  # 没有任何东西挡着。上一支把每条 SQL 过一遍 Postgres，这一支守的是
+  # 另一半:代码读成非 Option 的那几列，库里得有约束撑着。
+  gate "代码依赖的库约束都还在吗" . env \
+    DATABASE_URL='postgres://unmei:unmei_dev_pwd@localhost:6032/unmei' \
+    python3 scripts/check-db-invariants.py
 fi
 
 if [ "$QUICK" = 1 ]; then

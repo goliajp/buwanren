@@ -42,7 +42,7 @@ async fn query_pending(st: &AppState) -> anyhow::Result<()> {
            FROM payment
            WHERE status IN ('pending','processing')
              AND created_at < NOW() - INTERVAL '1 minute'
-             AND (expires_at IS NULL OR expires_at > NOW())
+             AND expires_at > NOW()
            ORDER BY created_at ASC
            LIMIT 50"#,
     ).fetch_all(&st.db).await?;

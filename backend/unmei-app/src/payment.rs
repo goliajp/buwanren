@@ -102,7 +102,7 @@ pub async fn start(
     let live = sqlx::query(
         "SELECT id, channel, amount_minor, currency, expires_at
            FROM payment
-          WHERE order_id=$1 AND status='pending' AND (expires_at IS NULL OR expires_at > NOW())
+          WHERE order_id=$1 AND status='pending' AND expires_at > NOW()
           FOR UPDATE",
     )
     .bind(order_id)
@@ -116,6 +116,12 @@ pub async fn start(
 
         // 同一个渠道、同样的金额 —— 就是刚才那一笔,原样还回去
         if old_channel == channel && old_amount == due {
+            /* 读成非 Option 是有据的:`payment_pending_has_expiry` 保证
+               pending / processing 的支付一定有到期时间(2026-09-02 迁移)。
+               这一行以前配的是 `expires_at IS NULL OR ...` 的 WHERE ——
+               那句话说 NULL 可能存在，而这里读的是非 Option，
+               撞上就 panic。删掉 `IS NULL OR` 并把约束写进库之后，
+               两处说法才对上。 */
             let expires_at: DateTime<Utc> = row.get("expires_at");
             tx.commit().await.db()?;
             return Ok(PendingPayment {
