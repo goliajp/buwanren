@@ -103,7 +103,9 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     } catch (_e) {
       /* 跟 `openHist` 用同一个说法 —— 这一页没有 err 那一栏，
          往 setData 里塞一个没人渲染的字段，等于把话说给自己听。 */
-      wx.showToast({ title: '这一签取不回来了', icon: 'none' })
+      /* 【这一屏没有「签」】。同文件 wxml 第 112 行的注释已经写过这件事，
+         空态那句照着改了，这个 toast 漏了（2026-09-02 第四轮评审 · 文案）。 */
+      wx.showToast({ title: '这一次取不回来了', icon: 'none' })
     }
   },
 

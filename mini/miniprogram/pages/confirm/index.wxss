@@ -38,7 +38,6 @@
 .note { font-size: 26rpx; color: var(--peach-text); margin-top: 16rpx; }
 .pay {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
-  display: flex; justify-content: space-between; align-items: center;
   padding: 20rpx 40rpx calc(20rpx + env(safe-area-inset-bottom));
   background: var(--paper);
   /* 一条细线 + 一层浅影:说明它压在内容上面，而不是内容的一部分。
@@ -48,12 +47,14 @@
 }
 .pay-total { font-size: 34rpx; font-weight: 700; }
 .pay .btn { flex: none; }
-/* 「下单后在『我的』里付款」这句跟着成交栏一起钉在底下 ——
-   它说的是按下去之后会怎样，离那颗按钮远了就没人读。 */
+/* 成交栏里的两行:上面说「按下去会怎样」，下面是「一共多少 · 去付」。
+   排成一列，那一行字自然落在按钮上面 —— 不再自己 fixed、
+   也不再拿写死的 `bottom` 去躲另一块的高度（那样躲了 10px 没躲开）。 */
+.pay-row {
+  display: flex; justify-content: space-between; align-items: center;
+}
 .foot {
-  position: fixed; left: 0; right: 0; z-index: 5;
-  bottom: calc(112rpx + env(safe-area-inset-bottom));
-  padding: 0 40rpx 10rpx; background: var(--paper);
+  padding-bottom: 10rpx;
   font-size: 24rpx; color: var(--ink-faint);
 }
 

@@ -59,8 +59,23 @@ async fn spin(
         } else { (None, vec![]) }
     } else { (None, vec![]) };
 
-    // ─── 3. seed: 基于用户 + 当日(每天同用户结果稳定,新天换)
-    let seed = make_seed(&c.sub, year, month, day, hour);
+    /* ─── 3. seed: 用户 + 当日 + **问的那件事**
+       【问题必须进种子】（2026-09-02 第四轮评审 · 产品完整性）。
+       原先只有「谁 + 哪一天 + 哪一小时」，于是同一小时里问
+       「我该结婚吗」「明天会下雨吗」「这只股票能买吗」，
+       返回的是【逐字相同】的一签 —— 而这个产品卖的正是「替你看一件事」。
+       起卦没有日限，所以用户问第二件事就看得见，不需要任何特殊条件。
+
+       放进去之后两头都成立:
+       · 同一件事同一天再问，还是同一句 —— 不能反复摇到满意为止
+       · 不同的事给不同的答案 —— 因为那本来就是两件事
+       没写问题的（直接摇一摇）走空串，行为跟以前一样。 */
+    let question_clean = req.question.as_deref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(str::to_string);
+    let seed = make_seed(&c.sub, year, month, day, hour,
+                         question_clean.as_deref().unwrap_or(""));
 
     // ─── 4. 真奇门时盘(用现有 mingli /api/cast → qimen 叶取 time_ganzhi)
     //         算力虽不暴露,但能让 record.t_chart 留真盘审计
@@ -86,11 +101,6 @@ async fn spin(
     let rec_id = rec.as_ref().map(|r| r.id.clone());
     let signed_seed = seed as i64;
     // 清洗 question · trim + 空串归 None
-    let question_clean = req.question.as_deref()
-        .map(|s| s.trim())
-        .filter(|s| !s.is_empty())
-        .map(str::to_string);
-
     sqlx::query(
         r#"INSERT INTO naji_record
            (id, user_id, natal_id, asked_year, asked_month, asked_day, asked_hour, asked_minute, asked_tz,
@@ -247,11 +257,13 @@ fn compute_time_branch(hour: u32) -> u8 {
     if hour == 23 { 0 } else { (((hour + 1) / 2) % 12) as u8 }
 }
 
-fn make_seed(user_id: &str, y: i32, m: u32, d: u32, h: u32) -> u64 {
+fn make_seed(user_id: &str, y: i32, m: u32, d: u32, h: u32, question: &str) -> u64 {
     use std::hash::{Hash, Hasher};
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     user_id.hash(&mut hasher);
     y.hash(&mut hasher); m.hash(&mut hasher); d.hash(&mut hasher); h.hash(&mut hasher);
+    // 问的那件事也算一份 —— 没有它，同一小时里问什么都得到同一句
+    question.hash(&mut hasher);
     hasher.finish()
 }
 

@@ -360,6 +360,9 @@ gate "点得到的东西够 44px 吗" . env SHOTS_DIR=$TAPDIR python3 scripts/ch
 # 解析 wxss 那一支在「底色写在祖先上」时够不着（如实报了 7 处没量）。
 # 这一支量渲染完的事实:字色、往上第一个不透明祖先的底色、字号字重。
 gate "渲染后的字都读得出来吗" . env SHOTS_DIR=$TAPDIR python3 scripts/check-contrast-live.py
+# 钉在屏上的块各算各的位置，谁也不知道谁多高 —— 确认屏上那一行
+# 被成交栏压掉 10px，就在付款那一屏，报过两轮还在。
+gate "钉住的那几块没互相压吗" . env SHOTS_DIR=$TAPDIR python3 scripts/check-fixed-overlap.py
 
 echo
 echo "── 部署配置 ──"

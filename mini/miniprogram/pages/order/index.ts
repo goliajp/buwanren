@@ -110,7 +110,12 @@ function 还有多久(status: string, d: OrderDetail): string {
   // 已经过点了但还没被扫到 —— 说「就要取消了」，不说负数
   if (剩 <= 0) return '超时了 —— 这一单一会儿会自己取消'
   if (剩 > 120) return ''            // 时限改长了的话这一句就没必要
-  return `还有约 ${剩} 分钟没付，这一单会自己取消`
+  /* 【断句要断对】（2026-09-02 第四轮评审 · 第一次来的人）。
+     原先写的是「还有约 29 分钟没付，这一单会自己取消」——
+     中文在这里会先把「还有约 29 分钟没付」读成一整个短语，
+     即「已经 29 分钟没付了」，意思正好反过来。
+     把条件和结果分开:先给时限，再说不付会怎样。 */
+  return `还有约 ${剩} 分钟 —— 到时候还没付，这一单会自己取消`
 }
 
 function 下一步等什么(status: string, d: OrderDetail): string {
@@ -140,6 +145,7 @@ function 下一步等什么(status: string, d: OrderDetail): string {
 Page({
   data: {
     id: '',
+    短单号: '',
     loading: true,
     err: '',
     status: '',
@@ -182,8 +188,12 @@ Page({
 
   onLoad(q: Record<string, string | undefined>) {
     const id = q.id || ''
+    /* 屏上只露前八位十六进制 —— 整串四十个字符摆出来读起来像
+       开发者的东西漏了。八位够客服定位到唯一一单，长按复制的是整串。 */
+    const 短单号 = (id.replace(/^ord-/, '').replace(/-/g, '') || id).slice(0, 8) || id
     this.setData({
       id,
+      短单号,
       payKey: newIdemKey('pay'),
       cancelKey: newIdemKey('cancel'),
       refundKey: newIdemKey('refund'),
