@@ -4077,7 +4077,16 @@ if (API) {
   const 答应 = (d) => d.accept()
   p.on('dialog', 答应)
   await p.getByText('退出', { exact: true }).click()
-  await p.waitForTimeout(2200)
+  /* 【等到位再判，不按秒数猜】。原先是固定等 2.2 秒 ——
+     而「退出之后重新匿名登录」是一趟网络往返，机器忙一点就还没回来，
+     读到的是 null，报出来像「退出后没有身份」。
+     实测偶发红过一次（2026-09-02）。而偶发的红比常红更糟:
+     它让每一次真红都能被当成噪音。等【有了新身份】或者超时，
+     超时也如实说是超时，不混进结论里。 */
+  await p.waitForFunction(
+    () => { const u = globalThis.__router.current().data.user; return !!(u && u.id) },
+    null, { timeout: 12000 },
+  ).catch(() => {})
   p.off('dialog', 答应)
   const 退出后 = await p.evaluate(() => globalThis.__router.current().data.user && globalThis.__router.current().data.user.id)
   ok(!!退出前 && !!退出后 && 退出前 !== 退出后,

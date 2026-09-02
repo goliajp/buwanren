@@ -345,7 +345,14 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
     // 这里只决定它在屏幕上占多大 —— 两者分开，村子才在所有机型上是同一幅画。
     // 宽高比也从 VILLAGE_SIZE 读：村子扩过一次地，写死的比例会把画面压扁。
     this.fitCanvas()
-    this.mount()
+    /* 【挂排在这一次渲染落地之后】。`fitCanvas` 是用 setData 改画布尺寸的，
+       而 setData 在真机上是异步的 —— 紧接着 mount 拿到的是【改之前】
+       那个节点。同一个坑在 `变了` 那一支上踩过一次（见 237 行），
+       这里跟它对齐。
+       （实测这条路径本来也是好的:真链上画布是 704×960，见
+       measure.json 的「画布」一栏。这一改是把两条挂载路径写成同一个形状，
+       不是修一个正在发生的故障。） */
+    this.setData({}, () => this.mount())
   },
 
   /* 拿画布节点、把引擎挂上去。
@@ -354,8 +361,18 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
      `fitCanvas` 会改 cssW/cssH，而改 canvas 的 style 会让节点被重建 ——
      引擎还握着旧的那个，新画布是空的、像素退回默认的 300×150。
      屏幕上是一整片米色，而【没有任何东西会红】：村子那几条断言跑在
-     这一刻之前。这是 2026-08-26 从截图里看见的。 */
-  mount() {
+     这一刻之前。这是 2026-08-26 从截图里看见的。
+
+     【挂完要核一下真挂上了没有】（2026-09-02 第四轮评审 · 追出来的）。
+     `onReady` 里的这一次挂载跟首次渲染在抢:实测【同一条路径】
+     有时得到 704×960、有时停在 300×150，差别只是多跑了一拍。
+     有住户的人看不见它 —— 台词卡一到，`变了` 那一支会重挂一次盖过去;
+     而**新用户没有那一次**，他第一眼看到的就是村子该在的地方空着。
+
+     所以不猜时序，看结果:`mountVillage` 一定会把画布像素设成
+     村子的真实尺寸，那么挂完之后它还等于默认的 300×150，就是没挂上。
+     下一帧重试一次 —— 只一次，反复重试会把一个时序问题变成一个死循环。 */
+  mount(再来 = false) {
     wx.createSelectorQuery()
       .select('#village')
       .fields({ node: true, size: true })
@@ -368,6 +385,16 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
         try {
           if (this.handle) { this.handle.stop(); this.handle = null }
           this.handle = mountVillage(node, TILES, (s) => this.setData({ sub: s }))
+          /* 核一下。`node.width` 是画布的【像素】尺寸，跟 CSS 尺寸是两回事;
+             `mountVillage` 一定会把它设成 VILLAGE_SIZE。还等于默认值
+             就是这一次没挂成 —— 下一帧再来一次。 */
+          const n = node as { width?: number }
+          if (!再来 && (!n.width || n.width <= 300)) {
+            console.warn('村子画布还停在默认尺寸，等这一次渲染落地再挂一次')
+            // 用 setData 的渲染回调，不用 nextTick —— 前者两边都真有，
+            // 而且它等的正是「这一次渲染落地」，就是缺的那一拍。
+            this.setData({}, () => this.mount(true))
+          }
         } catch (e) {
           /* 【原文进控制台，屏上说人话】。引擎挂不上时它报的是
              「房间没拆出宿主那一段」「声明了按钮而这一页没给」——

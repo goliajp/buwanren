@@ -703,7 +703,7 @@ KFKqqqqKKK
 
   // ── 传送门:小家伙时不时进来一只 ──────────────────────────────
   const PKINDS = [
-    { pose: 'pcat',  say: '喵~',        w: 4 },
+    { pose: 'pcat',  say: '喵～',        w: 4 },
     { pose: 'pdog',  say: '汪！',       w: 4 },
     { pose: 'pbun',  say: '……（抖鼻子）', w: 2 },
     { pose: 'pbear', say: '吼——',       w: 1 },

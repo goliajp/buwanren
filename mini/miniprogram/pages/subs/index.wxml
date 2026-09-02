@@ -33,7 +33,9 @@
              一屏有插画一屏没有，读起来像后者没做完 -->
         <view class="empty-art pix" style="--pix:url('/images/empty-subs.png')"></view>
         <view class="empty-t">还没有订着的</view>
-        <view class="empty-sub" wx:if="{{offers.length > 0}}">空着不是问题 —— 下面是哪儿能有</view>
+        <!-- 原先是「空着不是问题 —— 下面是哪儿能有」:缺宾语，读起来要卡一下，
+             而下面那块的标题已经写着「村里现在有这些可以订」，等于说两遍。 -->
+        <view class="empty-sub" wx:if="{{offers.length > 0}}">这几样可以订着</view>
         <view class="empty-sub" wx:elif="{{!offersErr}}">村里现在没有可以订的东西 · 等有了会摆在这儿</view>
       </view>
 
