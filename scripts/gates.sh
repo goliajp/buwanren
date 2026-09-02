@@ -276,6 +276,11 @@ else
   skip "tsc · 类型" "PATH 里没有 npx（node 没装或 nvm 没加载）—— 这一项【没验】"
 fi
 gate "每一页都走得到吗" . python3 scripts/check-reachable-pages.py
+# 上一支管的是「页面之间的跳转目标都存在」，这一支管反向:
+# 注册了的页面有没有一条路走得到。有条件的入口算走得到 ——
+# 管的是【一条链接都没有】那种（评审把 pages/subs 报成死页，
+# 而它其实是「没东西可订就不摆入口」，那是对的）。
+gate "注册的页面都走得到吗" . python3 scripts/check-dead-screens.py
 gate "页面之间没互相 import 吧" . python3 scripts/check-page-imports.py
 # 开屏就取数的页面,都得等得到登录。匿名登录是异步的,冷启动那一次
 # 必然赶在 token 前面拿 401 —— 要紧的不是那次 401,是之后再也不取:
