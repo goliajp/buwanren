@@ -442,6 +442,9 @@ fi
 # 删 CI 那天差点跟着一起没了。「只在 CI 里跑过」的东西最容易这样消失:
 # 本机从来看不见它们，于是也想不起它们。
 gate "依赖方向 · domain 不许碰基础设施" . bash scripts/check-domain-purity.sh
+# 行锁跑在连接池上是空转的 —— 锁在语句结束时就释放，而要护住的那段
+# 代码在那之后才跑。这一支不用起库，纯读源码。
+gate "行锁都在事务里吗" . python3 scripts/check-row-locks.py
 
 if [ "$QUICK" = 1 ]; then
   skip "cargo check · 全部 target" "--quick"
