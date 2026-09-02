@@ -81,7 +81,8 @@ impl IntoResponse for ApiError {
         if let Some(detail) = self.0.detail() {
             tracing::error!(status = status.as_u16(), detail, "infra failure");
         }
-        let body = ApiErrorBody { error: self.0.to_string(), code: self.0.code().to_string() };
+        // 用 `出面()` 而不是 `to_string()` —— 库的原文不上屏，见 AppError::出面
+        let body = ApiErrorBody { error: self.0.出面(), code: self.0.code().to_string() };
         (status, Json(body)).into_response()
     }
 }
