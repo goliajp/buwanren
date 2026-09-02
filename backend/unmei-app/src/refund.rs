@@ -73,9 +73,12 @@ pub async fn request(
     let refund_id = new_id("rfd");
 
     sqlx::query(
+        // region 从订单取 —— 见 payment.rs 里那段注释:这一列有默认值 'cn'，
+        // 不写它永远不会报错，而后台按区分组的每一张表都会永远是空的。
         r#"INSERT INTO refund(id, order_id, payment_id, amount_minor, currency,
-                              reason_code, reason_text, actor_kind, actor_id, status)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, 'user', $8, 'requested')"#,
+                              reason_code, reason_text, actor_kind, actor_id, status, region)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, 'user', $8, 'requested',
+                   COALESCE((SELECT region FROM order_record WHERE id=$2), 'cn'))"#,
     )
     .bind(&refund_id)
     .bind(order_id)

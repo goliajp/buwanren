@@ -112,9 +112,11 @@ pub async fn evaluate(pool: &PgPool, ctx: &RiskEvalContext) -> Result<RiskDecisi
 
     if !matched.is_empty() {
         sqlx::query(
+            // region 从订单取（没有订单的风控事件退回 cn）—— 见 payment.rs 那段注释
             r#"INSERT INTO risk_event(id, kind, user_id, order_id, payment_id,
-                 matched_rule_ids, decided_action, details_json, decided_at)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())"#,
+                 matched_rule_ids, decided_action, details_json, decided_at, region)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(),
+                       COALESCE((SELECT region FROM order_record WHERE id=$4), 'cn'))"#,
         )
         .bind(new_id("re"))
         .bind(&ctx.kind)

@@ -669,10 +669,11 @@ async fn subscription_on_sku(pool: &sqlx::PgPool, sku: String) -> String {
        所以在一个 worker 永远不会遇到的状态上验了「续费成功」。
        2026-08-25 那一问加进去之后，这个 fixture 也就得回到真实状态。 */
     sqlx::query(
+        // region 写出来 —— 夹具不写的话，多区的行为永远测不到
         "INSERT INTO subscription(id, user_id, plan_id, status, source_channel,
-                                  current_period_start, current_period_end)
+                                  current_period_start, current_period_end, region)
          VALUES ($1, $2, $3, 'active', 'wechat',
-                 NOW() - INTERVAL '31 days', NOW() - INTERVAL '1 day')",
+                 NOW() - INTERVAL '31 days', NOW() - INTERVAL '1 day', 'cn')",
     )
     .bind(&sub_id)
     .bind(&user)
@@ -697,7 +698,8 @@ async fn shipment_fixture(pool: &sqlx::PgPool) -> String {
     .execute(pool)
     .await
     .expect("insert order for shipment");
-    sqlx::query("INSERT INTO shipment(id, order_id, status) VALUES ($1, $2, 'preparing')")
+    sqlx::query("INSERT INTO shipment(id, order_id, status, region) \
+                 VALUES ($1, $2, 'preparing', 'cn')")
         .bind(&shipment_id)
         .bind(&order_id)
         .execute(pool)

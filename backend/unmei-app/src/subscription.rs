@@ -244,10 +244,12 @@ pub async fn renew_due(pool: &PgPool, subscription_id: &str) -> Result<RenewOutc
         None => {
             let id = new_id("inv");
             sqlx::query(
+                // region 从订阅取 —— 见 payment.rs 那段注释
                 r#"INSERT INTO subscription_invoice(
                      id, subscription_id, period_start, period_end, amount_minor, currency,
-                     status, attempt_count, next_attempt_at
-                   ) VALUES ($1, $2, $3, $4, $5, $6, 'open', 0, NOW())"#,
+                     status, attempt_count, next_attempt_at, region
+                   ) VALUES ($1, $2, $3, $4, $5, $6, 'open', 0, NOW(),
+                             COALESCE((SELECT region FROM subscription WHERE id=$2), 'cn'))"#,
             )
             .bind(&id)
             .bind(subscription_id)
@@ -280,10 +282,12 @@ pub async fn renew_due(pool: &PgPool, subscription_id: &str) -> Result<RenewOutc
 
     let payment_id = new_id("pay-renew");
     sqlx::query(
+        // region 从订单取 —— 见 payment.rs 那段注释
         r#"INSERT INTO payment(id, order_id, user_id, channel, amount_minor, currency,
-                               status, paid_at, metadata_json)
+                               status, paid_at, metadata_json, region)
            VALUES ($1, $2, $3, 'wechat_mp', $4, $5, 'success', NOW(),
-                   '{"subscription":true}'::jsonb)"#,
+                   '{"subscription":true}'::jsonb,
+                   COALESCE((SELECT region FROM order_record WHERE id=$2), 'cn'))"#,
     )
     .bind(&payment_id)
     .bind(&order_id)

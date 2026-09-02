@@ -50,23 +50,55 @@ pub async fn post_refund_journal(pool: &PgPool, refund_id: &str) -> Result<(), D
     let amount: i64 = r.get("amount_minor");
     let currency: String = r.get("currency");
 
-    let period_id: String = sqlx::query_scalar(
-        "SELECT id FROM accounting_period WHERE kind='month' AND state='open' \
-         ORDER BY year DESC, sub DESC LIMIT 1",
+    /* 【按【今天是哪个月】取期间，没有就建一个】（2026-09-03 第四轮评审）。
+       上一版取的是「最新的 open 月」，而 `accounting_period` 只有
+       20260627 那一次迁移插过三行（最新是 2026-06）——
+       于是库里 1070 条分录【全部】记在六月账上，而它们的 `posted_at`
+       横跨八月十六到九月二日。更糟的是六月一关，
+       这里就再也取不到 open 的月份，退款分录从此一条也记不进去、
+       outbox 无限重试。
+
+       月份从入账时刻算，不从「库里现有什么」算。
+       `ON CONFLICT DO NOTHING` 配 uq_accounting_period(kind, year, sub) ——
+       并发两笔同时入账不会建出两个同名期间。
+       建出来的是 `open`;关账仍然是人的动作，这里只保证账有地方落。 */
+    let 现在 = chrono::Utc::now();
+    let (年, 月) = {
+        use chrono::Datelike;
+        (现在.year(), 现在.month() as i32)
+    };
+    let period_id = format!("period-{年}-{:02}", 月);
+    sqlx::query(
+        "INSERT INTO accounting_period (id, kind, year, sub, state) \
+         VALUES ($1, 'month', $2, $3, 'open') ON CONFLICT DO NOTHING",
     )
-    .fetch_one(&mut *tx)
+    .bind(&period_id).bind(年).bind(月)
+    .execute(&mut *tx)
     .await
     .db()?;
+    // 建过了但被人关掉的情况:如实报错，不把账偷偷记进一个关了的期间
+    let 状态: String = sqlx::query_scalar(
+        "SELECT state FROM accounting_period WHERE id=$1",
+    ).bind(&period_id).fetch_one(&mut *tx).await.db()?;
+    if 状态 != "open" {
+        return Err(DomainError::Conflict(format!(
+            "会计期间 {period_id} 是 {状态}，这笔账没有地方落"
+        )));
+    }
 
     let entry_id = new_id("je");
     sqlx::query(
-        r#"INSERT INTO journal_entry(id, period_id, description, posted_by_kind, business_kind, business_ref_id, status)
-           VALUES ($1, $2, $3, 'system', 'refund', $4, 'posted')"#,
+        // region 从订单取 —— 见 payment.rs 那段注释:这一列有默认值 'cn'，
+        // 不写永远不报错，而按区分的月报会永远只有一个区
+        r#"INSERT INTO journal_entry(id, period_id, description, posted_by_kind, business_kind, business_ref_id, status, region)
+           VALUES ($1, $2, $3, 'system', 'refund', $4, 'posted',
+                   COALESCE((SELECT region FROM order_record WHERE id=$5), 'cn'))"#,
     )
     .bind(&entry_id)
     .bind(&period_id)
     .bind(format!("退款 {refund_id} 冲销订单 {order_id}"))
     .bind(refund_id)
+    .bind(&order_id)
     .execute(&mut *tx)
     .await
     .db()?;

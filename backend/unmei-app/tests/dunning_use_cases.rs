@@ -29,8 +29,8 @@ async fn due_subscription(pool: &sqlx::PgPool) -> String {
     let sub = common::uniq("sub");
     sqlx::query(
         "INSERT INTO subscription(id, user_id, plan_id, status, source_channel, \
-           current_period_start, current_period_end, next_billing_attempt_at) \
-         VALUES ($1, $2, $3, 'active', 'wechat_mp', NOW() - INTERVAL '30 days', NOW(), NOW())",
+           current_period_start, current_period_end, next_billing_attempt_at, region) \
+         VALUES ($1, $2, $3, 'active', 'wechat_mp', NOW() - INTERVAL '30 days', NOW(), NOW(), 'cn')",
     )
     .bind(&sub)
     .bind(&user)
@@ -41,8 +41,8 @@ async fn due_subscription(pool: &sqlx::PgPool) -> String {
 
     sqlx::query(
         "INSERT INTO subscription_invoice(id, subscription_id, period_start, period_end, \
-           amount_minor, currency, status, attempt_count, next_attempt_at) \
-         VALUES ($1, $2, NOW(), NOW() + INTERVAL '30 days', 3900, 'CNY', 'open', 0, NOW())",
+           amount_minor, currency, status, attempt_count, next_attempt_at, region) \
+         VALUES ($1, $2, NOW(), NOW() + INTERVAL '30 days', 3900, 'CNY', 'open', 0, NOW(), 'cn')",
     )
     .bind(common::uniq("inv"))
     .bind(&sub)

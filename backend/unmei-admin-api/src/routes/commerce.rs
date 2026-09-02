@@ -259,8 +259,15 @@ struct Pg {
 }
 fn default_size() -> i64 { 50 }
 impl Pg {
-    fn off(&self) -> i64 { self.page * self.size }
-    fn lim(&self) -> i64 { self.size.clamp(1, 200) }
+    /* 【两处用同一个数】（2026-09-03 第四轮评审 · 工程审计）。
+       上一版 `off()` 用的是【原始】size，`lim()` 用的是 clamp 过的 ——
+       `size=1000&page=1` 于是跳过 1000 行却只显示 200 行，
+       中间那 800 行任何翻页组合都到不了。
+       `page` 也 clamp:负数以前会算出负 offset，Postgres 直接 500，
+       而同仓的 users.rs / quotes.rs 早就写了 `.max(1)`。 */
+    fn 每页(&self) -> i64 { self.size.clamp(1, 200) }
+    fn off(&self) -> i64 { self.page.max(0) * self.每页() }
+    fn lim(&self) -> i64 { self.每页() }
 }
 
 #[derive(Serialize)]
