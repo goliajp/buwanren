@@ -81,7 +81,7 @@
   font-size: 44rpx;
   font-weight: 500;
   padding: 12rpx 28rpx;
-  border: 1rpx solid var(--stone-line);
+  border: 1rpx solid var(--stone-line-ui);
   border-radius: 16rpx;
   min-width: 88rpx;
   text-align: center;
@@ -136,7 +136,7 @@
 .seg { display: flex; gap: 12rpx; }
 .seg-item {
   padding: 21rpx 28rpx; margin: -9rpx 0;
-  border: 1rpx solid var(--stone-line);
+  border: 1rpx solid var(--stone-line-ui);
   border-radius: 16rpx;
   font-size: 26rpx;
   color: var(--ink-mid);

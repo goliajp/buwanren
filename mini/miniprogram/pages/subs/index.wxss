@@ -7,7 +7,7 @@
   display: inline-block;
   font-size: 26rpx;
   color: var(--stone-label);
-  border: 1rpx solid var(--stone-line);
+  border: 1rpx solid var(--stone-line-ui);
   border-radius: 16rpx;
   padding: 8rpx 22rpx;
   margin: 0 14rpx 14rpx 0;

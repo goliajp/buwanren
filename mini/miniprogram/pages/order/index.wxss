@@ -23,7 +23,7 @@
 /* 寄出的那些 —— 买了实物（御守）才有；纯报告的单子这一块整个不出现 */
 .ship { border-top: 1rpx solid var(--stone-line); margin-top: 32rpx; padding-top: 24rpx; }
 .ship-k { font-size: 24rpx; color: var(--stone-label); margin-bottom: 16rpx; }
-.pkg { border: 1rpx solid var(--stone-line); border-radius: 16rpx; padding: 22rpx; margin-bottom: 18rpx; }
+.pkg { border: 1rpx solid var(--stone-line-ui); border-radius: 16rpx; padding: 22rpx; margin-bottom: 18rpx; }
 .pkg-hover { background: var(--paper-inset); }
 .pkg-top { display: flex; justify-content: space-between; align-items: baseline; }
 .pkg-status { font-weight: 600; font-size: 32rpx; color: var(--ink); }
