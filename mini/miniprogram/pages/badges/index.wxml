@@ -1,6 +1,6 @@
 <view class="page">
   <view class="hd">
-    <view class="title">我得到的</view>
+    <view class="title title-lg">我得到的</view>
     <view class="hr"></view>
   </view>
 

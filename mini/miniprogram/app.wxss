@@ -132,7 +132,23 @@ page {
   letter-spacing: 0.1em;
 }
 
-/* 更小、更重。又大又细不如小一号加粗耐看 */
+/* ── 标题的三档 ─────────────────────────────────────────────
+   【一屏之主的标题，尺寸有 22 / 23 / 25 / 26 / 28 五档在混用】
+   （2026-09-02 第四轮评审 · 视觉，实测 measure.json）。
+   它们做的是同一件事:告诉你这一屏是什么。五档的来历也查得到 ——
+   基准写在这儿是 46rpx，而八个页面各自覆盖成 44 / 50 / 52 / 56，
+   每一次覆盖当时都有理由，加起来就没有理由了。
+
+   三档，按【这句话在这一屏的分量】选，不按它在哪一屏:
+   · 大 56rpx（28px）—— tab 主页与货架的屏名:「今天」「谁能来」「我的」
+   · 中 46rpx（23px）—— 内容屏的名字:「设置」「我买过的」「隐私政策」
+   · 小 36rpx（18px）—— 卡片里的小标题
+   `.title` 默认是【中】，最常用;要大要小挂 `.title-lg` / `.title-sm`。
+
+   （字号总共 22 档这件事不是这一次能收完的 ——
+   收的是「同一件事有五个数」这一层，那是最刺眼、也最好判的一层。） */
+.title-lg { font-size: 56rpx; }
+.title-sm { font-size: 36rpx; }
 .title {
   font-size: 46rpx;
   font-weight: 700;
@@ -320,7 +336,13 @@ button.btn.ghost.btn-hover:not([disabled]) {
    人第一眼看不出为什么，只觉得这里没做完。 */
 button.entry-btn {
   width: 100%; margin: 0; padding: 0 26rpx;
-  background: transparent; border: none; border-radius: 0;
+  background: transparent; border-radius: 0;
+  /* 【只清掉四周那圈，别清掉分割线】（2026-09-02 第四轮评审 · 视觉）。
+     上一版写的是 `border: none` —— 它把 `.entry` 的 `border-bottom`
+     一起清了，于是同一张卡里「联系我们」下面没有线、
+     另外两行有:三行两种处理，而原因藏在一个为了清按钮样式写的简写里。
+     要清的是 button 自带的那一圈，那就只清那三面。 */
+  border-top: none; border-left: none; border-right: none;
   font-size: inherit; line-height: inherit; color: inherit;
   text-align: left;
 }

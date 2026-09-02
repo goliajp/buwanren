@@ -5,7 +5,7 @@
        两处说同一件事本来就多余，而页眉光这三行就占 144px。 -->
   <view class="hd">
     <view class="eyebrow">{{today}}</view>
-    <view class="title">今天</view>
+    <view class="title title-lg">今天</view>
   </view>
 
   <view class="hr"></view>

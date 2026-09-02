@@ -1,5 +1,5 @@
 .hd { padding: 24rpx 0 0; }
-.hd .title { font-size: 50rpx; line-height: 1; }
+.hd .title { line-height: 1; }
 .hd .sub { font-size: 24rpx; color: var(--ink-faint); margin-top: 12rpx; }
 
 .loading, .err { padding: 60rpx 0; color: var(--ink-faint); font-size: 26rpx; }

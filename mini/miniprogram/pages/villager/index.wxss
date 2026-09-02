@@ -1,7 +1,7 @@
 .page { padding: 32rpx 40rpx 40rpx; }
 .hd { margin-bottom: 24rpx; }
 .name { font-size: 48rpx; font-weight: 700; }
-.title { font-size: 26rpx; color: var(--ink-faint); margin-top: 8rpx; }
+.title { color: var(--ink-faint); margin-top: 8rpx; }
 .lack-row { display: flex; align-items: baseline; gap: 16rpx; margin: 24rpx 0; }
 .lack-k { font-size: 26rpx; color: var(--ink-faint); }
 .lack-v { font-size: 40rpx; font-weight: 700; }
@@ -37,7 +37,7 @@
 }
 .hd-body { text-align: center; }
 .hd .name { font-size: 46rpx; font-weight: 700; color: var(--ink); line-height: 1.2; }
-.hd .title { margin-top: 6rpx; font-size: 25rpx; color: var(--ink-faint); }
+.hd .title { margin-top: 6rpx; color: var(--ink-faint); }
 
 /* 属性 = 一排标签。三行横线表格把三个短词读成了三条记录 */
 /* 三样东西各归各位（2026-08-31）。原先是三个一模一样的胶囊并排 ——
