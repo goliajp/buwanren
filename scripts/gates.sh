@@ -335,6 +335,19 @@ else
   gate "web verify · 动线（只前端那一侧）" . bash web/run-verify.sh
 fi
 
+# 【触达面积】。截屏那一轮顺带量下每个可点元素的外接矩形，
+# 下一支照着量数判 44px。两步分开是因为量要浏览器、判不要 ——
+# 判那一步能被单独变异测试（四种改坏方式都试过，见脚本头）。
+#
+# 截屏必须在这里【重跑】，不能用上一轮留在 /tmp 的:
+# 旧数据长得跟新数据一模一样，而它说的是上一次构建的事。
+TAPDIR=$(mktemp -d)
+gate "截屏 · 33 屏（顺带量触达面积）" . bash -c \
+  "bun web/build.mjs >/dev/null && bun web/shots.mjs --out=$TAPDIR $(
+     curl -s -m 2 -o /dev/null http://127.0.0.1:6028/v1/health 2>/dev/null \
+       && echo --api=http://127.0.0.1:6028) >/dev/null"
+gate "点得到的东西够 44px 吗" . env SHOTS_DIR=$TAPDIR python3 scripts/check-tap-size.py
+
 echo
 echo "── 部署配置 ──"
 if docker info >/dev/null 2>&1; then

@@ -24,7 +24,13 @@
    而它其实是「你还得点一下」（2026-09-01 五路评审 · 工程审计）。 */
 .dim { color: var(--ink-faint); }
 .stepper { display: flex; align-items: center; gap: 24rpx; }
-.step { font-size: 34rpx; width: 56rpx; text-align: center; }
+/* 【`width` 对 `<text>` 不生效】。这两个加减号原本写着 `width: 56rpx`，
+   而 `<text>` 是行内元素 —— 真机与浏览器都一样，那一行从来没起过作用，
+   实测宽 28px（正好是一个字加内距）。要它真的有 44px，得先 inline-block。
+   外距按同样的量收回去，摊在版面上还是原来那 28px。 */
+.step { display: inline-block; box-sizing: border-box;
+        width: 88rpx; padding: 17rpx 0; margin: -17rpx -16rpx;
+        font-size: 34rpx; text-align: center; }
 .step-off { opacity: .3; }
 .step-n { font-size: 30rpx; min-width: 48rpx; text-align: center; }
 .msg { margin-top: 16rpx; font-size: 28rpx; padding: 12rpx 0; border-bottom: 1rpx solid var(--stone-line-x); }

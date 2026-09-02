@@ -234,6 +234,13 @@ for (const [名, 路, q0] of 屏) {
       内容高: doc.scrollHeight,
       按钮: 取('button'),
       主块: 取('.page > *, .hd, .acts, .cta, .empty-state'),
+      /* 【点得到的东西有多大】。真机上手指的接触面约 9mm ——
+         苹果与谷歌两家人机指南都写 44pt / 48dp。比这小就要瞄，
+         而这个产品的用户是躺着单手点的。
+         量的是【外接矩形】而不是 wxss 里那个声明值:padding、
+         行高、flex 拉伸都会改变它，声明 26px 的东西实际可能是 40px，
+         反过来也一样。记号由镜像运行时在绑 click 时打，见 wxml.js。 */
+      可点: 取('[data-tap]'),
     }
   }, 文)
   const 坏 = /取不到|失败|出错|unauthorized/.test(文)

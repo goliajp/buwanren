@@ -150,6 +150,6 @@
    这一条是给真想放弃的人找的。独占一行、居中、轻一档。 */
 .cta-drop {
   flex-basis: 100%; width: 100%; text-align: center;
-  margin-top: 6rpx; padding: 12rpx 0;
+  margin-top: -7rpx; margin-bottom: -13rpx; padding: 25rpx 0;
   font-size: 24rpx; color: var(--stone-label);
 }

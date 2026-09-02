@@ -351,6 +351,12 @@
       if (el.__sig !== sig) {
         if (el.__off) el.__off.forEach((f) => f())
         el.__off = []
+        /* 记号跟着监听器一起清 —— 节点是复用的（见 `__sig`），
+           上一轮绑过 click、这一轮没绑的那些，记号会留在 DOM 上，
+           于是门禁把不可点的东西当成可点的量（2026-09-02 实测多出四个:
+           那一册翻到末页时 `.pg-hd` 与 `.src` 顶着上一轮的记号）。
+           失效的量具跟真数据长得一模一样，所以清在这儿，跟解绑同一处。 */
+        delete el.dataset.tap
         for (const type in v.events) {
           const name = v.events[type]
           const 截住 = v.catches && v.catches[type]
