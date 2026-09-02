@@ -136,6 +136,10 @@
 }
 .soon-caret.up { transform: rotate(-90deg); }
 
+.soon-note {
+  font-size: 23rpx; color: var(--ink-faint); line-height: 1.6;
+  padding: 4rpx 8rpx 16rpx;
+}
 .soon-list { display: flex; flex-direction: column; }
 .soon-item {
   display: flex; align-items: center; gap: 14rpx;
