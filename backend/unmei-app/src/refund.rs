@@ -47,7 +47,18 @@ pub async fn request(
     }
 
     let payment_id = match payment_id {
-        Some(p) => p,
+        /* 【传进来的那个 id 得真属于这张单】（2026-09-02 第四轮评审 · 工程审计）。
+           原先是 `Some(p) => p` —— 原样采信。上面只校了「这张单是不是你的」
+           和「金额超没超」，没有人问过这笔支付是谁的。
+           审计实测:甲对自己的单发起退款、`payment_id` 填乙的，回 200 落库。
+           退款走的是支付渠道，那条 id 最终会变成一次真的退款请求。 */
+        Some(p) => {
+            let 属于这张单: Option<String> = sqlx::query_scalar(
+                "SELECT id FROM payment WHERE id=$1 AND order_id=$2 AND status='success'",
+            ).bind(&p).bind(order_id).fetch_optional(pool).await.db()?;
+            属于这张单.ok_or_else(|| DomainError::Validation(
+                "这笔支付不属于这张订单，或者它没有成功".into()))?
+        }
         None => sqlx::query_scalar(
             "SELECT id FROM payment WHERE order_id=$1 AND status='success'
              ORDER BY paid_at DESC LIMIT 1",

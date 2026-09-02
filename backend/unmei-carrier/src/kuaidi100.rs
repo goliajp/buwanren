@@ -192,7 +192,25 @@ impl CarrierAdapter for Kuaidi100Adapter {
         // 验签:sign = MD5(param + salt)
         // kuaidi100 推送的签名规则与查询接口不同,这里给出通用 fail-fast。
         // 文档参考:https://api.kuaidi100.com/document/5fde5a335a7e5d4d6ff84c11.html
-        if !self.is_mock() {
+        /* 【没配密钥 = 一律拒收，不是一律放行】（2026-09-02 第四轮评审 · 工程审计）。
+           原先这里是 `if !self.is_mock()` —— 也就是「没配 KUAIDI100_KEY 时
+           整段验签跳过」。而这个回调端点本身没有鉴权（它不可能有:
+           承运商不带我们的 token）。两件事叠起来的结果是:
+           生产上少配一个环境变量，任何人 POST 一下就能把运单标成已签收、
+           把订单从 paid 推到 done —— 审计当场用 `sign:FORGED` 复现了。
+
+           少配一个变量应该让这条路【不通】，不该让它【放行一切】。
+           本机要跑通这条链，显式设 UNMEI_CARRIER_ALLOW_UNSIGNED=1;
+           那个名字摆在部署配置里，一眼看得出它意味着什么。 */
+        if self.is_mock() {
+            if std::env::var("UNMEI_CARRIER_ALLOW_UNSIGNED").as_deref() != Ok("1") {
+                return Err(AdapterError::Signature(
+                    "没有配 KUAIDI100_KEY / CUSTOMER，这条回调验不了签，一律拒收。\
+                     本机要跑通这条链，设 UNMEI_CARRIER_ALLOW_UNSIGNED=1".into()));
+            }
+            tracing::warn!("kuaidi100 回调【未验签】放行 —— UNMEI_CARRIER_ALLOW_UNSIGNED=1，\
+                            只该出现在本机");
+        } else {
             let salt = self.key.clone().unwrap_or_default();
             let expected = {
                 let mut h = Md5::new();
@@ -307,6 +325,31 @@ struct CallbackResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /* 【没配密钥时，回调必须被拒】。这个端点没有鉴权（承运商不带我们的
+       token），验签是它唯一的门。原先没配密钥就整段跳过验签，等于
+       生产上少配一个环境变量，任何人 POST 一下就能把订单推到 done。
+       两条一起钉:默认拒收，显式开了才放行。 */
+    fn 伪造回调() -> Vec<u8> {
+        br#"{"param":"{\"status\":\"polling\",\"lastResult\":{\"nu\":\"SF1\",\"com\":\"sf\",\"state\":\"3\",\"data\":[]}}","sign":"FORGED"}"#.to_vec()
+    }
+
+    /* 【两条并成一条，串行地做】。分成两个 test 时它们抢同一个环境变量 ——
+       cargo 默认多线程跑，实测「有时候红」。而有时候红比常红更糟:
+       它让每一次真红都能被当成噪音。 */
+    #[tokio::test]
+    async fn 回调验签默认拒收显式才放行() {
+        let a = Kuaidi100Adapter::default();          // 无 env → 没有 key
+
+        std::env::remove_var("UNMEI_CARRIER_ALLOW_UNSIGNED");
+        let 拒 = a.verify_webhook(&WebhookHeaders::default(), &伪造回调()).await;
+        assert!(拒.is_err(), "没配密钥时必须拒收 —— 放行等于谁都能改订单状态");
+
+        std::env::set_var("UNMEI_CARRIER_ALLOW_UNSIGNED", "1");
+        let 放 = a.verify_webhook(&WebhookHeaders::default(), &伪造回调()).await;
+        std::env::remove_var("UNMEI_CARRIER_ALLOW_UNSIGNED");
+        assert!(放.is_ok(), "显式开了之后本机那条链要跑得通");
+    }
 
     #[tokio::test]
     async fn mock_query_returns_3_events() {

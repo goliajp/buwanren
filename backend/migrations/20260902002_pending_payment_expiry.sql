@@ -19,6 +19,18 @@
 -- 顺带一件:没有到期时间的 pending 支付永远扫不到 ——
 -- `expire_overdue` 判的是 `expires_at <= NOW()`，NULL 不满足任何比较。
 -- 这条约束同时堵掉「一笔永远不会过期、也永远付不掉的支付」。
-ALTER TABLE payment
-  ADD CONSTRAINT payment_pending_has_expiry
-  CHECK (status NOT IN ('pending', 'processing') OR expires_at IS NOT NULL);
+-- 【按这个仓既有的写法包一层】（见 20260817_idempotency.sql）。
+-- `sqlx::migrate!` 只跑一次、按 `_sqlx_migrations` 记账，正常路径不会重复。
+-- 但只要有人先用 psql 手动应用过（开发时很常见），sqlx 那一侧没有记账，
+-- 下一次开机就会撞上「constraint … already exists」，**整个 API 起不来**。
+-- 2026-09-02 就是这么把后端弄挂的:加完约束、重启，服务再没起来。
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'payment_pending_has_expiry'
+  ) THEN
+    ALTER TABLE payment
+      ADD CONSTRAINT payment_pending_has_expiry
+      CHECK (status NOT IN ('pending', 'processing') OR expires_at IS NOT NULL);
+  END IF;
+END $$;

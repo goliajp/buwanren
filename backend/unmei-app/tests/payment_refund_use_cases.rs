@@ -835,3 +835,33 @@ async fn posting_the_same_refund_twice_does_not_double_post() {
     .await;
     assert_eq!(lines, 2, "分录行数不对");
 }
+
+/// 【退款请求里的 payment_id 得真属于这张单】（2026-09-02 第四轮评审 · 工程审计）。
+///
+/// `refund::request` 原先是 `Some(p) => p` —— 传进来什么就用什么。
+/// 上面校的是「这张单是不是你的」和「金额超没超」，从没有人问过
+/// 这笔支付是谁的。审计实测:甲对自己的单发起退款、`payment_id` 填乙的，
+/// 回 200 落库。而退款最终会拿这条 id 去渠道发一次真的退款请求。
+#[tokio::test]
+async fn a_refund_cannot_name_someone_elses_payment() {
+    let pool = db_or_skip!();
+    let (甲, 甲的单, _) = paid_order(&pool, 9900).await;
+    let (_乙, _乙的单, 乙的支付) = paid_order(&pool, 9900).await;
+
+    let 借别人的 = refund::request(
+        &pool, &甲的单, &甲, Some(乙的支付.clone()), Some(9900),
+        "user_request", None,
+    ).await;
+    match 借别人的 {
+        Err(DomainError::Validation(m)) => {
+            assert!(m.contains("不属于"), "话要说清为什么：{m}");
+        }
+        other => panic!("别人的那笔支付不该退得动，实际 {other:?}"),
+    }
+
+    // 而不带 payment_id 的正常路径照旧走得通 —— 收紧的是判据，不是覆盖面
+    let 正常 = refund::request(
+        &pool, &甲的单, &甲, None, Some(9900), "user_request", None,
+    ).await;
+    assert!(正常.is_ok(), "自己那张单该退得动，实际 {:?}", 正常.err());
+}
