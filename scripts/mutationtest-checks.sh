@@ -604,7 +604,13 @@ echo "── web verify · 动线 ──"
 # 只放一条。跑一遍镜像要一分多钟,而这一条要证明的事只有一件:
 # 「页面变了,动线看得见」。
 restore
-python3 -c "
+# 【用带引号的 heredoc，不用 `python3 -c "…"`】。双引号里的反引号
+# bash 会当成命令替换真的去跑 —— 下面那段注释里引了一段 wxml，
+# 原先用反引号括着，于是每跑一次这支门禁，bash 就报两行
+# 「{{在哪儿: command not found」，而变异本身照常进行、总账照常报数。
+# 噪音不致命，但它证明了这里的引号是敞开的——哪天被引的那段里
+# 恰好是一条真命令，它就会被执行。(2026-09-02)
+if ! python3 <<'PYEOF'
 import pathlib
 p = pathlib.Path('mini/miniprogram/pages/plot/index.wxml')
 s = p.read_text(encoding='utf-8')
@@ -616,7 +622,8 @@ s = p.read_text(encoding='utf-8')
 锚 = chr(123)*2 + '在哪儿 || ' + chr(39) + '这间' + chr(39) + chr(125)*2 + '空着'
 assert s.count(锚) == 1, '锚点不是恰好一处 —— 页面结构变了'
 p.write_text(s.replace(锚, 锚[:-2] + '没人'), encoding='utf-8')
-" || {
+PYEOF
+then
   # **植入失败也要报红**。原先这里不看 python 的退出码,于是 assert 挂掉时
   # 变异根本没进去,而下面的 run-verify 照常全通 —— 报出来是
   # 「动线没抓到」,看着像动线退化,实际是这条变异自己坏了。
@@ -624,14 +631,20 @@ p.write_text(s.replace(锚, 锚[:-2] + '没人'), encoding='utf-8')
   printf '  ✗ %-30s 变异没植进去（页面结构变了？）\n' "空屋那一句被改掉"
   fail=$((fail+1))
   restore
-  false
-}
-if bash web/run-verify.sh >/dev/null 2>&1; then
-  printf '  ✗ %-30s 动线没抓到 —— 页面改了它却照样全通\n' "空屋那一句被改掉"; fail=$((fail+1))
+  # 【植入失败就到此为止，不许再往下跑】。这里原先是 `false` 然后【继续】——
+  # 没有 `set -e`，于是下面那段照跑，而页面根本没被改过。
+  # run-verify 那时红了(别的原因)就记一个「动线抓到」的通过 ——
+  # 一次坏掉的变异同时产出一红一绿，而绿的那条是凭空来的。
+  # 实测:把锚点改坏后，这一条同时打印了「变异没植进去」和「动线抓到」
+  # (2026-09-02)。变异没进去时【什么都不该断言】。
 else
-  printf '  ✓ %-30s 动线抓到\n' "空屋那一句被改掉"; pass=$((pass+1))
+  if bash web/run-verify.sh >/dev/null 2>&1; then
+    printf '  ✗ %-30s 动线没抓到 —— 页面改了它却照样全通\n' "空屋那一句被改掉"; fail=$((fail+1))
+  else
+    printf '  ✓ %-30s 动线抓到\n' "空屋那一句被改掉"; pass=$((pass+1))
+  fi
+  restore
 fi
-restore
 
 # 这一条守的是【它自己跑不起来的时候会不会报绿】。
 #
