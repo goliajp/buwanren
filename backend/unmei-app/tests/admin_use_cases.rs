@@ -513,13 +513,17 @@ async fn a_carrier_repushing_the_same_event_is_absorbed_not_an_error() {
 async fn assign_tracking_advances_the_shipment_to_picked_up() {
     let pool = db_or_skip!();
     let shipment_id = shipment_fixture(&pool).await;
+    let 单号 = common::uniq("SF");
 
     shipment::assign_tracking(
         &pool,
         &shipment_id,
         shipment::TrackingAssignment {
             carrier_code: "sf".into(),
-            tracking_no: "SF123456".into(),
+            // 【每跑一次换一个单号】。2026-09-03 起 (carrier_code, tracking_no)
+            // 上有部分唯一索引 —— 一个承运商的一个单号只对一张运单，
+            // 而这条用例每跑一次就建一张新运单。固定单号第二次就撞。
+            tracking_no: 单号.clone(),
             shipping_method: Some("express".into()),
             cost_minor: Some(1200),
             cost_currency: Some("CNY".into()),
@@ -534,7 +538,7 @@ async fn assign_tracking_advances_the_shipment_to_picked_up() {
     );
     assert_eq!(
         common::scalar_string(&pool, "SELECT tracking_no FROM shipment WHERE id=$1", &shipment_id).await.as_deref(),
-        Some("SF123456")
+        Some(单号.as_str())
     );
 }
 

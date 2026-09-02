@@ -53,14 +53,22 @@ pub async fn request(
            审计实测:甲对自己的单发起退款、`payment_id` 填乙的，回 200 落库。
            退款走的是支付渠道，那条 id 最终会变成一次真的退款请求。 */
         Some(p) => {
+            /* 【「退过一半」的也还能再退】（2026-09-03）。
+               判据是【这笔钱收到过】，不是「状态恰好是 success」——
+               第一笔退款会把它推成 `refunded_partial`，
+               只认 success 的话第二笔就发不起来，而剩下那一半是真的可退。
+               `refunded` 是全退完了，那时余额判据（上面那段）自己会拦。 */
             let 属于这张单: Option<String> = sqlx::query_scalar(
-                "SELECT id FROM payment WHERE id=$1 AND order_id=$2 AND status='success'",
+                "SELECT id FROM payment WHERE id=$1 AND order_id=$2 \
+                   AND status IN ('success','refunded_partial')",
             ).bind(&p).bind(order_id).fetch_optional(pool).await.db()?;
             属于这张单.ok_or_else(|| DomainError::Validation(
-                "这笔支付不属于这张订单，或者它没有成功".into()))?
+                "这笔支付不属于这张订单，或者它没有收到过钱".into()))?
         }
         None => sqlx::query_scalar(
-            "SELECT id FROM payment WHERE order_id=$1 AND status='success'
+            // 同上:退过一半的那笔仍然可退
+            "SELECT id FROM payment WHERE order_id=$1
+               AND status IN ('success','refunded_partial')
              ORDER BY paid_at DESC LIMIT 1",
         )
         .bind(order_id)
@@ -148,12 +156,22 @@ pub async fn approve(pool: &PgPool, refund_id: &str, actor: &Actor) -> Result<()
     .execute(&mut *tx)
     .await.db()?;
 
+    /* 【按【累计已退】判，不按这一笔】（2026-09-03 第四轮评审 · 工程审计）。
+       上一版拿 `$1`（这一笔的金额）跟支付总额比 —— 两笔各退一半，
+       每一笔都小于总额，于是这笔支付【永远】停在 `refunded_partial`，
+       而订单那一侧用的是累计式、已经翻成 `refunded`。
+       同一笔钱两处说法不一致，对账时看到的是「订单全退了、支付没退完」。
+
+       改成从 refund 表把这笔支付上所有 success 的退款加起来 ——
+       跟订单那一侧同一套算法。 */
     sqlx::query(
-        r#"UPDATE payment SET status = CASE
-             WHEN $1 >= amount_minor THEN 'refunded' ELSE 'refunded_partial' END
-           WHERE id=$2"#,
+        r#"UPDATE payment p SET status = CASE
+             WHEN (SELECT COALESCE(SUM(r.amount_minor), 0) FROM refund r
+                    WHERE r.payment_id = p.id AND r.status = 'success')
+                  >= p.amount_minor
+             THEN 'refunded' ELSE 'refunded_partial' END
+           WHERE p.id=$1"#,
     )
-    .bind(amount)
     .bind(&payment_id)
     .execute(&mut *tx)
     .await.db()?;

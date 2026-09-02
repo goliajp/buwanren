@@ -575,3 +575,39 @@ async fn expiring_unpaid_orders_leaves_the_others_alone() {
     assert_eq!(a.as_deref(), Some("cancelled"), "过期未付的该取消");
     assert_eq!(b.as_deref(), Some("unpaid"), "没到期的不该被带走");
 }
+
+/// 【限量的东西要真的限量】（2026-09-03 第四轮评审 · 工程审计）。
+///
+/// `stock_count` 与 `per_user_cap` 这两列在整个 unmei-app 里零处引用 ——
+/// 审计实测:`sku-jade-pendant` 写着 50 件，能下一万单。
+/// 一件卖光了还在收钱的商品，比不上架更糟。
+#[tokio::test]
+async fn a_limited_sku_stops_selling_when_it_runs_out() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 9900).await;
+    sqlx::query("UPDATE sku SET stock_kind='limited', stock_count=2 WHERE id=$1")
+        .bind(&sku).execute(&pool).await.expect("摆成只剩两件");
+
+    // 两件买得到
+    let 头 = order::create(&pool, new_order(&user, vec![(sku.clone(), 2)])).await;
+    assert!(头.is_ok(), "还有两件时该买得到，实际 {:?}", 头.err());
+
+    let 剩: Option<i32> = sqlx::query_scalar("SELECT stock_count FROM sku WHERE id=$1")
+        .bind(&sku).fetch_one(&pool).await.expect("读库存");
+    assert_eq!(剩, Some(0), "买走两件之后该是 0");
+
+    // 第三件买不到 —— 而且话要说清还剩多少
+    let 再来 = order::create(&pool, new_order(&user, vec![(sku.clone(), 1)])).await;
+    match 再来 {
+        Err(DomainError::Conflict(m)) => {
+            assert!(m.contains("不够了"), "话要说清为什么：{m}");
+        }
+        other => panic!("卖光了不该再卖，实际 {other:?}"),
+    }
+
+    // 不限量的那一档不受影响
+    let 不限 = common::sku_with_price(&pool, "CNY", 9900).await;
+    let 随便买 = order::create(&pool, new_order(&user, vec![(不限, 99)])).await;
+    assert!(随便买.is_ok(), "unlimited 那一档不该被拦，实际 {:?}", 随便买.err());
+}
