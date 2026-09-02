@@ -154,12 +154,60 @@ pub async fn apply_order_paid(pool: &PgPool, order_id: &str) -> Result<Fulfillme
                 let villager_id: Option<String> = l.get("villager_id");
                 let user_id: String = l.get("user_id");
                 let Some(villager_id) = villager_id else {
-                    // SKU 没标是谁的御守 —— 这是配置错误,不能默默把行标成 done。
-                    // 留在 pending,后台看得见,人能去把 sku.villager_id 补上。
-                    tracing::error!(order_id, line_id, "御守 SKU 没有 villager_id，行留在 pending");
+                    /* SKU 没标是谁的御守 —— 配置错误，不能默默把行标成 done。
+                       【但也不能留在 pending】（2026-09-02 第四轮评审 · 工程审计）。
+                       留 pending 的话收尾那句 `NOT IN ('done','failed')` 永远不满足，
+                       单子就永远停在 `fulfilling`:买家付了 ¥99，屏上一直写着
+                       「正在办」，而没有任何人在办。审计实测库里有 45 件这样的
+                       在架 SKU（已下架，并补了门禁 check-listed-deliverable）。
+                       标 failed 并写清原因:单子能收尾，这一笔在对账里看得见该退。 */
+                    tracing::error!(order_id, line_id, "御守 SKU 没有 villager_id —— 这一笔交付不了");
+                    sqlx::query(
+                        "UPDATE order_line SET fulfillment_status='failed',
+                           fulfillment_ref=jsonb_build_object(
+                             'kind','residency','why','sku_has_no_villager')
+                         WHERE id=$1",
+                    ).bind(&line_id).execute(&mut *tx).await.db()?;
                     continue;
                 };
                 let out = crate::residency::move_in_from_line(&mut tx, &user_id, &villager_id, &line_id).await?;
+                /* 【「已经住着」要分两种】（2026-09-02 第四轮评审 · 工程审计）。
+                   原先不管哪一种都标 done、只在 fulfillment_ref 里记个 `new:false` ——
+                   于是「同一位村民买了第二次」这件事，屏上、后台、对账全都看不见:
+                   钱收了，什么都没发生，而单子写着「已完成」。
+                   审计实测顺序建三张单买阿云，三张都发得出支付，付 ¥297 进一个人。
+
+                   分开的判据是这张住下的行【是被哪一行搬进来的】:
+                   · 就是这一行 —— 重试，幂等，照旧 done
+                   · 是别的行 —— 这一笔买的是他已经有的东西，标 failed 并写清原因。
+                     `failed` 是 order_line 的合法终态，收尾那句
+                     `NOT IN ('done','failed')` 会把它算作已结，单子不会永远挂着;
+                     而它跟 done 分得开，对账和客服看得见这一笔该退。 */
+                let 搬他进来的那一行: Option<String> = sqlx::query_scalar(
+                    "SELECT source_ref FROM villager_residency
+                      WHERE user_id=$1 AND villager_id=$2",
+                ).bind(&user_id).bind(&villager_id)
+                 .fetch_optional(&mut *tx).await.db()?.flatten();
+                let 重试 = 搬他进来的那一行.as_deref() == Some(line_id.as_str());
+                if !out.is_new() && !重试 {
+                    tracing::error!(order_id, line_id, villager_id,
+                        搬他进来的那一行 = ?搬他进来的那一行,
+                        "这位村民已经住着了，而这一笔又买了他一次 —— 该退这一笔");
+                    sqlx::query(
+                        "UPDATE order_line SET fulfillment_status='failed',
+                           fulfillment_ref=jsonb_build_object(
+                             'kind','residency','villager_id',$1,
+                             'why','already_home_via_another_line',
+                             'moved_in_by',$2)
+                         WHERE id=$3",
+                    )
+                    .bind(&villager_id)
+                    .bind(&搬他进来的那一行)
+                    .bind(&line_id)
+                    .execute(&mut *tx)
+                    .await.db()?;
+                    continue;
+                }
                 sqlx::query(
                     "UPDATE order_line SET fulfillment_status='done',
                        fulfillment_ref=jsonb_build_object('kind','residency','villager_id',$1,'new',$2)

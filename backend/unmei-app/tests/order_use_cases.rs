@@ -449,6 +449,31 @@ async fn cannot_buy_a_villager_who_already_lives_with_you() {
     }
 }
 
+/// 【同一张单里同一位村民出现两次】（2026-09-02 第四轮评审 · 工程审计）。
+///
+/// 上面那道守卫是【逐行独立】判的:每一行各自查「这位是不是已经住着」。
+/// 而一位村民名下在架的 SKU 有三百多件 —— 两个不同的 sku 都指着他，
+/// 两行各自都合法，加起来收两份钱只搬进来一个人。
+/// 审计实测两个 sku 一张单回 `amount_total_minor: 19800`。
+#[tokio::test]
+async fn cannot_put_the_same_villager_in_one_order_twice() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let (sku1, villager) = common::residency_sku(&pool, "CNY", 9900).await;
+    // 第二个 sku 指着【同一位】村民 —— 这正是现实里的形状
+    let (sku2, _) = common::residency_sku(&pool, "CNY", 9900).await;
+    sqlx::query("UPDATE sku SET villager_id=$2 WHERE id=$1")
+        .bind(&sku2).bind(&villager).execute(&pool).await.expect("两个 sku 指同一人");
+
+    let 两行 = order::create(&pool, new_order(&user, vec![(sku1, 1), (sku2, 1)])).await;
+    match 两行 {
+        Err(DomainError::Validation(m)) => {
+            assert!(m.contains(&villager), "话要说清是谁：{m}");
+        }
+        other => panic!("同一位村民在一张单里出现两次不该建得出来，实际 {other:?}"),
+    }
+}
+
 /// 【一条行只出一册，所以说明书的数量只能是 1】。
 ///
 /// `report::ensure_for_line` 从头到尾没读过 `qty`（grep 可验），

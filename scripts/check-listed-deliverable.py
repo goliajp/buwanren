@@ -21,6 +21,13 @@
     库里那道 CHECK（`product_listed_report_kind`）拦「上架了却没说出哪一种」，
     这里拦另一半：**说了的那一种，代码里真做得出来吗**
 
+  御守类（`fulfillment_kind='residency'`）
+    履约那一支要拿 `sku.villager_id` 才知道搬谁进来;为空就只能把行留在
+    pending，于是单子永远停在 `fulfilling`、钱已经收了。
+    2026-09-02 第四轮评审实测:883 件在架的居住 SKU 里 **45 件没挂人**，
+    拿其中一件建单回 200、收 ¥99。这一支原先只看报告与订阅两类，
+    第三类是它自己文档里那句「上架了、履约那一头是空的」的同一种病。
+
   订阅类（`product.kind='subscription'`）
     履约按 `fulfillment_kind` 分支，而它没有一支会开通订阅 ——
     所以在售的订阅商品一律红，直到那一支存在
@@ -118,8 +125,26 @@ if not 开得通:
 elif not 订阅在售:
     print('  · 履约开得通订阅，但没有在售的订阅商品')
 
+# ── 御守:在架的居住 SKU 都得说出搬谁进来 ────────────────────
+没挂人 = psql(
+    "SELECT s.id FROM sku s JOIN product p ON p.id = s.product_id "
+    "WHERE p.status='listed' AND p.fulfillment_kind='residency' "
+    "  AND s.villager_id IS NULL ORDER BY s.id")
+for sid in 没挂人:
+    print(f'✗ {sid} 在架，而它没说搬谁进来（sku.villager_id 为空）')
+    print(f'   付了钱履约拿不到人，行留在 pending、单子永远停在 fulfilling。')
+    print(f'   要么把 villager_id 补上，要么把它下架。')
+    bad += 1
+居住在架 = psql(
+    "SELECT count(*) FROM sku s JOIN product p ON p.id = s.product_id "
+    "WHERE p.status='listed' AND p.fulfillment_kind='residency'")
+n居住 = int(居住在架[0]) if 居住在架 else 0
+if n居住 == 0:
+    print('✗ 一件在架的居住商品都没查到 —— 这一支多半在空转')
+    sys.exit(1)
+
 print()
-print(f'在售 · 报告 {len(在售)} 件、订阅 {len(订阅在售)} 件 · '
+print(f'在售 · 报告 {len(在售)} 件、订阅 {len(订阅在售)} 件、御守 {n居住} 件 · '
       f'做得出来的册子 {len(认识的)} 种 · 问题 {bad} 处')
 if bad:
     sys.exit(1)

@@ -95,6 +95,28 @@ pub async fn create(pool: &PgPool, req: NewOrder) -> Result<CreatedOrder, Domain
 
        为什么不在履约那一侧兜:那时钱已经收了，剩下的只有退款，而退款要人工。
        能在收钱之前说清楚的事，不该留到收钱之后。 */
+    /* 【同一张单里不许出现同一位村民两次】（2026-09-02 第四轮评审 · 工程审计）。
+       下面那个循环是【逐行独立】判的:每一行各自查「这位是不是已经住着」。
+       而阿云名下在架的 SKU 有三百多件 —— 两个不同的 sku 都指着他，
+       两行各自都合法，加起来收 ¥198 只搬进来一个人。
+       审计实测:`sku-oma-t46166-11` + `sku-oma-t25287-13` 回 19800。
+       所以在逐行判之前，先把这一单内部的重复挑出来。 */
+    let mut 这单里的村民: Vec<String> = Vec::new();
+    for l in &req.lines {
+        let 谁: Option<String> = sqlx::query_scalar(
+            "SELECT s.villager_id FROM sku s JOIN product p ON p.id = s.product_id
+              WHERE s.id = $1 AND p.fulfillment_kind = 'residency'",
+        ).bind(&l.sku_id).fetch_optional(pool).await.db()?.flatten();
+        if let Some(v) = 谁 {
+            if 这单里的村民.contains(&v) {
+                return Err(DomainError::Validation(format!(
+                    "villager {v} appears twice in one order — one villager, one house"
+                )));
+            }
+            这单里的村民.push(v);
+        }
+    }
+
     for l in &req.lines {
         let 这一件 = sqlx::query(
             "SELECT p.fulfillment_kind, s.villager_id,
