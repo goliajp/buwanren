@@ -241,6 +241,35 @@ for (const [名, 路, q0] of 屏) {
          行高、flex 拉伸都会改变它，声明 26px 的东西实际可能是 40px，
          反过来也一样。记号由镜像运行时在绑 click 时打，见 wxml.js。 */
       可点: 取('[data-tap]'),
+      /* 【字色与它真正压着的底】。解析 wxss 那一支有个够不着的地方:
+         底色写在祖先上时，它只能如实报「没量」（实测 7 处）。
+         而在这里，底色是【渲染完的事实】—— 往上走到第一个不透明的祖先，
+         那就是这段字真正压着的颜色，罗盘中心那颗按钮也量得到。
+         只收【自己直接带字】的元素:容器的 color 会被子元素盖掉，
+         把它算进来就是在量一段没人看的颜色。 */
+      字: (() => {
+        const 不透明 = (c) => c && c !== 'transparent' && !/rgba\(0,\s*0,\s*0,\s*0\)/.test(c)
+        const 出 = []
+        for (const e of document.querySelectorAll('#app *')) {
+          const 直接 = [...e.childNodes]
+            .filter((n) => n.nodeType === 3 && n.textContent.trim())
+            .map((n) => n.textContent.trim()).join('')
+          if (!直接) continue
+          const cs = getComputedStyle(e)
+          let p = e, 底 = null
+          while (p && p !== document.documentElement) {
+            const b = getComputedStyle(p).backgroundColor
+            if (不透明(b)) { 底 = b; break }
+            p = p.parentElement
+          }
+          const r = e.getBoundingClientRect()
+          if (r.width < 1 || r.height < 1) continue
+          出.push({ 类: e.className, 文: 直接.slice(0, 18),
+                    字色: cs.color, 底色: 底 || 'none',
+                    字号: parseFloat(cs.fontSize), 粗细: cs.fontWeight })
+        }
+        return 出
+      })(),
     }
   }, 文)
   const 坏 = /取不到|失败|出错|unauthorized/.test(文)
