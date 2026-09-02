@@ -36,6 +36,22 @@ import sys
                     "WHERE id=(SELECT id FROM payment LIMIT 1)",
     },
     {
+        '约束': 'uq_shipment_tracking',
+        '表': 'shipment',
+        '说的是': '一个承运商的一个单号只对一张运单',
+        '谁在依赖': [
+            'unmei-app/src/shipment.rs　apply_trace_webhook 按 (carrier_code, tracking_no) '
+            '用 `fetch_optional` 取【一条】—— 没有这条约束时它取到的是随机一张，'
+            '而那正是承运商回调要改的那张',
+        ],
+        '必须被拒': "UPDATE shipment SET carrier_code=(SELECT carrier_code FROM shipment "
+                    "WHERE tracking_no IS NOT NULL ORDER BY id LIMIT 1), "
+                    "tracking_no=(SELECT tracking_no FROM shipment "
+                    "WHERE tracking_no IS NOT NULL ORDER BY id LIMIT 1) "
+                    "WHERE id=(SELECT id FROM shipment WHERE tracking_no IS NOT NULL "
+                    "ORDER BY id OFFSET 1 LIMIT 1)",
+    },
+    {
         '约束': 'villager_residency_user_id_villager_id_key',
         '表': 'villager_residency',
         '说的是': '一个人一位村民只能住一次',
@@ -73,11 +89,16 @@ def 试写(sql):
     return (r.stderr.strip() or 'psql 报了错但没说是什么') if r.returncode != 0 else None
 
 
+# 【约束与索引都要认】。`CREATE UNIQUE INDEX … WHERE …`（部分唯一索引）
+# 不进 `pg_constraint` —— 只查那一张表的话，它会报「约束不见了」，
+# 而那条索引好端端地在（2026-09-03 加运单号唯一性时踩到）。
 现有 = {}
 for l in 问库(
         "SELECT c.conname, pg_get_constraintdef(c.oid) FROM pg_constraint c "
         "JOIN pg_class t ON t.oid = c.conrelid "
-        "JOIN pg_namespace n ON n.oid = t.relnamespace WHERE n.nspname='public'"):
+        "JOIN pg_namespace n ON n.oid = t.relnamespace WHERE n.nspname='public' "
+        "UNION ALL "
+        "SELECT indexname, indexdef FROM pg_indexes WHERE schemaname='public'"):
     名, _, 定义 = l.partition('|')
     现有[名] = 定义
 

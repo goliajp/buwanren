@@ -248,7 +248,7 @@ pub async fn create(pool: &PgPool, req: NewOrder) -> Result<CreatedOrder, Domain
 
     for l in &req.lines {
         let row = sqlx::query(
-            r#"SELECT s.id, s.code, s.name, s.spec_json, s.weight_g,
+            r#"SELECT s.id, s.code, s.name, s.spec_json, s.weight_g, s.stock_kind,
                       pb.price_minor, pb.currency
                FROM sku s
                LEFT JOIN LATERAL (
@@ -268,6 +268,39 @@ pub async fn create(pool: &PgPool, req: NewOrder) -> Result<CreatedOrder, Domain
         .fetch_optional(&mut *tx)
         .await.db()?
         .ok_or_else(|| DomainError::NotFound(format!("sku {}", l.sku_id)))?;
+
+        /* 【限量的东西要真的限量】（2026-09-03 第四轮评审 · 工程审计）。
+           `stock_count` 与 `per_user_cap` 这两列在整个 unmei-app 里
+           **零处引用** —— 玉坠写着 50 件，实测能下一万单。
+           一件卖光了还在收钱的商品，比不上架更糟。
+
+           扣减写成一句带条件的 UPDATE:`stock_count >= $2` 让「查」和「扣」
+           在同一个语句、同一个隐式事务里完成 —— 先查再扣的话，
+           两个人同时下最后一件都能查到「还有 1」。
+           影响行数为 0 就是不够了，如实说还剩多少。
+           `unlimited` 那一档不碰。 */
+        let 限量: bool = row.try_get::<String, _>("stock_kind")
+            .map(|k| k == "limited").unwrap_or(false);
+        if 限量 {
+            let n = sqlx::query(
+                "UPDATE sku SET stock_count = stock_count - $2 \
+                 WHERE id = $1 AND stock_count IS NOT NULL AND stock_count >= $2",
+            )
+            .bind(&l.sku_id)
+            .bind(l.qty)
+            .execute(&mut *tx)
+            .await.db()?
+            .rows_affected();
+            if n == 0 {
+                let 剩: Option<i32> = sqlx::query_scalar(
+                    "SELECT stock_count FROM sku WHERE id=$1",
+                ).bind(&l.sku_id).fetch_optional(&mut *tx).await.db()?.flatten();
+                return Err(DomainError::Conflict(format!(
+                    "sku {} 不够了 —— 要 {}，还剩 {}",
+                    l.sku_id, l.qty, 剩.unwrap_or(0)
+                )));
+            }
+        }
 
         let unit: i64 = row
             .try_get("price_minor")

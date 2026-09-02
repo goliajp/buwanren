@@ -865,3 +865,27 @@ async fn a_refund_cannot_name_someone_elses_payment() {
     ).await;
     assert!(正常.is_ok(), "自己那张单该退得动，实际 {:?}", 正常.err());
 }
+
+/// 【两笔各退一半，两边都该说「全退了」】（2026-09-03 第四轮评审 · 工程审计）。
+///
+/// `approve` 里 payment 的终态原先拿【这一笔】的金额跟支付总额比，
+/// 而订单那一侧用的是累计式 —— 两笔各退一半，每一笔都小于总额，
+/// 于是支付永远停在 `refunded_partial`、订单已经是 `refunded`。
+/// 同一笔钱两处说法不一致，对账时看到的是「订单全退了、支付没退完」。
+#[tokio::test]
+async fn two_half_refunds_leave_both_sides_saying_fully_refunded() {
+    let pool = db_or_skip!();
+    let (用户, 单, 支付) = paid_order(&pool, 10000).await;
+
+    for _ in 0..2 {
+        let r = refund::request(&pool, &单, &用户, None, Some(5000), "user_request", None)
+            .await.expect("发起退款");
+        refund::approve(&pool, &r, &Actor::system()).await.expect("批准");
+    }
+
+    let 支付态 = common::scalar_string(&pool, "SELECT status FROM payment WHERE id=$1", &支付).await;
+    let 订单态 = common::scalar_string(&pool, "SELECT status FROM order_record WHERE id=$1", &单).await;
+    assert_eq!(支付态.as_deref(), Some("refunded"),
+               "两笔加起来等于全额，支付这一侧也该说全退了");
+    assert_eq!(订单态.as_deref(), Some("refunded"), "订单那一侧本来就是累计式");
+}
