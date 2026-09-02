@@ -32,6 +32,12 @@ Page({
     err: '',
     name: '',
     subTitle: '',
+    /* 【实物要有实物的样子】（2026-09-02 第四轮评审 · 两路各自报）。
+       ¥29 的香、¥398 的玉坠都是寄到家的东西，而这一屏原先唯一的图
+       是【店主的头像】—— 电商漏斗里最该有图的地方是空的。
+       `hero_image_url` 这个字段一直在（后端 `SELECT *` 也一直带着它
+       出来），只是没人填、页面也没接:字段做了、屏上没有。 */
+    货图: '',
     desc: '',
     price: '',
     /** 履约方式 —— 御守是寄实物，报告是算出来的。文案按它分 */
@@ -84,6 +90,7 @@ Page({
           err: '',
           name: d.product.name,
           subTitle: d.product.sub_title || '',
+          货图: d.product.hero_image_url || '',
           desc: d.product.description_md || '',
           price: sku ? money(sku.current_price_minor, sku.current_currency) : '',
           skuId: sku ? sku.id : '',

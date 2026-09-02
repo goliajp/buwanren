@@ -750,15 +750,19 @@ if (API) {
      是第三轮评审实跑出来的。夹具跟着改:换商品，数量恒为 1。
      六个 sku 从库里现取，不写死 —— 写死的 id 会在目录重建之后
      指向一件不存在的东西，而那时截出来的是「取不到」那一屏。 */
+  /* 【要几件，看货架上真有几件】（2026-09-02）。
+     原先写死「六件」，而那个数是夹具方便，不是产品事实 ——
+     货架清掉一万三千件测试残留之后，非居住类的在架商品就是这几件，
+     于是这一条报「只挑到 5 件」，看着像动线坏了。
+     下面只用第一张单（`单们[0]`），多建几张是为了让订单列表不空;
+     所以判据改成【至少能建一张】，这才是它真正依赖的东西。 */
   const 六件 = sql1(
     "SELECT string_agg(id, ',') FROM ("
     + " SELECT s.id FROM sku s JOIN product p ON p.id = s.product_id"
     + "  WHERE s.status='active' AND p.status='listed'"
     + "    AND p.fulfillment_kind <> 'residency'"   // 护身符要挑没住过的人，另一套判据
     + "  ORDER BY p.sort_weight DESC, s.id LIMIT 6) t").split(',').filter(Boolean)
-  if (六件.length < 6) {
-    ok(false, '夹具:库里挑不出六件在售商品来建六张单', `只挑到 ${六件.length} 件`)
-  }
+  ok(六件.length >= 1, '夹具:货架上挑得出在售商品来建单', `挑到 ${六件.length} 件`)
   const 单们 = await p.evaluate(async ([base, 六件]) => {
     const raw = localStorage.getItem('unmei:buwanren:token')
     if (!raw) return []

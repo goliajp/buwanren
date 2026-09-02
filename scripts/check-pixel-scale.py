@@ -38,6 +38,8 @@ if len(样式) < 15:
     ('badge-img', 'width', 16),
     ('badge-img', 'height', 16),
     ('empty-art', 'background-size', 16),    # 四张空态道具，源图 80×80 = 16 格 ×5
+    ('goods-img', 'width', 24),              # 商品图，源图 24 格 ×5 = 120×120
+    ('goods-img', 'height', 24),
 ]
 声明 = {}   # (属性) → 正则
 for 属性 in ('width', 'height', 'background-size'):
