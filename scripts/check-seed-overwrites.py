@@ -38,6 +38,7 @@ def 跑(sql):
 
 
 错, 查过 = [], 0
+扫到的表 = set()          # 给下面那份底线名单当对照
 for 名 in 开机跑:
     f = 种子目 / 名
     if not f.exists():
@@ -63,6 +64,7 @@ for 名 in 开机跑:
         continue                      # DO NOTHING 的种子写不回去，不用管
     for 表 in 表们:
         查过 += 1
+        扫到的表.add(表)
         指纹 = f"SELECT md5(COALESCE(string_agg(t::text, '|' ORDER BY t::text), '')) FROM {表} t"
         # 事务里:量 → 跑种子 → 再量 → 回滚
         脚本 = f"BEGIN;\n\\o /dev/null\nSELECT 1;\n\\o\n"
@@ -86,22 +88,33 @@ for 名 in 开机跑:
 # 那种失效:少查一张跟全对长得一模一样。
 # 2026-09-01 真发生:我往 lack_bias.sql 的注释里写了个半角分号，
 # 上面那条 `[^;]*?` 被截断，那张表整个不参与检查。
-# 旁证:开机跑的那几份种子里，写着 `DO UPDATE` 的文件数应当 ≤ 查过的表数。
-# 旁证按【表】数，不按文件数 —— `villagers.sql` 一份贡献两张表（art / villager），
-# 按文件数的话，那两条里丢掉一条，`3 >= 3` 仍然通过，正好差一格
-# （2026-09-01 五路评审 · 工程审计指出）。
-应有表 = set()
-for n in 开机跑:
-    f = 种子目 / n
-    if not f.exists():
-        continue
-    净 = re.sub(r'--[^\n]*', '', f.read_text(encoding='utf-8'))
-    应有表 |= {t.lower() for t in re.findall(
-        r'INSERT INTO\s+(\w+)\b[^;]*?ON CONFLICT[^;]*?DO UPDATE', 净, re.S | re.I)}
-    应有表 |= {t.lower() for t in re.findall(r'\bUPDATE\s+(\w+)\s+SET\b', 净, re.I)}
-if 查过 < len(应有表):
-    print(f'✗ 开机种子会覆盖 {len(应有表)} 张表（{"、".join(sorted(应有表))}），'
-          f'却只查了 {查过} 张 —— 有表没被扫到，这一支在少报')
+#
+# 【旁证要独立于被测的东西】（2026-09-02 第四轮评审 · 工程审计）。
+# 上一版的旁证是拿【同一条正则】再跑一遍种子目录，数出「应有几张表」
+# 再跟「查了几张」比 —— 正则改坏时两个数一起变小，
+# `查过 < len(应有表)` 永远不成立。审计实测:把 `\bUPDATE\s+(\w+)\s+SET\b`
+# 改坏之后，输出从「查了 6 张」变「查了 4 张」，仍然报绿退 0。
+# 自己证自己不叫旁证。
+#
+# 换成一份【写死的底线名单】:这几张表确定会被开机种子覆盖，
+# 各自记着是哪一份种子、以及它当初是怎么被发现的。
+# 正则改坏 → 某张表扫不到 → 名单里那一条对不上 → 当场红。
+# 要删名单里的一条，就得同时说清那份种子为什么不再覆盖它。
+# 名单本身是【实测出来的】，不是凭印象写的:第一版我按记忆多写了一条
+# `gate_word`，而 backend/seed 里根本没有那份种子 —— 新旁证第一次跑就
+# 报了它。名单错了会红，这正是它该有的样子。
+底线 = {
+    'app_user':      'seed.sql',
+    'villager':      'villagers.sql —— ON CONFLICT DO UPDATE，改村民表的迁移会被写回',
+    'art':           'villagers.sql 与 art_leaf.sql 都写它（一张表两份种子）',
+    'lack_bias':     'lack_bias.sql',
+    'villager_voice': 'villager_voice.sql',
+}
+缺 = [t for t in 底线 if t not in 扫到的表]
+if 缺:
+    for t in 缺:
+        print(f'✗ 底线里的 `{t}` 没被扫到 —— 它来自 {底线[t]}')
+    print('  正则多半漏了一种写法。要么修正则，要么说清那份种子为什么不再覆盖它')
     sys.exit(1)
 
 for e in 错:

@@ -150,6 +150,7 @@ led = json.loads(LEDGER.read_text(encoding='utf-8')) if LEDGER.exists() else {}
 
 bad = 0
 比过 = 0
+没样本 = 0
 for 说明, 取响应, ts_path, iface in CASES:
     want = ts_fields(ts_path, iface)
     if want is None:
@@ -162,7 +163,13 @@ for 说明, 取响应, ts_path, iface in CASES:
         continue
     got = 取响应()
     if got is None:
+        # 【取不到样本 ≠ 通过】（2026-09-02 第四轮评审 · 工程审计）。
+        # 上一版这里只打一个点、不计数、不影响退出码 ——
+        # 审计把建单那一步置空之后，八个形状掉到五个（`OrderCard` /
+        # `OrderDetail` / `OrderLine` 全掉），仍打「✓」退 0。
+        # 而 `OrderLine.sku_name` 正是这一支立案要防的那个 bug。
         print(f'  · {说明} 取不到样本（{iface}）—— 这一条【没验】')
+        没样本 += 1
         continue
     if not isinstance(got, dict):
         print(f'✗ {说明} 拿到的不是对象（{type(got).__name__}）—— 取的地方不对')
@@ -191,7 +198,15 @@ for key in 记着:
         bad += 1
 
 print()
-print(f'比过 {比过} 个形状 · 问题 {bad} 处')
+# 下限:今天真比得动的是 8 个形状。掉下来就是【有形状没验到】，
+# 不是「今天恰好没样本」—— 后者也该红，因为它跟前者在总账上长得一样。
+下限 = 8
+if 比过 < 下限:
+    print(f'✗ 只比过 {比过} 个形状，少于下限 {下限}'
+          + (f'（{没样本} 个取不到样本）' if 没样本 else ''))
+    print('  取不到样本跟「验过了」在总账上长得一样 —— 所以它算红，不算跳过')
+    bad += 1
+print(f'比过 {比过} 个形状 · 没样本 {没样本} 个 · 问题 {bad} 处')
 if bad:
     sys.exit(1)
 print('✓ 前端声明的字段，真响应里都有')
