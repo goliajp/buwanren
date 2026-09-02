@@ -138,10 +138,22 @@
   }
 
 
+  /* 【一档，所有活物共用】（2026-09-03 第四轮评审 · 视觉）。
+     评审量到:主人在自己的屋里只有 27×31 CSS 像素，
+     而同屋家具中位数 44px、最大 140px —— 主角比家具还小，
+     坐在特征地毯正中被淹没。这是「沉浸感是第一要求」下最深的一处失败，
+     而它买的正是 ¥99 那一屏。
+
+     8 → 11:屏上 37×43，跟家具中位数同一档，读得出是个人。
+     人与动物一起放大 —— 「像素颗粒必须同大，否则两者不像一个世界里的
+     东西」（猫那一条的注释，2026 年初写的），那句话现在仍然成立，
+     所以这个数只有一个，不是每个角色一份。 */
+  const ACTOR_SCALE = 11
+
   const ACT_CACHE = {}
 
   defineActor('ayun', {
-    name: '阿云', scale: 8, foot: [40, 114],   // foot = sprite 内脚点偏移(1440 系)
+    name: '阿云', scale: ACTOR_SCALE, foot: [40, 114],   // foot = sprite 内脚点偏移(1440 系)
     anchors: { hand: [40, 82] },               // 手柄线 / 牵绳的起点
     palette: {K: '#3a2c20', F: '#f0c8a0', E: '#3d6a34', H: '#4a3a2c', j: '#a8845a', P: '#e87a90', b: '#4c6a8c', x: '#4a3626',
     B: '#5a7a96', Y: '#ffd76a', W: '#f6efdc', Z: '#9a938a',
@@ -153,7 +165,7 @@
   defineActor('cat', {
     // scale 与阿云一致(8):像素颗粒必须同大,否则两者不像一个世界里的东西。
     // 猫因此长约 96px —— 接近真猫与人的实际比例。
-    name: '猫', scale: 8, footMode: 'bottom', foot: [48, 120],
+    name: '猫', scale: ACTOR_SCALE, footMode: 'bottom', foot: [48, 120],
     palette: ACTORS.ayun.palette,          // 共用调色板
     // 同样引用而非拷贝;只挑出猫用得到的几个姿态
     get poses() {
@@ -167,7 +179,7 @@
      资源化做了一半,房间自己拿 drawPose 画,scale 当参数传。
      三个角色都在这里声明,姿态一律 getter 引用 globalThis.TAO_POSES。 */
   defineActor('tao', {
-    name: '桃桃', scale: 8, foot: [40, 106],
+    name: '桃桃', scale: ACTOR_SCALE, foot: [40, 106],
     // beside = 别人来她身边站的位置
     anchors: { beside: [70, 40] },
     get palette() { return globalThis.TAO_PALETTE || {} },
@@ -177,7 +189,7 @@
   // 金毛与兔子按 sprite 底边中心落地:两者的坐/趴/跳姿高度不一,
   // 固定 foot 必然让其中一个悬空或陷进地里(与猫同理)。
   defineActor('dog', {
-    name: '金毛', scale: 8, footMode: 'bottom',
+    name: '金毛', scale: ACTOR_SCALE, footMode: 'bottom',
     get palette() { return globalThis.TAO_PALETTE || {} },
     get poses() {
       const P = globalThis.TAO_POSES || {}
@@ -190,7 +202,7 @@
   // 球:金毛的玩具。现在是精灵实体,下一步升格为可交互道具素材。
 
   defineActor('rabbit', {
-    name: '兔子', scale: 8, footMode: 'bottom',
+    name: '兔子', scale: ACTOR_SCALE, footMode: 'bottom',
     get palette() { return globalThis.TAO_PALETTE || {} },
     get poses() {
       const P = globalThis.TAO_POSES || {}
@@ -204,23 +216,23 @@
      （verify 报「未知角色: popopet」就是这么来的）。
      姿态一律 getter 引用 globalThis.POPO_POSES,不拷贝快照。 */
     defineActor('popo', {
-    name: '婆婆', scale: 8, foot: [56, 128], codex: 'popo',
+    name: '婆婆', scale: ACTOR_SCALE, foot: [56, 128], codex: 'popo',
     anchors: { hand: [56, 92] },
     get palette() { return globalThis.POPO_PALETTE || {} },
     get poses() { return globalThis.POPO_POSES || {} }
   })
   defineActor('popocat', {
-    name: '黑猫', scale: 8, footMode: 'bottom',
+    name: '黑猫', scale: ACTOR_SCALE, footMode: 'bottom',
     get palette() { return globalThis.POPO_PALETTE || {} },
     get poses() { const P = globalThis.POPO_POSES || {}; return { bcat: P.bcat, bcatsleep: P.bcatsleep } }
   })
   defineActor('popoowl', {
-    name: '猫头鹰', scale: 8, footMode: 'bottom',
+    name: '猫头鹰', scale: ACTOR_SCALE, footMode: 'bottom',
     get palette() { return globalThis.POPO_PALETTE || {} },
     get poses() { const P = globalThis.POPO_POSES || {}; return { owl1: P.owl1, owl2: P.owl2 } }
   })
   defineActor('popopet', {
-    name: '小家伙', scale: 8, footMode: 'bottom',
+    name: '小家伙', scale: ACTOR_SCALE, footMode: 'bottom',
     get palette() { return globalThis.POPO_PALETTE || {} },
     get poses() {
       const P = globalThis.POPO_POSES || {}
@@ -229,7 +241,7 @@
   })
 
   defineActor('tenz', {
-    name: '丹增', scale: 8, foot: [48, 116], codex: 'tenz',
+    name: '丹增', scale: ACTOR_SCALE, foot: [48, 116], codex: 'tenz',
     get palette() { return globalThis.TENZ_PALETTE || {} },
     get poses() { return globalThis.TENZ_POSES || {} }
   })
@@ -238,7 +250,7 @@
   // codex 只覆盖【移动】姿态,stand* 只填空不覆盖 —— 他的正面必须自己画,
   // 规范里 40 个角色只有一部分有 FRONT,castlint 会把缺的标出来。
   defineActor('shenyan', {
-    name: '沈砚', scale: 8, foot: [44, 126], codex: 'shenyan',
+    name: '沈砚', scale: ACTOR_SCALE, foot: [44, 126], codex: 'shenyan',
     anchors: { hand: [44, 88] },
     get palette() { return globalThis.SHENYAN_PALETTE || {} },
     get poses() { return globalThis.SHENYAN_POSES || {} }
@@ -251,7 +263,7 @@
      footMode:'bottom' —— 猫的坐/卧/走高度不一,固定 foot 必然让其中一个悬空或陷地。
      姿态:狸花与小猫复用阿云那套(骨架通用),大橘另有一套(它得大一圈)。 */
   defineActor('sycat_orange', {
-    name: '大橘', scale: 8, footMode: 'bottom',
+    name: '大橘', scale: ACTOR_SCALE, footMode: 'bottom',
     palette: { K: '#3a2c20', O: '#d99a4e', C: '#b87a34', E: '#3d6a34', P: '#c88070', W: '#f0d3a8' },
     get poses() {
       const P = globalThis.SHENYAN_CATPOSES || {}
@@ -259,12 +271,12 @@
     }
   })
   defineActor('sycat_tabby', {
-    name: '狸花', scale: 8, footMode: 'bottom',
+    name: '狸花', scale: ACTOR_SCALE, footMode: 'bottom',
     palette: { K: '#3a2f28', O: '#8a7a68', C: '#5d5145', E: '#6a6a3a', P: '#9a7f75', W: '#c6bba9' },
     get poses() { return globalThis.SHENYAN_CATPOSES || {} }
   })
   defineActor('sycat_kitten', {
-    name: '小猫', scale: 8, footMode: 'bottom',
+    name: '小猫', scale: ACTOR_SCALE, footMode: 'bottom',
     palette: { K: '#2a261f', O: '#d9cfbe', C: '#3a352e', E: '#5a7a8c', P: '#d09b93', W: '#efe8da' },
     get poses() { return globalThis.SHENYAN_CATPOSES || {} }
   })
@@ -272,7 +284,7 @@
   /* 白鹭。侧/背/走路帧二由规范 codex 供给;正面与功能姿态房间画,
      正面照 CSS 精灵的画法、尺寸对齐 standback(codexFront 只作参照,不当行走图)。 */
   defineActor('bailu', {
-    name: '白鹭', scale: 8, foot: [44, 122], codex: 'bailu',
+    name: '白鹭', scale: ACTOR_SCALE, foot: [44, 122], codex: 'bailu',
     anchors: { hand: [44, 84] },
     get palette() { return globalThis.BAILU_PALETTE || {} },
     get poses() { return globalThis.BAILU_POSES || {} }
