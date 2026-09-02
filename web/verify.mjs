@@ -2850,8 +2850,8 @@ console.log('\n── 一屏放得下吗（iPhone SE · 内容区 597）──')
       为什么: '第一次来的人看到的是表单，不是盘面' },
     { 页: 'pages/order/index', 名: '待付',
       切: () => globalThis.__router.current().setData({ status: 'unpaid', 住下了: false, err: '' }),
-      凭据: '去支付',
-      为什么: '待付给的是「去支付」加一行「不要这一单了」，跟已付那组按钮不一样' },
+      凭据: '去付',
+      为什么: '待付给的是「去付」加一行「不要这一单了」，跟已付那组按钮不一样' },
     { 页: 'pages/order/index', 名: '住下了',
       切: () => globalThis.__router.current().setData({
         status: 'paid', 住下了: true, err: '',
@@ -3265,7 +3265,7 @@ if (!API) {
          跟「镜像坏了」不是一回事，它落在底部那条提示上，并记进 `__DEVICE_ONLY`。
          这条断言原先查的是整屏红那一块，查错了地方:真抛了也看不见，
          而真的没抛（比如哪天被人 catch 掉、悄悄当成功）同样看不见 —— 两头都盲。 */
-      await p.getByText('去支付', { exact: true }).click()
+      await p.getByText('去付', { exact: true }).click()
       await p.waitForFunction(
         () => (globalThis.__DEVICE_ONLY || []).length > 0
               || (globalThis.__router.current().data.note || '').includes('失败')
