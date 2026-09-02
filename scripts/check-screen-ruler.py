@@ -165,7 +165,9 @@ for f in 文件:
     ts = (页 / 屏 / 'index.ts')
     源 = ts.read_text(encoding='utf-8') if ts.exists() else ''
     出口 = 屏 in TAB屏
-    for 名 in set(re.findall(r'bind(?:tap|catchtap)="(\w+)"', s)):
+    # `catchtap=` 没有 `bind` 前缀 —— 上一版写的 `bind(?:tap|catchtap)`
+    # 认不出它（2026-09-02 第四轮评审 · 工程审计）。
+    for 名 in set(re.findall(r'(?:bind|catch)tap="(\w+)"', s)):
         # 取这个处理器的函数体：从 `名(` 起到下一个顶层 `},` 为止 ——
         # 小程序页面对象里每个方法都是这个形状
         m = re.search(r'\n  (?:async )?' + re.escape(名) + r'\s*\(.*?\n  \},', 源, re.S)

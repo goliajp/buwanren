@@ -13,8 +13,14 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PAGES = ROOT / 'mini/miniprogram/pages'
-BIND = re.compile(r'\bbind(?:tap|input|blur|focus|change|confirm|submit|chooseavatar|'
-                  r'scroll|load|error|longpress|touchstart|touchend)\s*=\s*"([A-Za-z_$][\w$]*)"')
+# 【`catch` 前缀也算】（2026-09-02 第四轮评审 · 工程审计）。
+# 上一版只认 `bind…`，而 `catchtap=` 没有那个前缀 —— 于是
+# `pages/village/index.wxml` 那句「谁来住你说了算 · 填出生时间 ›」
+# （`catchtap="goNatal"`）从来没被检查过。审计把 `goNatal` 改名之后
+# 这一支照样报绿，而村主屏点下去会抛 `is not a function`。
+BIND = re.compile(r'\b(?:bind|catch)(?:tap|input|blur|focus|change|confirm|submit|'
+                  r'chooseavatar|scroll|load|error|longpress|touchstart|touchend)'
+                  r'\s*=\s*"([A-Za-z_$][\w$]*)"')
 
 bad = 0
 pages = 0

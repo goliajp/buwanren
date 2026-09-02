@@ -63,9 +63,34 @@ client_uid=$(echo "$login" | jq -r '.user.id')
 [[ -n "$client_tok" && "$client_tok" != "null" ]] || { red "login failed"; exit 1; }
 green "  ✓ token len=${#client_tok} user=$client_uid"
 
+# 【先建本命，再买说明书】（2026-09-02 第四轮评审 · 工程审计追出来的）。
+# 2.2 买的是 `sku-naji-deep`，它的 `report_kind` 是 `bazi_deep` ——
+# 那份册子必须按出生时间排盘才出得来。而这支脚本的匿名用户从来没建过本命，
+# 于是 `report` 落在 `awaiting_natal`、行停在 `processing`、
+# 订单停在 `fulfilling`，2.5 那一条永远等不到 done。
+#
+# 这不是等得不够久，是【顺序缺了一步】:真实用户是先填生辰再买册子的。
+step "2.1.5 建本命（说明书要按出生时间排盘）"
+natal_resp=$(curl -fsS -X POST "$API_BASE/v1/user/natals" \
+    -H 'content-type: application/json' \
+    -H "authorization: Bearer $client_tok" \
+    -d '{"label":"e2e","year":1998,"month":3,"day":5,"hour":14,"minute":30,"tz":8,"gender":"male"}')
+natal_id=$(echo "$natal_resp" | jq -r '.id')
+[[ "$natal_id" != "null" && -n "$natal_id" ]] || { red "建本命失败: $natal_resp"; exit 1; }
+curl -fsS -X POST "$API_BASE/v1/user/natals/$natal_id/activate" \
+    -H "authorization: Bearer $client_tok" >/dev/null
+green "  ✓ natal_id=${natal_id} 已设为当前"
+
 step "2.2 下单 sku=sku-naji-deep × 1"
+# 【钱的接口要幂等键】。这一条是 2026-08 立的规矩（check-idem-required 管着），
+# 而这支脚本是在那之前写的、又不在 gates.sh 里 —— 于是它从那天起就
+# 一直卡在这一步的 400，没有人知道（2026-09-02 第四轮评审 · 工程审计:
+# 「e2e.sh 根本不在 gates.sh 里」）。
+# 每跑一次换一个键 —— 固定键会在第二次跑的时候把上一次那张单还回来。
+IDEM="e2e-$(date +%s)-$RANDOM"
 order_resp=$(curl -fsS -X POST "$API_BASE/v1/orders" \
     -H 'content-type: application/json' \
+    -H "idempotency-key: $IDEM-order" \
     -H "authorization: Bearer $client_tok" \
     -d '{"lines":[{"sku_id":"sku-naji-deep","qty":1}],"region":"cn","channel_origin":"web"}')
 order_id=$(echo "$order_resp" | jq -r '.order_id')
@@ -76,6 +101,7 @@ green "  ✓ order_id=$order_id total=¥$(echo "$amount_total/100"|bc -l)"
 step "2.3 发起支付(wechat_jsapi)"
 pay_resp=$(curl -fsS -X POST "$API_BASE/v1/orders/$order_id/pay" \
     -H 'content-type: application/json' \
+    -H "idempotency-key: $IDEM-pay" \
     -H "authorization: Bearer $client_tok" \
     -d '{"channel":"wechat_jsapi","openid":"oXxYz9mock"}')
 payment_id=$(echo "$pay_resp" | jq -r '.payment_id')
