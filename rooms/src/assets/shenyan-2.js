@@ -449,7 +449,7 @@
   })
 
   def("shenyan_copybook", {
-    clickable: true, say: '梅花易数。抄第七遍了，字倒是越写越好',
+    clickable: true, say: '师父那本书。抄第七遍了，字倒是越写越好',
     sayDeep: ['抄书是笨办法', '……笨办法我用了半辈子', '批注是给我自己看的。写给谁看呢，又没有学生'],
     name: "抄本 · 梅花易数", cat: "书卷", tags: ["抄本", "批注", "表层"],
     scope: "character", fromRoom: 'shenyan',

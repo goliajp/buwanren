@@ -379,6 +379,15 @@
           }
           el.addEventListener(type, fn)
           el.__off.push(() => el.removeEventListener(type, fn))
+          /* 【点得到的东西，要能被量出来】。真机上手指的接触面约 9mm，
+             苹果与谷歌两家的人机指南都写 44pt / 48dp —— 比这小就要靠瞄。
+             而这一层是全仓唯一知道「哪个元素绑了点击」的地方:
+             `.wxml` 里的 `bindtap` 到了 DOM 上什么记号都不留，
+             于是「有 27 处不到 44px」这种话只能靠人一处处读代码去数。
+             打上记号之后，`shots.mjs` 能在真实排版下量它的外接矩形，
+             `check-tap-size.py` 就有据可依 —— 量的是渲染结果，
+             不是 wxss 里那个可能被覆盖、被 padding 改写的声明值。 */
+          if (type === 'click') el.dataset.tap = '1'
         }
         if (v.attrs['data-native-only']) {
           const k = v.attrs['data-native-only']
