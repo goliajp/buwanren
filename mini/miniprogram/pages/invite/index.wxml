@@ -1,6 +1,6 @@
 <view class="page">
   <view class="hd">
-    <view class="title">谁能来</view>
+    <view class="title title-lg">谁能来</view>
     <!-- 说「为什么是这几位」得【真的按它排过】。
          这一句原先是笼统的「跟你补得上」，而排序只按「在卖的排前面、
          再按 id」—— 陈述了一个不存在的因果（设计册 10.8）。

@@ -12,14 +12,30 @@ import type { UserPublic } from '../../types/auth'
 
 interface IData {
   user: UserPublic | null
+  平台说法: string
   isWx: boolean
   activeNatalId: string | null
   version: string
 }
 
+/* 库里那三个枚举 → 念得出口的一句话。
+   认不出的值【原样留着】，不编 —— 编一个好听的说法出来，
+   客服拿着它反而查不到东西。 */
+function 念得出口(u: UserPublic | null): string {
+  if (!u) return ''
+  const 端: Record<string, string> = { mini: '小程序', web: '网页', ios: 'iOS', android: '安卓' }
+  const 区: Record<string, string> = { cn: '中国大陆', jp: '日本', kr: '韩国', sea: '东南亚', na: '北美' }
+  const 语: Record<string, string> = { 'zh-CN': '简体中文', 'zh-TW': '繁体中文', 'en-US': '英文', 'ja-JP': '日文' }
+  return [端[u.platform] || u.platform, 区[u.region] || u.region, 语[u.locale] || u.locale]
+    .filter(Boolean).join(' · ')
+}
+
 Page<IData, WechatMiniprogram.IAnyObject>({
   data: {
     user: null,
+    /* 「平台 · 区域」那一行念给客服听的说法。库里存的是 `mini` / `cn` /
+       `zh-CN` 三个枚举值，原样摆在屏上买家会以为自己看见了后台。 */
+    平台说法: '',
     isWx: false,
     activeNatalId: null,
     version: CONFIG.APP_VERSION,
@@ -49,6 +65,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     const user = app.globalData.user
     this.setData({
       user,
+      平台说法: 念得出口(user),
       isWx: !!user && user.platform === 'mini' && !user.is_anonymous,
       activeNatalId: app.globalData.activeNatalId,
     })
@@ -96,7 +113,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     app.globalData.user = null
     app.globalData.authSource = null
     app.globalData.activeNatalId = null
-    this.setData({ user: null, isWx: false, activeNatalId: null })
+    this.setData({ user: null, 平台说法: '', isWx: false, activeNatalId: null })
 
     wx.showLoading({ title: '重新登录…', mask: true })
     try {

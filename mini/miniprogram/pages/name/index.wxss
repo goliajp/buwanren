@@ -1,5 +1,5 @@
 .page { padding: 32rpx 40rpx 40rpx; }
-.title { font-size: 44rpx; font-weight: 700; }
+.title { font-weight: 700; }
 .sub { font-size: 26rpx; color: var(--ink-faint); margin-top: 8rpx; }
 .name-input { margin-top: 40rpx; padding: 24rpx 0; font-size: 36rpx;
               border-bottom: 2rpx solid var(--ink); }
