@@ -242,9 +242,25 @@ else:
     psql("DELETE FROM admin_user WHERE id='admin_roleprobe'")
 
 print()
-print(f'GET 路由 {len(plain) + len(withid) - len(skipped)} 条真打过 · 挂 {bad} 条 · '
-      f'跳过 {len(skipped)} 条')
+真打过 = len(plain) + len(withid) - len(skipped)
+print(f'GET 路由 {真打过} 条真打过 · 挂 {bad} 条 · 跳过 {len(skipped)} 条')
 if skipped:
     print('  跳过的（列表端点里没有可借的 id，库里就没有这类数据）:')
     print('  ' + ' '.join(skipped))
+
+# 【跳过太多就不算数】（2026-09-03 第四轮评审 · 工程审计）。
+# 上一版只把跳过数打印出来，不判 —— 借不到 id 的 `:id` 路由直接 continue，
+# 而「不带 token 挡不挡得住」那一圈的 `guarded` 也只累加、从不判。
+# 库里一空，这一支就变成「打了几个列表端点」，仍然报绿。
+#
+# 数按实测:今天真打过这么多条，跳过 2 条。
+下限 = 30
+if 真打过 < 下限:
+    print(f'✗ 只真打过 {真打过} 条，少于下限 {下限} —— 库里多半没数据，'
+          f'这一支现在什么都没验到')
+    sys.exit(1)
+if guarded < 下限:
+    print(f'✗ 只验了 {guarded} 条「不带 token 要挡住」，少于下限 {下限} —— '
+          f'那一圈跳过太多，结论不算数')
+    sys.exit(1)
 sys.exit(1 if bad else 0)
