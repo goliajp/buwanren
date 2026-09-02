@@ -15,6 +15,7 @@ import type { ApiError } from '../../services/api'
 import type { OrderCard } from '../../types/commerce'
 import { money, 状态那一词, 该做什么 } from '../../utils/money'
 import { 一句 } from '../../utils/say'
+import { 台账那天 } from '../../utils/day'
 
 /** 一页五笔 —— 设计 10.3：一屏放得下五笔，多了左右翻，不往下滚 */
 const 每页 = 5
@@ -88,7 +89,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
           statusText: 状态那一词(o.status, o.cancel_reason),
           go: 该做什么(o.status),
           totalText: money(o.amount_total_minor, o.currency),
-          whenText: (o.created_at || '').slice(5, 10).replace('-', '/'),
+          whenText: 台账那天(String(o.created_at || '')),
         }))
         this.setData({ loading: false, err: '', total: page.total, items })
         this.gotoPage(0)

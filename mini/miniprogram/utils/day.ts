@@ -20,9 +20,24 @@ export function 今天几号(d: Date): string {
 
 /** 「2026年8月30日」—— 纪念日那种，要说清是哪一年 */
 export function 那一天(iso: string): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
-  if (!m) return ''
-  return `${m[1]}年${Number(m[2])}月${Number(m[3])}日`
+  /* 【按本地时区，别切字符串】（2026-09-02 第三轮评审 · 第一次打开的人）。
+     后端给的是 UTC:`2026-09-01T22:55:08+00:00`。直接切前十个字符
+     得到「09-01」，而东八区那一刻已经是 9 月 2 日早上 —— 午夜到早八点
+     之间做的事，屏上一律显示成昨天。
+     `new Date(iso)` 认时区偏移，`getMonth/getDate` 给的是本地日期。
+     同一个文件里的 `那天几点` 一直是这么写的，只有这两处切了串。 */
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ''
+  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`
+}
+
+/** 「09/02」—— 台账那种。下单、寄出这些是记录，本来就该是数字 */
+export function 台账那天(iso: string): string {
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ''
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${mm}/${dd}`
 }
 
 /** 「8月30日 13:53」—— 之前问过的那一条，要说清是哪天几点 */

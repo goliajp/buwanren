@@ -98,13 +98,6 @@
 }
 
 .cta { text-align: center; padding: 12rpx 0 4rpx; }
-.foot-hint {
-  text-align: center;
-  font-size: 20rpx;
-  color: var(--stone-label);
-  letter-spacing: 0.02em;
-  padding: 20rpx 0 0;
-}
 
 /* form */
 .form {
