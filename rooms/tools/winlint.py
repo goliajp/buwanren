@@ -44,19 +44,32 @@ def strip_noncode(src):
 
 
 bad = []
+扫过 = 0
 for d in ('engine', 'assets', 'rooms'):
     for p in sorted((ROOT / d).glob('*.js')):
         rel = f'{d}/{p.name}'
         if rel in SKIP:
             continue
+        扫过 += 1
         src = strip_noncode(p.read_text(encoding='utf-8'))
         for i, line in enumerate(src.split('\n'), 1):
             if re.search(r'\bwindow\b', line):
                 bad.append((rel, i, line.strip()[:80]))
+# 【覆盖下限】（2026-09-03 第四轮评审 · 工程审计）。
+# 上一版没有 —— 对着一个空目录跑它照样打 ✓ 退 0。
+# 而它是 rooms 那批里【唯一】没有变异测试的一支，也就是说
+# 「它到底有没有在看东西」从来没有人问过。
+# 数按实测:今天 engine + assets + rooms 里有这么多支。
+if 扫过 < 25:
+    print(f'✗ 只扫到 {扫过} 个 .js —— 目录搬过家而这一支没跟上，'
+          f'它现在什么都没在看')
+    sys.exit(1)
+
 if bad:
     print(f'✗ 可移植核心里有 {len(bad)} 处 window:')
     for f, i, l in bad[:12]:
         print(f'    {f}:{i}  {l}')
     print('  小程序没有 window。改成 globalThis —— 浏览器里两者是同一个对象。')
     sys.exit(1)
-print(f'✓ engine/ 与 assets/ 与 rooms/ 里没有 window(设计页专用的 {len(SKIP)} 支除外)')
+print(f'✓ engine/ 与 assets/ 与 rooms/ 里没有 window · 扫了 {扫过} 支'
+      f'(设计页专用的 {len(SKIP)} 支除外)')
