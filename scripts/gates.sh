@@ -306,6 +306,9 @@ gate "屏上说的是人话吗" . python3 scripts/check-plain-words.py
 # 那是印象不是自查。落成代码之后头一次跑就抓出两处真的
 #（一单那屏没有他的脸、两颗主按钮结构上能同时出现）。
 gate "五行色文字用 -fg"       . python3 scripts/check-wuxing-fg.py
+# 像素画不是整数倍时，`pixelated` 会把相邻两格取整成一宽一窄 ——
+# 源图左右对称，屏上却歪。判的是 CSS 像素:DPR 2 与 3 下都得整齐。
+gate "像素画都是整数倍吗" . python3 scripts/check-pixel-scale.py
 gate "村民台词合规格"        . python3 scripts/check-villager-lines.py
 # 村主屏一天只显示一条，从住着那位的四条里挑 —— 所以要紧的不是
 # 「整批里某个句式占几成」，是【一个人身上的密度】:四条同形，

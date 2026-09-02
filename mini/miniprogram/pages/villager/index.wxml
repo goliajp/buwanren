@@ -20,7 +20,7 @@
       <view class="facewrap">
         <!-- 画好脸的人铺真图，没画好的仍旧是圆底 + 姓名末字。
              有图时不渲那个字:它会从像素的透明处透出来。 -->
-        <view class="face face-{{who.direction}} {{脸样 ? 'face-art' : ''}}" style="{{脸样}}">
+        <view class="face villager-face face-{{who.direction}} {{脸样 ? 'face-art' : ''}}" style="{{脸样}}">
           <text wx:if="{{!脸样}}">{{who.face}}</text>
         </view>
         <!-- 【状态跟着人走】。「住着 / 还没请来」是个是非题，
