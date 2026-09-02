@@ -172,7 +172,8 @@
 .how-s { font-size: 21rpx; color: var(--ink-faint); margin-top: 6rpx; line-height: 1.5; }
 .how-arrow { flex: none; padding-top: 6rpx; font-size: 30rpx; color: var(--ink-faint); opacity: .5; }
 
-.back { margin-top: 30rpx; text-align: center; font-size: 26rpx; color: var(--ink-faint); }
+.back { margin: 7rpx 0 -23rpx; padding: 23rpx 0; text-align: center;
+        font-size: 26rpx; color: var(--ink-faint); }
 
 /* 名册一行右边:价在上、动作在下。价比动作重一档 —— 决定按不按的是它。
    （2026-09-01：这一屏原先一个价都没有，而点一行直奔商品页。） */

@@ -135,9 +135,24 @@
    `flex: none` + 内边距:页签宽度按名字走，长的那几个（「说在前面」）不被压扁。 */
 .tab {
   flex: none; text-align: center; font-size: 22rpx;
-  color: var(--stone-label); padding: 8rpx 16rpx;
+  color: var(--stone-label); padding: 27rpx 22rpx; margin: -19rpx 0;
+  position: relative;
 }
-.tab-on { color: var(--ink); border-bottom: 2rpx solid var(--ink); }
+/* 【下划线改成绝对定位，页签本体改成 `<view>`】。
+   命中框要 44px，而下划线得贴着字 —— 对称内距下这两件事打架:
+   内距一加，`border-bottom` 就跟着掉下去 13px。
+   （`.tabs` 是 flex，页签是 flex item，所以竖直内距是真占版面的，
+   靠负外距把占的那部分收回去;这也是为什么不能只往上撑 ——
+   实测那样会把整屏顶出去 20px，而这一屏本来正好放得下。）
+   线用 `::after` 画，贴回原来的位置:27 - 8 - 2 = 17rpx。
+   为此把页签从 `<text>` 换成了 `<view>` —— 微信里 `view` 上的伪元素
+   是保准的，`text` 上的不是。
+   横着扩是免费的:这一行本来就 `overflow-x: auto`。 */
+.tab-on { color: var(--ink); }
+.tab-on::after {
+  content: ''; position: absolute; left: 22rpx; right: 22rpx; bottom: 17rpx;
+  height: 2rpx; background: var(--ink);
+}
 
 /* 免责那一行紧贴着翻页，不要它自己那 24rpx 的上下内距 ——
    全局定义是给「一屏底下最后一样东西」用的，而这里它挨着翻页那一行，
@@ -147,11 +162,13 @@
 /* 翻页那一行的上下内距各收 5px —— 这一屏加了免责之后差 9px。
    它上面是标签条（自带 20rpx 上距）、下面是免责，两边都还有余量。 */
 .acts { display: flex; align-items: center; padding: 10rpx 0 14rpx; }
-.turn { font-size: 26rpx; color: var(--ink-mid); }
+.turn { font-size: 26rpx; color: var(--ink-mid);
+        padding: 23rpx 20rpx; margin: -23rpx -20rpx; }
 /* 翻不动那一头。用线的颜色（1.31:1）等于看不见 —— 而「看得见但灰着」
    跟「不存在」是两回事:前者说得出「这已经是第一页」。 */
 .turn-off { color: var(--ink-faint); opacity: .55; }
-.turn-back { flex: 1; text-align: center; font-size: 24rpx; color: var(--stone-label); }
+.turn-back { flex: 1; text-align: center; font-size: 24rpx; color: var(--stone-label);
+             padding: 25rpx 0; margin: -25rpx 0; }
 
 
 /* ── 大运时间轴（0830 §6.6）────────────────────────────────
@@ -193,4 +210,6 @@
 
 /* 结尾那一行的出口。做成文字链而不是整行按钮 —— 那颗按钮让最后一页
    比别页高 80px，把翻页那一整行挤到折线外（2026-09-01 实测）。 */
-.fin-go { margin-left: 12rpx; color: var(--amber-text); font-weight: 600; white-space: nowrap; }
+.fin-go { display: inline-block; margin: -27rpx -8rpx -27rpx 4rpx;
+          padding: 27rpx 8rpx; color: var(--amber-text);
+          font-weight: 600; white-space: nowrap; }

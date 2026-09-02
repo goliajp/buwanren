@@ -135,8 +135,8 @@
 
     <!-- 页名一排。想看用神就点「用神」—— 比一路翻过去快 -->
     <view class="tabs">
-      <text wx:for="{{tabs}}" wx:key="*this" class="tab {{index === at ? 'tab-on' : ''}}"
-            data-i="{{index}}" bindtap="onTab">{{item}}</text>
+      <view wx:for="{{tabs}}" wx:key="*this" class="tab {{index === at ? 'tab-on' : ''}}"
+            data-i="{{index}}" bindtap="onTab">{{item}}</view>
     </view>
 
     <view class="acts">
