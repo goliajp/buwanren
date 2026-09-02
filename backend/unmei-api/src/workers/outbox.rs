@@ -46,13 +46,32 @@ pub async fn run(state: AppState) {
 }
 
 async fn dispatch_once(st: &AppState) -> anyhow::Result<()> {
+    /* 【`FOR UPDATE SKIP LOCKED` 单独一句是空转的】。
+       它跑在自动提交里 —— 语句一结束隐式事务就提交，锁当场释放，
+       而 `handle_event` 是在那之后才跑的。也就是说这句话读起来像
+       「把这批事件占住」，实际什么都没占住:两个进程会同时取到同一批。
+       今天没出事，是因为每个有副作用的处理器自己在事务里锁了聚合行
+       （`apply_order_paid` 的 `SELECT … FOR UPDATE`）—— 也就是说
+       这里的保护是【别人替它做的】，而它看起来像自己做了。
+       下一个不带自锁的处理器加进来，就会双跑。
+
+       改成【租约式领取】:同一句 UPDATE 里做子查询加锁，
+       锁与写在同一个隐式事务里，这次是真的。领到的行把
+       `next_attempt_at` 推到五分钟后，对别的进程就此不可见;
+       进程中途死掉的话，五分钟后它自己回到队列 ——
+       不需要新状态、不需要迁移、也不需要一段捞僵尸行的代码。
+       成功那一支照旧写 `dispatched`（`status` 过滤会把它挡在外面），
+       失败那一支照旧自己算退避时间，覆盖掉这个租约。 */
     let rows = sqlx::query(
-        r#"SELECT id, kind, aggregate_kind, aggregate_id, payload_json, attempt_count
-           FROM outbox_event
-           WHERE status='pending' AND next_attempt_at <= NOW()
-           ORDER BY created_at ASC
-           LIMIT 50
-           FOR UPDATE SKIP LOCKED"#,
+        r#"UPDATE outbox_event SET next_attempt_at = NOW() + INTERVAL '5 minutes'
+           WHERE id IN (
+             SELECT id FROM outbox_event
+              WHERE status='pending' AND next_attempt_at <= NOW()
+              ORDER BY created_at ASC
+              LIMIT 50
+              FOR UPDATE SKIP LOCKED
+           )
+           RETURNING id, kind, aggregate_kind, aggregate_id, payload_json, attempt_count"#,
     ).fetch_all(&st.db).await?;
     if rows.is_empty() { return Ok(()); }
     tracing::debug!("outbox_dispatcher: dispatching {} events", rows.len());
