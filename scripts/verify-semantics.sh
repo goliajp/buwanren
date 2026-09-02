@@ -370,8 +370,13 @@ else
   PSQL "UPDATE payment SET status='success', paid_at=NOW() WHERE order_id='$ORD6';
         UPDATE order_record SET status='paid', amount_paid_minor=amount_total_minor, paid_at=NOW()
         WHERE id='$ORD6';
-        INSERT INTO shipment (id, order_id, carrier_code, tracking_no, status)
-        VALUES ('shp-v-$ORD6','$ORD6','sf','SFVERIFY001','in_transit');"
+        INSERT INTO shipment (id, order_id, carrier_code, tracking_no, status, region)
+        VALUES ('shp-v-$ORD6','$ORD6','sf','SFV-$ORD6','in_transit',
+                COALESCE((SELECT region FROM order_record WHERE id='$ORD6'),'cn'));"
+  # 单号跟着订单走，不写死 —— 2026-09-03 起 (carrier_code, tracking_no) 上有
+  # 部分唯一索引（一个承运商的一个单号只对一张运单），
+  # 固定的 `SFVERIFY001` 第二次跑就撞，而撞出来的症状是
+  # 「包裹看得见 期望 1 实际 0」，看着像接口坏了。
   SHP=$(PSQL "SELECT id FROM shipment WHERE order_id='$ORD6' LIMIT 1")
   PSQL "INSERT INTO shipment_trace_event (id, shipment_id, event_at, event_kind, location, description,
           raw_source, raw_payload_json)
