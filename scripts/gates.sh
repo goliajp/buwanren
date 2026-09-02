@@ -343,6 +343,22 @@ gate "进屋看得见主人吗" . bun web/see-host.mjs
 # 「建本命 → 用神」的断言只在那时才跑得到）。
 if curl -s -m 2 -o /dev/null "http://127.0.0.1:6028/v1/health" 2>/dev/null; then
   gate "web verify · 动线（真后端）" . bash web/run-verify.sh --api=http://127.0.0.1:6028
+
+  # 【e2e 也接进来】（2026-09-02 第四轮评审 · 工程审计）。
+  # `verify-semantics.sh` 的「尚未覆盖」那一段明写着「支付 → sweep →
+  # 履约 → 退款全链路 → 见 e2e.sh」—— 而 e2e.sh 根本不在这张单子里。
+  # 实测:它自从「钱的接口要幂等键」那条规矩立起来（2026-08）就一直
+  # 卡在下单那一步的 400，而且缺一步「先建本命」（说明书要排盘才出得来）。
+  # 也就是说这一整段真链，没有人跑得通、也没有人知道跑不通。
+  #
+  # 要后端带 `UNMEI_PAY_STUB_AUTOSETTLE=1` 起（支付查询还是桩）。
+  # 没带就【明说跳过】，不偷偷降档 —— 有跳过就是没验。
+  if [ -n "$(curl -s -m 2 http://127.0.0.1:6029/ -o /dev/null -w '%{http_code}' 2>/dev/null)" ] \
+     && curl -s -m 2 -o /dev/null "http://127.0.0.1:6028/v1/health" 2>/dev/null; then
+    gate "e2e · 下单→支付→履约→后台→对账" . bash scripts/e2e.sh
+  else
+    skip "e2e · 下单→支付→履约→后台→对账" "6028/6029 上没有后端 —— 这一项【没验】"
+  fi
 else
   skip "web verify · 动线（真后端）" "6028 上没有后端 —— 只跑假服务端那一档够不到真链，不算数"
   gate "web verify · 动线（只前端那一侧）" . bash web/run-verify.sh
