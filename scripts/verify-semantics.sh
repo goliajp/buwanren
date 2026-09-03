@@ -583,6 +583,59 @@ else
     printf "  \033[31m✗\033[0m %-52s 换渠道之后 %s 笔待付、%s 笔标着被顶掉 —— 行为变了，台账该重写\n" \
       "换渠道：跟台账对不上" "$ZN2" "$ZEXP"; fail=$((fail+1))
   fi
+  # ── 连点两次「申请退款」只建一张（2026-09-03 加）──
+  #
+  # 【下单与支付一直要幂等键，退款不要】。实测:一模一样的退款请求
+  # 发两次，建出两张申请、合计 100 元。一次网络重试就够 ——
+  # 用户看到「已提交」两回，后台多一张永远批不下去的单子
+  # （`refund::request` 现在把在途的算进已退了，所以第二张批不动）。
+  #
+  # 这里验的是【路由真的接上了幂等】，不是幂等机制本身
+  # （那一层在 unmei-app/tests/idempotency_use_cases.rs）。
+  # 要一笔真收到过钱的单 —— 上面那张 $ZORD 是待付的，退不了，
+  # 所以另起一张走完整条真链。
+  RORD=$(curl -sS -X POST "$API/v1/orders" \
+    -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+    -H "idempotency-key: $(idem rfdidem1)" \
+    -d '{"lines":[{"sku_id":"sku-naji-deep","qty":1}],"region":"cn"}' | jq -r .order_id)
+  PSQL "UPDATE order_record SET status='paid', amount_paid_minor=amount_total_minor, paid_at=NOW()
+        WHERE id='$RORD';
+        INSERT INTO payment(id, order_id, user_id, channel, amount_minor, currency,
+                            status, paid_at, region)
+        SELECT 'pay-ri-' || substring(o.id from 5), o.id, o.user_id, 'wechat_jsapi',
+               o.amount_total_minor, o.currency, 'success', NOW(), o.region
+          FROM order_record o WHERE o.id='$RORD'
+        ON CONFLICT (id) DO NOTHING;" >/dev/null
+
+  RKEY="$(idem rfdsame)"
+  for _ in 1 2; do
+    curl -sS -o /dev/null -X POST "$API/v1/orders/$RORD/refund" \
+      -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+      -H "idempotency-key: $RKEY" \
+      -d '{"reason_code":"user_request","amount_minor":5000}'
+  done
+  RN=$(PSQL "SELECT count(*) FROM refund WHERE order_id='$RORD'")
+  if [ "$RN" = "1" ]; then
+    printf "  \033[32m✓\033[0m %-52s 同一个键发两次，库里 1 张\n" \
+      "连点两次「申请退款」只建一张"; pass=$((pass+1))
+  else
+    printf "  \033[31m✗\033[0m %-52s 库里 %s 张 —— 一次网络重试就多退一笔\n" \
+      "连点两次「申请退款」只建一张" "$RN"; fail=$((fail+1))
+  fi
+
+  # 不带键要当场拒 —— 那道守卫在业务之前，所以用哪张单都行
+  RCODE=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "$API/v1/orders/$RORD/refund" \
+    -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+    -d '{"reason_code":"user_request","amount_minor":100}')
+  if [ "$RCODE" = "400" ]; then
+    printf "  \033[32m✓\033[0m %-52s 400\n" "退款不带幂等键要当场拒"; pass=$((pass+1))
+  else
+    printf "  \033[31m✗\033[0m %-52s 期望 400，实际 %s\n" \
+      "退款不带幂等键要当场拒" "$RCODE"; fail=$((fail+1))
+  fi
+  # 收尾:这张单退过一半，取消掉免得留在库里当噪音
+  PSQL "UPDATE refund SET status='cancelled' WHERE order_id='$RORD' AND status='requested'" >/dev/null
+
   # 收尾:把这张单取消掉,别让两笔 pending 被 sweeper 推成 success ——
   # 那会在开发库里留下一张真的重复扣款单,下一次跑校验时它就是噪音。
   curl -sS -o /dev/null -X POST "$API/v1/orders/$ZORD/cancel" \
