@@ -87,6 +87,34 @@
     <!-- 不寄的那几件连运费这一行都不该有:没有包裹就谈不上包邮 -->
     <view class="row" wx:if="{{要寄}}"><text class="row-k">运费</text><text class="row-v">包邮</text></view>
 
+    <!-- 【券码】。输完点一下「试试」，服务端算完当场显示减了多少 ——
+         折扣只有服务端算得准（封顶、余额、活动有效期），
+         而人是看着这个数按下付款的。
+         减多少显示在下面单独一行，不去改上面那个「一共」：
+         那一行说的是这些东西本身值多少，两件事分开读。 -->
+    <view class="row row-coupon">
+      <text class="row-k">优惠券</text>
+      <input
+        class="coupon-in"
+        placeholder="有券码就填这儿"
+        value="{{券码}}"
+        bindinput="券码输入"
+        confirm-type="done"
+        bindconfirm="试券" />
+      <!-- 【这颗一直在】。上一版加了 `wx:if="{{券码}}"` —— 输入框空着时
+           它不存在，于是人先看到一个孤零零的输入框，输完字才冒出一颗按钮，
+           那一下的跳动比省下来的那点干净更贵。
+           空着时它自己什么都不做（`试券` 里第一句就返回）。 -->
+      <text class="coupon-try" bindtap="试券">
+        {{券状态 === '在算' ? '在算…' : '试试'}}
+      </text>
+    </view>
+    <view class="row row-off" wx:if="{{券状态 === '用上了'}}">
+      <text class="row-k">这张券减</text>
+      <text class="row-v off">− {{减了文本}}</text>
+    </view>
+    <view class="coupon-bad" wx:if="{{券状态 === '不行'}}">{{券说}}</view>
+
     <view class="note" wx:if="{{note}}">{{note}}</view>
 
     <!-- 底下这一块钉在屏底（见 wxss 里 `.pay`）。
@@ -101,7 +129,9 @@
     <view class="pay">
       <view class="foot">{{付完呢}}</view>
       <view class="pay-row">
-      <view class="pay-total">一共 {{totalText}}</view>
+      <!-- 用上券之后这里说的是【实付】。上面那一行「这张券减」
+           已经把过程说清楚了，成交按钮旁边只该有一个数。 -->
+      <view class="pay-total">一共 {{券状态 === '用上了' ? 实付文本 : totalText}}</view>
       <!-- 没填【寄到哪】时按钮待命。满橙的大按钮长得跟能按一样，
            而这是实物：没有地址寄不出去。仍然可以按 —— 按了就地说差什么，
            不是禁掉让人猜为什么按不动（跟填出生时间那一屏一致）。 -->

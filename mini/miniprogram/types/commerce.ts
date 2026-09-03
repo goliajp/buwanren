@@ -134,6 +134,15 @@ export interface OrderDetail {
   reports: Array<{ id: string; status: string; order_line_id: string }>
 }
 
+/** 下单前试算的结果。折扣由服务端算 —— 见 `previewOrder` 那段注释 */
+export interface OrderPreview {
+  amount_subtotal_minor: number
+  amount_discount_minor: number
+  amount_total_minor: number
+  currency: string
+  coupons: { coupon_id: string; code: string; applied_amount_minor: number }[]
+}
+
 export interface CreatedOrder {
   order_id: string
   amount_total_minor: number

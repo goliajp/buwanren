@@ -93,3 +93,25 @@
 /* 等待态按钮的字:#A08E74 压在 #EADFCD 上只有 2.41:1 —— 那不是「轻」，
    那是看不见。加深到 3.97:1，仍然明显轻于常态。 */
 button.btn.btn-wait { background: #EADFCD; color: #7A6A52; box-shadow: none; }
+
+/* 券码那一行。输入框跟别处的行对齐 —— 它是明细的一部分，
+   不是另起一块。「试试」两个字点得动，做成按钮会比它该有的分量重。 */
+.row-coupon { gap: 16rpx; }
+.coupon-in {
+  flex: 1; font-size: 26rpx; text-align: right;
+  min-height: 44rpx; color: #333;
+}
+.coupon-try {
+  font-size: 26rpx; color: #b8632a; padding: 8rpx 4rpx;
+  /* 【点得动的地方要够大】——26rpx 的两个字只有 52rpx 宽，
+     手指按不准。左右各撑开一点，摸得到 */
+  min-width: 72rpx; text-align: center;
+}
+/* 减掉的钱用同一种橙，跟「一共」那个数是一路的 */
+.row-off .off { color: #b8632a; }
+/* 券试不成时那一句。红字但不加底色 —— 这一屏上没有别的红，
+   一句话足够被看见 */
+.coupon-bad {
+  font-size: 24rpx; color: #a6321e; text-align: right;
+  padding: 0 0 8rpx;
+}

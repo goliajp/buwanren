@@ -8,7 +8,7 @@
 import { api } from './api'
 import { CONFIG } from '../config/index'
 import type {
-  CreatedOrder, OrderDetail, OrderPage, PayStarted, ProductCard, ProductDetail,
+  CreatedOrder, OrderDetail, OrderPage, OrderPreview, PayStarted, ProductCard, ProductDetail,
   Shipment, ShipmentTrace,
 } from '../types/commerce'
 
@@ -50,17 +50,34 @@ export const commerceApi = {
      （2026-09-01 五路评审 · 工程审计抓到。`check-bodies.py` 的判据是单向的
       —— 它只报「前端发了后端不认的字段」，漏发按设计不报。）
      两个都发:`contact` 是联系人（姓名电话），`shipping_address` 是寄到哪。 */
+  /* 下单之前先算一遍：这些东西加上这张券，一共多少。
+     【折扣只有服务端算得准】——封顶、余额、活动有效期。
+     客户端自己算一遍必然跟服务端不一致，而不一致的那一刻，
+     人是看着客户端那个数按下付款的。 */
+  previewOrder: (
+    skuId: string,
+    qty: number,
+    couponCodes: string[],
+  ): Promise<OrderPreview> =>
+    api.post<OrderPreview>('/v1/orders/preview', {
+      lines: [{ sku_id: skuId, qty }],
+      coupon_codes: couponCodes,
+      region: CONFIG.DEFAULT_REGION,
+    }),
+
   createOrder: (
     skuId: string,
     qty: number,
     idemKey: string,
     contact?: Record<string, unknown>,
+    couponCodes?: string[],
   ): Promise<CreatedOrder> =>
     api.post<CreatedOrder>(
       '/v1/orders',
       {
         lines: [{ sku_id: skuId, qty }],
         region: CONFIG.DEFAULT_REGION,
+        ...(couponCodes && couponCodes.length ? { coupon_codes: couponCodes } : {}),
         ...(contact ? { contact } : {}),
         ...(contact && contact.address ? { shipping_address: contact } : {}),
       },

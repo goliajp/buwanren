@@ -390,3 +390,104 @@ mod tests {
         }
     }
 }
+
+/// 这张券用在这个金额上能减多少 —— 不动库，不锁券。
+///
+/// 【必须跟下单那一步用同一段算法】。分两份实现的话，
+/// 试算说「减 40」、下单扣 50，而用户是在看到 40 之后才按的付款 ——
+/// 那是比不显示折扣更糟的事。
+///
+/// 所以这里复用 `Benefit::parse` 与 `off`，只是把
+/// `lock_for_order` 里那些【会改库】的步骤去掉:不 FOR UPDATE、不 UPDATE。
+/// 校验一条不少 —— 试算说得通、下单却被拒，同样是欺骗。
+pub async fn preview(
+    pool: &PgPool,
+    user_id: &str,
+    region: &str,
+    subtotal_minor: i64,
+    codes: &[String],
+) -> Result<(Vec<AppliedCoupon>, i64), DomainError> {
+    if codes.is_empty() {
+        return Ok((Vec::new(), 0));
+    }
+    let mut seen = std::collections::HashSet::new();
+    for c in codes {
+        if !seen.insert(c.as_str()) {
+            return Err(DomainError::Validation(format!("券码 {c} 报了不止一次")));
+        }
+    }
+
+    let mut applied = Vec::new();
+    let mut 已减 = 0i64;
+    for code in codes {
+        let row = sqlx::query(
+            r#"SELECT c.id, c.state, c.owner_user_id, c.expires_at, c.benefit_json,
+                      c.region, c.promotion_id,
+                      p.status AS promo_status, p.effective_from, p.effective_to,
+                      p.budget_minor, p.used_minor
+               FROM coupon c
+               LEFT JOIN promotion p ON p.id = c.promotion_id
+               WHERE c.code = $1"#,
+        )
+        .bind(code)
+        .fetch_optional(pool)
+        .await.db()?
+        .ok_or_else(|| DomainError::Validation(format!("没有这张券：{code}")))?;
+
+        let coupon_id: String = row.get("id");
+        let state_s: String = row.get("state");
+        if state_s != "issued" {
+            let 名 = match state_s.as_str() {
+                "locked" => "已经挂在另一张单上",
+                "redeemed" => "用过了",
+                "expired" => "过期了",
+                "revoked" => "被收回了",
+                其他 => 其他,
+            };
+            return Err(DomainError::Validation(format!("券 {code} {名}，用不了")));
+        }
+        let owner: Option<String> = row.get("owner_user_id");
+        if let Some(o) = &owner {
+            if o != user_id {
+                // 跟 lock_for_order 一样：不说「不是你的」，那等于确认它存在
+                return Err(DomainError::Validation(format!("没有这张券：{code}")));
+            }
+        }
+        let 券区: String = row.get("region");
+        if 券区 != region {
+            return Err(DomainError::Validation(format!("券 {code} 不能在 {region} 用")));
+        }
+        let now = Utc::now();
+        let expires: chrono::DateTime<Utc> = row.get("expires_at");
+        if expires <= now {
+            return Err(DomainError::Validation(format!("券 {code} 已经过期")));
+        }
+        let promo_status: Option<String> = row.get("promo_status");
+        if let Some(st) = promo_status {
+            if st != "active" {
+                return Err(DomainError::Validation(format!("券 {code} 挂的活动现在用不了")));
+            }
+            let from: chrono::DateTime<Utc> = row.get("effective_from");
+            let to: Option<chrono::DateTime<Utc>> = row.get("effective_to");
+            if now < from || to.is_some_and(|t| now > t) {
+                return Err(DomainError::Validation(format!("券 {code} 挂的活动不在有效期内")));
+            }
+            let budget: Option<i64> = row.get("budget_minor");
+            let used: i64 = row.get("used_minor");
+            if budget.is_some_and(|b| used >= b) {
+                return Err(DomainError::Validation(format!("券 {code} 挂的活动预算用完了")));
+            }
+        }
+
+        let benefit_json: serde_json::Value = row.get("benefit_json");
+        let benefit = Benefit::parse(&benefit_json, code)?;
+        let off = benefit.off(subtotal_minor - 已减, code)?;
+        已减 += off;
+        applied.push(AppliedCoupon {
+            coupon_id,
+            code: code.clone(),
+            applied_amount_minor: off,
+        });
+    }
+    Ok((applied, 已减))
+}

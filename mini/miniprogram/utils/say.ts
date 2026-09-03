@@ -80,3 +80,23 @@ export function 人话(e: ApiError | { status?: number; message?: string; code?:
 /** 只要那一句话 —— 各页 `setData({ err })` 用它 */
 export const 一句 = (e: ApiError | { status?: number; message?: string; code?: string }): string =>
   人话(e).话
+
+/* 【有几处的服务端原文本来就是给人看的】。
+   优惠券那一格是最典型的:后端说「没有这张券：ABC123」
+   「券 X 已经挂在另一张单上，用不了」「券 X 已经过期」——
+   每一句都写清了是哪一张券、为什么用不了。
+   而 `一句()` 会把它们统统翻成「有个地方填得不对 —— 回上一步看看」，
+   那对着一个输入框的人等于什么都没说:他不知道是码打错了、
+   还是这张券已经用过了。
+
+   所以这一支【先用原文】，认不出的错才落回那套通用话术。
+   判据是「原文是不是中文」——后端给用户看的那些都是中文，
+   而带表名、约束名的技术原文是英文（`db: relation "x" does not exist`）。
+   英文原文不许上屏，那条规矩没变（`check-error-leak` 盯着）。 */
+export const 照原文 = (
+  e: ApiError | { status?: number; message?: string; code?: string },
+): string => {
+  const { 话, 原文 } = 人话(e)
+  const 去前缀 = 原文.replace(/^(validation|bad_request|conflict):\s*/, '').trim()
+  return /[一-鿿]/.test(去前缀) ? 去前缀 : 话
+}
