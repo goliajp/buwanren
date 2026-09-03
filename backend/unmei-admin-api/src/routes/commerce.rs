@@ -183,11 +183,11 @@ struct OutboxFilter {
 }
 
 async fn list_outbox(
-    State(st): State<AppState>, _: Admin, Query(f): Query<OutboxFilter>,
+    State(st): State<AppState>, admin: Admin, Query(f): Query<OutboxFilter>,
 ) -> Result<Json<Page<J>>, ApiError> {
     let kw = f.keyword.clone().unwrap_or_default();
     let kw_like = format!("%{kw}%");
-    let region = normalize_region(&f.region);
+    let region = normalize_region_scoped(&f.region, &admin)?;
     let off = f.page * f.size;
     let lim = f.size.clamp(1, 200);
     let rows = sqlx::query(
@@ -229,6 +229,7 @@ async fn get_outbox(
 async fn retry_outbox(
     State(st): State<AppState>, admin: Admin, Path(id): Path<String>,
 ) -> Result<Json<J>, ApiError> {
+    这个对象归他管吗(&st.db, &admin, "outbox_event", &id).await?;
     admin.requires_role("operator")?;    // 重推事件是运维动作
     app_outbox::retry(&st.db, &id).await?;
     Ok(Json(json!({"ok": true})))
@@ -240,10 +241,113 @@ async fn retry_outbox(
 /// - 缺省 / 空 / "global" → None(看全部)
 /// - 其它(cn/jp/kr/sea/na/zh_hant)→ Some
 /// 这样 webadmin 切到 global 视图自动跨区
-fn normalize_region(r: &Option<String>) -> Option<String> {
+/// 规范化 region filter，并且**按这个管理员管得着的区收口**。
+///
+/// 【`region_scope` 一直只发不查】（2026-09-03）。登录时把它写进 token、
+/// 前端拿它筛区域下拉框 —— 而后端一处都不校验。实测：
+/// 造一个 `region_scope = {hk}` 的管理员，
+/// `GET /admin/commerce/orders?region=cn` 拿到大陆全部 18,490 笔。
+/// **前端挡的东西不算挡** —— 换一个查询参数就绕过去了。
+///
+/// 收口规则：
+/// - scope 含 `global` 或为空 → 不限（super 与老 token 走这条）
+/// - 指定了某个区：在 scope 里就用，不在就【当场拒】——
+///   而不是悄悄换成他管得着的那个（那会让他以为在看大陆的数，
+///   实际看的是香港的，比报错糟得多）
+/// - 没指定 / 要 global：scope 只有一个区就锁到那个区；
+///   多个区先拒 —— 跨区聚合要另设一个明确的接口，
+///   不能让「不填参数」意外地变成跨区
+fn normalize_region_scoped(
+    r: &Option<String>,
+    admin: &Admin,
+) -> Result<Option<String>, ApiError> {
+    let scope = &admin.0.region_scope;
+    let 不限 = scope.is_empty() || scope.iter().any(|s| s == "global");
     match r.as_deref() {
-        None | Some("") | Some("global") => None,
-        Some(s) => Some(s.to_string()),
+        None | Some("") | Some("global") => {
+            if 不限 {
+                Ok(None)
+            } else if scope.len() == 1 {
+                Ok(Some(scope[0].clone()))
+            } else {
+                Err(ApiError(AppError::Forbidden))
+            }
+        }
+        Some(要的) => {
+            if 不限 || scope.iter().any(|s| s == 要的) {
+                Ok(Some(要的.to_string()))
+            } else {
+                Err(ApiError(AppError::Forbidden))
+            }
+        }
+    }
+}
+
+/// 按 id 写的那些端点：这个对象在不在他管得着的区里。
+///
+/// 【上面那个管不到它们】——它收的是查询参数里的 `region`，
+/// 而 `POST /orders/:id/annotate` 这类路径里根本没有 region，
+/// 对象是从 id 找出来的。实测：`region_scope = {hk}` 的管理员
+/// 给一张大陆的订单加备注，回 200。
+///
+/// 十六个这样的端点，逐个手写 SQL 必然漏一两处 ——
+/// 而漏掉的那一处就是越权还开着的那一处。所以收进一个函数。
+///
+/// 表名是**代码里写死的字面量**，不来自请求 —— 不然这就成了注入口。
+async fn 这个对象归他管吗(
+    db: &sqlx::PgPool,
+    admin: &Admin,
+    表: &'static str,
+    id: &str,
+) -> Result<(), ApiError> {
+    let scope = &admin.0.region_scope;
+    if scope.is_empty() || scope.iter().any(|s| s == "global") {
+        return Ok(());
+    }
+    debug_assert!(
+        表.chars().all(|c| c.is_ascii_lowercase() || c == '_'),
+        "表名只能是字面量"
+    );
+
+    /* 【`product` 是全局 SPU，没有 region 列】——它按 `available_regions`
+       数组判可见（`list_products` 那条 SQL 一直是这么写的）。
+       上一版给它配了 `SELECT region FROM product`，于是那条路由
+       从 404 变成 500 —— 「语义 · 边界那一半」当场报了
+       「toggle_product_listing 幽灵 ID 期望 404 实际 500」。
+
+       别的十五张表都有 region 列，就它一个例外，所以单独一支。 */
+    let 归他管 = if 表 == "product" {
+        /* 【`EXISTS` 把「没这一行」和「有但不归他」混成同一个 false】。
+           上一版这么写，于是幽灵商品 id 回 403 而不是 404 ——
+           「幽灵 id 的写操作不许说成功」那一支盯的正是这个:
+           403 会把「这个 id 不存在」这件事盖掉。
+           所以查的是【那一行的 available_regions】，
+           查不到就是 None，跟别的表一个语义。 */
+        let 可见区: Option<Vec<String>> = sqlx::query_scalar(
+            "SELECT available_regions FROM product WHERE id=$1",
+        )
+        .bind(id)
+        .fetch_optional(db)
+        .await
+        .map_err(map_db)?;
+        可见区.map(|区们| 区们.iter().any(|r| scope.iter().any(|s| s == r)))
+    } else {
+        let 区: Option<String> = sqlx::query_scalar(&format!("SELECT region FROM {表} WHERE id=$1"))
+            .bind(id)
+            .fetch_optional(db)
+            .await
+            .map_err(map_db)?
+            .flatten();
+        区.map(|r| scope.iter().any(|s| *s == r))
+    };
+
+    match 归他管 {
+        // 【找不到就放行，让业务层去给 404】——在这里回 403 等于
+        // 告诉他「这个 id 存在但不归你」，而那本身就是他不该知道的事。
+        // 而且回 403 会把幽灵 id 的 404 盖掉，那一支门禁正盯着这个。
+        None => Ok(()),
+        Some(true) => Ok(()),
+        Some(false) => Err(ApiError(AppError::Forbidden)),
     }
 }
 
@@ -335,12 +439,12 @@ fn pg_value_to_json(r: &sqlx::postgres::PgRow, i: usize) -> J {
 // ═══════════════════════════ Catalog ═══════════════════════════
 
 async fn list_products(
-    State(st): State<AppState>, _: Admin, Query(q): Query<Pg>,
+    State(st): State<AppState>, admin: Admin, Query(q): Query<Pg>,
 ) -> Result<Json<Page<J>>, ApiError> {
     let kw = q.keyword.clone().unwrap_or_default();
     let kw_like = format!("%{kw}%");
     let status = q.status.clone();
-    let region = normalize_region(&q.region);
+    let region = normalize_region_scoped(&q.region, &admin)?;
     let off = q.off();
     let lim = q.lim();
     // product 是全局 SPU,按 available_regions 数组判可见性
@@ -407,6 +511,7 @@ struct ToggleListingBody { status: String }
 async fn toggle_product_listing(
     State(st): State<AppState>, admin: Admin, Path(id): Path<String>, Json(body): Json<ToggleListingBody>,
 ) -> Result<Json<J>, ApiError> {
+    这个对象归他管吗(&st.db, &admin, "product", &id).await?;
     admin.requires_any_role(&["content", "operator"])?;    // 上下架：内容侧编排，运营侧也要动得了
     let status = app_catalog::set_product_status(
         &st.db, &id, &body.status, &Actor::admin(&admin.0.sub),
@@ -441,6 +546,7 @@ async fn publish_price(
     State(st): State<AppState>, admin: Admin,
     Path(sku_id): Path<String>, Json(b): Json<PublishPriceBody>,
 ) -> Result<Json<J>, ApiError> {
+    这个对象归他管吗(&st.db, &admin, "sku", &sku_id).await?;
     admin.requires_role("finance")?;    // 定价直接是钱
     let id = app_catalog::publish_price(&st.db, &sku_id, app_catalog::NewPrice {
         currency: b.currency,
@@ -456,6 +562,7 @@ async fn publish_price(
 async fn expire_price(
     State(st): State<AppState>, admin: Admin, Path(id): Path<String>,
 ) -> Result<Json<J>, ApiError> {
+    这个对象归他管吗(&st.db, &admin, "price_book", &id).await?;
     admin.requires_role("finance")?;    // 下架一档价同样是钱
     app_catalog::expire_price(&st.db, &id).await?;
     Ok(Json(json!({"ok":true})))
@@ -464,11 +571,11 @@ async fn expire_price(
 // ═══════════════════════════ Promotion / Coupon ═══════════════════════════
 
 async fn list_promotions(
-    State(st): State<AppState>, _: Admin, Query(q): Query<Pg>,
+    State(st): State<AppState>, admin: Admin, Query(q): Query<Pg>,
 ) -> Result<Json<Page<J>>, ApiError> {
     let kw = q.keyword.clone().unwrap_or_default();
     let kw_like = format!("%{kw}%");
-    let region = normalize_region(&q.region);
+    let region = normalize_region_scoped(&q.region, &admin)?;
     let rows = sqlx::query(
         r#"SELECT id, code, name, kind, effective_from, effective_to, budget_minor, used_minor,
                   per_user_cap, total_cap, daily_cap, status, priority, stackable, created_at, region
@@ -513,6 +620,7 @@ struct PromoStateBody { status: String }
 async fn update_promotion_state(
     State(st): State<AppState>, admin: Admin, Path(id): Path<String>, Json(b): Json<PromoStateBody>,
 ) -> Result<Json<J>, ApiError> {
+    这个对象归他管吗(&st.db, &admin, "promotion", &id).await?;
     admin.requires_role("operator")?;    // 促销开关是运营动作
     let status = app_promotion::set_status(
         &st.db, &id, &b.status, &Actor::admin(&admin.0.sub),
@@ -546,7 +654,10 @@ async fn issue_coupon(
             "expires_at 要是 RFC3339 的时刻，例如 2026-12-31T23:59:59Z".into(),
         )
     })?;
-    let region = normalize_region(&b.region).unwrap_or_else(|| "cn".to_string());
+    let region = normalize_region_scoped(&b.region, &admin)?
+        // 发券必须落在某个区 —— super 不指定时默认 cn，
+        // 分区管理员上面已经锁到他管得着的那个了
+        .unwrap_or_else(|| "cn".to_string());
     let id = app_coupon::issue(
         &st.db,
         app_coupon::IssueCoupon {
@@ -563,11 +674,11 @@ async fn issue_coupon(
 }
 
 async fn list_coupons(
-    State(st): State<AppState>, _: Admin, Query(q): Query<Pg>,
+    State(st): State<AppState>, admin: Admin, Query(q): Query<Pg>,
 ) -> Result<Json<Page<J>>, ApiError> {
     let kw = q.keyword.clone().unwrap_or_default();
     let kw_like = format!("%{kw}%");
-    let region = normalize_region(&q.region);
+    let region = normalize_region_scoped(&q.region, &admin)?;
     let rows = sqlx::query(
         r#"SELECT c.id, c.code, c.batch_id, c.promotion_id, c.owner_user_id, c.state,
                   c.issued_at, c.redeemed_at, c.expires_at, c.region, p.name AS promotion_name
@@ -599,9 +710,9 @@ async fn list_plans(
 }
 
 async fn list_subscriptions(
-    State(st): State<AppState>, _: Admin, Query(q): Query<Pg>,
+    State(st): State<AppState>, admin: Admin, Query(q): Query<Pg>,
 ) -> Result<Json<Page<J>>, ApiError> {
-    let region = normalize_region(&q.region);
+    let region = normalize_region_scoped(&q.region, &admin)?;
     let rows = sqlx::query(
         r#"SELECT s.id, s.user_id, s.plan_id, p.name AS plan_name, s.status, s.source_channel,
                   s.current_period_start, s.current_period_end, s.next_billing_attempt_at,
@@ -626,6 +737,7 @@ struct CancelSubBody { immediate: Option<bool>, reason: Option<String> }
 async fn cancel_subscription(
     State(st): State<AppState>, admin: Admin, Path(id): Path<String>, Json(b): Json<CancelSubBody>,
 ) -> Result<Json<J>, ApiError> {
+    这个对象归他管吗(&st.db, &admin, "subscription", &id).await?;
     admin.requires_any_role(&["support", "finance"])?;    // 客服替用户退订；涉及退款预期，财务也要动得了
     let immediate = b.immediate.unwrap_or(false);
     app_subscription::cancel(
@@ -652,11 +764,11 @@ struct OrderFilter {
 }
 
 async fn list_orders(
-    State(st): State<AppState>, _: Admin, Query(f): Query<OrderFilter>,
+    State(st): State<AppState>, admin: Admin, Query(f): Query<OrderFilter>,
 ) -> Result<Json<Page<J>>, ApiError> {
     let kw = f.keyword.clone().unwrap_or_default();
     let kw_like = format!("%{kw}%");
-    let region = normalize_region(&f.region);
+    let region = normalize_region_scoped(&f.region, &admin)?;
     let off = f.page * f.size;
     let lim = f.size.clamp(1, 200);
     let rows = sqlx::query(
@@ -731,6 +843,7 @@ struct CancelOrderBody { reason: String }
 async fn admin_cancel_order(
     State(st): State<AppState>, admin: Admin, Path(id): Path<String>, Json(b): Json<CancelOrderBody>,
 ) -> Result<Json<J>, ApiError> {
+    这个对象归他管吗(&st.db, &admin, "order_record", &id).await?;
     admin.requires_role("operator")?;    // 取消订单会牵动库存与履约，不给客服，避免误操作
     // owner 传 None → 后台不受归属限制。
     //
@@ -749,6 +862,7 @@ struct AnnotateBody { note: String }
 async fn annotate_order(
     State(st): State<AppState>, admin: Admin, Path(id): Path<String>, Json(b): Json<AnnotateBody>,
 ) -> Result<Json<J>, ApiError> {
+    这个对象归他管吗(&st.db, &admin, "order_record", &id).await?;
     admin.requires_any_role(&["support", "operator"])?;    // 给单子加备注，客服天天做
     app_order::annotate(&st.db, &id, &b.note, &Actor::admin(&admin.0.sub)).await?;
     Ok(Json(json!({"ok":true})))
@@ -773,11 +887,11 @@ struct PaymentFilter {
 }
 
 async fn list_payments(
-    State(st): State<AppState>, _: Admin, Query(f): Query<PaymentFilter>,
+    State(st): State<AppState>, admin: Admin, Query(f): Query<PaymentFilter>,
 ) -> Result<Json<Page<J>>, ApiError> {
     let kw = f.keyword.clone().unwrap_or_default();
     let kw_like = format!("%{kw}%");
-    let region = normalize_region(&f.region);
+    let region = normalize_region_scoped(&f.region, &admin)?;
     let off = f.page * f.size;
     let lim = f.size.clamp(1, 200);
     let rows = sqlx::query(
@@ -844,6 +958,7 @@ struct MarkFailedBody { code: String, msg: String }
 async fn mark_payment_failed(
     State(st): State<AppState>, admin: Admin, Path(id): Path<String>, Json(b): Json<MarkFailedBody>,
 ) -> Result<Json<J>, ApiError> {
+    这个对象归他管吗(&st.db, &admin, "payment", &id).await?;
     admin.requires_role("finance")?;    // 改一笔支付的结局，动的是账
     app_payment::mark_failed(
         &st.db, &id, &b.code, &b.msg, &Actor::admin(&admin.0.sub),
@@ -854,9 +969,9 @@ async fn mark_payment_failed(
 // ═══════════════════════════ Refund ═══════════════════════════
 
 async fn list_refunds(
-    State(st): State<AppState>, _: Admin, Query(q): Query<Pg>,
+    State(st): State<AppState>, admin: Admin, Query(q): Query<Pg>,
 ) -> Result<Json<Page<J>>, ApiError> {
-    let region = normalize_region(&q.region);
+    let region = normalize_region_scoped(&q.region, &admin)?;
     let rows = sqlx::query(
         r#"SELECT id, order_id, payment_id, amount_minor, currency, reason_code, reason_text,
                   actor_kind, status, approved_at, completed_at, failure_code, created_at, region
@@ -881,6 +996,7 @@ async fn list_refunds(
 async fn approve_refund(
     State(st): State<AppState>, admin: Admin, Path(id): Path<String>,
 ) -> Result<Json<J>, ApiError> {
+    这个对象归他管吗(&st.db, &admin, "refund", &id).await?;
     admin.requires_role("finance")?;    // 批退款
     app_refund::approve(&st.db, &id, &Actor::admin(&admin.0.sub)).await?;
     Ok(Json(json!({
@@ -896,6 +1012,7 @@ struct DenyBody { reason: String }
 async fn deny_refund(
     State(st): State<AppState>, admin: Admin, Path(id): Path<String>, Json(b): Json<DenyBody>,
 ) -> Result<Json<J>, ApiError> {
+    这个对象归他管吗(&st.db, &admin, "refund", &id).await?;
     admin.requires_role("finance")?;    // 拒退款也是钱的决定，跟批同权
     app_refund::deny(&st.db, &id, &b.reason, &Actor::admin(&admin.0.sub)).await?;
     Ok(Json(json!({"ok":true})))
@@ -916,11 +1033,11 @@ struct ShipmentFilter {
 }
 
 async fn list_shipments(
-    State(st): State<AppState>, _: Admin, Query(f): Query<ShipmentFilter>,
+    State(st): State<AppState>, admin: Admin, Query(f): Query<ShipmentFilter>,
 ) -> Result<Json<Page<J>>, ApiError> {
     let kw = f.keyword.clone().unwrap_or_default();
     let kw_like = format!("%{kw}%");
-    let region = normalize_region(&f.region);
+    let region = normalize_region_scoped(&f.region, &admin)?;
     let off = f.page * f.size;
     let lim = f.size.clamp(1, 200);
     let exc = f.exception_only.unwrap_or(false);
@@ -977,6 +1094,7 @@ struct AssignTrackingBody {
 async fn assign_shipment_tracking(
     State(st): State<AppState>, admin: Admin, Path(id): Path<String>, Json(b): Json<AssignTrackingBody>,
 ) -> Result<Json<J>, ApiError> {
+    这个对象归他管吗(&st.db, &admin, "shipment", &id).await?;
     admin.requires_any_role(&["support", "operator"])?;    // 填运单号
     app_shipment::assign_tracking(&st.db, &id, app_shipment::TrackingAssignment {
         carrier_code: b.carrier_code,
@@ -994,6 +1112,7 @@ struct MarkExceptionBody { reason: String }
 async fn mark_shipment_exception(
     State(st): State<AppState>, admin: Admin, Path(id): Path<String>, Json(b): Json<MarkExceptionBody>,
 ) -> Result<Json<J>, ApiError> {
+    这个对象归他管吗(&st.db, &admin, "shipment", &id).await?;
     admin.requires_any_role(&["support", "operator"])?;    // 标物流异常
     app_shipment::mark_exception(&st.db, &id, &b.reason, &Actor::admin(&admin.0.sub)).await?;
     Ok(Json(json!({"ok":true})))
@@ -1002,9 +1121,9 @@ async fn mark_shipment_exception(
 // ═══════════════════════════ Reconciliation ═══════════════════════════
 
 async fn list_recon_batches(
-    State(st): State<AppState>, _: Admin, Query(q): Query<Pg>,
+    State(st): State<AppState>, admin: Admin, Query(q): Query<Pg>,
 ) -> Result<Json<Page<J>>, ApiError> {
-    let region = normalize_region(&q.region);
+    let region = normalize_region_scoped(&q.region, &admin)?;
     let rows = sqlx::query(
         r#"SELECT id, channel, batch_date, source, total_count, total_amount_minor, currency,
                   status, pulled_at, matched_at, resolved_at, region
@@ -1039,9 +1158,9 @@ async fn get_recon_batch(
 // ═══════════════════════════ Risk ═══════════════════════════
 
 async fn list_risk_rules(
-    State(st): State<AppState>, _: Admin, Query(q): Query<Pg>,
+    State(st): State<AppState>, admin: Admin, Query(q): Query<Pg>,
 ) -> Result<Json<Vec<J>>, ApiError> {
-    let region = normalize_region(&q.region);
+    let region = normalize_region_scoped(&q.region, &admin)?;
     let rows = sqlx::query(
         r#"SELECT * FROM risk_rule
            WHERE ($1::text IS NULL OR region=$1)
@@ -1056,15 +1175,16 @@ struct RiskRuleStateBody { status: String }
 async fn update_risk_rule_state(
     State(st): State<AppState>, admin: Admin, Path(id): Path<String>, Json(b): Json<RiskRuleStateBody>,
 ) -> Result<Json<J>, ApiError> {
+    这个对象归他管吗(&st.db, &admin, "risk_rule", &id).await?;
     admin.requires_role("super")?;    // 风控规则是安全面，只给 super
     let status = app_risk::set_rule_status(&st.db, &id, &b.status).await?;
     Ok(Json(json!({"ok":true, "status": status.as_str()})))
 }
 
 async fn list_risk_events(
-    State(st): State<AppState>, _: Admin, Query(q): Query<Pg>,
+    State(st): State<AppState>, admin: Admin, Query(q): Query<Pg>,
 ) -> Result<Json<Page<J>>, ApiError> {
-    let region = normalize_region(&q.region);
+    let region = normalize_region_scoped(&q.region, &admin)?;
     let rows = sqlx::query(
         r#"SELECT * FROM risk_event
            WHERE ($1::text IS NULL OR decided_action=$1)
@@ -1091,6 +1211,16 @@ async fn resolve_recon_record(
     State(st): State<AppState>, admin: Admin, Path(id): Path<String>, Json(b): Json<ResolveBody>,
 ) -> Result<Json<J>, ApiError> {
     admin.requires_role("finance")?;    // 判账是财务的活儿
+    /* 【`recon_record` 自己没有 region 列】——区挂在它所属的批次上，
+       所以这一处用不了 `这个对象归他管吗`（它按 id 查同名表的 region）。
+       先找批次再问。手抄的这一处正是最容易漏的那种，
+       所以写清楚它为什么是特例。 */
+    let 批次: Option<String> = sqlx::query_scalar(
+        "SELECT batch_id FROM recon_record WHERE id=$1",
+    ).bind(&id).fetch_optional(&st.db).await.map_err(map_db)?;
+    if let Some(b) = 批次 {
+        这个对象归他管吗(&st.db, &admin, "recon_batch", &b).await?;
+    }
     let batch = app_recon::resolve_record(
         &st.db, &id, &b.action, &b.note, &Actor::admin(&admin.0.sub),
     ).await?;
@@ -1104,6 +1234,10 @@ struct CaseStateBody { state: String, note: String }
 async fn close_risk_case(
     State(st): State<AppState>, admin: Admin, Path(id): Path<String>, Json(b): Json<CaseStateBody>,
 ) -> Result<Json<J>, ApiError> {
+    这个对象归他管吗(&st.db, &admin, "risk_case", &id).await?;
+    // 【结案跟改规则分开】：改一条规则影响此后每一笔交易（那是安全面，
+    // 只给 super）；结一个案子只是对一件已发生的事下判断，是日常处置。
+    // 合成一档的话，要么日常处置卡在 super 手里，要么规则开关落到运营手里。
     admin.requires_role("operator")?;
     let st2 = app_risk::close_case(
         &st.db, &id, &b.state, &b.note, &Actor::admin(&admin.0.sub),
@@ -1112,9 +1246,9 @@ async fn close_risk_case(
 }
 
 async fn list_risk_cases(
-    State(st): State<AppState>, _: Admin, Query(q): Query<Pg>,
+    State(st): State<AppState>, admin: Admin, Query(q): Query<Pg>,
 ) -> Result<Json<Page<J>>, ApiError> {
-    let region = normalize_region(&q.region);
+    let region = normalize_region_scoped(&q.region, &admin)?;
     let rows = sqlx::query(
         r#"SELECT * FROM risk_case
            WHERE ($1::text IS NULL OR state=$1)
@@ -1157,15 +1291,16 @@ struct EntriesQuery {
 async fn close_period(
     State(st): State<AppState>, admin: Admin, Path(id): Path<String>,
 ) -> Result<Json<J>, ApiError> {
+    这个对象归他管吗(&st.db, &admin, "accounting_period", &id).await?;
     admin.requires_role("finance")?;    // 封期是财务的动作，运营不能碰
     let (借, 贷) = app_finance::close_period(&st.db, &id, &Actor::admin(&admin.0.sub)).await?;
     Ok(Json(json!({"ok": true, "total_debit": 借, "total_credit": 贷})))
 }
 
 async fn list_journal_entries(
-    State(st): State<AppState>, _: Admin, Query(q): Query<EntriesQuery>,
+    State(st): State<AppState>, admin: Admin, Query(q): Query<EntriesQuery>,
 ) -> Result<Json<Page<J>>, ApiError> {
-    let region = normalize_region(&q.region);
+    let region = normalize_region_scoped(&q.region, &admin)?;
     let off = q.page * q.size; let lim = q.size.clamp(1, 200);
     let rows = sqlx::query(
         r#"SELECT je.id, je.period_id, je.description, je.posted_at, je.posted_by_kind,
@@ -1208,9 +1343,9 @@ async fn get_journal_entry(
 }
 
 async fn monthly_report(
-    State(st): State<AppState>, _: Admin, Path(period_id): Path<String>, Query(q): Query<Pg>,
+    State(st): State<AppState>, admin: Admin, Path(period_id): Path<String>, Query(q): Query<Pg>,
 ) -> Result<Json<J>, ApiError> {
-    let region = normalize_region(&q.region);
+    let region = normalize_region_scoped(&q.region, &admin)?;
     // 试算平衡：按 account_chart 聚合本期分录(region 过滤)
     let tb = sqlx::query(
         r#"SELECT ac.code, ac.name, ac.kind,
@@ -1293,9 +1428,9 @@ async fn list_audit(
 }
 
 async fn dashboard_kpi(
-    State(st): State<AppState>, _: Admin, Query(q): Query<Pg>,
+    State(st): State<AppState>, admin: Admin, Query(q): Query<Pg>,
 ) -> Result<Json<J>, ApiError> {
-    let region = normalize_region(&q.region);
+    let region = normalize_region_scoped(&q.region, &admin)?;
     // 「今日」按客户端 tz 算 — 前端传 IANA tz,缺省 UTC。
     // `date_trunc('day', NOW() AT TIME ZONE $tz) AT TIME ZONE $tz` 双转模式：
     //   内层 → 把 timestamptz 转成 tz 当地的 naive timestamp
