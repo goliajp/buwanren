@@ -139,6 +139,23 @@ impl StateTransition for CouponState {
     }
 }
 
+// ═══════════════════════════════ 风控案子 ══════════════════════════════
+/* 【`RiskCaseState` 也一直没有转移表】——跟会计期间一样,
+   四个状态定义了，没有一条路走到终态。 */
+impl StateTransition for RiskCaseState {
+    fn allowed_next(self) -> &'static [Self] {
+        use RiskCaseState::*;
+        match self {
+            Open          => &[Investigating, Resolved, FalsePositive],
+            Investigating => &[Resolved, FalsePositive, Open],
+            // 结了的案子不回头。判错了要重开，就是一件【新】的事,
+            // 而不是把旧结论抹掉 —— 抹掉之后没人看得出它曾经被结过
+            Resolved      => &[],
+            FalsePositive => &[],
+        }
+    }
+}
+
 // ═══════════════════════════════ 会计期间 ══════════════════════════════
 /* 【`PeriodState` 定义了三个状态，却一直没有转移表】（2026-09-03）。
    写关账用例时才发现:`open / closing / closed` 在 enums.rs 里躺了很久，

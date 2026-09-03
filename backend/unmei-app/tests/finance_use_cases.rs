@@ -165,6 +165,20 @@ async fn 关了之后退款账就落不进去了() {
     ).bind(&rfd).bind(&o.order_id).bind(&pay).execute(&pool).await.expect("插退款");
 
     let e = finance::post_refund_journal(&pool, &rfd).await.unwrap_err();
+
+    /* 【关完当月要立刻开回去】（2026-09-03）。
+       上一版关了就走 —— 而 `post_refund_journal` 按【当前月】取期间，
+       于是这个文件之后跑的每一条记账测试都撞上「这笔账没有地方落」。
+       并行跑的时候连别的测试文件都会中招:全量门禁里
+       `refund_journal_is_balanced` 和
+       `posting_the_same_refund_twice_does_not_double_post` 就是这么红的。
+
+       一条测试改了全局状态就得自己收拾干净 —— 而且要在断言【之前】
+       就把它排进来，不能等断言过了再收:断言挂了就永远收不了。
+       所以这里先开回去，再判。 */
+    sqlx::query("UPDATE accounting_period SET state='open', closed_at=NULL WHERE id=$1")
+        .bind(&period_id).execute(&pool).await.expect("把当月开回去");
+
     match e {
         DomainError::Conflict(m) => assert!(
             m.contains("没有地方落"), "该说清楚账落不下去，拿到的是：{m}"),

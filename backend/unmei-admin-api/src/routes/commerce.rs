@@ -17,7 +17,7 @@ use serde_json::{json, Value as J};
 use sqlx::{Column as _, Row};
 use unmei_app::{
     catalog as app_catalog, coupon as app_coupon, finance as app_finance,
-    order as app_order, outbox_ops as app_outbox,
+    order as app_order, outbox_ops as app_outbox, recon as app_recon,
     payment as app_payment, promotion as app_promotion, refund as app_refund,
     risk as app_risk, shipment as app_shipment, subscription as app_subscription,
     Actor,
@@ -69,11 +69,13 @@ pub fn router() -> Router<AppState> {
         // ─── reconciliation ───
         .route("/admin/commerce/recon/batches",                     get(list_recon_batches))
         .route("/admin/commerce/recon/batches/:id",                 get(get_recon_batch))
+        .route("/admin/commerce/recon/records/:id/resolve",         post(resolve_recon_record))
         // ─── risk ───
         .route("/admin/commerce/risk/rules",                        get(list_risk_rules))
         .route("/admin/commerce/risk/rules/:id/state",              post(update_risk_rule_state))
         .route("/admin/commerce/risk/events",                       get(list_risk_events))
         .route("/admin/commerce/risk/cases",                        get(list_risk_cases))
+        .route("/admin/commerce/risk/cases/:id/state",              post(close_risk_case))
         // ─── finance ───
         .route("/admin/commerce/finance/periods",                   get(list_periods))
         .route("/admin/commerce/finance/periods/:id/close",         post(close_period))
@@ -1073,6 +1075,37 @@ async fn list_risk_events(
              AND ($2::text IS NULL OR region=$2)"#,
     ).bind(&q.status).bind(&region).fetch_one(&st.db).await.map_err(map_db)?;
     Ok(Json(Page { items: map_rows(rows), total, page: q.page, size: q.size }))
+}
+
+#[derive(Deserialize)]
+struct ResolveBody { action: String, note: String }
+
+/// 结掉一条对不上的账。
+///
+/// 【对账这一块在它之前一个写操作都没有】——1432 条差异躺着，
+/// 因为找出来之后没有路可走。
+async fn resolve_recon_record(
+    State(st): State<AppState>, admin: Admin, Path(id): Path<String>, Json(b): Json<ResolveBody>,
+) -> Result<Json<J>, ApiError> {
+    admin.requires_role("finance")?;    // 判账是财务的活儿
+    let batch = app_recon::resolve_record(
+        &st.db, &id, &b.action, &b.note, &Actor::admin(&admin.0.sub),
+    ).await?;
+    Ok(Json(json!({"ok": true, "batch_id": batch})))
+}
+
+#[derive(Deserialize)]
+struct CaseStateBody { state: String, note: String }
+
+/// 结掉一个风控案子。
+async fn close_risk_case(
+    State(st): State<AppState>, admin: Admin, Path(id): Path<String>, Json(b): Json<CaseStateBody>,
+) -> Result<Json<J>, ApiError> {
+    admin.requires_role("operator")?;
+    let st2 = app_risk::close_case(
+        &st.db, &id, &b.state, &b.note, &Actor::admin(&admin.0.sub),
+    ).await?;
+    Ok(Json(json!({"ok": true, "state": st2.as_str()})))
 }
 
 async fn list_risk_cases(
