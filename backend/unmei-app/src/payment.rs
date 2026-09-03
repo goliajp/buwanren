@@ -56,14 +56,37 @@ pub async fn start(
     channel: &str,
     channel_user_ref: Option<&str>,
 ) -> Result<PendingPayment, DomainError> {
-    // 风控(台账 D7)。这一处是钱真要动的地方，所以两个接线点里它更要紧。
+    /* 风控(台账 D7)。这一处是钱真要动的地方，所以两个接线点里它更要紧。
+
+       【规则要的两个字段一直没传进去】（2026-09-04）。
+       上一版这里 `amount_minor` 与 `user_age_days` 都写死 `None`，
+       而种子里三条规则有两条判的正是它们
+       （`amount > 100000 AND user.age_days < 7`、退款那条按次数）——
+       `build_env` 里那两个 `if let Some` 于是永远不成立，
+       `amount` 跟 `user.age_days` 一次都没进过求值环境。
+
+       也就是说：观察模式跑了，规则一条都命中不了，
+       `risk_event` 测试库里实测 0 行 —— 而观察模式的全部意义
+       就是「先看看这些规则真开起来会拦掉什么」。
+       开关翻开那天，运营看到的命中率是 0，据此拍板。
+
+       两个值都从库里取:金额是这一单的应付，账龄按 app_user.created_at 算。 */
+    let 风控用: Option<(i64, i32)> = sqlx::query_as(
+        "SELECT o.amount_total_minor,
+                GREATEST(0, EXTRACT(DAY FROM NOW() - u.created_at))::int4
+           FROM order_record o JOIN app_user u ON u.id = o.user_id
+          WHERE o.id = $1",
+    )
+    .bind(order_id)
+    .fetch_optional(pool)
+    .await.db()?;
     crate::risk::gate(pool, &crate::risk::RiskEvalContext {
         kind: "pre_pay".into(),
         user_id: Some(user_id.to_string()),
         order_id: Some(order_id.to_string()),
         payment_id: None,
-        amount_minor: None,
-        user_age_days: None,
+        amount_minor: 风控用.map(|(a, _)| a),
+        user_age_days: 风控用.map(|(_, d)| d),
         extras: serde_json::json!({ "channel": channel }),
     }).await?;
 
