@@ -84,6 +84,7 @@ FILES=(
   # 2026-09-04 再补五支
   webadmin/src/pages/Orders.tsx
   mini/miniprogram/pages/confirm/index.wxml
+  mini/miniprogram/pages/villager/index.wxml
   mini/miniprogram/utils/money.ts
   docs/REDESIGN.md
   backend/seed/art_leaf.sql
@@ -673,6 +674,15 @@ mutate "同一件东西又冒出第二个名字" check-one-name \
 # 前端的状态说法要跟后端枚举对得上：删掉一档
 mutate "前端的状态说法漏了后端有的一档" check-status-words \
   "sub('mini/miniprogram/utils/money.ts', r\"\\n\\s*refunded: '[^']*',\", '')"
+
+# 掏钱的按钮自己要写着价：把村民屏那颗「请回村 · ¥99」的价去掉。
+# 五路评审里三路各自把「不写价」列成第一个不敢按的理由。
+mutate "掏钱的按钮又不写价了" check-price-on-cta \
+  "edit('mini/miniprogram/pages/villager/index.wxml', '请{{who.name}}回村 · {{价}}', '请{{who.name}}回村')"
+
+# 注册了的页面要有路走得到：新注册一页而不给任何入口
+mutate "新注册一个页面却没人链接得到" check-dead-screens \
+  "edit('mini/miniprogram/app.json', '\"pages/activity/index\",', '\"pages/activity/index\",\n    \"pages/nowhere/index\",')"
 
 echo
 echo "── tsc（类型）──"
