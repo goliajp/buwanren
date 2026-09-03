@@ -480,6 +480,9 @@ echo
 # 起因:后台看板十一个 KPI 全是 `.await.unwrap_or(0)`，
 # 而那一屏的读法建立在「零是好消息」上 —— 一次抖动就说「都清完了」。
 gate "查询失败不许说成零" . python3 scripts/check-silent-zero.py
+# 【建好了两头没接上】是这个仓库里最常见的一种洞，而 rustc 看不见它 ——
+# pub 的东西对它来说「可能被外面用」。这一支数整个工作区的调用方。
+gate "导出了而没人调的" . python3 scripts/check-dead-exports.py
 # 【索引存在跟用得上是两回事】——后台一半的页是「新的在最上面」，
 # 而 outbox_event 三万三千行按时间翻页曾是全表扫 + 落盘排序 12MB。
 # 这一支问 Postgres 自己怎么执行，不查 pg_indexes 里有没有那个名字。

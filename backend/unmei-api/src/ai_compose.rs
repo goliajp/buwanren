@@ -162,8 +162,6 @@ fn shuffle_take<'a>(v: &'a [&'a str], n: usize, rng: &mut StdRng) -> Vec<&'a str
     idxs.into_iter().take(n.min(v.len())).map(|i| v[i]).collect()
 }
 
-/// 商品推荐 · commerce v2 切版后由 CatalogService 接管,本桥层暂返回 None。
-/// 后续会改成调用 catalog_service.recommend_by_yongshen(...) 走新表。
 /// 起完一卦，接下来能做的一件事。
 ///
 /// 这里原先收 5 个参数、一个都不用、直接 `Ok(None)` —— 文件头写着「商品推荐

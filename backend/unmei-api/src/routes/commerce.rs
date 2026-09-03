@@ -606,10 +606,11 @@ async fn pay_my_order_inner(
         serde_json::to_value(&outcome)?,
     ).await?;
 
-    Ok(Json(json!({
-        "payment_id": pending.payment_id,
-        "outcome": outcome,
-    })))
+    /* 【回给客户端的形状只声明一处】（2026-09-03 五路评审 · 架构审计）。
+       `app_payment::outcome_payload` 早就在，而【没有任何人调它】——
+       这里手写了同一份 JSON。两份各自演进的话，改了一处不改另一处
+       没有任何东西会红，而客户端读的是这一处。 */
+    Ok(Json(app_payment::outcome_payload(&pending.payment_id, &outcome)?))
 }
 
 // ─── Order · refund ─────────────────────────────────────────────
