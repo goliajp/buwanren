@@ -4,7 +4,10 @@
 //! - [`shipment_trace`] 每 15min 拉 carrier_adapter 推进物流状态
 //! - [`payment_sweep`]  每 30s 扫超时未结算 payment 拉准
 //! - [`subscription_billing`] 每 5min 扫 next_billing_attempt_at,dunning 重试
-//! - [`outbox`] 每 5s dispatch outbox_event(注:本 MVP 不写 outbox,但 schema 已存,先 stub)
+//! - [`outbox`] 每 5s dispatch outbox_event
+//!   （这一行原先写着「本 MVP 不写 outbox，schema 已存，先 stub」——
+//!    而 `outbox::write` 现在有六个调用方：下单、支付、退款、履约、
+//!    运单、订阅。一句过时的注释比没有注释更贵：它说的是另一个系统。）
 //! - [`recon`] 每日 02:30 (Asia/Shanghai) 拉渠道账单对账
 //! - [`housekeeping`] 每小时清过期幂等键
 //!

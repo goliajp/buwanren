@@ -449,6 +449,38 @@ pub async fn expire_overdue(pool: &PgPool) -> Result<u64, DomainError> {
     Ok(n)
 }
 
+/// 撤到一半的支付，窗口过了就是真撤下来了。
+///
+/// 【`cancelling` 原先是个进得去出不来的状态】（2026-09-04）。
+/// 同一天早上加的 `cancel_in_flight` 把在飞的支付转成 `cancelling`，
+/// 而状态机里写着 `Cancelling => [Cancelled, Success]` ——
+/// `Success` 那条路通（渠道竞态，`apply_succeeded` 认这个状态），
+/// 而 **`Cancelled` 全仓没有一处写**：实测 20 笔卡在那儿，其中 18 笔
+/// 窗口早过了。这正是这一轮评审里反复遇到的那个形状
+/// （状态声明了、没有路走到），而它是我自己当天新造的一个。
+///
+/// 判据是【窗口过了】：过了窗口渠道就再也不会说这笔成了，
+/// 所以「撤下来了」这件事此刻才成为定论。
+/// 窗口没过的不动 —— 那两笔还可能被付掉，而那笔钱要记上。
+///
+/// `expires_at IS NULL` 的也不动:没有窗口就没有「过了」这回事，
+/// 硬给它定一个宽限期等于替渠道拍板。这种行今天一笔都没有
+/// （建支付时必写 expires_at），真出现了该由它露头来问，不该被这里猜掉。
+pub async fn settle_cancelled(pool: &PgPool) -> Result<u64, DomainError> {
+    let n = sqlx::query(
+        "UPDATE payment SET status='cancelled'
+         WHERE status='cancelling'
+           AND expires_at IS NOT NULL AND expires_at < NOW()",
+    )
+    .execute(pool)
+    .await.db()?
+    .rows_affected();
+    if n > 0 {
+        tracing::info!(n, "窗口过了，撤到一半的支付落成已撤销");
+    }
+    Ok(n)
+}
+
 /// 订单取消 / 过期时，把这一单上还在飞的支付撤下来。
 ///
 /// 【`order::cancel` 一处都没碰过支付】（2026-09-03 五路评审 · 资金审计）。

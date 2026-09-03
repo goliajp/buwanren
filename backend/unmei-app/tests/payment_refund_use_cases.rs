@@ -977,3 +977,73 @@ async fn an_expired_order_takes_its_payment_down_too() {
     assert_eq!(之后.as_deref(), Some("cancelling"),
                "订单过期了，支付还在飞 —— 每一次弃购都留下一笔会自动结算的支付");
 }
+
+// ═════════ 2026-09-04 · 撤到一半的支付要有下场 ═════════
+
+/// 【`cancelling` 原先进得去出不来】。
+///
+/// 同一天早上加的 `cancel_in_flight` 把在飞的支付转成 `cancelling`，
+/// 而状态机写着 `Cancelling => [Cancelled, Success]` ——
+/// Success 那条通（渠道竞态），而 Cancelled **全仓没有一处写**：
+/// 实测 20 笔卡在那儿，18 笔窗口早过了。
+/// 这正是这一轮评审反复遇到的形状，而它是当天新造的一个。
+#[tokio::test]
+async fn 窗口过了的撤销支付会落成已撤销() {
+    let pool = db_or_skip!();
+    let (user, order_id) = unpaid_order(&pool, 19900).await;
+    let pending = payment::start(&pool, &order_id, &user, "wechat_jsapi", None).await.expect("起一笔");
+
+    // 撤下来 —— 走真的那条路（订单取消会顺带撤支付）
+    order::cancel(&pool, &order_id, "不要了", &Actor::user(&user), Some(&user))
+        .await
+        .expect("取消");
+    assert_eq!(
+        common::scalar_string(&pool, "SELECT status FROM payment WHERE id=$1", &pending.payment_id).await.as_deref(),
+        Some("cancelling"),
+        "取消订单没把支付撤下来",
+    );
+
+    // 窗口还没过，不该动它 —— 那时渠道仍可能说「已经付了」
+    payment::settle_cancelled(&pool).await.expect("清扫");
+    assert_eq!(
+        common::scalar_string(&pool, "SELECT status FROM payment WHERE id=$1", &pending.payment_id).await.as_deref(),
+        Some("cancelling"),
+        "窗口没过就把它落定了 —— 那两笔还可能被付掉，钱要记上",
+    );
+
+    // 把窗口推到过去，再清扫
+    sqlx::query("UPDATE payment SET expires_at = NOW() - INTERVAL '1 minute' WHERE id=$1")
+        .bind(&pending.payment_id)
+        .execute(&pool)
+        .await
+        .expect("推过期");
+    payment::settle_cancelled(&pool).await.expect("清扫");
+    assert_eq!(
+        common::scalar_string(&pool, "SELECT status FROM payment WHERE id=$1", &pending.payment_id).await.as_deref(),
+        Some("cancelled"),
+        "窗口过了还卡在 cancelling —— 那个状态又进得去出不来了",
+    );
+}
+
+/// 反面：撤到一半、而渠道随后说「已经付了」——那笔钱仍然要记上。
+/// 这一条守的是「不许用状态守卫把到账的钱吞掉」。
+#[tokio::test]
+async fn 撤销中的支付被渠道付掉了还是要记账() {
+    let pool = db_or_skip!();
+    let (user, order_id) = unpaid_order(&pool, 19900).await;
+    let pending = payment::start(&pool, &order_id, &user, "wechat_jsapi", None).await.expect("起一笔");
+    order::cancel(&pool, &order_id, "不要了", &Actor::user(&user), Some(&user))
+        .await
+        .expect("取消");
+
+    payment::apply_succeeded(&pool, &pending.payment_id, Some("txn-race"), chrono::Utc::now())
+        .await
+        .expect("渠道说付成了");
+
+    let 状态 = common::scalar_string(&pool, "SELECT status FROM payment WHERE id=$1", &pending.payment_id).await;
+    assert_eq!(状态.as_deref(), Some("success"), "撤销中被付掉，那笔钱没被记上");
+    let 收了 = common::scalar_i64(
+        &pool, "SELECT amount_paid_minor FROM order_record WHERE id=$1", &order_id,
+    ).await;
+    assert_eq!(收了, 19900, "钱到了而订单上一分没记 —— 那是一笔没有归宿的钱");
+}

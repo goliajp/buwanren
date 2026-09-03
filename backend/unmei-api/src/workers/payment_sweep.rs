@@ -38,9 +38,15 @@ pub async fn run(state: AppState) {
 /// 向渠道问「这笔到底成没成」。回调丢了 / 渠道延迟时兜底。
 async fn query_pending(st: &AppState) -> anyhow::Result<()> {
     let rows = sqlx::query(
+        /* 【`cancelling` 也要问】（2026-09-04）。
+           窗口还没过的那些「撤到一半」的支付，渠道仍然可能说「已经付了」——
+           那笔钱必须记上（`apply_succeeded` 认这个状态，状态机里
+           `Cancelling => [Cancelled, Success]` 写的就是这条竞态）。
+           不问的话，唯一能发现它的路就只剩渠道主动推回调，
+           而这个 sweeper 存在的理由恰恰是「回调可能丢」。 */
         r#"SELECT id, channel
            FROM payment
-           WHERE status IN ('pending','processing')
+           WHERE status IN ('pending','processing','cancelling')
              AND created_at < NOW() - INTERVAL '1 minute'
              AND expires_at > NOW()
            ORDER BY created_at ASC
@@ -102,6 +108,15 @@ async fn expire_stale(st: &AppState) -> anyhow::Result<()> {
     let cancelled = app_order::expire_unpaid(&st.db).await?;
     if cancelled > 0 {
         tracing::info!("payment_query_sweeper: 过期未付订单取消 {cancelled} 张");
+    }
+
+    /* 【撤到一半的也要有个下场】（2026-09-04）。
+       `cancelling` 原先进得去出不来 —— 状态机写着它通向 Cancelled，
+       而全仓没有一处写那个状态，实测 20 笔卡在那儿。
+       窗口一过渠道就不会再说这笔成了，那时「撤下来了」才成为定论。 */
+    let 撤成了 = app_payment::settle_cancelled(&st.db).await?;
+    if 撤成了 > 0 {
+        tracing::info!("payment_query_sweeper: 撤到一半的支付落成已撤销 {撤成了} 笔");
     }
     Ok(())
 }
