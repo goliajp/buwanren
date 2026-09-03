@@ -540,6 +540,35 @@ do_shots() {
   say_dim "图在 ${SHOTS}/ —— 一页看完：open ${SHOTS}/u3/index.html"
 }
 
+# ── 后台逐页走 · 两个管理员各一轮 ───────────────────────────
+#
+# 【一个管理员走不出分区那一面】。已有的 `webadmin-verify` 拿阿超走 ——
+# 他管全部，每一页都是满的，于是「分区管理员看到的那一屏长什么样」
+# 一次都没被看过。而那正是这套后台最容易出事的地方:
+# 一页把 region 漏掉，阿超那一侧一切正常，阿港那一侧多出别人的数据。
+#
+# 所以两个人各走一轮。判据用它自己那条（不靠映射表）：
+# **接口给了 N 条，页面却一行都没渲** —— 那条判据对两个人一样成立。
+do_console() {
+  command -v bun >/dev/null || { say_dim "没有 bun，后台逐页走跳过 —— 这一段【没验】"; return 0; }
+  local who email out
+  for who in root hk; do
+    case "${who}" in
+      root) email=admin@unmei.local ;;
+      hk)   email=hk@unmei.local ;;
+    esac
+    out=$(ADMIN_EMAIL="${email}" bash scripts/webadmin-verify.sh 2>&1)
+    if printf '%s' "${out}" | grep -q '都通了'; then
+      n_ok=$((n_ok+1))
+      printf '  \033[32m✓\033[0m %-46s %s\n' "${email} 逐页走" "$(printf '%s' "${out}" | grep -c '✓')"
+    else
+      n_bad=$((n_bad+1)); bad_list+=("${email} 逐页走")
+      printf '  \033[31m✗\033[0m %-46s\n' "${email} 逐页走"
+      printf '%s' "${out}" | grep '✗' | head -4 | sed 's/^/       /'
+    fi
+  done
+}
+
 do_check() {
   [ -f "$STATE" ] || { say_bad "没有名册（${STATE}）—— 先 seed"; exit 2; }
   local T1 T2 T3 T4 T5 I1 I2 I3 I4 I5
@@ -607,6 +636,10 @@ do_check() {
   echo
   echo "══ 逐屏走 · 五个人各一轮 ══"
   do_shots
+
+  echo
+  echo "══ 后台逐页走 · 两个管理员各一轮 ══"
+  do_console
 
   echo
   if [ "$n_bad" = 0 ]; then say_ok "25 计划 · $n_ok 条都过了"; else
