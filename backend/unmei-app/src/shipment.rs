@@ -238,7 +238,7 @@ pub async fn apply_trace_webhook(pool: &PgPool, ev: TraceWebhookEvent) -> Result
             r#"INSERT INTO shipment_trace_event(
                  id, shipment_id, event_at, event_kind, location, description,
                  raw_source, raw_event_id, raw_payload_json
-               ) VALUES ($1, $2, $3, $4, $5, $6, 'webhook', $7, '{}'::jsonb)
+               ) VALUES ($1, $2, $3, $4, $5, $6, $8, $7, '{}'::jsonb)
                -- 去重键是 `uq_trace_dedup (raw_source, raw_event_id)`,那个唯一索引
                -- 本来就是为这件事建的。之前写的是 `ON CONFLICT (id)` —— id 每次
                -- 现生成,这个冲突永远不会发生,撞上的是唯一索引:事务回滚、回调 500、
@@ -254,6 +254,13 @@ pub async fn apply_trace_webhook(pool: &PgPool, ev: TraceWebhookEvent) -> Result
         .bind(&e.location)
         .bind(&e.description)
         .bind(&e.raw_event_id)
+        /* 【「谁写的这一行」只声明一处】（2026-09-03 五路评审 · 架构审计）。
+           上一版把 `'webhook'` 手写成 SQL 里的字面量，而
+           `Actor::webhook()` 就在 actor.rs 里，一个调用方都没有 ——
+           构造器与字面量各说各的，改了一头不改另一头没有任何东西会红。
+           `ActorKind` 那张枚举跟库里的 CHECK 是对着的（check-enum-check
+           在核），走构造器就等于让这一行也跟着那张表走。 */
+        .bind(crate::Actor::webhook().kind.as_str())
         .execute(&mut *tx)
         .await.db()?;
 
