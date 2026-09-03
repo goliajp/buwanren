@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApiMutation } from '../lib/feedback';
 import { api } from '../lib/api';
 import PageHeader from '../components/PageHeader';
+import TableError from '../components/TableError';
 import { ts, statusClass, statusLabel, thou } from '../components/util';
 
 interface Row {
@@ -17,7 +18,7 @@ export default function Quotes() {
   const [status, setStatus] = useState('');
   const size = 30;
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['quotes', page, search, status],
     queryFn: () => api.get<{ items: Row[]; total: number }>(
       `/quotes?page=${page}&size=${size}&q=${encodeURIComponent(search)}&status=${status}`
@@ -78,6 +79,7 @@ export default function Quotes() {
               </thead>
               <tbody>
                 {isLoading && <tr><td colSpan={10} className="text-center py-8 text-ink-4">正在取…</td></tr>}
+                <TableError 出错={isError} 列数={10} />
                 {data?.items.map(r => (
                   <tr key={r.id}>
                     <td className="font-mono text-ink-3">{r.id}</td>

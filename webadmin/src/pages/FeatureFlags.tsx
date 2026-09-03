@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApiMutation } from '../lib/feedback';
 import { api } from '../lib/api';
 import PageHeader from '../components/PageHeader';
+import TableError from '../components/TableError';
 import { ts } from '../components/util';
 
 interface FlagRow {
@@ -18,7 +19,7 @@ const REGIONS   = ['cn','hk','tw','jp','us','eu'];
 
 export default function FeatureFlags() {
   const qc = useQueryClient();
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['feature_flags'],
     queryFn: () => api.get<{ items: FlagRow[] }>('/feature_flags'),
   });
@@ -73,6 +74,7 @@ export default function FeatureFlags() {
               </thead>
               <tbody>
                 {isLoading && <tr><td colSpan={13} className="text-center py-8 text-ink-4">正在取…</td></tr>}
+                <TableError 出错={isError} 列数={13} />
                 {data?.items.map(f => (
                   <tr key={f.code}>
                     <td className="font-mono text-xs text-ink">{f.code}</td>

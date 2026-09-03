@@ -70,6 +70,20 @@ export default function Dashboard() {
           <h2 className="text-base font-semibold mb-2">要处理的</h2>
           {q.isLoading ? (
             <p className="label">正在取…</p>
+          ) : q.isError ? (
+            /* 【取不到就说取不到，不许说「都清完了」】
+               （2026-09-03 五路评审 · 后台产品体验）。
+
+               上一版这里只有两支：正在取 / 待办为空。而查询【失败】时
+               `k` 是 undefined、`待办` 是空数组、`isLoading` 是 false ——
+               于是这一屏落到「都清完了」那一支，
+               **在后端连不上的时候，用肯定句告诉运营今天没有事**。
+
+               这一屏的活儿只有一件：现在有没有事。它答错的那一次，
+               恰恰是最该有人去看的那一次。 */
+            <p className="text-sm text-debt">
+              取不到 —— 这一屏说不了今天有没有事。先看后端还在不在，别当成「没事」。
+            </p>
           ) : 待办.length === 0 ? (
             /* 【没事的时候就说没事】。空状态是这一版的主张最直白的地方:
                健康的一屏应该看起来近乎空白。 */
@@ -147,6 +161,9 @@ function RecentOrders() {
   const items: any[] = q.data?.items ?? [];
 
   if (q.isLoading) return <p className="label">正在取…</p>;
+  /* 同上：`items` 在失败时也是空数组，而「今天还没有单」是一句肯定句。
+     两块都在这一屏上，一起说了两遍不真的话。 */
+  if (q.isError) return <p className="text-sm text-debt">取不到最近的单。</p>;
   if (!items.length) return <p className="text-sm text-ink-2">今天还没有单。</p>;
 
   return (

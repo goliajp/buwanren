@@ -5,6 +5,7 @@ import { commerce } from '../lib/api';
 import { useNavigate } from 'react-router';
 import { api } from '../lib/api';
 import PageHeader from '../components/PageHeader';
+import TableError from '../components/TableError';
 import { rel, ts, shortId, platformLabel, thou } from '../components/util';
 import { Search } from 'lucide-react';
 
@@ -28,7 +29,7 @@ export default function Users() {
   const [region, setRegion] = useState('');
   const size = 30;
 
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['users', page, search, platform, region],
     queryFn: () => api.get<{ items: UserRow[]; total: number; size: number }>(
       `/users?page=${page}&size=${size}&q=${encodeURIComponent(search)}&platform=${platform}&region=${region}`
@@ -130,6 +131,12 @@ export default function Users() {
                     </td>
                   </tr>
                 ))}
+                {/* 【取不到跟「一条都没有」不是一回事】（2026-09-03 五路评审 · 后台产品体验）。
+                  上一版只有空态那一行，而它的条件是 `X.data && …length === 0` ——
+                  查询失败时 `data` 是 undefined，两行都不渲染，
+                  屏上剩一张只有表头的空表。带着筛选条件的页面上，
+                  运营会以为是自己把条件筛空了。 */}
+                <TableError 出错={isError} 列数={9} />
                 {data && data.items.length === 0 && (
                   <tr><td colSpan={9} className="text-center py-8 text-ink-4">没有符合条件的用户</td></tr>
                 )}

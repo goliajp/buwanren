@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApiMutation } from '../lib/feedback';
 import { commerce } from '../lib/api';
 import PageHeader from '../components/PageHeader';
+import TableError from '../components/TableError';
 import FilterBar from '../components/FilterBar';
 import Pagination from '../components/Pagination';
 import Drawer from '../components/Drawer';
@@ -116,7 +117,13 @@ export default function Outbox() {
                   </td>
                 </tr>
               ))}
-              {list.data && list.data.items.length === 0 && (
+              {/* 【取不到跟「一条都没有」不是一回事】（2026-09-03 五路评审 · 后台产品体验）。
+                  上一版只有空态那一行，而它的条件是 `X.data && …length === 0` ——
+                  查询失败时 `data` 是 undefined，两行都不渲染，
+                  屏上剩一张只有表头的空表。带着筛选条件的页面上，
+                  运营会以为是自己把条件筛空了。 */}
+                <TableError 出错={list.isError} 列数={9} />
+                {list.data && list.data.items.length === 0 && (
                 <tr><td colSpan={9} className="text-center py-10 text-ink-4">— 暂无 outbox 事件 —</td></tr>
               )}
             </tbody>

@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { commerce } from '../lib/api';
 import { useApiMutation } from '../lib/feedback';
 import PageHeader from '../components/PageHeader';
+import TableError from '../components/TableError';
 import Drawer from '../components/Drawer';
 import { ts, rel, thou, shortId } from '../components/util';
 import { CheckCircle2 } from 'lucide-react';
@@ -90,6 +91,8 @@ export default function Activities() {
                     <td><span className="label text-ink-3">{场次状态(r.status)}</span></td>
                   </tr>
                 ))}
+                {/* 取不到跟「一场都没有」不是一回事 —— 见别的列表页同一条注释 */}
+                <TableError 出错={list.isError} 列数={7} />
                 {list.data && 场次.length === 0 && (
                   <tr><td colSpan={7} className="text-center py-8 text-ink-4">还没有活动</td></tr>
                 )}

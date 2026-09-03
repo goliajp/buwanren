@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApiMutation } from '../lib/feedback';
 import { commerce } from '../lib/api';
+import { 从网址读筛选 } from '../lib/urlfilter';
 import PageHeader from '../components/PageHeader';
+import TableError from '../components/TableError';
 import FilterBar from '../components/FilterBar';
 import Pagination from '../components/Pagination';
 import Drawer from '../components/Drawer';
@@ -14,8 +16,10 @@ const KINDS = ['pct_off','amount_off','bxgy','bundle','cap_only'];
 
 export default function Promotions() {
   const qc = useQueryClient();
-  const [filt, setFilt] = useState<Record<string, any>>({ size: 50, page: 0 });
-  const [draft, setDraft] = useState<Record<string, any>>({});
+  /* 筛选从网址读 —— 看板的「在做的促销」跳过来时带着 `?status=active`
+     （2026-09-03 五路评审 · 后台产品体验，别处同一条注释更长） */
+  const [filt, setFilt] = useState<Record<string, any>>(从网址读筛选({ size: 50, page: 0 }));
+  const [draft, setDraft] = useState<Record<string, any>>(从网址读筛选({}));
   const [detailId, setDetailId] = useState<string | null>(null);
   const [tab, setTab] = useState<'promo' | 'coupons'>('promo');
   const [发券中, 设发券] = useState(false);
@@ -78,6 +82,7 @@ export default function Promotions() {
                   <th className="r">预算</th><th className="r">已用</th><th>生效</th><th>失效</th>
                   <th className="c">动作</th></tr></thead>
                 <tbody>
+                  <TableError 出错={list.isError} 列数={9} />
                   {(list.data?.items ?? []).map((p: any) => (
                     <tr key={p.id}>
                       <td className="id">{shortId(p.id)}</td>
@@ -120,6 +125,7 @@ export default function Promotions() {
               <table className="tbl">
                 <thead><tr><th>编号</th><th>代号</th><th>活动</th><th>归属</th><th>状态</th><th>领取</th><th>核销</th><th>过期</th></tr></thead>
                 <tbody>
+                  <TableError 出错={coupons.isError} 列数={8} />
                   {(coupons.data?.items ?? []).map((c: any) => (
                     <tr key={c.id}>
                       <td className="id">{shortId(c.id)}</td>
