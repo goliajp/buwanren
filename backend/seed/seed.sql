@@ -108,7 +108,12 @@ INSERT INTO feature_flag (code, default_on, by_platform, by_region, description)
 -- 重新 seed 一次不许把人家的设置冲掉。
 -- 上一版整句是 DO NOTHING，于是文案在文件里改对了、库里还是旧的 ——
 -- 屏幕上写着半角括号，而标点门禁扫文件，一直报绿。
-ON CONFLICT (code) DO UPDATE SET description = EXCLUDED.description;
+ON CONFLICT (code) DO UPDATE SET description = EXCLUDED.description
+  -- 【只在真的不一样时才写】。少了这个 WHERE，每次开机都会把
+  -- `updated_at` 推到当前时间 —— 内容一个字没改，表却动了，
+  -- 于是「重启不会把库写回去」那一支门禁当场红，而它说得对:
+  -- 一张每次重启都变的表，没有人分得清哪次是真改动。
+  WHERE feature_flag.description IS DISTINCT FROM EXCLUDED.description;
 
 -- ─── admin_user · 默认 admin@unmei.local / admin123 ───────────
 INSERT INTO admin_user (id, email, password_hash, name, roles) VALUES
