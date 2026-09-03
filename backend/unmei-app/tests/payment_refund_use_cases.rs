@@ -1047,3 +1047,73 @@ async fn 撤销中的支付被渠道付掉了还是要记账() {
     ).await;
     assert_eq!(收了, 19900, "钱到了而订单上一分没记 —— 那是一笔没有归宿的钱");
 }
+
+/// 【取消了的单上收着钱，扫一遍要退回去】。
+///
+/// 实测存量 486 单、¥48,082 全部 refunded=0，从 2026-08-16 攒到当天，
+/// 而没有任何一处会说出来。上游堵了两个口子，但渠道竞态仍然会造出这种钱
+/// （`Cancelling => Success` 是状态机明写的一条）。
+#[tokio::test]
+async fn 取消单上无家可归的钱会被退回去() {
+    let pool = db_or_skip!();
+    common::确保当月开着(&pool).await;
+    let (user, order_id) = unpaid_order(&pool, 19900).await;
+    let pending = payment::start(&pool, &order_id, &user, "wechat_jsapi", None).await.expect("起一笔");
+    order::cancel(&pool, &order_id, "不要了", &Actor::user(&user), Some(&user)).await.expect("取消");
+    // 渠道竞态：撤销中被付掉了 —— 钱记上（这一条由上一支测试单独钉）
+    payment::apply_succeeded(&pool, &pending.payment_id, Some("txn-orphan"), chrono::Utc::now())
+        .await
+        .expect("渠道说付成了");
+    assert_eq!(
+        common::scalar_i64(&pool, "SELECT amount_paid_minor FROM order_record WHERE id=$1", &order_id).await,
+        19900,
+    );
+
+    /* 【一轮扫不完就多扫几轮】。这一支一次最多处理 200 单
+       （生产上靠一轮轮 tick 排空积压，而不是一口气把库锁住），
+       而测试库里攒着两百多单历史的同类单子，按 `cancelled_at` 排序时
+       刚造的这一单排在最后。所以这里照生产的样子跑：扫到它为止，有上限。
+
+       上限本身也是断言的一部分:排不空的话它会挂在这儿，
+       而那正是「这一支扫不动」该有的样子。 */
+    let mut 轮 = 0;
+    loop {
+        let 退了 = refund::refund_orphan_money(&pool).await.expect("清扫");
+        let 已退 = common::scalar_i64(
+            &pool, "SELECT COALESCE(amount_refunded_minor,0) FROM order_record WHERE id=$1", &order_id,
+        ).await;
+        if 已退 == 19900 {
+            break;
+        }
+        轮 += 1;
+        assert!(退了 > 0, "第 {轮} 轮一笔都没退，而我这一单还欠着 —— 那 486 单就是这么攒出来的");
+        assert!(轮 < 40, "扫了 {轮} 轮还没轮到这一单");
+    }
+
+    /* 【跑第二遍不许再退一次】。清扫会每 30 秒跑一次 ——
+       不幂等的话，一笔 199 元的钱会被退成好几笔。 */
+    let 再退 = refund::refund_orphan_money(&pool).await.expect("再扫一遍");
+    let 退款笔数 = common::scalar_i64(
+        &pool, "SELECT count(*) FROM refund WHERE order_id=$1", &order_id,
+    ).await;
+    assert_eq!(退款笔数, 1, "扫第二遍又退了一笔（第二遍报 {再退} 笔）");
+    assert_eq!(
+        common::scalar_i64(&pool, "SELECT COALESCE(amount_refunded_minor,0) FROM order_record WHERE id=$1", &order_id).await,
+        19900,
+        "退的比收的还多了",
+    );
+}
+
+/// 没收着钱的取消单不该被碰 —— 那是绝大多数取消单的样子。
+#[tokio::test]
+async fn 没收钱的取消单不会凭空生出退款() {
+    let pool = db_or_skip!();
+    let (user, order_id) = unpaid_order(&pool, 19900).await;
+    order::cancel(&pool, &order_id, "不要了", &Actor::user(&user), Some(&user)).await.expect("取消");
+
+    refund::refund_orphan_money(&pool).await.expect("清扫");
+    let 退款笔数 = common::scalar_i64(
+        &pool, "SELECT count(*) FROM refund WHERE order_id=$1", &order_id,
+    ).await;
+    assert_eq!(退款笔数, 0, "一分钱没收，却生出了一笔退款");
+}

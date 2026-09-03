@@ -307,3 +307,74 @@ pub async fn apply_failed(
     .await.db()?;
     Ok(())
 }
+
+// ═══════════════════ 无家可归的钱 ═══════════════════
+
+/// 取消了的订单上收着钱而没退 —— 把它退回去。
+///
+/// 【这条洞是这一轮评审里最贵的一条】（2026-09-03 资金审计 → 09-04 收口）。
+/// 实测存量 486 单、¥48,082 全部 `refunded=0`，从 2026-08-16 一直到当天，
+/// 而看板 11 个 KPI、风控、对账里都没有这条规则 ——
+/// **钱进账、买家什么都没拿到，且没有任何一处会说出来**。
+///
+/// 上游那两个口子当天都堵了（订单取消会把在飞的支付撤下来、
+/// 撤到一半的支付窗口一过就落成已撤销）。但堵住上游不等于账干净：
+/// 渠道竞态仍然会让一笔钱落在已取消的订单上（`Cancelling => Success`
+/// 是状态机明写的一条），而那时钱是真的在渠道那边，必须记上。
+///
+/// **所以闭环放在扫描里，不挂在那条罕见路径上。** 挂钩的写法有两个洞：
+/// 进程在「记账已提交、退款未发起」之间死掉，回调不会再来第二次
+/// （重复回调会在状态守卫那里早早返回），于是那笔钱永远没人管；
+/// 而历史存量本来就不经过任何钩子。扫描两样都收，且跑几遍是同一个结果。
+///
+/// **为什么系统自己批**：这里没有可判断的东西 —— 订单是取消的，
+/// 买家一件东西都没拿到，钱只能回去。人工审批那一档是给「用户申请退款、
+/// 运营要不要批」用的，而这一笔的成因在系统自己这一侧。
+/// 让它排队等人批，就是把那 486 单又攒一遍。
+///
+/// 幂等：`status IN ('requested','success','refunded')` 的在途退款算作
+/// 「已经在管了」，不再重复发起。
+pub async fn refund_orphan_money(pool: &PgPool) -> Result<u64, DomainError> {
+    let 待退: Vec<(String, String, i64)> = sqlx::query_as(
+        "SELECT o.id, o.user_id,
+                COALESCE(o.amount_paid_minor,0) - COALESCE(o.amount_refunded_minor,0)
+           FROM order_record o
+          WHERE o.status='cancelled'
+            AND COALESCE(o.amount_paid_minor,0) > COALESCE(o.amount_refunded_minor,0)
+            AND NOT EXISTS (
+                  SELECT 1 FROM refund r
+                   WHERE r.order_id = o.id
+                     AND r.status IN ('requested','success','refunded')
+                )
+          ORDER BY o.cancelled_at NULLS LAST
+          LIMIT 200",
+    )
+    .fetch_all(pool)
+    .await.db()?;
+
+    let mut 退了 = 0u64;
+    for (order_id, user_id, 余) in 待退 {
+        if 余 <= 0 {
+            continue;
+        }
+        /* 一单一单地走，一单失败不拖累别的 —— 这一支是清扫，
+           它的价值在于「每一轮都把能退的退掉」，不在于原子性。 */
+        let id = match request(
+            pool, &order_id, &user_id, None, Some(余),
+            "cancelled_with_money", Some("订单已取消而钱收着 —— 系统自动退回"),
+        ).await {
+            Ok(id) => id,
+            Err(e) => {
+                tracing::warn!(order_id, 余, %e, "无家可归的钱：发起退款失败");
+                continue;
+            }
+        };
+        if let Err(e) = approve(pool, &id, &Actor::system()).await {
+            tracing::warn!(order_id, refund_id = id, %e, "无家可归的钱：退款批不下去");
+            continue;
+        }
+        退了 += 1;
+        tracing::info!(order_id, refund_id = id, 余, "订单取消了却收着钱，已自动退回");
+    }
+    Ok(退了)
+}
