@@ -77,7 +77,30 @@ try:
               "WHERE b.region='cn' AND r.match_state<>'matched' AND r.resolved_at IS NULL LIMIT 1")
     运 = psql("SELECT id FROM shipment WHERE region='cn' LIMIT 1")
 
-    探 = [('读 cn 的订单', 'GET', '/admin/commerce/orders?region=cn&size=2', None)]
+    # 按 id 读的那几条也要探。库里没有就跳过，下限在下面兜着。
+    付 = psql("SELECT id FROM payment WHERE region='cn' LIMIT 1")
+    批 = psql("SELECT id FROM recon_batch WHERE region='cn' LIMIT 1")
+    凭 = psql("SELECT id FROM journal_entry WHERE region='cn' LIMIT 1")
+
+    探 = [('读 cn 的订单列表', 'GET', '/admin/commerce/orders?region=cn&size=2', None)]
+
+    # 【按 id 读的那一整面，2026-09-03 之前一次都没被探过】。
+    # 那一版这里六条:五条写、一条列表。而所有 `get_X(:id)` 的签名是 `_: Admin`，
+    # `这个对象归他管吗` 只出现在写路由上 —— 实测 7/7 跨区读全通，
+    # **而列表被挡住这件事恰好让人以为读已经守住了**。
+    # 九个读路由当天补上了守卫，这里补上对应的探针:
+    # 修完不补探针的话，下一次它退化回去仍然没有人会发现。
+    if 单:
+        探.append(('读 cn 的某一张订单', 'GET', f'/admin/commerce/orders/{单}', None))
+    if 付:
+        探.append(('读 cn 的某一笔支付', 'GET', f'/admin/commerce/payments/{付}', None))
+    if 运:
+        探.append(('读 cn 的某一张运单', 'GET', f'/admin/commerce/shipments/{运}', None))
+    if 批:
+        探.append(('读 cn 的某一批对账', 'GET', f'/admin/commerce/recon/batches/{批}', None))
+    if 凭:
+        探.append(('读 cn 的某一张凭证', 'GET', f'/admin/commerce/finance/entries/{凭}', None))
+
     if 单:
         探 += [('给 cn 的订单加备注', 'POST', f'/admin/commerce/orders/{单}/annotate', {'note': 'x'}),
                ('取消 cn 的订单', 'POST', f'/admin/commerce/orders/{单}/cancel', {'reason': 'x'})]
@@ -94,6 +117,12 @@ try:
     # 而那跟「一条都没漏」长得一模一样。
     if len(探) < 4:
         print(f'✗ 只造出 {len(探)} 条探针 —— 库里多半没有 cn 的数据，这一支现在什么都没验到')
+        sys.exit(1)
+    # 【读与写各自都要有】。只有下限的话，读那一面整个消失也能过 ——
+    # 而那正是 2026-09-03 之前的样子:六条里一条读、五条写。
+    读几条 = sum(1 for _, 法, _, _ in 探 if 法 == 'GET')
+    if 读几条 < 3:
+        print(f'✗ 只造出 {读几条} 条【读】的探针 —— 读那一整面又没被探到了')
         sys.exit(1)
 
     坏 = []
