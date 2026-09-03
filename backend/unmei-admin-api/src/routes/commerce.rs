@@ -16,7 +16,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as J};
 use sqlx::{Column as _, Row};
 use unmei_app::{
-    catalog as app_catalog, coupon as app_coupon, order as app_order, outbox_ops as app_outbox,
+    catalog as app_catalog, coupon as app_coupon, finance as app_finance,
+    order as app_order, outbox_ops as app_outbox,
     payment as app_payment, promotion as app_promotion, refund as app_refund,
     risk as app_risk, shipment as app_shipment, subscription as app_subscription,
     Actor,
@@ -75,6 +76,7 @@ pub fn router() -> Router<AppState> {
         .route("/admin/commerce/risk/cases",                        get(list_risk_cases))
         // ─── finance ───
         .route("/admin/commerce/finance/periods",                   get(list_periods))
+        .route("/admin/commerce/finance/periods/:id/close",         post(close_period))
         .route("/admin/commerce/finance/entries",                   get(list_journal_entries))
         .route("/admin/commerce/finance/entries/:id",               get(get_journal_entry))
         .route("/admin/commerce/finance/report/:period_id",         get(monthly_report))
@@ -1109,6 +1111,19 @@ struct EntriesQuery {
     region: Option<String>,
     #[serde(default)] page: i64,
     #[serde(default = "default_size")] size: i64,
+}
+
+/// 关账。
+///
+/// 【这是财务这一块第一个写操作】。在它之前后台只能看账，
+/// 而 `accounting_period.state` 从建库到现在全是 open ——
+/// 记账那一侧一直防着「关了的期间」，却没有任何地方能把它关上。
+async fn close_period(
+    State(st): State<AppState>, admin: Admin, Path(id): Path<String>,
+) -> Result<Json<J>, ApiError> {
+    admin.requires_role("finance")?;    // 封期是财务的动作，运营不能碰
+    let (借, 贷) = app_finance::close_period(&st.db, &id, &Actor::admin(&admin.0.sub)).await?;
+    Ok(Json(json!({"ok": true, "total_debit": 借, "total_credit": 贷})))
 }
 
 async fn list_journal_entries(
