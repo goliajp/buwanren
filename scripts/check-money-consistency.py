@@ -36,14 +36,16 @@ if 码 != 0:
           AND COALESCE(amount_total_minor,0) > 0""",
      '订单标成已付/履约中/完成，但已付金额是 0'),
 
-    # 【这一条收窄过，说清楚为什么】。原本判的是「已付订单必有一条成功支付」——
-    # 生产上这是对的，但夹具合法地造「不走支付的订单」（那正是夹具的用处：
-    # 跳过不测的那几步）。本机库里 3306 笔是这么来的，一条 payment 行都没有。
+    # 【这一条收窄过一次，后来又收回来了】。
+    # 2026-09-03 上午：本机库里 3306 笔「已付、一条支付记录都没有」，
+    # 全是夹具造的（web/verify.mjs 四处、verify-semantics.sh 一处，
+    # 都只写订单不写支付）。当时判不了「已付必有支付」，
+    # 就退成断言【夹具造不出的那一种】——有支付行、没有一条成功。
     #
-    # 直接放它过去等于开后门，后门迟早会盖住真问题；所以改成断言【夹具造不出
-    # 的那一种】:有支付行、没有一条成功、订单却说已付。那是状态机真的错了。
-    # 夹具那一批的条数在下面单独【报出来】，只是不判失败 ——
-    # 藏起来跟没查过一样。
+    # 同一天下午把五处源头都堵了、存量也补齐了，所以那条严的又加回来
+    # （见下面第三条）。留着这段是因为：**放宽是权宜，收回来才是完成**。
+    # 一条退过一次的不变量，不写清楚为什么退、什么时候该收，
+    # 下一个人只会以为它本来就这么宽。
     ('付款没成，订单却说已付',
      """SELECT COUNT(*) FROM order_record o
         WHERE o.status IN ('paid','fulfilling','done')
@@ -52,6 +54,15 @@ if 码 != 0:
           AND NOT EXISTS (SELECT 1 FROM payment p
                           WHERE p.order_id = o.id AND p.status IN ('success','refunded','refunded_partial'))""",
      '订单有支付记录，但没有一条是成功的，订单却标成已付'),
+
+    ('说收到钱了，却没有一条成功支付',
+     """SELECT COUNT(*) FROM order_record o
+        WHERE o.status IN ('paid','fulfilling','done')
+          AND COALESCE(o.amount_paid_minor,0) > 0
+          AND NOT EXISTS (SELECT 1 FROM payment p
+                          WHERE p.order_id = o.id
+                            AND p.status IN ('success','refunded','refunded_partial'))""",
+     '订单说收到钱了，支付表里查不到是哪一笔'),
 
     ('退的比收的还多',
      """SELECT COUNT(*) FROM order_record
@@ -83,17 +94,8 @@ if 查过 != len(不变量):
     print(f'✗ {len(不变量)} 条不变量只跑成了 {查过} 条 —— 结论不算数')
     sys.exit(1)
 
-# 【夹具那一批只报数，不判失败】。它们是「订单已付、一条支付记录都没有」——
-# 生产上不该存在，但本机的夹具就这么造。数字摆在这儿，涨了看得见。
-码, 出, _ = 问(re.sub(r'\s+', ' ',
-    """SELECT COUNT(*) FROM order_record o
-       WHERE o.status IN ('paid','fulfilling','done')
-         AND COALESCE(o.amount_total_minor,0) > 0
-         AND NOT EXISTS (SELECT 1 FROM payment p WHERE p.order_id = o.id)"""))
-无支付 = int(出 or 0) if 码 == 0 else -1
-if 无支付 > 0:
-    print(f'  （另有 {无支付} 笔订单说已付、却连一条支付记录都没有 —— '
-          f'本机夹具造的，生产上不该出现）')
+# 那一段「另有 N 笔只报数不判失败」删掉了 —— 它数的正是上面第三条
+# 现在真判的东西。源头堵了、存量补了，一个数就够，两个只会打架。
 
 if 坏:
     print(f'✗ 库里的钱对不上（{查过} 条不变量，{len(坏)} 条不成立）:')

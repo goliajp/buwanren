@@ -107,7 +107,7 @@ export default function Outbox() {
                   <td title={ts(e.next_attempt_at)} className="text-ink-4">{e.status === 'pending' ? rel(e.next_attempt_at) : '—'}</td>
                   <td className="text-xs font-mono text-debt truncate max-w-[220px]" title={e.last_error || ''}>{e.last_error ? e.last_error.slice(0, 60) : ''}</td>
                   <td className="c flex justify-center gap-1">
-                    <button className="btn btn-link" onClick={() => setDetailId(e.id)}><Eye size={13}/></button>
+                    <button className="btn btn-ghost" onClick={() => setDetailId(e.id)}><Eye size={13}/></button>
                     {(e.status === 'failed' || e.status === 'dropped') && (
                       <button className="btn btn-soft" title="重试" onClick={() => retry.mutate(e.id)}>
                         <Repeat size={13}/>

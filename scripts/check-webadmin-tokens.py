@@ -81,7 +81,32 @@ if 坏:
     if len(坏) > 40:
         print(f'   …… 另有 {len(坏) - 40} 处')
     sys.exit(1)
-print(f'✓ 运营台令牌 · {len(自定义)} 个色名，className 无死引用')
+# ── 组件类也要真的存在 ──────────────────────────────────────
+# 【上一版只查颜色，漏了组件类】。`.btn-link` 在八个文件里用着，
+# 而 index.css 里从来没有它 —— 跟死色名一样，Tailwind 不报错，
+# 只是那个按钮没有样式。查颜色不查组件类，等于只盖了一半。
+样式 = (根 / 'src' / 'index.css').read_text(encoding='utf-8')
+已定义 = set(re.findall(r'\.([a-z][a-z0-9-]*)\b[^{]*\{', 样式))
+# Tailwind 自己生成的工具类不在这份 CSS 里，所以只查【我们自己定的前缀】
+自定前缀 = ('btn-', 'st-', 'n-', 'panel-', 'tbl-')
+坏组件 = []
+for f in sorted((根 / 'src').rglob('*.tsx')):
+    for i, 行 in enumerate(f.read_text(encoding='utf-8').splitlines(), 1):
+        if 行.lstrip().startswith(('*', '//', '/*')):
+            continue
+        for m in re.finditer(r'\b((?:' + '|'.join(自定前缀) + r')[a-z0-9-]+)', 行):
+            名 = m.group(1)
+            if 名 not in 已定义:
+                坏组件.append(f'{f.relative_to(根.parent)}:{i}  .{名}')
+if 坏组件:
+    print(f'✗ {len(坏组件)} 处用了 index.css 里没有的组件类 —— 它们一样渲染成没有样式:')
+    for x in 坏组件[:20]:
+        print('   ' + x)
+    if len(坏组件) > 20:
+        print(f'   …… 另有 {len(坏组件) - 20} 处')
+    sys.exit(1)
+
+print(f'✓ 运营台令牌 · {len(自定义)} 个色名 · {len(已定义)} 个组件类，className 无死引用')
 
 # ── 用户明确提的两条约束 ────────────────────────────────────────
 # 写成门禁而不是写在文档里：文档挡不住下一次顺手加一个 11px。

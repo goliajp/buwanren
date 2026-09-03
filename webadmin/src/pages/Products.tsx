@@ -71,9 +71,9 @@ export default function Products() {
                   <td className="text-xs">{(p.tags ?? []).map((t: string) => <span key={t} className="text-ink-3 mr-1">{t}</span>)}</td>
                   <td title={ts(p.updated_at)}>{rel(p.updated_at)}</td>
                   <td className="c flex justify-center gap-1">
-                    <button className="btn btn-link" onClick={() => setDetailId(p.id)}><Eye size={13}/></button>
+                    <button className="btn btn-ghost" onClick={() => setDetailId(p.id)}><Eye size={13}/></button>
                     <button
-                      className={`btn ${p.status === 'listed' ? 'btn-warn' : 'btn-soft'}`}
+                      className={`btn ${p.status === 'listed' ? 'btn-debt' : 'btn-soft'}`}
                       onClick={() => toggle.mutate({ id: p.id, status: p.status === 'listed' ? 'delisted' : 'listed' })}
                       title={p.status === 'listed' ? '下架' : '上架'}
                     ><Power size={13}/></button>

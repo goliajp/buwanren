@@ -136,7 +136,7 @@ export default function Finance() {
                     <td className="r font-semibold">{yuan(e.total_debit)}</td>
                     <td className="r font-semibold">{yuan(e.total_credit)}</td>
                     <td><span className={statusClass(e.status)}>{statusLabel(e.status)}</span></td>
-                    <td className="c"><button className="btn btn-link" onClick={() => setEntryId(e.id)}><Eye size={13}/></button></td>
+                    <td className="c"><button className="btn btn-ghost" onClick={() => setEntryId(e.id)}><Eye size={13}/></button></td>
                   </tr>
                 ))}
                 {entries.data && entries.data.items.length === 0 && (

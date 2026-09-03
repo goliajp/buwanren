@@ -5,7 +5,7 @@ import { useApiMutation } from '../lib/feedback';
 import PageHeader from '../components/PageHeader';
 import Pagination from '../components/Pagination';
 import Drawer from '../components/Drawer';
-import { rel, ts, yuan, shortId, statusClass, statusLabel, channelLabel, enumLabel } from '../components/util';
+import { rel, ts, yuan, thou, shortId, statusClass, statusLabel, channelLabel, enumLabel } from '../components/util';
 import { Eye, RefreshCw } from 'lucide-react';
 
 /** 四种结法的说法。它们不是同义词 —— 混成一个之后，
@@ -58,7 +58,10 @@ function 结掉({ 记录, 结完 }: { 记录: any; 结完: () => void }) {
 }
 
 export default function Reconciliation() {
-  const [filt, setFilt] = useState<Record<string, any>>({ size: 50, page: 0 });
+  /* 【默认落在对不上的那些上】。这一页的活儿是「看有没有对不上的」，
+     而上一版默认按时间列出全部 1466 个批次 —— 第一屏全是「对上了」，
+     真要处理的那些得往后翻。跟退款页同一个道理。 */
+  const [filt, setFilt] = useState<Record<string, any>>({ status: 'has_discrepancy', size: 50, page: 0 });
   const [detailId, setDetailId] = useState<string | null>(null);
 
   const list = useQuery({
@@ -66,6 +69,8 @@ export default function Reconciliation() {
     queryFn: () => commerce.listReconBatches(filt),
     placeholderData: (p) => p,
   });
+  const 看差异 = filt.status === 'has_discrepancy';
+
   const detail = useQuery({
     queryKey: ['recon-batch', detailId],
     queryFn: () => commerce.getReconBatch(detailId!),
@@ -74,9 +79,24 @@ export default function Reconciliation() {
 
   return (
     <div>
-      <PageHeader title="对账" sub="每天跟微信、支付宝的账单对一遍，看有没有对不上的" stats={[
-        { label: '批次', value: list.data?.total ?? 0 },
-      ]} />
+      <PageHeader
+        title="对账"
+        sub="每天跟微信、支付宝的账单对一遍，看有没有对不上的"
+        lead={看差异 && list.data?.total
+          ? { label: '有对不上的', value: thou(list.data.total), tone: 'debt' }
+          : undefined}
+        stats={list.data && !看差异 ? [{ label: '这次查到', value: thou(list.data.total) }] : undefined}
+        right={
+          <button
+            className="btn btn-soft"
+            onClick={() => setFilt(看差异
+              ? { size: 50, page: 0 }
+              : { status: 'has_discrepancy', size: 50, page: 0 })}
+          >
+            {看差异 ? '看全部批次' : '只看对不上的'}
+          </button>
+        }
+      />
       <div className="p-4">
         <div className="flex justify-end mb-2">
           <button className="btn btn-soft" onClick={() => list.refetch()}><RefreshCw size={13}/> 刷新</button>
@@ -90,8 +110,11 @@ export default function Reconciliation() {
               <th className="c">动作</th>
             </tr></thead>
             <tbody>
+              {/* 【整行可点】。上一版只有末尾那个眼睛图标能点 ——
+                  而这一屏的每一行都只有一个去处（打开这一批的明细），
+                  把它藏在 14 像素的图标里没有道理。订单页早就是整行了。 */}
               {(list.data?.items ?? []).map((b: any) => (
-                <tr key={b.id}>
+                <tr key={b.id} onClick={() => setDetailId(b.id)} className="cursor-pointer">
                   <td className="id">{shortId(b.id)}</td>
                   <td>{channelLabel(b.channel)}</td>
                   <td className="id">{b.batch_date}</td>
@@ -102,7 +125,7 @@ export default function Reconciliation() {
                   <td title={ts(b.pulled_at)}>{rel(b.pulled_at)}</td>
                   <td title={ts(b.matched_at)}>{rel(b.matched_at)}</td>
                   <td title={ts(b.resolved_at)}>{rel(b.resolved_at)}</td>
-                  <td className="c"><button className="btn btn-link" onClick={() => setDetailId(b.id)}><Eye size={13}/></button></td>
+                  <td className="c"><button className="btn btn-ghost" onClick={() => setDetailId(b.id)}><Eye size={13}/></button></td>
                 </tr>
               ))}
               {list.data && list.data.items.length === 0 && (
