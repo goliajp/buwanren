@@ -451,14 +451,25 @@ async fn ask_reading(
 /// 拿不到就返回 `None` —— 上游挂了不该让问签整条挂掉(他还是会说话,
 /// 只是这一签背后没有真盘),但也**不能假装算过**:落档时空盘就是空盘。
 async fn fetch_chart(st: &AppState, user_id: &str, villager_id: &str) -> Option<J> {
-    let leaf: Option<String> = sqlx::query_scalar(
+    /* 【「查不出来」和「他本来就没配叶」不是一回事】（2026-09-03）。
+       上一版是 `.ok().flatten()` —— 数据库抖一下，这里返回 None，
+       跟「这门术数没有对应的叶」走同一条路，然后一声不吭地出空盘。
+       上面那段注释记的正是同一种事故:日志写着「取不到盘」，
+       读起来像运维问题，于是【每一签都是空盘】这件事没人查。
+       降级还是降级（问签不该整条挂掉），但失败要有声音。 */
+    let leaf: Option<String> = match sqlx::query_scalar(
         "SELECT a.mingli_leaf FROM villager v JOIN art a ON a.key = v.art_key WHERE v.id = $1",
     )
     .bind(villager_id)
     .fetch_optional(&st.db)
     .await
-    .ok()
-    .flatten()?;
+    {
+        Ok(v) => v,
+        Err(e) => {
+            tracing::error!(villager_id, %e, "取术数叶失败 —— 这一签会是空盘");
+            return None;
+        }
+    }?;
     // 这一列可空。没配叶就没得算 —— 旧代码把 None 直接序列化成 null 发上去了
     let leaf = leaf?;
 
@@ -477,8 +488,12 @@ async fn fetch_chart(st: &AppState, user_id: &str, villager_id: &str) -> Option<
     .bind(user_id)
     .fetch_optional(&st.db)
     .await
-    .ok()
-    .flatten();
+    .unwrap_or_else(|e| {
+        // 同上:查不出生辰跟「他还没建本命」都返回 None，
+        // 而前者是故障、后者是正常状态
+        tracing::error!(user_id, %e, "取生辰失败 —— 这一签会是空盘");
+        None
+    });
     let (y, mo, d, h, mi, tz, gender) = row?;
 
     match MingliClient::new(st)

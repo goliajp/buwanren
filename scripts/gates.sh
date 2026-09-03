@@ -438,6 +438,10 @@ echo
 # 于是屏幕上一直是半角）；一支查跨表的钱对不对得上
 # （运营台上一眼看见「完成、应付 ¥268、已付 ¥0」，一查 1679 笔）。
 # 两支都要真库，连不上就明说跳过 —— 跳过不算通过。
+# 【失效不许长得跟数据一样】——这一支扫的是「数据库查询挂了却回一个数」。
+# 起因:后台看板十一个 KPI 全是 `.await.unwrap_or(0)`，
+# 而那一屏的读法建立在「零是好消息」上 —— 一次抖动就说「都清完了」。
+gate "查询失败不许说成零" . python3 scripts/check-silent-zero.py
 gate "库里的中文标点" . python3 scripts/check-db-punct.py
 gate "钱的账目自洽吗" . python3 scripts/check-money-consistency.py
 
