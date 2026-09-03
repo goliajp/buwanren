@@ -4,7 +4,7 @@
 //! 这里只做 HTTP 解析、鉴权、把 [`Actor`] 传进去。
 //!
 //! 只读的 list / detail 仍是本文件里的直接 sqlx —— 它们与客户端不重叠
-//! (客户端按 user_id 过滤,后台按筛选条件),不存在双写。SQL 的去向见 P2。
+//! (客户端按 user_id 过滤，后台按筛选条件),不存在双写。SQL 的去向见 P2。
 
 use axum::{
     extract::{Path, Query, State},
@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as J};
 use sqlx::{Column as _, Row};
 use unmei_app::{
-    catalog as app_catalog, order as app_order, outbox_ops as app_outbox,
+    catalog as app_catalog, coupon as app_coupon, order as app_order, outbox_ops as app_outbox,
     payment as app_payment, promotion as app_promotion, refund as app_refund,
     risk as app_risk, shipment as app_shipment, subscription as app_subscription,
     Actor,
@@ -42,7 +42,7 @@ pub fn router() -> Router<AppState> {
         .route("/admin/commerce/promotions",                        get(list_promotions))
         .route("/admin/commerce/promotions/:id",                    get(get_promotion))
         .route("/admin/commerce/promotions/:id/state",              post(update_promotion_state))
-        .route("/admin/commerce/coupons",                           get(list_coupons))
+        .route("/admin/commerce/coupons",                           get(list_coupons).post(issue_coupon))
         // ─── subscription ───
         .route("/admin/commerce/plans",                             get(list_plans))
         .route("/admin/commerce/subscriptions",                     get(list_subscriptions))
@@ -100,7 +100,7 @@ async fn list_exchange_rates(
 }
 
 // ═══════════════════════════ Master Data(Control Plane)═══════════════════════════
-// SPU / plan / account_chart / risk rule template 集中维护,push 到 6 cell
+// SPU / plan / account_chart / risk rule template 集中维护，push 到 6 cell
 
 pub fn master_router() -> Router<AppState> {
     Router::new()
@@ -252,7 +252,7 @@ struct Pg {
     to: Option<DateTime<Utc>>,
     region: Option<String>,
     /// IANA timezone (e.g. "Asia/Shanghai" / "America/New_York")。
-    /// dashboard 的「今日」按此 tz 算当日零点,绕开 sqlx UTC session 漂移。
+    /// dashboard 的「今日」按此 tz 算当日零点，绕开 sqlx UTC session 漂移。
     /// 前端由 `Intl.DateTimeFormat().resolvedOptions().timeZone` 取客户端 tz。
     /// 缺省回退 "UTC"(curl 直 hit 时可预测)。
     tz: Option<String>,
@@ -291,7 +291,7 @@ fn map_rows(rows: Vec<sqlx::postgres::PgRow>) -> Vec<J> {
 }
 
 fn pg_value_to_json(r: &sqlx::postgres::PgRow, i: usize) -> J {
-    // 通用兜底:按 type info 走分支;失败回字符串。
+    // 通用兜底：按 type info 走分支；失败回字符串。
     use sqlx::TypeInfo;
     let cols = r.columns();
     let ti = cols[i].type_info();
@@ -306,7 +306,24 @@ fn pg_value_to_json(r: &sqlx::postgres::PgRow, i: usize) -> J {
         "DATE" => r.try_get::<Option<chrono::NaiveDate>, _>(i).ok().flatten().map(|x| json!(x.to_string())).unwrap_or(J::Null),
         "JSONB" | "JSON" => r.try_get::<Option<J>, _>(i).ok().flatten().unwrap_or(J::Null),
         "TEXT[]" => r.try_get::<Option<Vec<String>>, _>(i).ok().flatten().map(|v| json!(v)).unwrap_or(J::Null),
-        _ => r.try_get::<Option<String>, _>(i).ok().flatten().map(|s| json!(s)).unwrap_or(J::Null),
+        // NUMERIC 没有单独一支 —— 这里【故意】让它掉进下面的兜底。
+        // `SUM(bigint)` 在 Postgres 里返回 NUMERIC，而这个项目里每一处
+        // 聚合都该在 SQL 里显式 `::int8`（`monthly_report` 一直是这么写的）。
+        // 掉进兜底会在屏幕上显示「<解不出 NUMERIC>」，一眼看得见，
+        // 指的正是「这条 SQL 少了一个 cast」。为它装一个 decimal 依赖
+        // 反而会把「忘了 cast」这件事永久地藏起来。
+        // 【解不出来 ≠ 值是空的】。上一版这里写的是
+        // `.ok().flatten().unwrap_or(J::Null)` —— 于是「这个类型我按 String
+        // 取不出来」跟「这一格真的是 NULL」变成同一个 null 送到前端。
+        // 财务页上 1,078 条分录的借贷合计全是「—」，就是这么来的：
+        // 页面看起来正常，只是每个数都没了。
+        // 现在把两件事分开：真 NULL 还是 null，解不出来的送一个
+        // 一眼就知道不对的记号上屏。
+        _ => match r.try_get::<Option<String>, _>(i) {
+            Ok(Some(s)) => json!(s),
+            Ok(None) => J::Null,
+            Err(_) => J::String(format!("<解不出 {tn}>")),
+        },
     }
 }
 
@@ -496,6 +513,48 @@ async fn update_promotion_state(
     Ok(Json(json!({"ok":true, "status": status.as_str()})))
 }
 
+#[derive(Deserialize)]
+struct IssueCouponBody {
+    code: String,
+    promotion_id: Option<String>,
+    owner_user_id: Option<String>,
+    benefit_json: J,
+    /// RFC3339。不给就是不发 —— 不替调用方猜一个有效期出来
+    expires_at: String,
+    region: Option<String>,
+}
+
+/// 发一张券。
+///
+/// 【在它之前只有读端】——后台列得出券，却发不出券，
+/// 于是 `coupon` 表从建起来就是空的，而下单那一侧的核销代码从没被真数据走过。
+async fn issue_coupon(
+    State(st): State<AppState>, admin: Admin, Json(b): Json<IssueCouponBody>,
+) -> Result<Json<J>, ApiError> {
+    admin.requires_role("operator")?;    // 发券是花钱的动作，跟改促销同一档
+    // ApiError 只有 not_found 一个构造器 —— 其余走 DomainError 转换，
+    // 状态码由 `DomainError::http_status()` 决定，路由不手工判。
+    let expires: DateTime<Utc> = b.expires_at.parse().map_err(|_| {
+        unmei_domain::DomainError::Validation(
+            "expires_at 要是 RFC3339 的时刻，例如 2026-12-31T23:59:59Z".into(),
+        )
+    })?;
+    let region = normalize_region(&b.region).unwrap_or_else(|| "cn".to_string());
+    let id = app_coupon::issue(
+        &st.db,
+        app_coupon::IssueCoupon {
+            code: &b.code,
+            promotion_id: b.promotion_id.as_deref(),
+            owner_user_id: b.owner_user_id.as_deref(),
+            benefit_json: b.benefit_json,
+            expires_at: expires,
+            region: &region,
+        },
+        &Actor::admin(&admin.0.sub),
+    ).await?;
+    Ok(Json(json!({"ok": true, "id": id})))
+}
+
 async fn list_coupons(
     State(st): State<AppState>, _: Admin, Query(q): Query<Pg>,
 ) -> Result<Json<Page<J>>, ApiError> {
@@ -668,10 +727,10 @@ async fn admin_cancel_order(
     admin.requires_role("operator")?;    // 取消订单会牵动库存与履约，不给客服，避免误操作
     // owner 传 None → 后台不受归属限制。
     //
-    // ⚠ 行为变更:旧实现允许从 `paid` / `fulfilling` 取消,但 domain 状态机的
+    // ⚠ 行为变更：旧实现允许从 `paid` / `fulfilling` 取消，但 domain 状态机的
     // Paid → [Fulfilling, Done, RefundPartial, Refunded, Disputed] 里没有 Cancelled,
     // 客户端路由也明说「已付订单需走退款」。三处语义原本互相打架。
-    // 现在统一以状态机为准:已付订单只能走退款,不能直接取消 ——
+    // 现在统一以状态机为准：已付订单只能走退款，不能直接取消 ——
     // 否则会留下「用户付了钱、订单被取消、没有退款记录」的窟窿。
     app_order::cancel(&st.db, &id, &b.reason, &Actor::admin(&admin.0.sub), None).await?;
     Ok(Json(json!({"ok":true})))
@@ -1060,8 +1119,8 @@ async fn list_journal_entries(
     let rows = sqlx::query(
         r#"SELECT je.id, je.period_id, je.description, je.posted_at, je.posted_by_kind,
                   je.business_kind, je.business_ref_id, je.status, je.region,
-                  COALESCE(SUM(jl.debit_minor), 0) AS total_debit,
-                  COALESCE(SUM(jl.credit_minor), 0) AS total_credit
+                  COALESCE(SUM(jl.debit_minor), 0)::int8 AS total_debit,
+                  COALESCE(SUM(jl.credit_minor), 0)::int8 AS total_credit
            FROM journal_entry je
            LEFT JOIN journal_line jl ON jl.entry_id = je.id
            WHERE ($1::text IS NULL OR je.period_id=$1)
@@ -1101,7 +1160,7 @@ async fn monthly_report(
     State(st): State<AppState>, _: Admin, Path(period_id): Path<String>, Query(q): Query<Pg>,
 ) -> Result<Json<J>, ApiError> {
     let region = normalize_region(&q.region);
-    // 试算平衡:按 account_chart 聚合本期分录(region 过滤)
+    // 试算平衡：按 account_chart 聚合本期分录(region 过滤)
     let tb = sqlx::query(
         r#"SELECT ac.code, ac.name, ac.kind,
                   COALESCE(SUM(jl.debit_minor),0)::int8 AS debit,
@@ -1148,13 +1207,13 @@ async fn dashboard_kpi(
 ) -> Result<Json<J>, ApiError> {
     let region = normalize_region(&q.region);
     // 「今日」按客户端 tz 算 — 前端传 IANA tz,缺省 UTC。
-    // `date_trunc('day', NOW() AT TIME ZONE $tz) AT TIME ZONE $tz` 双转模式:
+    // `date_trunc('day', NOW() AT TIME ZONE $tz) AT TIME ZONE $tz` 双转模式：
     //   内层 → 把 timestamptz 转成 tz 当地的 naive timestamp
     //   date_trunc → 取当地零点
     //   外层 → 把当地零点 naive 再转回 timestamptz(UTC instant)
     // 与 paid_at (timestamptz) 比较时无 session-tz 漂移。
     let tz = q.tz.as_deref().filter(|s| !s.is_empty()).unwrap_or("UTC");
-    // 本币营收(单 region 时是该币种;global 时跨币种 sum 不直观)
+    // 本币营收(单 region 时是该币种；global 时跨币种 sum 不直观)
     let today_revenue: i64 = sqlx::query_scalar(
         r#"SELECT COALESCE(SUM(amount_minor),0)::int8 FROM payment
            WHERE status='success'

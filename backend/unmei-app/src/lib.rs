@@ -27,6 +27,7 @@
 
 pub mod actor;
 pub mod catalog;
+pub mod coupon;
 pub mod finance;
 pub mod fulfillment;
 pub mod idempotency;
