@@ -499,7 +499,9 @@ async fn get_promotion(
         r#"SELECT COUNT(*)::int8, COALESCE(SUM(applied_amount_minor),0)::int8
            FROM coupon_redemption cr WHERE cr.coupon_id IN
              (SELECT id FROM coupon WHERE promotion_id=$1)"#,
-    ).bind(&id).fetch_one(&st.db).await.unwrap_or((0,0));
+    // 核销统计查不到就上抛 —— 显示成「0 张券、0 元」跟
+    // 「这个活动一张都没核销」长得一模一样，而运营正拿它判活动效果
+    ).bind(&id).fetch_one(&st.db).await.map_err(map_db)?;
     let prod = map_rows(vec![p]).into_iter().next().unwrap_or(J::Null);
     Ok(Json(json!({ "promotion": prod, "redemption_count": stats.0, "redemption_amount_minor": stats.1 })))
 }
@@ -1233,7 +1235,11 @@ async fn monthly_report(
             JOIN account_chart ac ON ac.code = jl.account_code
           WHERE je.period_id=$1 AND je.status='posted'
             AND ($2::text IS NULL OR je.region=$2)"#,
-    ).bind(&period_id).bind(&region).fetch_one(&st.db).await.unwrap_or((0,0,0,0));
+    /* 【月报的四个数不许吞】。查询挂了返回 (0,0,0,0)，屏幕上就是
+       「本期收入 0、退款 0、运费收入 0、运费成本 0」——
+       而那跟「这个月真的一分钱没进」在页面上没有任何区别。
+       财务报表说错一次，后面每一个基于它的决定都跟着错。 */
+    ).bind(&period_id).bind(&region).fetch_one(&st.db).await.map_err(map_db)?;
 
     Ok(Json(json!({
         "period_id": period_id,
@@ -1250,6 +1256,16 @@ async fn monthly_report(
 
 // ═══════════════════════════ Dashboard KPI ═══════════════════════════
 
+/* 【看板上的零必须是真的零】（2026-09-03）。
+   这十一个数原本每一个都是 `.await.unwrap_or(0)` —— 查询挂了就显示 0，
+   而这一屏的整个读法建立在「零是好消息」上:
+   左栏不为零才报数、看板只列不为零的待办、
+   没事的时候它说「都清完了 —— 没有待付的订单、没有等着批的退款」。
+
+   于是一次数据库抖动会让运营看到一屏「什么都不用做」，
+   而那正是这台控制台最不该说错的一句话。
+   `map_db` 上抛之后前端拿到 500，react-query 会显示取数失败 ——
+   「取不到」跟「是零」终于分得开。 */
 async fn dashboard_kpi(
     State(st): State<AppState>, _: Admin, Query(q): Query<Pg>,
 ) -> Result<Json<J>, ApiError> {
@@ -1267,7 +1283,7 @@ async fn dashboard_kpi(
            WHERE status='success'
              AND paid_at >= (date_trunc('day', NOW() AT TIME ZONE $2) AT TIME ZONE $2)
              AND ($1::text IS NULL OR region=$1)"#,
-    ).bind(&region).bind(tz).fetch_one(&st.db).await.unwrap_or(0);
+    ).bind(&region).bind(tz).fetch_one(&st.db).await.map_err(map_db)?;
     // 集团等值(USD cent · 用 v_exchange_latest 按 currency 折算)· global 视图主指标
     let today_revenue_usd_cent: i64 = sqlx::query_scalar(
         r#"SELECT COALESCE(SUM(
@@ -1280,45 +1296,45 @@ async fn dashboard_kpi(
            WHERE p.status='success'
              AND p.paid_at >= (date_trunc('day', NOW() AT TIME ZONE $2) AT TIME ZONE $2)
              AND ($1::text IS NULL OR p.region=$1)"#,
-    ).bind(&region).bind(tz).fetch_one(&st.db).await.unwrap_or(0);
+    ).bind(&region).bind(tz).fetch_one(&st.db).await.map_err(map_db)?;
     let today_orders: i64 = sqlx::query_scalar(
         r#"SELECT COUNT(*) FROM order_record
            WHERE created_at >= (date_trunc('day', NOW() AT TIME ZONE $2) AT TIME ZONE $2)
              AND ($1::text IS NULL OR region=$1)"#,
-    ).bind(&region).bind(tz).fetch_one(&st.db).await.unwrap_or(0);
+    ).bind(&region).bind(tz).fetch_one(&st.db).await.map_err(map_db)?;
     let pending_payments: i64 = sqlx::query_scalar(
         r#"SELECT COUNT(*) FROM payment WHERE status='pending' AND expires_at > NOW()
              AND ($1::text IS NULL OR region=$1)"#,
-    ).bind(&region).fetch_one(&st.db).await.unwrap_or(0);
+    ).bind(&region).fetch_one(&st.db).await.map_err(map_db)?;
     let unpaid_orders: i64 = sqlx::query_scalar(
         r#"SELECT COUNT(*) FROM order_record WHERE status='unpaid' AND expires_at > NOW()
              AND ($1::text IS NULL OR region=$1)"#,
-    ).bind(&region).fetch_one(&st.db).await.unwrap_or(0);
+    ).bind(&region).fetch_one(&st.db).await.map_err(map_db)?;
     let pending_refunds: i64 = sqlx::query_scalar(
         r#"SELECT COUNT(*) FROM refund WHERE status IN ('requested','approved','processing')
              AND ($1::text IS NULL OR region=$1)"#,
-    ).bind(&region).fetch_one(&st.db).await.unwrap_or(0);
+    ).bind(&region).fetch_one(&st.db).await.map_err(map_db)?;
     let exception_shipments: i64 = sqlx::query_scalar(
         r#"SELECT COUNT(*) FROM shipment WHERE status IN ('exception','returning')
              AND ($1::text IS NULL OR region=$1)"#,
-    ).bind(&region).fetch_one(&st.db).await.unwrap_or(0);
+    ).bind(&region).fetch_one(&st.db).await.map_err(map_db)?;
     let active_subs: i64 = sqlx::query_scalar(
         r#"SELECT COUNT(*) FROM subscription WHERE status IN ('active','trialing')
              AND ($1::text IS NULL OR region=$1)"#,
-    ).bind(&region).fetch_one(&st.db).await.unwrap_or(0);
+    ).bind(&region).fetch_one(&st.db).await.map_err(map_db)?;
     let active_promos: i64 = sqlx::query_scalar(
         r#"SELECT COUNT(*) FROM promotion WHERE status='active'
              AND ($1::text IS NULL OR region=$1)"#,
-    ).bind(&region).fetch_one(&st.db).await.unwrap_or(0);
+    ).bind(&region).fetch_one(&st.db).await.map_err(map_db)?;
     let open_risk_cases: i64 = sqlx::query_scalar(
         r#"SELECT COUNT(*) FROM risk_case WHERE state IN ('open','investigating')
              AND ($1::text IS NULL OR region=$1)"#,
-    ).bind(&region).fetch_one(&st.db).await.unwrap_or(0);
+    ).bind(&region).fetch_one(&st.db).await.map_err(map_db)?;
     // product 是全局 SPU,按 available_regions 包含 region 判可见
     let listed_products: i64 = sqlx::query_scalar(
         r#"SELECT COUNT(*) FROM product WHERE status='listed'
              AND ($1::text IS NULL OR $1 = ANY(available_regions))"#,
-    ).bind(&region).fetch_one(&st.db).await.unwrap_or(0);
+    ).bind(&region).fetch_one(&st.db).await.map_err(map_db)?;
     Ok(Json(json!({
         "today_revenue_minor": today_revenue,
         "today_revenue_usd_cent": today_revenue_usd_cent,
