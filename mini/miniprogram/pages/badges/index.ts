@@ -54,6 +54,7 @@ const 图名: Record<string, string> = {
   continous_7: 'streak',
   continous_30: 'moon',
   first_purchase: 'incense',
+  first_activity: 'act',
 }
 
 function 只留最近(list: Array<{ code: string; earned: boolean }>): Set<string> {

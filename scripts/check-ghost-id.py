@@ -54,6 +54,8 @@ ADMIN_PROBES = [
      {'carrier_code': 'sf', 'tracking_no': '1'}),
     ('POST', '/admin/commerce/shipments/:id/mark-exception', {'reason': 'x'}),
     ('POST', '/admin/commerce/subscriptions/:id/cancel', {'immediate': False}),
+    # 2026-09-03 报名这条链接上之后新加的一条
+    ('POST', '/admin/activity-registrations/:id/checkin', {}),
     # 2026-09-03 新加的三条写操作 —— 财务、对账、风控这三块
     # 此前一个写操作都没有
     ('POST', '/admin/commerce/finance/periods/:id/close', {}),
@@ -68,6 +70,9 @@ ADMIN_PROBES = [
 
 
 USER_PROBES = [
+    # 2026-09-03 报名这条链接上之后新加的两条
+    ('POST', '/v1/activity/:id/register', {}),
+    ('POST', '/v1/activity/:id/cancel', {}),
     ('DELETE', '/v1/user/natals/:id', {}),
     ('POST', '/v1/user/natals/:id/activate', {}),
     ('POST', '/v1/orders/:id/cancel', {}),

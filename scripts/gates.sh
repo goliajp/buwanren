@@ -347,7 +347,9 @@ gate "屏上不拿指代当名字"     . python3 scripts/check-no-deixis.py
 gate "技术原文不上屏"        . python3 scripts/check-no-raw-error.py
 gate "一件事一个名字"        . python3 scripts/check-one-name.py
 gate "金额只有一支格式化"     . python3 scripts/check-money-fmt.py
-gate "22 屏对得上尺子吗" . python3 scripts/check-screen-ruler.py
+# 名字里【不写屏数】——写死的话它一加页就过期，而过期的数字看着跟真的一样
+# （截屏那一支的「33」就这么在名字里挂了很久，见上面）。屏数由脚本自己报。
+gate "每一屏对得上尺子吗" . python3 scripts/check-screen-ruler.py
 gate "开局站位对得上第一件事吗" . python3 scripts/check-room-start.py
 # 「站位对得上」不等于「看得见」——婆婆的站位一直是对的，
 # 只是正对着水晶球坐，从正面看整个人只剩一个帽尖（实测露出 41%）。

@@ -87,15 +87,35 @@ check "publish_price 到不存在的 SKU" "404" "$code"
 # 那件商品一下架这一支就跟着红 —— 2026-08-28 已经因此改过两次
 # （问事一卦、黄金会员先后下架，都是因为「卖了给不出东西」）。
 #
-# 所以这里自己种一件，而且它【永远不上架】：product 留在 draft，
-# 只有 sku 是 active。跟「校验·香」同一个路子 ——
-# 校验用的数据不该长得像真数据，也不该混进真目录。
-PSQL "INSERT INTO product(id,code,name,category,kind,status,fulfillment_kind)
-      VALUES ('prod-verify-mix','verify_mix','校验·混币种','report','one_shot','draft','instant')
-      ON CONFLICT (id) DO UPDATE SET status='draft'" >/dev/null
+# 所以这里自己种两件。它们【不出现在任何真目录里】，
+# 靠的是一个只属于校验的区 `verify` —— 目录按 region 过滤，
+# 而没有任何真用户在这个区里。
+#
+# 【为什么不再用 draft】（2026-09-03 五路评审 · 资金审计之后）：
+# 上一版把 product 留在 `draft`、只让 sku 是 active，靠的是
+# 「建单不看 product.status」这件事 —— 而那正是那一轮修掉的洞
+#（13,678 个草稿商品可以直接下单，可下单面比可展示面大 1200 倍）。
+# 洞一堵，这条校验的前提就没了:它开始拿 404 而不是 422，
+# 也就是说【它当初能跑，靠的是被测系统的一个 bug】。
+#
+# 换成「上架、但只在校验区上架」——不混进真目录这条意图原样保住，
+# 而它不再依赖任何一个洞。
+PSQL "INSERT INTO product(id,code,name,category,kind,status,fulfillment_kind,available_regions)
+      VALUES ('prod-verify-mix','verify_mix','校验·混币种','report','one_shot','listed','instant',
+              ARRAY['verify'])
+      ON CONFLICT (id) DO UPDATE SET status='listed', available_regions=ARRAY['verify']" >/dev/null
 PSQL "INSERT INTO sku(id,product_id,code,name,stock_kind,default_currency,status)
       VALUES ('sku-verify-mix','prod-verify-mix','verify_mix_default','校验·混币种',
               'unlimited','CNY','active')
+      ON CONFLICT (id) DO UPDATE SET status='active'" >/dev/null
+# 同一件商品下的第二个 sku —— 混币种要两行，而两行都得在校验区里买得到。
+# 上一版拿的是真商品 `sku-naji-deep`，它只在 cn 上架，跟校验区凑不到一起。
+PSQL "INSERT INTO sku(id,product_id,code,name,stock_kind,default_currency,status)
+      VALUES ('sku-verify-mix2','prod-verify-mix','verify_mix_second','校验·混币种·第二行',
+              'unlimited','CNY','active')
+      ON CONFLICT (id) DO UPDATE SET status='active'" >/dev/null
+PSQL "INSERT INTO price_book(id,sku_id,currency,price_minor,region,platform,status,effective_from)
+      VALUES ('pb-verify-mix2','sku-verify-mix2','CNY',4900,'verify','all','active',NOW())
       ON CONFLICT (id) DO UPDATE SET status='active'" >/dev/null
 
 echo "  为 sku-verify-mix 发一条 JPY 价（建混币种场景）"
@@ -106,7 +126,7 @@ echo "  为 sku-verify-mix 发一条 JPY 价（建混币种场景）"
 # 要验「同一笔里币种不一致会不会被拒」，就得把不一致**真的造在同一个区里**。
 resp=$(curl -sS -X POST "$ADMIN/admin/commerce/pricing/sku-verify-mix/publish" \
   -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' \
-  -d '{"currency":"JPY","price_minor":1200,"region":"cn","platform":"all"}')
+  -d '{"currency":"JPY","price_minor":1200,"region":"verify","platform":"all"}')
 check "publish_price 合法请求" "true" "$(echo "$resp" | jq -r .ok)"
 
 echo
@@ -114,7 +134,7 @@ echo "▶ B · 建单：混币种必须被拒（两份旧实现都会静默算�
 code=$(curl -sS -o /tmp/mix.json -w '%{http_code}' -X POST "$API/v1/orders" \
   -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
   -H "idempotency-key: $(idem mix)" \
-  -d '{"lines":[{"sku_id":"sku-naji-deep","qty":1},{"sku_id":"sku-verify-mix","qty":1}],"region":"cn"}')
+  -d '{"lines":[{"sku_id":"sku-verify-mix2","qty":1},{"sku_id":"sku-verify-mix","qty":1}],"region":"verify"}')
 check "混币种下单 HTTP" "422" "$code"
 check "混币种下单 code" "validation" "$(jq -r .code /tmp/mix.json)"
 echo "    错误文本： $(jq -r .error /tmp/mix.json)"
@@ -122,7 +142,7 @@ echo "    错误文本： $(jq -r .error /tmp/mix.json)"
 # 把刚才那条 JPY 的 cn 价收掉 —— 留着的话这个 sku 在 cn 就有两个币种的活价，
 # 而「商品页显示的价 = 下单记的账」这条性质会跟着坏，往后每次跑都更乱。
 PSQL "UPDATE price_book SET status='expired'
-      WHERE sku_id='sku-verify-mix' AND region='cn' AND currency='JPY' AND status='active'" >/dev/null
+      WHERE sku_id='sku-verify-mix' AND region='verify' AND currency='JPY' AND status='active'" >/dev/null
 
 echo
 echo "▶ C · 建单：ip / ua 落库（旧实现一直写 NULL）"
