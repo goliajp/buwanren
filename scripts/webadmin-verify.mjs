@@ -54,9 +54,20 @@ page.on('console', (m) => { if (m.type() === 'error') errs.push(m.text().slice(0
 /* 页面自己发的请求,记下每个响应里有多少条。
    `items` 是这套接口统一的分页信封(PageRes<T>);裸数组也认。 */
 let seen = []
+/* 【侧栏发的不算这一页的数据】（2026-09-04 · 25 计划让阿港走了一轮）。
+   `/admin/regions` 是侧栏那个区域选择器发的，每一页都发、恒回 6 条。
+   把它算进「这一页拿到几条」的话，一个**真的没有数据**的页
+   会被判成「拿到 6 条、一行都没渲」——
+
+   阿超那边每页都真有行，所以这条误报从来没露过面；
+   分区管理员一走就现形:促销与风控在 hk 区确实是 0 条，
+   而判据说它们「拿到 6 条却空着」。
+   一个管理员走不出这种东西，这正是 25 计划要两个管理员的理由。 */
+const 侧栏发的 = ['/admin/regions', '/admin/commerce/dashboard', '/admin/health']
 page.on('response', async (r) => {
   const u = new URL(r.url())
   if (!u.pathname.startsWith('/admin/') || u.pathname === '/admin/auth/login') return
+  if (侧栏发的.includes(u.pathname)) return
   try {
     const j = JSON.parse(await r.text())
     const items = Array.isArray(j) ? j : (Array.isArray(j?.items) ? j.items : null)
