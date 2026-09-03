@@ -129,6 +129,24 @@ skip() { printf '  · %-34s %s\n' "$1" "$2"; skipped=$((skipped+1)); }
 
 echo "══ 门禁 ══"
 echo
+# ── 起手记下工作树的样子 ────────────────────────────────────
+# 【这一条我自己犯了两次】。上面 ★ 第二条写着「它跑着的时候整个工作区
+# 都别改」——写成散文挡不住:2026-09-03 一天里两轮门禁跑到一半我改了
+# 源码，两轮 25 分钟的结论都只能作废。而作废这件事**没有任何东西会说**，
+# 我是靠自己记起来才没把它当成通过。
+#
+# 所以让它自己核对:起手记指纹，收尾比一遍。不一样就把总账判红 ——
+# 一轮跑在流沙上的门禁，绿也不算数。
+# 变量名用 ASCII —— bash 的标识符不收中文（zsh 收，所以在终端里试是好的）。
+# 这个文件头一行写的是 bash，别处的中文都在字符串与注释里，
+# 只有这几个是标识符。
+_tree_fp() {
+  { git -C "$(git rev-parse --show-toplevel)" status --porcelain
+    git -C "$(git rev-parse --show-toplevel)" rev-parse HEAD
+  } 2>/dev/null | shasum | cut -d' ' -f1
+}
+TREE_FP_START="$(_tree_fp)"
+
 echo "── 房间 / 引擎 ──"
 gate "build --check"        rooms bun tools/build.js --check --src=src
 gate "hardcodelint"         rooms bun tools/hardcodelint.js design.html
@@ -569,6 +587,19 @@ else
   # 没有那道断言的话，集成测试退化成「无 DB 静默跳过」也看着像绿的。
   gate "cargo test --workspace（并断言真跑了）" . env TESTDB="$TESTDB" \
     bash scripts/run-backend-tests.sh
+fi
+
+# 【工作树在这一轮里被动过吗】。动过的话上面那些结果说的是
+# 一个不断变化的东西 —— 哪一支对应哪个版本，事后没有人分得清。
+TREE_FP_END="$(_tree_fp)"
+if [ "$TREE_FP_START" != "$TREE_FP_END" ]; then
+  echo
+  echo "✗ 工作树在这一轮门禁跑的过程中被改过 —— 上面的结论【不算数】"
+  echo "  （变异测试要改源文件再复原，跟你的编辑撞上时报出来的"
+  echo "    是「某支没红」，而那一支其实好好的。见本文件开头 ★ 第二条）"
+  echo "  把改动理清楚，工作树稳下来再重跑一遍。"
+  fail=$((fail + 1))
+  FAILED+=("工作树中途被改过")
 fi
 
 echo

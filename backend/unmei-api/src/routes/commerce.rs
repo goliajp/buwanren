@@ -533,7 +533,7 @@ async fn pay_my_order_inner(
 }
 
 // ─── Order · refund ─────────────────────────────────────────────
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 struct RefundBody {
     payment_id: Option<String>,
     amount_minor: Option<i64>, // 缺省 = 全额
@@ -543,10 +543,33 @@ struct RefundBody {
 
 async fn refund_my_order(
     State(st): State<AppState>, AuthedUser(c): AuthedUser, Path(id): Path<String>,
+    headers: HeaderMap,
     Json(b): Json<RefundBody>,
+) -> Result<Response, ApiError> {
+    /* 【退款也是钱】（2026-09-03）。下单与支付都要幂等键，这一条一直不要 ——
+       实测:一模一样的退款请求发两次，建出两张申请、合计 100 元。
+       一次网络重试就够。用户看到「已提交」两回，
+       后台多一张要处理的单子，而第二张永远批不下去
+       （`request` 现在把在途的算进已退了）。
+
+       路径带上订单 id，跟支付那一处同一个道理:
+       同一个键用在两张单上没有意义，该被当成参数不同拒掉。 */
+    let fp_body = serde_json::to_value(&b).unwrap_or(json!({}));
+    let path = format!("/v1/orders/{id}/refund");
+    let guard = match idem::begin_required(&st, &headers, Some(&c.sub), &path, &fp_body).await? {
+        idem::Begin::Replay(resp) => return Ok(resp),
+        idem::Begin::Proceed(g) => g,
+    };
+    let out = refund_my_order_inner(&st, &c.sub, &id, b).await;
+    guard.settle(&st, &out).await;
+    out.map(IntoResponse::into_response)
+}
+
+async fn refund_my_order_inner(
+    st: &AppState, user: &str, id: &str, b: RefundBody,
 ) -> Result<Json<J>, ApiError> {
     let refund_id = app_refund::request(
-        &st.db, &id, &c.sub,
+        &st.db, id, user,
         b.payment_id, b.amount_minor,
         &b.reason_code, b.reason_text.as_deref(),
     ).await?;
