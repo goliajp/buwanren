@@ -105,7 +105,7 @@
            它不存在，于是人先看到一个孤零零的输入框，输完字才冒出一颗按钮，
            那一下的跳动比省下来的那点干净更贵。
            空着时它自己什么都不做（`试券` 里第一句就返回）。 -->
-      <text class="coupon-try" bindtap="试券">
+      <text class="coupon-try" hover-class="press-btn" bindtap="试券">
         {{券状态 === '在算' ? '在算…' : '试试'}}
       </text>
     </view>

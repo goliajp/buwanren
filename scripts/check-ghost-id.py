@@ -61,6 +61,9 @@ ADMIN_PROBES = [
      {'action': 'known_fee', 'note': '手续费'}),
     ('POST', '/admin/commerce/risk/cases/:id/state',
      {'state': 'resolved', 'note': '查过了'}),
+    # 封人也是写操作 —— 对着一个不存在的用户说「封好了」，
+    # 客服会以为自己处理完了
+    ('POST', '/admin/users/:id/ban', {'banned': True, 'reason': '探针'}),
 ]
 
 

@@ -208,7 +208,7 @@ async fn 别人的券对外说的是没有这张券() {
             assert!(m.contains("没有这张券"), "说漏了嘴：{m}");
             assert!(!m.contains("不是你的"), "说漏了嘴：{m}");
         }
-        其他 => panic!("拿到的是 {其他：?}"),
+        其他 => panic!("拿到的是 {其他:?}"),
     }
 }
 
@@ -300,4 +300,91 @@ async fn 发券时读不懂的券面就不许进库() {
     .await
     .unwrap_err();
     assert!(matches!(e, DomainError::Validation(_)), "拿到的是 {e:?}");
+}
+
+// ═══════════════════════════ 成批发 ═══════════════════════════
+
+async fn 发一批(pool: &sqlx::PgPool, n: i32, 前缀: &str) -> Result<(String, Vec<String>), DomainError> {
+    coupon::issue_batch(
+        pool,
+        coupon::IssueBatch {
+            张数: n,
+            前缀,
+            promotion_id: None,
+            benefit_json: json!({ "pct_off_bps": 1000 }),
+            expires_at: Utc::now() + Duration::days(30),
+            region: "cn",
+        },
+        &Actor::system(),
+    )
+    .await
+}
+
+#[tokio::test]
+async fn 一批发出来的码互不相同而且都能用() {
+    let pool = db_or_skip!();
+    let (batch, 码们) = 发一批(&pool, 50, "BAT").await.expect("发一批");
+    assert_eq!(码们.len(), 50);
+
+    // 【重码会让整批里有一张永远发不出去】——库里那条 UNIQUE 会挡，
+    // 但那时是整批回滚，一千张白发
+    let 去重: std::collections::HashSet<_> = 码们.iter().collect();
+    assert_eq!(去重.len(), 50, "一批里出现了重码");
+
+    let 落库 = common::scalar_i64(
+        &pool, "SELECT COUNT(*)::int8 FROM coupon WHERE batch_id=$1", &batch).await;
+    assert_eq!(落库, 50, "库里的张数对不上");
+
+    /* 【batch_id 要真的写进去】。这一列此前从建库起就是空的 ——
+       列表接口查它、前端显示它，而没有任何地方写。 */
+    let 有批号 = common::scalar_i64(
+        &pool,
+        "SELECT COUNT(*)::int8 FROM coupon WHERE batch_id=$1 AND batch_id IS NOT NULL",
+        &batch,
+    ).await;
+    assert_eq!(有批号, 50);
+}
+
+#[tokio::test]
+async fn 码猜不出来() {
+    let pool = db_or_skip!();
+    let (_, 码们) = 发一批(&pool, 20, "GUESS").await.expect("发一批");
+    /* 【连号等于把整批送给第一个想到试一下的人】。
+       `GUESS001`…`GUESS999` 谁都猜得到 —— 所以码的后半截是随机的。
+       这里钉的是「不是顺序的」:排序之后相邻两个的差不该恒为 1。 */
+    let 后半: Vec<&str> = 码们.iter().map(|c| &c[5..]).collect();
+    assert!(后半.iter().all(|x| x.len() == 10), "后半截应该是 10 位");
+    let 连号 = 码们.iter().any(|c| c.ends_with("0001") || c.ends_with("0002"));
+    assert!(!连号, "看着像连号：{码们:?}");
+}
+
+#[tokio::test]
+async fn 张数超出范围要拒() {
+    let pool = db_or_skip!();
+    // 【一次几万张的话，出错时也是几万张要收回】
+    assert!(发一批(&pool, 0, "X").await.is_err());
+    assert!(发一批(&pool, 5001, "X").await.is_err());
+}
+
+#[tokio::test]
+async fn 前缀要像个前缀() {
+    let pool = db_or_skip!();
+    // 前缀是【人念得出来的那一半】—— 空的、带符号的、太长的都不行
+    assert!(发一批(&pool, 2, "").await.is_err());
+    assert!(发一批(&pool, 2, "有中文").await.is_err());
+    assert!(发一批(&pool, 2, "TOOOOOOOOLONGPREFIX").await.is_err());
+}
+
+#[tokio::test]
+async fn 一批发出来的券真的用得上() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 10000).await;
+    let (_, 码们) = 发一批(&pool, 3, "USE").await.expect("发一批");
+
+    /* 【发出来用不上等于没发】。这一条把批量那一头接到下单那一头 ——
+       中间任何一步（batch_id 写坏了、benefit 没落库、region 不对）
+       都会在这里显形。 */
+    let o = 下一单(&pool, &user, &sku, vec![码们[0].clone()]).await.expect("拿第一张下单");
+    assert_eq!(o.amount_total_minor, 9000, "一成折扣该是 90 元");
 }
