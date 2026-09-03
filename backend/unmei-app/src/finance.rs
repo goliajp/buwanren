@@ -25,6 +25,137 @@ use crate::{new_id, Actor, DbResultExt};
 /// 退款再记一整套分录，账上凭空多出一笔冲销。所以先按 `business_ref_id` 查。
 ///
 /// 退款行不存在时什么都不做（`Ok`）—— 事件比数据先到过一次的话，重试会再来。
+/// 这笔账落在哪个会计期 —— 按【入账时刻】的月份，不按「库里现有什么」。
+///
+/// 抽出来是因为销售与退款两条记账路径要用同一份:各写一份的话，
+/// 「关了的期间不许记账」这道守卫迟早只剩一边有。
+///
+/// 原注释（退款那条留下的，同样适用）：
+/// 上一版取的是「最新的 open 月」，而 `accounting_period` 只有 20260627
+/// 那一次迁移插过三行（最新是 2026-06）—— 于是库里 1070 条分录【全部】
+/// 记在六月账上，而它们的 `posted_at` 横跨八月十六到九月二日。
+/// 更糟的是六月一关，这里就再也取不到 open 的月份，
+/// 分录从此一条也记不进去、outbox 无限重试。
+///
+/// `ON CONFLICT DO NOTHING` 配 uq_accounting_period(kind, year, sub) ——
+/// 并发两笔同时入账不会建出两个同名期间。
+/// 建出来的是 `open`；关账仍然是人的动作，这里只保证账有地方落。
+async fn 当月账期(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+) -> Result<String, DomainError> {
+    let 现在 = chrono::Utc::now();
+    let (年, 月) = {
+        use chrono::Datelike;
+        (现在.year(), 现在.month() as i32)
+    };
+    let period_id = format!("period-{年}-{:02}", 月);
+    sqlx::query(
+        "INSERT INTO accounting_period (id, kind, year, sub, state) \
+         VALUES ($1, 'month', $2, $3, 'open') ON CONFLICT DO NOTHING",
+    )
+    .bind(&period_id).bind(年).bind(月)
+    .execute(&mut **tx)
+    .await
+    .db()?;
+    // 建过了但被人关掉的情况：如实报错，不把账偷偷记进一个关了的期间
+    let 状态: String = sqlx::query_scalar(
+        "SELECT state FROM accounting_period WHERE id=$1",
+    ).bind(&period_id).fetch_one(&mut **tx).await.db()?;
+    if 状态 != "open" {
+        return Err(DomainError::Conflict(format!(
+            "会计期间 {period_id} 是 {状态}，这笔账没有地方落"
+        )));
+    }
+    Ok(period_id)
+}
+
+/// 给一笔已付的订单记销售分录。
+///
+/// 【总账里一笔销售分录都没有】（2026-09-03 五路评审 · 资金审计）。
+/// 整个后端只有 `post_refund_journal` 一个记账入口 ——
+/// 于是账上只剩冲销：`4001 主营业务收入` 是纯借方、`1001 银行存款` 是纯贷方，
+/// 月报的「本期收入」是【负数】。
+///
+/// 实测：`journal_entry` 里 `business_kind` 只有 `refund` 一种（1,094 条），
+/// 而真收进来的钱是 11,179 笔、¥1,260,903.20，一分钱都没入过账。
+///
+/// 更要紧的是 `close_period` 的守卫是「借 == 贷」，而退款分录自身是配平的 ——
+/// **一本缺了全部销售的账能被正常关掉**，之后再想改就只能走冲销。
+///
+/// 幂等与取期跟退款那条同一套：按 `business_ref_id` 判重、按入账时刻取当月、
+/// 期间关了就如实报错不偷偷记进去。
+pub async fn post_sale_journal(pool: &PgPool, order_id: &str) -> Result<(), DomainError> {
+    let mut tx = pool.begin().await.db()?;
+
+    let posted: Option<String> = sqlx::query_scalar(
+        "SELECT id FROM journal_entry WHERE business_kind='sale' AND business_ref_id=$1 LIMIT 1",
+    )
+    .bind(order_id)
+    .fetch_optional(&mut *tx)
+    .await
+    .db()?;
+    if let Some(existing) = posted {
+        tracing::debug!("finance · 订单 {order_id} 已挂账于 {existing}，跳过");
+        return Ok(());
+    }
+
+    /* 记的是【实收】不是应付。折扣、部分付款都让两者不等，
+       而进银行存款的只有实际收到的那些。 */
+    let row = sqlx::query(
+        "SELECT amount_paid_minor, currency, region FROM order_record WHERE id=$1",
+    )
+    .bind(order_id)
+    .fetch_optional(&mut *tx)
+    .await
+    .db()?;
+    let Some(o) = row else { return Ok(()) };
+    let amount: i64 = o.get("amount_paid_minor");
+    if amount <= 0 {
+        // 收到 0 元的单子没有账可记 —— 不是错误，就是没有
+        return Ok(());
+    }
+    let currency: String = o.get("currency");
+    let region: String = o.get("region");
+
+    let period_id = 当月账期(&mut tx).await?;
+
+    let entry_id = new_id("je");
+    sqlx::query(
+        r#"INSERT INTO journal_entry(id, period_id, description, posted_by_kind,
+                                     business_kind, business_ref_id, status, region)
+           VALUES ($1, $2, $3, 'system', 'sale', $4, 'posted', $5)"#,
+    )
+    .bind(&entry_id)
+    .bind(&period_id)
+    .bind(format!("订单 {order_id} 收款"))
+    .bind(order_id)
+    .bind(&region)
+    .execute(&mut *tx)
+    .await
+    .db()?;
+
+    // 借银行存款、贷主营业务收入 —— 跟退款那条正好相反
+    sqlx::query(
+        r#"INSERT INTO journal_line(id, entry_id, line_no, account_code,
+                                    debit_minor, credit_minor, currency, ref_kind, ref_id, note) VALUES
+             ($1, $2, 1, '1001', $3, 0, $4, 'order', $5, '银行存款流入'),
+             ($6, $2, 2, '4001', 0, $3, $4, 'order', $5, '主营业务收入')"#,
+    )
+    .bind(new_id("jl"))
+    .bind(&entry_id)
+    .bind(amount)
+    .bind(&currency)
+    .bind(order_id)
+    .bind(new_id("jl"))
+    .execute(&mut *tx)
+    .await
+    .db()?;
+
+    tx.commit().await.db()?;
+    tracing::info!("finance · 销售分录 {entry_id} posted：收 ¥{}", amount as f64 / 100.0);
+    Ok(())
+}
+
 pub async fn post_refund_journal(pool: &PgPool, refund_id: &str) -> Result<(), DomainError> {
     let mut tx = pool.begin().await.db()?;
 
@@ -40,7 +171,14 @@ pub async fn post_refund_journal(pool: &PgPool, refund_id: &str) -> Result<(), D
         return Ok(());
     }
 
-    let row = sqlx::query("SELECT order_id, payment_id, amount_minor, currency FROM refund WHERE id=$1")
+    /* 【只给真退出去的钱记账】（2026-09-03 五路评审 · 资金审计）。
+       上一版这条 SELECT 不看 `status` —— 本文件别处每一条都带状态守卫，
+       只有它没有。库里因此有 3 条为 `failed` / `cancelled` 退款记的分录，
+       ¥287 的现金流出记在账上而钱根本没退出去。 */
+    let row = sqlx::query(
+        "SELECT order_id, payment_id, amount_minor, currency FROM refund \
+         WHERE id=$1 AND status IN ('success','refunded')",
+    )
         .bind(refund_id)
         .fetch_optional(&mut *tx)
         .await
@@ -62,29 +200,7 @@ pub async fn post_refund_journal(pool: &PgPool, refund_id: &str) -> Result<(), D
        `ON CONFLICT DO NOTHING` 配 uq_accounting_period(kind, year, sub) ——
        并发两笔同时入账不会建出两个同名期间。
        建出来的是 `open`;关账仍然是人的动作，这里只保证账有地方落。 */
-    let 现在 = chrono::Utc::now();
-    let (年, 月) = {
-        use chrono::Datelike;
-        (现在.year(), 现在.month() as i32)
-    };
-    let period_id = format!("period-{年}-{:02}", 月);
-    sqlx::query(
-        "INSERT INTO accounting_period (id, kind, year, sub, state) \
-         VALUES ($1, 'month', $2, $3, 'open') ON CONFLICT DO NOTHING",
-    )
-    .bind(&period_id).bind(年).bind(月)
-    .execute(&mut *tx)
-    .await
-    .db()?;
-    // 建过了但被人关掉的情况:如实报错，不把账偷偷记进一个关了的期间
-    let 状态: String = sqlx::query_scalar(
-        "SELECT state FROM accounting_period WHERE id=$1",
-    ).bind(&period_id).fetch_one(&mut *tx).await.db()?;
-    if 状态 != "open" {
-        return Err(DomainError::Conflict(format!(
-            "会计期间 {period_id} 是 {状态}，这笔账没有地方落"
-        )));
-    }
+    let period_id = 当月账期(&mut tx).await?;
 
     let entry_id = new_id("je");
     sqlx::query(

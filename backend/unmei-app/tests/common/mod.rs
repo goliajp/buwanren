@@ -371,3 +371,28 @@ pub async fn outbox_count(pool: &PgPool, kind: &str, aggregate_id: &str) -> i64 
 pub async fn order_status(pool: &PgPool, order_id: &str) -> Option<String> {
     scalar_string(pool, "SELECT status FROM order_record WHERE id=$1", order_id).await
 }
+
+/// 把当月会计期扶成 `open`。
+///
+/// 【测试之间共享的全局状态要自己扶正，不能指望跑的顺序】。
+/// `关了之后退款账就落不进去了` 那条会把当月关掉（那正是它的断言），
+/// 而记账那几条并行跑时会撞上「这笔账没有地方落」。
+#[allow(dead_code)]
+pub async fn 确保当月开着(pool: &PgPool) {
+    // 跟 `关了之后退款账就落不进去了` 抢同一个月 —— 用同一把锁排队
+    let mut 连 = pool.acquire().await.expect("拿连接");
+    sqlx::query("SELECT pg_advisory_lock(90903001)")
+        .execute(&mut *连).await.expect("拿锁");
+    use chrono::Datelike;
+    let 现在 = chrono::Utc::now();
+    let id = format!("period-{}-{:02}", 现在.year(), 现在.month());
+    sqlx::query(
+        "INSERT INTO accounting_period(id, kind, year, sub, state, region)
+         VALUES ($1, 'month', $2, $3, 'open', 'cn')
+         ON CONFLICT (id) DO UPDATE SET state='open', closed_at=NULL",
+    )
+    .bind(&id).bind(现在.year()).bind(现在.month() as i32)
+    .execute(pool).await.expect("扶正当月账期");
+    sqlx::query("SELECT pg_advisory_unlock(90903001)")
+        .execute(&mut *连).await.expect("放锁");
+}

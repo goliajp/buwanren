@@ -1398,11 +1398,22 @@ async fn monthly_report(
         r#"SELECT ac.code, ac.name, ac.kind,
                   COALESCE(SUM(jl.debit_minor),0)::int8 AS debit,
                   COALESCE(SUM(jl.credit_minor),0)::int8 AS credit
+           /* 【期间条件要挂在 jl 那一层】（2026-09-03 五路评审 · 资金审计）。
+              上一版把 period/region 挂在【第二层】LEFT JOIN 的 ON 上 ——
+              `jl` 已经无条件全表进来了，那些条件只能让 `je` 变 NULL，
+              聚合的仍是全量。实测：换任何 period（连不存在的）
+              这张表都返回同一个数，而同屏的 KPI（走 INNER JOIN）是对的，
+              两个数差 33 倍。而试算表恰恰是财务用来判断「这一期平不平」的那张。
+
+              改成子查询：先把本期本区的分录行圈出来，再跟科目表对齐。 */
            FROM account_chart ac
-           LEFT JOIN journal_line jl ON jl.account_code = ac.code
-           LEFT JOIN journal_entry je ON je.id = jl.entry_id
-             AND je.period_id=$1 AND je.status='posted'
-             AND ($2::text IS NULL OR je.region=$2)
+           LEFT JOIN (
+             SELECT jl.account_code, jl.debit_minor, jl.credit_minor
+               FROM journal_line jl
+               JOIN journal_entry je ON je.id = jl.entry_id
+              WHERE je.period_id=$1 AND je.status='posted'
+                AND ($2::text IS NULL OR je.region=$2)
+           ) jl ON jl.account_code = ac.code
            GROUP BY ac.code, ac.name, ac.kind
            ORDER BY ac.code"#,
     ).bind(&period_id).bind(&region).fetch_all(&st.db).await.map_err(map_db)?;
@@ -1411,7 +1422,12 @@ async fn monthly_report(
     let kpi: (i64, i64, i64, i64) = sqlx::query_as(
         r#"SELECT
             COALESCE(SUM(CASE WHEN ac.code IN ('4001','4002','4003') THEN jl.credit_minor - jl.debit_minor END), 0)::int8 AS revenue,
-            COALESCE(SUM(CASE WHEN ac.code = '5003' THEN jl.debit_minor - jl.credit_minor END), 0)::int8 AS refund,
+            /* 【退款读的科目跟记账写的对不上】（2026-09-03）。
+               上一版读 `5003 退款损失`，而 `post_refund_journal` 写的是
+               `4001` 的借方（收入冲销）—— `5003` 一行都没有，
+               于是「本期退款」恒为 0，而库里 1,094 条退款分录明明在那儿。
+               改成读 4001 的借方：那正是冲销掉的收入。 */
+            COALESCE(SUM(CASE WHEN ac.code = '4001' THEN jl.debit_minor END), 0)::int8 AS refund,
             COALESCE(SUM(CASE WHEN ac.code = '4002' THEN jl.credit_minor - jl.debit_minor END), 0)::int8 AS shipping_revenue,
             COALESCE(SUM(CASE WHEN ac.code = '5002' THEN jl.debit_minor - jl.credit_minor END), 0)::int8 AS shipping_cost
           FROM journal_entry je JOIN journal_line jl ON jl.entry_id=je.id
