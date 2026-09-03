@@ -9,7 +9,7 @@
       "/v1/payments/:x": "单笔支付详情。订单详情（GET /v1/orders/:id）里已经带 payments 数组，客户端拿得到，不必再要一条"
     },
     "后台 → unmei-admin-api": {
-      "/admin/commerce/products/:x/skus": "商品下的 SKU 列表。后台商品页现在按商品维度管，展开到 SKU 那一层还没做"
+      "/admin/commerce/products/:x/skus": "商品下的 SKU 列表。**这一条是重复的，不是欠账** —— 详情那条（GET /admin/commerce/products/:id）本来就带着 skus 一起回来，后台商品抽屉里那张 SKU 表读的就是它（Products.tsx 的 `const { product, skus } = data`）。理由原先写的是「展开到 SKU 那一层还没做」，而那一层早就做了 —— 跟 /v1/payments/:x 同一种情况:上层已经带够了，不必再要一条。（2026-09-04 逐条核台账时改）"
     }
   },
   "封装在没有页面用": {}
