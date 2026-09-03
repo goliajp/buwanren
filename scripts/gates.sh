@@ -464,6 +464,14 @@ if curl -sf http://127.0.0.1:6029/admin/health >/dev/null 2>&1; then
     skip "幽灵 id 的写操作不许说成功" "业务 API（:6028）没起，跳过 —— 这一项【没验】"
   fi
   gate "admin 控制台 · 逐页走"  . bash scripts/webadmin-verify.sh
+  # 【25 计划 · 横切验收】。上面那些门禁各守一条规矩，而它守的是
+  # 「两个管理员加五个用户，这套东西整个用得起来吗」——
+  # 清零、种人、办事、逐屏走，全走真接口（见 docs/ACCEPTANCE-25.md）。
+  #
+  # 这里跑的是【不带截图那一档】：截图与逐页走要十几分钟，
+  # 而它们各自已经由上面那两支门禁守着（截屏 33 屏 / 控制台逐页走）。
+  # 完整的一轮由人手动跑:`bash scripts/plan25.sh all`。
+  gate "25 计划 · 两个管理员五个用户" . env PLAN25_NO_SHOTS=1 bash scripts/plan25.sh all
   # 通知条得在真浏览器里看才算数：它是 8 秒 TTL 的东西，接口层看不见。
   # 通知条那一支现在由 `webadmin-verify.sh` 带着跑（vite 在那儿起着），
   # 不再单独跑一遍 —— 单独跑要另起一个 vite，而它此前【只在本机】跑，
