@@ -82,10 +82,40 @@ if rid:
                   {'action': 'known_fee', 'note': '审计门禁'}, token)
     用例.append(('record.resolve', 码, 体))
 
+# 【三条盖不住十八个写操作】（2026-09-04）。上面三条各打一个域：
+# 券、订单、对账。而留痕是中间件按【路径最后三段】认出「域.动作」的 ——
+# 三个域都能过，不代表第四个域的路径认得出来。
+# 再补四个域：物流、支付、风控、商品。加一条就多守一个域。
+
+# ④ 标一张真运单的物流异常（POST /shipments/:id/mark-exception）
+sid = psql("SELECT id FROM shipment WHERE status <> 'delivered' LIMIT 1")
+if sid:
+    码, 体 = http(f'/admin/commerce/shipments/{sid}/mark-exception', 'POST',
+                  {'reason': '审计门禁'}, token)
+    用例.append(('shipment.mark-exception', 码, 体))
+
+# ⑤ 商品上下架（POST /products/:id/listing）—— 改回原状，见下面
+pid = psql("SELECT id FROM product WHERE status='listed' LIMIT 1")
+if pid:
+    码, 体 = http(f'/admin/commerce/products/{pid}/listing', 'POST',
+                  {'status': 'listed'}, token)   # 原样写回，不改变任何东西
+    用例.append(('product.listing', 码, 体))
+
+# ⑥ 风控规则开关（POST /risk/rules/:id/state）—— 同样原样写回
+rid2 = psql("SELECT id FROM risk_rule LIMIT 1")
+if rid2:
+    st = psql(f"SELECT status FROM risk_rule WHERE id='{rid2}'")
+    if st:
+        码, 体 = http(f'/admin/commerce/risk/rules/{rid2}/state', 'POST',
+                      {'status': st}, token)
+        用例.append(('rule.state', 码, 体))
+
 成功的 = [(名, 码) for 名, 码, _ in 用例 if 200 <= 码 < 300]
 # 【一条都没成就不算数】。库空了、路由改了，上面每一条都会跳过，
 # 而那跟「全都留痕了」长得一模一样。
-if len(成功的) < 2:
+# 【下限跟着探针数走】。原先是 2，而现在有六条 ——
+# 只要下限还是 2，掉四条也照样过，那正是「探到的太少却看着像全过」。
+if len(成功的) < 4:
     print(f'✗ {len(用例)} 条写操作里只成功了 {len(成功的)} 条 —— 这一支现在什么都没验到：')
     for 名, 码, 体 in 用例:
         print(f'    {名} → HTTP {码}  {体[:80]}')

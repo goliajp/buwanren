@@ -32,6 +32,34 @@ use crate::state::AppState;
 ///
 /// 【路径就是这件事本身】——不额外维护一张「路由 → 动作名」的表:
 /// 那张表会跟路由脱节，而脱节的那天没有人会发现（漏记不报错）。
+/// 这一段是不是一个 id（相对于「是一个动作名」）。
+///
+/// 【判据是「它是不是动作名」，不是「它长什么样」】。
+/// 试过按形状认（`<前缀>-<uuid>`），而那要求 id 足够长 ——
+/// 于是 id 的长度成了这段代码的前提，而那是会变的东西：
+/// 短 id（`rfd-123`、`pb-9`）当场认不出来。
+///
+/// 动作名是**这个后台自己定的一小撮词**，而 id 是别的一切。
+/// 加一条新路由时，如果它的动作名不在这张表里，
+/// 单元测试 `id的形状认得准` 会当场红 —— 那时把它加进来。
+fn 是个id(段: &str) -> bool {
+    !动作名(段)
+}
+
+/// 后台路径里出现过的动作名。**加路由时要跟着加**。
+///
+/// 写成一张明表而不是一条正则:正则认的是形状，
+/// 而这里要认的是「这个词是不是我们定的动作」——
+/// 上一版拿「带不带短横」当形状判据，`mark-exception` 当场被当成了 id。
+fn 动作名(段: &str) -> bool {
+    const 动作: &[&str] = &[
+        "annotate", "cancel", "retry", "approve", "deny", "resolve", "close",
+        "state", "listing", "publish", "expire", "ban", "checkin", "batch",
+        "mark-failed", "mark-exception", "assign-tracking", "skus", "registrations",
+    ];
+    动作.contains(&段)
+}
+
 fn 认出来(路径: &str) -> Option<(String, Option<String>, Option<String>)> {
     let 段: Vec<&str> = 路径.trim_start_matches('/').split('/').collect();
     // /admin/commerce/<域>/<id>/<动作>  或  /admin/commerce/<域>
@@ -60,9 +88,27 @@ fn 认出来(路径: &str) -> Option<(String, Option<String>, Option<String>)> {
         // 三段以上:最后一段是动作还是 id?
         _ => {
             let 末 = 余[n - 1];
-            // 末段像个 id（带前缀短横或长得像 uuid）就是 <域>/<动作>/<id>
-            let 末像id = 末.contains('-') || 末.len() > 20;
-            if 末像id && n == 3 {
+            /* 【要看的是【中间】那一段，不是最后一段】
+               （2026-09-04 审计门禁补探针时抓到）。
+
+               三段的两种形状，差别在中间：
+                 · `<域>/<id>/<动作>`   —— 中间是 id
+                 · `<域>/<动作>/<id>`   —— 中间是动作（`pricing/expire/<id>`）
+
+               上一版拿【最后一段】判，判据是 `末.contains('-')` ——
+               而这个后台的动作名是 kebab-case 的:`mark-exception`、
+               `assign-tracking` 都带短横，于是它们被当成 id，
+               走进第二种形状，把【运单号】写成了动作名。
+               库里实测:`shipment.shp-e2-fe1beb42803e` 两条。
+               留痕的全部意义是「谁改了什么」，而那两条的「什么」
+               是一个每次都不一样的号 —— 按动作查是查不到的，看着却像有记录。
+
+               改看中间那一段之后，两种形状各自成立，
+               而且不再依赖「id 有多长」这种会变的事：
+               动作名在中间时是一个词，id 在中间时有 `<前缀>-<uuid>` 的形状。 */
+            let 中间是id = n == 3 && 是个id(余[1]);
+            if n == 3 && !中间是id {
+                // `<域>/<动作>/<id>`
                 Some((format!("{}.{}", 域(0)?, 余[1]), 域(0), Some(末.to_string())))
             } else {
                 // <…>/<域>/<对象>/<动作>
@@ -176,7 +222,7 @@ pub async fn 留痕(
 
 #[cfg(test)]
 mod tests {
-    use super::认出来;
+    use super::{认出来, 是个id, 动作名};
 
     #[test]
     fn 从路径认出域和动作() {
@@ -217,5 +263,75 @@ mod tests {
     fn 不是后台的路径不认() {
         assert_eq!(认出来("/v1/orders"), None);
         assert_eq!(认出来("/health"), None);
+    }
+
+    /// 【动作名带短横，不是 id】（2026-09-04）。
+    ///
+    /// 上一版判据是 `末.contains('-')`，而这个后台的动作名是 kebab-case 的 ——
+    /// 于是 `mark-exception` 被当成 id，把【运单号】写成了动作名。
+    /// 库里实测两条 `shipment.shp-e2-fe1beb42803e`：
+    /// 按动作查是查不到的，看着却像有记录。
+    #[test]
+    fn 带短横的动作名不许被当成id() {
+        let (动作, 域, 对象) = 认出来("/admin/commerce/shipments/shp-abc123def456/mark-exception").unwrap();
+        assert_eq!(动作, "shipment.mark-exception", "动作名被写成了别的东西");
+        assert_eq!(域.as_deref(), Some("shipment"));
+        assert_eq!(对象.as_deref(), Some("shp-abc123def456"));
+
+        let (动作, _, _) = 认出来("/admin/commerce/shipments/shp-abc123def456/assign-tracking").unwrap();
+        assert_eq!(动作, "shipment.assign-tracking");
+    }
+
+    /// 反面：动作【真的】在中间那一种（`<域>/<动作>/<id>`）仍要认得出来。
+    /// 定价那条就是这个形状:`/pricing/expire/<id>`。
+    #[test]
+    fn 动作在中间那一种照旧认得出() {
+        let (动作, 域, 对象) = 认出来("/admin/commerce/pricing/expire/pb-abc123def456").unwrap();
+        assert_eq!(动作, "pricing.expire");
+        assert_eq!(域.as_deref(), Some("pricing"));
+        assert_eq!(对象.as_deref(), Some("pb-abc123def456"));
+    }
+
+    /// 【路径里每一个动作名都要在那张表里】。
+    ///
+    /// 不在的话，`<域>/<id>/<动作>` 这种路径会被认成
+    /// `<域>/<动作>/<id>`，动作名就成了那个 id ——
+    /// 库里实测过两条 `shipment.shp-e2-fe1beb42803e`。
+    ///
+    /// 这条测试直接从【路由表】里把动作名抠出来比，
+    /// 所以加一条新路由而忘了加动作名时，它当场红。
+    #[test]
+    fn 路由表里的动作名一个都不许漏() {
+        let 路由 = include_str!("routes/commerce.rs");
+        let mut 漏了 = vec![];
+        for 行 in 路由.lines() {
+            let Some(i) = 行.find(".route(\"") else { continue };
+            let 剩 = &行[i + 8..];
+            let Some(j) = 剩.find('"') else { continue };
+            let 路径 = &剩[..j];
+            let 段: Vec<&str> = 路径.trim_start_matches('/').split('/').collect();
+            // 只看「最后一段不是 :参数」的那些 —— 那一段就是动作名
+            if let Some(末) = 段.last() {
+                if !末.starts_with(':') && 段.len() >= 4 && 段[段.len() - 2].starts_with(':')
+                    && !动作名(末)
+                {
+                    漏了.push(format!("{路径} → 「{末}」不在动作名表里"));
+                }
+            }
+        }
+        assert!(漏了.is_empty(), "这些动作名会被当成 id：\n  {}", 漏了.join("\n  "));
+    }
+
+    #[test]
+    fn 动作名一个都不许被当成id() {
+        for 动作 in ["mark-exception", "assign-tracking", "mark-failed", "close",
+                     "resolve", "retry", "approve", "deny", "listing", "state",
+                     "annotate", "cancel", "publish", "checkin", "ban", "batch"] {
+            assert!(!是个id(动作), "「{动作}」被当成了 id");
+        }
+        // 反过来:id 就该是 id
+        assert!(是个id("ord-4c739ef9-bef3-4fec-b7b0-1b2bec0ac7ac"));
+        assert!(是个id("rfd-123"));
+        assert!(是个id("pb-9"));
     }
 }
