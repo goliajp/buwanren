@@ -108,7 +108,7 @@ SQL
     say_bad "清零之后还剩 $n_left 个 P25 用户 —— 删不干净就别说清了"
     return 1
   fi
-  rm -f "$STATE"
+  rm -f "$STATE" "$STATE.checked"
   say_ok "清零：P25 的人与数据都没了（管理员与目录没动）"
 }
 
@@ -288,7 +288,10 @@ INSERT INTO price_book (id, sku_id, currency, price_minor, region, platform, sta
 VALUES ('p25-pb-oma-cn', 'p25-sku-oma-ayun', 'CNY', 9900, 'cn', 'all', 'active', NOW()),
        ('p25-pb-oma-hk', 'p25-sku-oma-ayun', 'CNY', 9900, 'hk', 'all', 'active', NOW()),
        ('p25-pb-box-cn', 'p25-sku-box',      'CNY', 8800, 'cn', 'all', 'active', NOW()),
-       ('p25-pb-box-hk', 'p25-sku-box',      'CNY', 8800, 'hk', 'all', 'active', NOW())
+       -- hk 那一档定得贵，为的是让种子里那条风控规则真命中
+       -- （`amount > 100000 AND user.age_days < 7`）——
+       -- 观察模式要看的就是「它会拦下什么」，而不命中的话那一整块验不到。
+       ('p25-pb-box-hk', 'p25-sku-box',      'CNY', 128000, 'hk', 'all', 'active', NOW())
 ON CONFLICT (id) DO UPDATE SET status='active';
 SQL
 }
@@ -417,6 +420,98 @@ want_some() { # 判非空 <说明> <实际>
   else n_bad=$((n_bad+1)); bad_list+=("$1"); printf '  \033[31m✗\033[0m %-46s 空的（%s）\n' "$1" "${2:-空}"; fi
 }
 
+# ── 管理员的一天 ───────────────────────────────────────────
+#
+# 【验收不是「看得见」，是「办得了」】。上面那些用例查的是数据在不在，
+# 而这一段是两个管理员真把这五个人的活儿办一遍 ——
+# 每一件都要在【用户那一侧】看得见结果，不然「后台点了一下」什么都不说明。
+#
+# 每一件都是真接口，没有 mock:后台本来就是给人点的，不需要替代谁。
+#
+# 【这一段会改状态，所以 check 只能在 seed 之后跑一遍】。
+# 批过的退款不会再是「等着批」，填过的运单号不会再是空的 ——
+# 第二遍跑就会红，而那个红说的是「你已经办过了」，不是「它坏了」。
+#
+# 两条路可选，这里选了后者：
+#   · 每一件都先把状态摆回去 —— 那等于验收自己在改数据，
+#     而「摆回去」这个动作本身没有人验，它出错的时候整段静静失真
+#   · **要重跑就重来一遍**（`plan25.sh all`）——
+#     清零重种是这套东西本来就有的能力，用它比另造一套回滚可靠
+#
+# 所以 `check` 不是幂等的，而 `all` 是。判据永远是 `all`。
+admin_call() {  # admin_call <方法> <token> <路径> [body]
+  local m=$1 t=$2 p=$3 b=${4:-}
+  if [ -n "$b" ]; then
+    curl -s -o /dev/null -w '%{http_code}' -X "$m" "${ADMIN}$p" \
+      -H "authorization: Bearer $t" -H 'content-type: application/json' -d "$b"
+  else
+    curl -s -o /dev/null -w '%{http_code}' -X "$m" "${ADMIN}$p" -H "authorization: Bearer $t"
+  fi
+}
+
+do_admin_day() {  # do_admin_day <阿超的 token> <U1..U5 的 id>
+  local A=$1 I1=$2 I2=$3 I4=$5 I5=$6
+  echo
+  echo "══ 阿超的一天 · 每一件都要在用户那一侧看得见 ══"
+
+  # ① 批掉 U4 那笔退款 —— 钱要真的退回去
+  local rid
+  rid=$(psql1 "SELECT r.id FROM refund r JOIN order_record o ON o.id=r.order_id
+                WHERE o.user_id='$5' AND r.status='requested' LIMIT 1")
+  if [ -n "$rid" ]; then
+    want "批一笔退款" 200 "$(admin_call POST "$A" "/admin/commerce/refunds/$rid/approve" '{}')"
+    want_some "用户那一侧退款到账了" "$(psql1 "SELECT COALESCE(amount_refunded_minor,0) FROM order_record
+                                              WHERE id=(SELECT order_id FROM refund WHERE id='$rid')")"
+  else
+    say_bad "没有等着批的退款 —— 这一件办不了（seed 没造出来？）"
+    n_bad=$((n_bad+1)); bad_list+=("批一笔退款")
+  fi
+
+  # ② 给 U4 的包裹填运单号 —— 用户在订单页要查得到物流
+  local sid
+  sid=$(psql1 "SELECT s.id FROM shipment s JOIN order_record o ON o.id=s.order_id
+                WHERE o.user_id='$5' AND s.status='in_transit' LIMIT 1")
+  if [ -n "$sid" ]; then
+    want "填一个运单号" 200 "$(admin_call POST "$A" "/admin/commerce/shipments/$sid/assign-tracking" '{"carrier_code":"sf","tracking_no":"P25ADMIN0001"}')"
+    want "用户查得到这个号" P25ADMIN0001 "$(psql1 "SELECT tracking_no FROM shipment WHERE id='$sid'")"
+  fi
+
+  # ③ 封掉 U1 再放开 —— 封了要真的进不来
+  want "封一个人" 200 "$(admin_call POST "$A" "/admin/users/$I1/ban" '{"banned":true,"reason":"25 计划验收"}')"
+  want "封了之后他真进不来" 403 "$(curl -s -o /dev/null -w '%{http_code}' "${API}/v1/user/me" -H "authorization: Bearer $(jq -r .u1.token "${STATE}")")"
+  want "放开他" 200 "$(admin_call POST "$A" "/admin/users/$I1/ban" '{"banned":false,"reason":"验收完了"}')"
+  want "放开之后他又进得来" 200 "$(curl -s -o /dev/null -w '%{http_code}' "${API}/v1/user/me" -H "authorization: Bearer $(jq -r .u1.token "${STATE}")")"
+
+  # ④ 结掉 U5 那个风控案子
+  local cid
+  cid=$(psql1 "SELECT id FROM risk_case WHERE involved_user_ids && ARRAY['$6'] AND state IN ('open','investigating') LIMIT 1")
+  if [ -n "$cid" ]; then
+    want "结一个风控案子" 200 "$(admin_call POST "$A" "/admin/commerce/risk/cases/$cid/state" '{"state":"resolved","note":"25 计划验收"}')"
+    want "案子真的结了" resolved "$(psql1 "SELECT state FROM risk_case WHERE id='$cid'")"
+  else
+    say_dim "U5 没有风控案子（那条规则的阈值是 ¥1000，而他买的没到）—— 这一件跳过"
+  fi
+
+  # ⑤ 给 U1 发一张券 —— 他手里要真的多一张
+  # 【JSON 用 jq 生成，不手拼】。手拼那一版里 `\"$code\"` 的转义
+  # 经过一层函数参数之后就不是原来那个样子了，接口回 422 ——
+  # 而 422 读起来像「后端不收这个字段」，跟「我拼错了」完全是两件事。
+  local code body
+  code="P25$(date +%s)$RANDOM"
+  body=$(jq -n --arg c "$code" --arg u "$I1" \
+    '{code:$c, benefit_json:{pct_off_bps:1000}, expires_at:"2027-01-01T00:00:00Z", owner_user_id:$u}')
+  want "发一张券" 200 "$(admin_call POST "$A" '/admin/commerce/coupons' "$body")"
+  want_some "他手里真的多了一张" "$(psql1 "SELECT count(*) FROM coupon WHERE code='$code' AND owner_user_id='$I1'")"
+
+  # ⑥ 给 U4 的单加一条备注 —— 留痕里要查得到
+  local oid
+  oid=$(psql1 "SELECT id FROM order_record WHERE user_id='$5' LIMIT 1")
+  if [ -n "$oid" ]; then
+    want "给一张单加备注" 200 "$(admin_call POST "$A" "/admin/commerce/orders/$oid/annotate" '{"note":"25 计划验收留的"}')"
+    want_some "这件事留下了痕" "$(psql1 "SELECT count(*) FROM audit_log WHERE action='order.annotate' AND target_id='$oid'")"
+  fi
+}
+
 do_check() {
   [ -f "$STATE" ] || { say_bad "没有名册（${STATE}）—— 先 seed"; exit 2; }
   local T1 T2 T3 T4 T5 I1 I2 I3 I4 I5
@@ -478,6 +573,8 @@ do_check() {
   local root_sees
   root_sees=$(curl -s "$ADMIN/admin/users?size=200&q=P25" -H "authorization: Bearer $A_root" | jq -r '.total')
   want_some "阿超看得见 P25 的人" "$root_sees"
+
+  do_admin_day "$A_root" "$I1" "$I2" "$I3" "$I4" "$I5"
 
   echo
   if [ "$n_bad" = 0 ]; then say_ok "25 计划 · $n_ok 条都过了"; else
