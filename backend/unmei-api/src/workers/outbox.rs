@@ -84,17 +84,34 @@ async fn dispatch_once(st: &AppState) -> anyhow::Result<()> {
         let payload: Value = r.try_get("payload_json").unwrap_or(Value::Null);
         let attempt: i32 = r.try_get("attempt_count")?;
 
-        let outcome: Result<(), String> = handle_event(st, &kind, &payload).await
-            .map_err(|e| e.to_string());
+        let outcome = handle_event(st, &payload).await;
 
         match outcome {
+            /* 【解析不出来 ≠ 处理成功】（2026-09-04）。
+               上一版这一支返回 `Ok(())`，于是它跟真做完的事写同一个
+               `dispatched` —— 库里 33,956 条全是这个状态，
+               而其中有几条是「形状变了、根本没人看懂」，分不出来。
+
+               枚举里本来就有 `OutboxStatus::Dropped`，后台那条重推路由
+               也明写着接受 `('failed','dropped')`（outbox_ops.rs）——
+               也就是说「丢掉的事件可以被人看见、可以重推」这件事
+               早就设计好了，只差没有人写那个状态。
+               又一处「声明了、没有路走到」。 */
+            Err(Dispatch::看不懂(e)) => {
+                sqlx::query(
+                    "UPDATE outbox_event SET status='dropped', attempt_count = attempt_count + 1,
+                       last_error=$2 WHERE id=$1",
+                ).bind(&id).bind(&e).execute(&st.db).await?;
+                tracing::warn!(kind, error = %e,
+                    "outbox · 事件解析不出来，标为 dropped —— 事件形状可能变了，后台可以重推");
+            }
             Ok(()) => {
                 sqlx::query(
                     "UPDATE outbox_event SET status='dispatched', attempt_count = attempt_count + 1 WHERE id=$1",
                 ).bind(&id).execute(&st.db).await?;
                 tracing::debug!("outbox · {kind} OK");
             }
-            Err(e) => {
+            Err(Dispatch::出错(e)) => {
                 let next_attempt = attempt + 1;
                 if next_attempt >= MAX_ATTEMPTS {
                     sqlx::query(
@@ -117,7 +134,29 @@ async fn dispatch_once(st: &AppState) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn handle_event(st: &AppState, kind: &str, payload: &Value) -> anyhow::Result<()> {
+/// 派发一条事件的结果。
+///
+/// 两种失败要分开：**做的时候出错**该重试（渠道抖了、库忙），
+/// 而**根本看不懂**重试多少次都是同一个结果 —— 它要的是有人来看一眼。
+/// 写成同一种的话，前者会被当成永久失败，后者会被当成成功。
+enum Dispatch {
+    /// 处理器自己报的错。走退避重试，五次之后 `failed`。
+    出错(String),
+    /// payload 反序列化不出来 —— 事件形状变了。直接 `dropped`，等人来看。
+    看不懂(String),
+}
+
+/// 处理器里的 `?` 自然落进「出错」那一支 —— 它们报的都是「做的时候出了事」。
+/// 「看不懂」只有一个来源（反序列化那一处），显式构造，不走这条。
+impl From<anyhow::Error> for Dispatch {
+    fn from(e: anyhow::Error) -> Self {
+        Dispatch::出错(e.to_string())
+    }
+}
+
+/// `kind` 不再传进来:解析出来的 `DomainEvent` 自己就说了它是什么，
+/// 而库里那一列只是给人看的索引。派发那一层记日志时仍然用它。
+async fn handle_event(st: &AppState, payload: &Value) -> Result<(), Dispatch> {
     // outbox::write 把整个 DomainEvent (含 kind+payload) 序列化进 payload_json,
     // 直接 from_value 即可
     let ev: Result<DomainEvent, _> = serde_json::from_value(payload.clone());
@@ -142,7 +181,7 @@ async fn handle_event(st: &AppState, kind: &str, payload: &Value) -> anyhow::Res
             app_fulfillment::apply_order_paid(&st.db, &order_id)
                 .await
                 .map(|_| ())
-                .map_err(|e| anyhow::anyhow!("apply_order_paid {order_id}: {e}"))
+                .map_err(|e| Dispatch::出错(format!("apply_order_paid {order_id}: {e}")))
         }
         Ok(DomainEvent::OrderFulfilled { order_id, .. }) => {
             tracing::info!("event · OrderFulfilled {order_id} · 用户应已被通知");
@@ -153,13 +192,13 @@ async fn handle_event(st: &AppState, kind: &str, payload: &Value) -> anyhow::Res
             Ok(())
         }
         Ok(DomainEvent::RefundCompleted { refund_id, .. }) => {
-            handle_refund_completed(st, &refund_id).await
+            handle_refund_completed(st, &refund_id).await.map_err(Dispatch::from)
         }
         Ok(DomainEvent::ShipmentDelivered { shipment_id, order_id, .. }) => {
             app_fulfillment::apply_shipment_delivered(&st.db, &shipment_id, &order_id)
                 .await
                 .map(|_| ())
-                .map_err(|e| anyhow::anyhow!("apply_shipment_delivered {shipment_id}: {e}"))
+                .map_err(|e| Dispatch::出错(format!("apply_shipment_delivered {shipment_id}: {e}")))
         }
         /* 剩下 25 种都是**特意**不做事的：它们记的是已经发生过的事实，
            副作用在写入那一侧就做完了。
@@ -207,8 +246,7 @@ async fn handle_event(st: &AppState, kind: &str, payload: &Value) -> anyhow::Res
                同一个仓库对「不认识的事件」本来就有做法：`apply_payment_webhook`
                用的是 `warn` + 事件内容。这里照它来。
                仍然返回 Ok：让它无限重试只会把队列堵死，而这不是重试能解决的事。 */
-            tracing::warn!(kind, error = %e, "outbox · 事件解析不出来，按已处理丢弃 —— 事件形状可能变了");
-            Ok(())
+            Err(Dispatch::看不懂(e.to_string()))
         }
     }
 }
