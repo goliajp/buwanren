@@ -151,6 +151,15 @@ export const commerce = {
   setUserBan: (id: string, banned: boolean, reason: string) =>
     api.post(`/users/${id}/ban`, { banned, reason }),
   listAudit: (p: any) => api.get<PageRes<any>>('/commerce/audit' + qs(p)),
+
+  /* 线下活动。【`/admin/activities` 这条接口一直在，而控制台里没有页面】
+     （2026-09-03 五路评审 · 架构审计）——一条服务不了任何人的路由。
+     名单与签到那两条是这一次新加的：报名这条链原先整个不存在。 */
+  listActivities: () => api.get<{ items: any[] }>('/activities'),
+  listRegistrations: (id: string) =>
+    api.get<{ items: any[] }>(`/activities/${id}/registrations`),
+  checkInRegistration: (id: string) =>
+    api.post(`/activity-registrations/${id}/checkin`, {}),
   listReconBatches: (p: any) => api.get<PageRes<any>>('/commerce/recon/batches' + qs(p)),
   getReconBatch: (id: string) => api.get<any>(`/commerce/recon/batches/${id}`),
 
