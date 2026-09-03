@@ -73,8 +73,25 @@ const 去 = async (route, q) => {
   await p.waitForTimeout(2000)
 }
 
+/* 【可以指定用谁的身份走】（2026-09-04 · 25 计划）。
+   不给 `--token=` 就照旧匿名登录一个新人 —— 那个人什么都没有，
+   于是每一屏截到的都是空态。空态本来就是这个产品的主设计，该截；
+   但**只截空态等于只验了一半**：满态那一半（村里有人、买过东西、
+   问过签、包裹在途）一张图都没有。
+
+   25 计划的五个人各是一种状态，带着他们的 token 各走一遍，
+   两半就都在了。 */
+const TOKEN = arg('token', '')
+if (TOKEN) {
+  await 去('pages/village/index')
+  await p.evaluate((t) => {
+    localStorage.setItem('unmei:buwanren:token', JSON.stringify(t))
+  }, TOKEN)
+  console.log('· 用给定的身份走（--token）')
+}
+
 // 打真后端时先热一下、拿到 token，否则截出来全是「取不到」
-if (API) {
+if (API && !TOKEN) {
   for (let i = 0; i < 20; i++) {
     try { if ((await fetch(API + '/v1/auth/anonymous', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })).ok) break } catch {}
     await new Promise((r) => setTimeout(r, 400))
