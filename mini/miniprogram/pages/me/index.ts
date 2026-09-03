@@ -10,6 +10,7 @@ import { storage } from '../../services/storage'
 import { mineApi } from '../../services/mine'
 import { natalApi } from '../../services/natal'
 import { commerceApi } from '../../services/commerce'
+import { activityApi } from '../../services/activity'
 import type { ApiError } from '../../services/api'
 import { 一句 } from '../../utils/say'
 import { 状态那一词, 该做什么 } from '../../utils/money'
@@ -35,8 +36,11 @@ interface IData {
   orderText: string
   badgeText: string
   subText: string
+  /** 「三场可去」/ 空串。空串时那一行不摆 —— 见下面 `hasActs` 的理由 */
+  actText: string
   /** 真订着东西没有。没有就不摆那一行 —— 空的那一屏只会说产品没做完 */
   hasSubs: boolean
+  hasActs: boolean
   /** 有单子时的那一笔；没有就是 null */
   recent: Recent | null
   /** 真的一笔都没有（区别于「还没取到」——后者不该显示「还没买过什么」） */
@@ -54,7 +58,9 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     orderText: '',
     badgeText: '',
     subText: '',
+    actText: '',
     hasSubs: false,
+    hasActs: false,
     recent: null,
     recentEmpty: false,
     recentNote: '',
@@ -95,6 +101,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
   goOrders() { wx.navigateTo({ url: '/pages/orders/index' }) },
   goBadges() { wx.navigateTo({ url: '/pages/badges/index' }) },
   goSubs() { wx.navigateTo({ url: '/pages/subs/index' }) },
+  goActivity() { wx.navigateTo({ url: '/pages/activity/index' }) },
   goSettings() { wx.navigateTo({ url: '/pages/settings/index' }) },
   goVillage() { wx.switchTab({ url: '/pages/village/index' }) },
 
@@ -132,6 +139,18 @@ Page<IData, WechatMiniprogram.IAnyObject>({
        （2026-09-01 五路评审 · 工程审计）。
        该看的是【村里有没有可订的】，不是「你订过没有」。
        两样都取不到就不摆这一行 —— 那时它确实无处可去。 */
+    /* 【真有场次才摆这一行】——跟「订着的」同一条规矩。
+       活动是线下办的，没有的时候点进去只会说「这阵子没有活动」，
+       而它跟另外几行并排挂着，会把那几行的可信度一起拉低。
+       这一页的规矩是:一行要么通向一件真事，要么不在。 */
+    activityApi.list().then(
+      (场次) => this.setData({
+        actText: 场次.length ? 场次.length + ' 场可去' : '',
+        hasActs: 场次.length > 0,
+      }),
+      () => this.setData({ actText: '', hasActs: false }),
+    )
+
     Promise.all([
       mineApi.subscriptions().catch(() => null),
       commerceApi.products('service').catch(() => []),

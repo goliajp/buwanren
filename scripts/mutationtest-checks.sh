@@ -68,6 +68,12 @@ FILES=(
   # 而那种验证只存在于当时那次会话里,正是这支脚本存在的理由。
   mini/miniprogram/pages/order/index.ts
   .claude/design/product-v1.html
+  # 2026-09-03 五路评审补的四支变异碰到的文件
+  backend/unmei-app/src/actor.rs
+  backend/unmei-app/src/order.rs
+  scripts/dead-exports.json
+  webadmin/src/pages/Login.tsx
+  backend/unmei-api/src/routes/user.rs
   docs/REDESIGN.md
   backend/seed/art_leaf.sql
   # tsc 那条变异写在这个文件末尾。它必须在名单里 ——
@@ -586,6 +592,27 @@ mutate "新加一条没查角色的写操作" check-admin-roles \
 # 门禁只读文本），门禁必须报「这一条该划掉」。
 mutate "台账里那条忽然查起角色来了" check-admin-roles \
   "edit('backend/unmei-admin-api/src/routes/auth.rs', ') -> Result<Json<serde_json::Value>, ApiError> {\\n    let row = sqlx::query(', ') -> Result<Json<serde_json::Value>, ApiError> {\\n    admin.requires_role(\"super\")?;\\n    let row = sqlx::query(')"
+
+echo
+echo "── 2026-09-03 五路评审加的那几支 ──"
+# 【每一支门禁都该有一条变异守着】。这几支是这一轮加的 / 改的，
+# 而「加的那天手动验过一次」这种验证只存在于当时那次会话里 ——
+# 那正是这个脚本存在的理由（见文件头）。
+
+# 导出了而没人调:两个方向都要守
+mutate "新长一个零调用的导出" check-dead-exports \
+  "edit('backend/unmei-app/src/actor.rs', '    pub fn label(&self) -> String {', '    pub fn 谁也不调我() -> bool { true }\\n\\n    pub fn label(&self) -> String {')"
+mutate "台账里那条忽然有人调了" check-dead-exports \
+  "edit('backend/unmei-app/src/order.rs', 'pub async fn cancel(', 'fn _借它一用() -> bool { unmei_domain::commerce::money::Money::zero(unmei_domain::commerce::money::Currency::Cny).is_zero() }\\n\\npub async fn cancel(')"
+
+# 运营台文案:未翻译的英文
+mutate "后台屏上留一句没翻译的英文" check-webadmin-cn \
+  "edit('webadmin/src/pages/Login.tsx', '<span className=\"label text-ink-4 block mb-1\">邮箱</span>', '<span className=\"label text-ink-4 block mb-1\">email address</span>')"
+
+# 查询失败不许说成零
+# 变异不编译，门禁只读文本 —— 所以这里只要把「失败被吃掉」那个形状种进去。
+mutate "查询失败被当成零" check-silent-zero \
+  "edit('backend/unmei-api/src/routes/user.rs', ').bind(&claims.sub).fetch_one(&st.db).await?;', ').bind(&claims.sub).fetch_one(&st.db).await.ok().unwrap_or(0);')"
 
 echo
 echo "── tsc（类型）──"

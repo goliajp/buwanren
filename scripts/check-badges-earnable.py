@@ -28,6 +28,11 @@ ful = (根 / 'backend/unmei-app/src/fulfillment.rs').read_text(encoding='utf-8')
 # 履约那一侧:发的是 order.paid + count
 if 'Some("order.paid")' in ful and 'Some("count")' in ful:
     认得.add(('count', 'order.paid'))
+# 签到那一侧:activity.checkin + count（2026-09-03 报名这条链接上之后才有）。
+# 在那之前「到过场」是下架的 —— 因为它挂的动作全仓没有一处触发得了。
+act = (根 / 'backend/unmei-app/src/activity.rs').read_text(encoding='utf-8')
+if 'Some("activity.checkin")' in act and 'Some("count")' in act:
+    认得.add(('count', 'activity.checkin'))
 
 if not 认得:
     print('✗ 从代码里读不出发得出哪几种徽章 —— 这一支够不着要验的东西，不算通过')
