@@ -472,6 +472,10 @@ echo
 # 起因:后台看板十一个 KPI 全是 `.await.unwrap_or(0)`，
 # 而那一屏的读法建立在「零是好消息」上 —— 一次抖动就说「都清完了」。
 gate "查询失败不许说成零" . python3 scripts/check-silent-zero.py
+# 【索引存在跟用得上是两回事】——后台一半的页是「新的在最上面」，
+# 而 outbox_event 三万三千行按时间翻页曾是全表扫 + 落盘排序 12MB。
+# 这一支问 Postgres 自己怎么执行，不查 pg_indexes 里有没有那个名字。
+gate "后台列表页走不走索引" . python3 scripts/check-list-index.py
 gate "库里的中文标点" . python3 scripts/check-db-punct.py
 gate "钱的账目自洽吗" . python3 scripts/check-money-consistency.py
 
