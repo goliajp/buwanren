@@ -835,6 +835,21 @@ if (API) {
                     amount_paid_minor=amount_total_minor,
                     paid_at=COALESCE(paid_at, NOW())
              WHERE id='${oid}'`)
+        /* 【连那笔钱本身也要有】（2026-09-03 第二次修这里）。
+           上一次补的是金额 —— 订单从「已付 0 元」变成「已付 199 元」，
+           而支付表里仍旧一条记录都没有。库里因此攒着 1262 笔
+           「收到了钱、却查不到是哪一笔」的订单，从 08-16 到今天。
+
+           真实链路里订单转 paid 必然经过一笔 success 的 payment
+           （`payment.rs` 的 settle 是唯一那条路），所以夹具也要有。
+           少了它，退款、对账、财务这三条路径在夹具上全都走不通 ——
+           而它们正是这一轮补起来的东西。 */
+        run(`INSERT INTO payment(id, order_id, user_id, channel, amount_minor,
+                                 currency, status, paid_at, region)
+             SELECT 'pay-fx-' || substring(o.id from 5), o.id, o.user_id, 'wechat_mp',
+                    o.amount_total_minor, o.currency, 'success', NOW(), o.region
+               FROM order_record o WHERE o.id='${oid}'
+             ON CONFLICT (id) DO NOTHING`)
         const 真 = sql1(`SELECT id FROM report WHERE order_line_id='${line}'`)
         if (真) {
           册们[st] = { report: 真, order: oid }
@@ -998,6 +1013,16 @@ if (API) {
         + `amount_subtotal_minor,amount_total_minor,amount_paid_minor,status,`
         + `source_kind,region,paid_at) VALUES ('ord-e2-${尾}','${我是谁}','mini','CNY',`
         + `9900,9900,9900,'paid','one_shot','cn',NOW()) ON CONFLICT (id) DO NOTHING`,
+        /* 【标了已付就要有那笔钱】（2026-09-03）。
+           上一版只插订单，不插 payment —— 造出来的是一个真实链路
+           永远造不出的状态:订单说收到 9900 分，支付表里一条记录都没有。
+           每跑一轮攒一批，库里因此攒了三千多笔;而拿一个不可能的状态
+           跑出来的绿，说的不是真链路的事。
+           `check-money-consistency` 那一支盯着这个数。 */
+        `INSERT INTO payment(id,order_id,user_id,channel,amount_minor,currency,`
+        + `status,paid_at,region) VALUES ('pay-e2-${尾}','ord-e2-${尾}',`
+        + `'${我是谁}','wechat_mp',9900,'CNY','success',NOW(),'cn')`
+        + ` ON CONFLICT (id) DO NOTHING`,
         `INSERT INTO order_line(id,order_id,line_no,sku_id,sku_snapshot_json,`
         + `unit_price_minor,qty,line_subtotal_minor) VALUES ('ol-e2-${尾}','ord-e2-${尾}',1,`
         + `'${sku}','{"sku_name":"御守"}'::jsonb,9900,1,9900) ON CONFLICT (id) DO NOTHING`,
@@ -1138,6 +1163,16 @@ if (API) {
         + `amount_subtotal_minor,amount_total_minor,amount_paid_minor,status,`
         + `source_kind,region,paid_at) VALUES ('ord-m3-${尾}','${我是谁}','mini','CNY',`
         + `9900,9900,9900,'paid','one_shot','cn',NOW()) ON CONFLICT (id) DO NOTHING`,
+        /* 【标了已付就要有那笔钱】（2026-09-03）。
+           上一版只插订单，不插 payment —— 造出来的是一个真实链路
+           永远造不出的状态:订单说收到 9900 分，支付表里一条记录都没有。
+           每跑一轮攒一批，库里因此攒了三千多笔;而拿一个不可能的状态
+           跑出来的绿，说的不是真链路的事。
+           `check-money-consistency` 那一支盯着这个数。 */
+        `INSERT INTO payment(id,order_id,user_id,channel,amount_minor,currency,`
+        + `status,paid_at,region) VALUES ('pay-m3-${尾}','ord-m3-${尾}',`
+        + `'${我是谁}','wechat_mp',9900,'CNY','success',NOW(),'cn')`
+        + ` ON CONFLICT (id) DO NOTHING`,
         `INSERT INTO order_line(id,order_id,line_no,sku_id,sku_snapshot_json,`
         + `unit_price_minor,qty,line_subtotal_minor,fulfillment_status) VALUES `
         + `('ol-m3-${尾}','ord-m3-${尾}',1,'${sku2}','{"sku_name":"御守"}'::jsonb,`
@@ -1255,6 +1290,16 @@ if (API) {
         + `amount_subtotal_minor,amount_total_minor,amount_paid_minor,status,`
         + `source_kind,region,paid_at) VALUES ('ord-inc-${尾}','${我是谁}','mini','CNY',`
         + `2900,2900,2900,'paid','one_shot','cn',NOW()) ON CONFLICT (id) DO NOTHING`,
+        /* 【标了已付就要有那笔钱】（2026-09-03）。
+           上一版只插订单，不插 payment —— 造出来的是一个真实链路
+           永远造不出的状态:订单说收到 2900 分，支付表里一条记录都没有。
+           每跑一轮攒一批，库里因此攒了三千多笔;而拿一个不可能的状态
+           跑出来的绿，说的不是真链路的事。
+           `check-money-consistency` 那一支盯着这个数。 */
+        `INSERT INTO payment(id,order_id,user_id,channel,amount_minor,currency,`
+        + `status,paid_at,region) VALUES ('pay-inc-${尾}','ord-inc-${尾}',`
+        + `'${我是谁}','wechat_mp',2900,'CNY','success',NOW(),'cn')`
+        + ` ON CONFLICT (id) DO NOTHING`,
         `INSERT INTO order_line(id,order_id,line_no,sku_id,sku_snapshot_json,`
         + `unit_price_minor,qty,line_subtotal_minor) VALUES ('ol-inc-${尾}','ord-inc-${尾}',1,`
         + `'sku-verify-incense','{"sku_name":"校验香"}'::jsonb,2900,1,2900)`

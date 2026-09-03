@@ -158,7 +158,7 @@ function OrderActions({ order, onChanged }: { order: any; onChanged: () => void 
   });
   return (
     <>
-      <button className="btn btn-warn" disabled={!cancellable}
+      <button className="btn btn-debt" disabled={!cancellable}
         onClick={() => {
           const r = prompt('取消理由？'); if (r) cancelMut.mutate(r);
         }}><X size={13}/> 取消订单</button>

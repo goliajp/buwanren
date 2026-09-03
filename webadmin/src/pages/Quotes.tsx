@@ -100,7 +100,7 @@ export default function Quotes() {
                     <td><span className={statusClass(r.status)}>{statusLabel(r.status)}</span></td>
                     <td className="r font-mono text-xs text-ink-3">{ts(r.created_at)}</td>
                     <td className="r">
-                      <button onClick={() => archive.mutate(r.id)} className="btn-link text-xs hover:text-debt">归档</button>
+                      <button onClick={() => archive.mutate(r.id)} className="btn btn-ghost text-xs hover:text-debt">归档</button>
                     </td>
                   </tr>
                 ))}

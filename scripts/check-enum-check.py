@@ -33,6 +33,7 @@ ENUMS = ROOT / 'backend/unmei-domain/src/commerce/enums.rs'
 
 # 枚举 → 「表.列」。None = 库里这一列没有 CHECK，后面是原因。
 MAP = {
+    'ReconResolveAction': 'recon_record.resolved_action',
     'AccountKind': 'account_chart.kind',
     'BillingPeriod': 'plan.billing_period',
     'CancelActor': 'refund.actor_kind',

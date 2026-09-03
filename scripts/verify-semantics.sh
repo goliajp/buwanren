@@ -175,8 +175,17 @@ PAID=$(curl -sS -X POST "$API/v1/orders" \
   -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
   -H "idempotency-key: $(idem paid)" \
   -d '{"lines":[{"sku_id":"sku-naji-deep","qty":1}],"region":"cn"}' | jq -r .order_id)
-# 直接把它摆成 paid：这一条验的是【状态机拒不拒】，不是怎么付的钱
-PSQL "UPDATE order_record SET status='paid', amount_paid_minor=amount_total_minor, paid_at=NOW() WHERE id='$PAID'" >/dev/null
+# 直接把它摆成 paid：这一条验的是【状态机拒不拒】，不是怎么付的钱。
+# 【但那笔钱也要有】（2026-09-03）——只改订单不落 payment 的话，
+# 造出来的是真实链路造不出的状态（订单说收到钱、支付表一条记录都没有），
+# 而这一支每跑一次攒一笔。下面 371 行那一处一直是走真支付的，
+# 只有这里漏了。`check-money-consistency` 盯着这个数。
+PSQL "UPDATE order_record SET status='paid', amount_paid_minor=amount_total_minor, paid_at=NOW() WHERE id='$PAID';
+      INSERT INTO payment(id, order_id, user_id, channel, amount_minor, currency, status, paid_at, region)
+      SELECT 'pay-vs-' || substring(o.id from 5), o.id, o.user_id, 'wechat_jsapi',
+             o.amount_total_minor, o.currency, 'success', NOW(), o.region
+        FROM order_record o WHERE o.id='\$PAID'
+      ON CONFLICT (id) DO NOTHING;" >/dev/null
 echo "  自己造一笔已付的单： $PAID"
 code=$(curl -sS -o /tmp/cancelpaid.json -w '%{http_code}' -X POST "$ADMIN/admin/commerce/orders/$PAID/cancel" \
   -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' -d '{"reason":"verify"}')

@@ -133,7 +133,7 @@ export default function Pricing() {
                     <td className="text-xs text-ink-4">{p.audit_note}</td>
                     <td className="c">
                       {p.status === 'active' && (
-                        <button className="btn btn-warn" onClick={() => { if (confirm('立即 expire 此价？')) expire.mutate(p.id); }}>
+                        <button className="btn btn-debt" onClick={() => { if (confirm('立即 expire 此价？')) expire.mutate(p.id); }}>
                           <XCircle size={13}/>
                         </button>
                       )}

@@ -94,7 +94,7 @@ export default function Mingli() {
           <div className="panel">
             <div className="panel-head">
               <span className="panel-title">起不来怎么办</span>
-              <span className="panel-sub">排盘服务怎么起</span>
+              <span className="label">排盘服务怎么起</span>
             </div>
             <div className="px-4 py-3 text-[12px] text-ink-3 space-y-1">
               <div>1. 回主项目： <code className="font-mono bg-sunk px-1 rounded">cd ~/workspace/goliajp/mingli</code></div>

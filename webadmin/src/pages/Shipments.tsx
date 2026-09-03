@@ -77,7 +77,7 @@ export default function Shipments() {
                   <td title={ts(s.picked_up_at)}>{rel(s.picked_up_at)}</td>
                   <td title={ts(s.delivered_at)}>{rel(s.delivered_at)}</td>
                   <td title={ts(s.updated_at)} className="text-ink-4">{rel(s.updated_at)}</td>
-                  <td className="c"><button className="btn btn-link" onClick={() => setDetailId(s.id)}><Eye size={13}/></button></td>
+                  <td className="c"><button className="btn btn-ghost" onClick={() => setDetailId(s.id)}><Eye size={13}/></button></td>
                 </tr>
               ))}
               {list.data && list.data.items.length === 0 && (
@@ -128,7 +128,7 @@ function ShipActions({ s, onChanged }: { s: any; onChanged: () => void }) {
           });
         }}><Edit3 size={13}/> 录入运单号</button>
       )}
-      <button className="btn btn-warn" onClick={() => { const r = prompt('异常原因？'); if (r) exc.mutate(r); }}>
+      <button className="btn btn-debt" onClick={() => { const r = prompt('异常原因？'); if (r) exc.mutate(r); }}>
         <AlertTriangle size={13}/> 标异常
       </button>
     </>

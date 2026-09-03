@@ -90,10 +90,10 @@ export default function Promotions() {
                       <td title={ts(p.effective_from)}>{rel(p.effective_from)}</td>
                       <td title={ts(p.effective_to)}>{p.effective_to ? rel(p.effective_to) : '—'}</td>
                       <td className="c flex justify-center gap-1">
-                        <button className="btn btn-link" onClick={() => setDetailId(p.id)}><Eye size={13}/></button>
+                        <button className="btn btn-ghost" onClick={() => setDetailId(p.id)}><Eye size={13}/></button>
                         {p.status === 'active' && <button className="btn btn-soft" title="暂停" onClick={() => setState.mutate({ id: p.id, status: 'paused' })}><Pause size={13}/></button>}
                         {p.status === 'paused' && <button className="btn btn-soft" title="恢复" onClick={() => setState.mutate({ id: p.id, status: 'active' })}><Play size={13}/></button>}
-                        {['active','paused','scheduled'].includes(p.status) && <button className="btn btn-warn" title="结束" onClick={() => setState.mutate({ id: p.id, status: 'ended' })}><X size={13}/></button>}
+                        {['active','paused','scheduled'].includes(p.status) && <button className="btn btn-debt" title="结束" onClick={() => setState.mutate({ id: p.id, status: 'ended' })}><X size={13}/></button>}
                       </td>
                     </tr>
                   ))}

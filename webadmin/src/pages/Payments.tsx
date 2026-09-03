@@ -80,7 +80,7 @@ export default function Payments() {
                   <td className="font-mono text-ink-3">{p.channel_txn_id ? shortId(p.channel_txn_id, 12, 6) : '—'}</td>
                   <td title={ts(p.paid_at)}>{rel(p.paid_at)}</td>
                   <td title={ts(p.expires_at)} className="text-ink-4">{rel(p.expires_at)}</td>
-                  <td className="c"><button className="btn btn-link" onClick={() => setDetailId(p.id)}><Eye size={13}/></button></td>
+                  <td className="c"><button className="btn btn-ghost" onClick={() => setDetailId(p.id)}><Eye size={13}/></button></td>
                 </tr>
               ))}
               {list.data && list.data.items.length === 0 && (
@@ -115,7 +115,7 @@ function PayActions({ p, onChanged }: { p: any; onChanged: () => void }) {
     onSuccess: onChanged,
   });
   return (
-    <button className="btn btn-warn" disabled={!can}
+    <button className="btn btn-debt" disabled={!can}
       onClick={() => {
         const code = prompt('failure_code （如 channel_timeout / manual_fail）'); if (!code) return;
         const msg = prompt('failure_msg') ?? '';

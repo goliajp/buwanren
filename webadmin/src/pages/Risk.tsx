@@ -94,7 +94,7 @@ export default function Risk() {
                     <td><span className={statusClass(r.status)}>{statusLabel(r.status)}</span></td>
                     <td title={ts(r.effective_from)}>{rel(r.effective_from)}</td>
                     <td className="c">
-                      <button className={`btn ${r.status === 'active' ? 'btn-warn' : 'btn-soft'}`}
+                      <button className={`btn ${r.status === 'active' ? 'btn-debt' : 'btn-soft'}`}
                         onClick={() => setState.mutate({ id: r.id, status: r.status === 'active' ? 'paused' : 'active' })}>
                         <Power size={13}/>
                       </button>
