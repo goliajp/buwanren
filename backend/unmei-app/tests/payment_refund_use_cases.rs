@@ -510,8 +510,30 @@ async fn two_approved_refunds_cannot_exceed_what_was_paid() {
 
     let r1 = refund::request(&pool, &order_id, &user, None, None, "user_request", None)
         .await.expect("第一次申请");
-    let r2 = refund::request(&pool, &order_id, &user, None, None, "user_request", None)
-        .await.expect("第二次申请（申请本身不该被挡，钱还没动）");
+
+    /* 【第二张直接插进库，不走 `request`】（2026-09-03）。
+       原先这里是第二次 `request` —— 它当时会通过，因为
+       `amount_refunded_minor` 要到审批才增加。现在 `request` 会把
+       【在途】的退款也算进已退，所以那条路建不出第二张了。
+
+       但这条测试钉的不是 `request`，是 **`approve` 那一步的余额复核**——
+       重复退款的最后一道。照着改成「第二次申请该被挡」的话，
+       那道复核就再也没有测试够得着，而它正是 2026-08-18
+       实付 9900 退出 19800 那次的补丁。
+
+       所以第二张绕过 `request` 直接落库:模拟「一张先前建下的、
+       还没批的申请」——那在真实世界里存在（`request` 收紧之前建的，
+       或者并发擦身而过的），而 `approve` 必须挡得住。 */
+    let r2 = format!("rfd-{}", uuid::Uuid::new_v4());
+    sqlx::query(
+        "INSERT INTO refund(id, order_id, payment_id, amount_minor, currency,
+                            reason_code, actor_kind, actor_id, status, region)
+         SELECT $1, order_id, payment_id, amount_minor, currency,
+                reason_code, actor_kind, actor_id, 'requested', region
+           FROM refund WHERE id=$2",
+    )
+    .bind(&r2).bind(&r1)
+    .execute(&pool).await.expect("照着第一张再落一张待批的");
 
     refund::approve(&pool, &r1, &Actor::admin("a")).await.expect("第一张批下来");
     let err = refund::approve(&pool, &r2, &Actor::admin("a")).await

@@ -15,7 +15,7 @@ use chrono::NaiveDate;
 use sqlx::{PgPool, Row};
 use unmei_domain::DomainError;
 
-use crate::new_id;
+use crate::{new_id, Actor};
 use crate::DbResultExt;
 
 /// 渠道账单里的一行。
@@ -168,4 +168,96 @@ pub async fn ingest_settlement(
         status,
         skipped: false,
     })
+}
+
+/// 结掉一条对不上的账。
+///
+/// 【`recon_record` 建表时就留了三列等人来结，而一直没有那条路】——
+/// 本机库里 1432 条对不上的账（716 条金额不符 ¥111,518、
+/// 716 条渠道有我们没有 ¥2,058），`resolved_at` 全是空。
+/// 对账页的活儿是「找出对不上的」，找出来之后是个死胡同。
+///
+/// **结法必须说清是哪一种**。四个动作对应四种真实情形:
+/// 渠道错了 / 我们漏记了 / 只是跨了日切 / 差的是已知手续费。
+/// 少了这个区分，「已处理」就退化成「已看过」——
+/// 而下个月同一类差异再来时，没人知道上次是怎么判的。
+///
+/// 已经结过的不许再结:结论要能追溯到一个人和一个时刻，
+/// 覆盖一次就少一次记录。
+pub async fn resolve_record(
+    pool: &PgPool,
+    record_id: &str,
+    action: &str,
+    note: &str,
+    actor: &Actor,
+) -> Result<String, DomainError> {
+    use unmei_domain::commerce::enums::ReconResolveAction;
+
+    let act = ReconResolveAction::from_str_lax(action).ok_or_else(|| {
+        DomainError::Validation(format!(
+            "结法 {action} 不认识 —— 只能是 channel_wrong / ours_missing / timing_only / known_fee"
+        ))
+    })?;
+    if note.trim().is_empty() {
+        /* 【结论要有一句话】。「渠道错了」不说清哪里错，
+           下个月同一笔再对不上时，这条记录帮不上任何忙。 */
+        return Err(DomainError::Validation("说一句是怎么查的 —— 空的结论等于没结".into()));
+    }
+
+    let mut tx = pool.begin().await.db()?;
+
+    let row = sqlx::query(
+        "SELECT match_state, resolved_at FROM recon_record WHERE id=$1 FOR UPDATE",
+    )
+    .bind(record_id)
+    .fetch_optional(&mut *tx)
+    .await.db()?
+    .ok_or_else(|| DomainError::NotFound(format!("对账记录 {record_id}")))?;
+
+    let 现状: String = row.get("match_state");
+    if 现状 == "matched" {
+        return Err(DomainError::Validation(
+            "这一条本来就对得上，没有要结的东西".into()));
+    }
+    let 结过: Option<chrono::DateTime<chrono::Utc>> = row.get("resolved_at");
+    if 结过.is_some() {
+        return Err(DomainError::Conflict(format!("{record_id} 已经结过了")));
+    }
+
+    sqlx::query(
+        "UPDATE recon_record SET resolved_action=$1, resolved_by_admin_id=$2,
+                resolved_at=NOW(), resolved_note=$3
+         WHERE id=$4",
+    )
+    .bind(act.as_str())
+    .bind(actor.id.as_deref())
+    .bind(note.trim())
+    .bind(record_id)
+    .execute(&mut *tx)
+    .await.db()?;
+
+    /* 【整批都结完了，批次才算结】。
+       批次上的 `resolved_at` 是「这一批不用再看了」——
+       还剩一条没结就不能这么说。 */
+    let batch_id: String = sqlx::query_scalar("SELECT batch_id FROM recon_record WHERE id=$1")
+        .bind(record_id)
+        .fetch_one(&mut *tx)
+        .await.db()?;
+    let 还剩: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*)::int8 FROM recon_record
+         WHERE batch_id=$1 AND match_state<>'matched' AND resolved_at IS NULL",
+    )
+    .bind(&batch_id)
+    .fetch_one(&mut *tx)
+    .await.db()?;
+    if 还剩 == 0 {
+        sqlx::query("UPDATE recon_batch SET resolved_at=NOW() WHERE id=$1 AND resolved_at IS NULL")
+            .bind(&batch_id)
+            .execute(&mut *tx)
+            .await.db()?;
+    }
+
+    tx.commit().await.db()?;
+    tracing::info!(record_id, action = act.as_str(), 还剩, "对账差异已结");
+    Ok(batch_id)
 }

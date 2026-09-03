@@ -22,10 +22,10 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as J};
 use sqlx::{PgPool, Row};
-use unmei_domain::commerce::enums::RiskRuleStatus;
+use unmei_domain::commerce::enums::{RiskCaseState, RiskRuleStatus};
 use unmei_domain::DomainError;
 
-use crate::DbResultExt;
+use crate::{Actor, DbResultExt};
 use crate::new_id;
 
 // ═══════════════════════════ 规则管理 ═══════════════════════════
@@ -536,4 +536,61 @@ pub async fn gate(pool: &PgPool, ctx: &RiskEvalContext) -> Result<(), DomainErro
         "风控命中{}", if blocking { "（观察模式，本可拦下）" } else { "" }
     );
     Ok(())
+}
+
+/// 结掉一个风控案子。
+///
+/// 【`RiskCaseState` 四个状态定义了，没有一条路走到终态】——
+/// 跟会计期间、跟对账差异是同一种缺口:表建好了、状态列好了，
+/// 而人要做的那个动作没有人写。风控页因此只能看，看完什么也做不了。
+///
+/// `resolved` 与 `false_positive` 分开，不是两个同义词:
+/// 前者是「这确实有问题，已处理」，后者是「规则报错了」。
+/// 混成一个的话，规则调不调、调哪一条，就再也无从判断。
+pub async fn close_case(
+    pool: &PgPool,
+    case_id: &str,
+    to_state: &str,
+    note: &str,
+    actor: &Actor,
+) -> Result<RiskCaseState, DomainError> {
+    use unmei_domain::commerce::state_machine::StateTransition;
+
+    let 目标 = RiskCaseState::from_str_lax(to_state).ok_or_else(|| {
+        DomainError::Validation(format!("案子状态 {to_state} 不认识"))
+    })?;
+    if note.trim().is_empty() {
+        return Err(DomainError::Validation("说一句是怎么判的 —— 空的结论等于没结".into()));
+    }
+
+    let mut tx = pool.begin().await.db()?;
+    let 现状: String = sqlx::query_scalar("SELECT state FROM risk_case WHERE id=$1 FOR UPDATE")
+        .bind(case_id)
+        .fetch_optional(&mut *tx)
+        .await.db()?
+        .ok_or_else(|| DomainError::NotFound(format!("风控案子 {case_id}")))?;
+    let 现 = RiskCaseState::from_str_lax(&现状)
+        .ok_or_else(|| DomainError::Internal(format!("案子状态 {现状} 不认识")))?;
+    // 结了的案子不回头 —— 判错了要重开是【新】的一件事，
+    // 抹掉旧结论之后没人看得出它曾经被结过
+    现.assert_transition(目标)?;
+
+    let 收尾 = matches!(目标, RiskCaseState::Resolved | RiskCaseState::FalsePositive);
+    sqlx::query(
+        "UPDATE risk_case SET state=$1,
+                closed_at = CASE WHEN $2 THEN NOW() ELSE closed_at END,
+                assigned_admin_id = COALESCE(assigned_admin_id, $3),
+                audit_note = COALESCE(audit_note,'') || E'\n' || $4
+           WHERE id=$5",
+    )
+    .bind(目标.as_str())
+    .bind(收尾)
+    .bind(actor.id.as_deref())
+    .bind(format!("{} → {}：{}", actor.label(), 目标.as_str(), note.trim()))
+    .bind(case_id)
+    .execute(&mut *tx)
+    .await.db()?;
+
+    tx.commit().await.db()?;
+    Ok(目标)
 }
