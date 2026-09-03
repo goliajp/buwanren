@@ -59,6 +59,53 @@ pub async fn already_pulled(
     Ok(found.is_some())
 }
 
+/// 这个渠道还欠哪几天的账没对。
+///
+/// 【只看昨天的话，停机一天就少一天的账】（2026-09-04）。
+/// worker 原先写的是「东八区凌晨 2 点那一小时里，拉昨天的」——
+/// 服务那一小时不在（部署、重启、机器睡了），那一天就永远不对账，
+/// 下一次检查已经是第二天的两点，而它只看昨天。
+///
+/// 而少掉的那一天在库里**跟「对上了」长得一模一样**：两者都没有差异记录。
+/// 对账这件事的全部意义就是「钱有没有对不上」，
+/// 一天没对过而看着像对过，比不对账更糟。
+///
+/// 回头看几天有个界:再往前渠道那边也未必还留着账单，
+/// 而真缺了那么久是要人来处理的事，不该由一个 worker 默默补。
+///
+/// 判据放在用例层而不是 worker 里 —— worker 里的 SQL 没有任何测试够得着，
+/// 这个仓库对此有明写的规矩（见 `recon.rs` 的模块注释）。
+pub async fn days_needing_pull(
+    db: &PgPool,
+    channel: &str,
+    今天: NaiveDate,
+    回头看几天: i64,
+) -> Result<Vec<NaiveDate>, DomainError> {
+    let 起 = 今天 - chrono::Duration::days(回头看几天);
+    let 止 = 今天 - chrono::Duration::days(1);
+    /* 一次问清楚，不是一天问一遍 —— 一天一问是 N 次往返，
+       而这一支每十分钟跑一次。 */
+    let 拉过的: Vec<NaiveDate> = sqlx::query_scalar(
+        "SELECT batch_date FROM recon_batch \
+         WHERE channel = $1 AND source = 'channel_pulled' \
+           AND batch_date BETWEEN $2 AND $3",
+    )
+    .bind(channel)
+    .bind(起)
+    .bind(止)
+    .fetch_all(db)
+    .await
+    .db()?;
+
+    // 从最早的欠账开始补 —— 补账要按时间顺序，不然后台那一列读起来是乱的
+    let mut 欠着: Vec<NaiveDate> = (1..=回头看几天)
+        .map(|n| 今天 - chrono::Duration::days(n))
+        .filter(|d| !拉过的.contains(d))
+        .collect();
+    欠着.sort();
+    Ok(欠着)
+}
+
 /// 落一批对账。整批一个事务 —— 写了一半的批次比没写更难处理:
 /// 后台看到的是一个数目对不上的批次,而它并不是真的对不上。
 pub async fn ingest_settlement(
