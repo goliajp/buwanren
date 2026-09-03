@@ -85,7 +85,11 @@ pub enum RenewOutcome {
     Renewed { invoice_id: String, order_id: String, period_end: DateTime<Utc> },
     /// 用户之前点过「到期不续」,到点了 —— 不收钱,置 cancelled
     StoppedAtPeriodEnd,
-    /// 套餐没有激活价,收不了 —— 不再重试
+    /// 套餐没有激活价,收不了 —— **订阅到此为止**（2026-09-04 起）。
+    ///
+    /// 这一行原先写的是「不再重试」，而那句话只描述了它止住的东西：
+    /// 重试止住了，服务没止住 —— 订阅留在 active，人照用、钱不再收，
+    /// 而止住重试之后它再也不会被任何东西看到一眼。
     Unpriced,
     /// 已经不在可续费状态(并发下被别的动作改掉了)
     NotDue,
@@ -210,13 +214,38 @@ pub async fn renew_due(pool: &PgPool, subscription_id: &str) -> Result<RenewOutc
 
     let amount_minor: Option<i64> = row.get("price_minor");
     let Some(amount_minor) = amount_minor.filter(|a| *a > 0) else {
-        // 清掉重试时间,否则这条会被每个 tick 重新捞出来
-        sqlx::query("UPDATE subscription SET next_billing_attempt_at=NULL WHERE id=$1")
+        /* 【无价 = 收不了钱 = 服务不能继续】（2026-09-04）。
+           上一版只清掉重试时间就返回，订阅【留在 active】——
+           而走到这一行时周期已经过了（上面那道 `current_period_end > now`
+           已经把没到期的挡掉了）。也就是说：套餐没价，而人还在用，
+           永远不再扣一分钱，也永远不会到期。
+
+           这一支原先看着是对的，因为「清掉重试时间」确实止住了每 5 分钟
+           重试到永远那个毛病 —— 止住的是重试，不是服务。
+           而止住重试之后，这条订阅就再也不会被任何东西看到一眼
+           （worker 的捞取条件同一天才补上「周期过了也捞」）。
+
+           终局是 `cancelled`:状态机里 `Active => [PastDue, Cancelled, Paused]`，
+           Active 到不了 Expired。用户已经付过的那一期照旧用完 ——
+           走到这里说明它已经用完了。
+           事件照发:「停了」这件事下游要知道，跟到期不续那一支一样。 */
+        sqlx::query(
+            "UPDATE subscription SET status='cancelled', cancelled_at=NOW(),
+               next_billing_attempt_at=NULL WHERE id=$1",
+        )
             .bind(subscription_id)
             .execute(&mut *tx)
             .await.db()?;
+        outbox::write(
+            &mut *tx,
+            &DomainEvent::SubscriptionCancelled {
+                subscription_id: subscription_id.to_string(),
+                occurred_at: Utc::now(),
+            },
+        )
+        .await?;
         tx.commit().await.db()?;
-        tracing::warn!(subscription_id, "套餐无激活价，已停止续费尝试");
+        tracing::warn!(subscription_id, "套餐无激活价，收不了钱 —— 订阅到此为止");
         return Ok(RenewOutcome::Unpriced);
     };
 
