@@ -185,13 +185,41 @@ async fn 签到发出到过场那枚徽章() {
 
     activity::check_in(&pool, &报名号, &Actor::admin("adm-test")).await.expect("签到");
 
-    let 有了 = common::scalar_i64(
-        &pool,
-        "SELECT count(*) FROM user_badge WHERE badge_id=$1",
-        &badge,
+    /* 【只断言我这个用户拿到了没有】（2026-09-04 全量并行时红过一次）。
+       上一版数的是「这枚徽章一共发出去几个」——
+       而它一插进库就是 active 的，**并行跑的别的用例签到时也会读到它**，
+       于是那个数是 2 而不是 1。
+
+       这个仓库的测试底座写着「断言只针对自己造的数据」，
+       而「这枚徽章发出去几个」是全库的数，不是我造的那份。
+       单跑时它恰好等于 1，所以看起来是对的 ——
+       偶发的红比常红更糟：它让每一次真红都能被当成噪音。 */
+    let 有了: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM user_badge WHERE badge_id=$1 AND user_id=$2",
     )
-    .await;
-    assert_eq!(有了, 1, "签到了而徽章没发出来");
+    .bind(&badge)
+    .bind(&u)
+    .fetch_one(&pool)
+    .await
+    .expect("查徽章");
+    assert_eq!(有了, 1, "签到了而这枚徽章没发到这个人头上");
+
+    /* 【自己种的徽章自己收拾】（照 fulfillment_use_cases 那条的做法）。
+       不收的话它留在库里，而它是 active 的 ——
+       **后面每一个用例的签到都会读到它**，竞态于是从偶发变成常驻。
+       实测跑几轮之后测试库里躺着十枚，发出去一百四十九次。
+
+       两步并成一条语句：分两条的话中间有一道缝，
+       并行跑的别的用例在那中间把这枚发给了它自己的用户，
+       第二条 DELETE 撞外键。 */
+    sqlx::query(
+        "WITH 清 AS (DELETE FROM user_badge WHERE badge_id=$1 RETURNING 1) \
+         DELETE FROM badge WHERE id=$1",
+    )
+    .bind(&badge)
+    .execute(&pool)
+    .await
+    .expect("收拾干净");
 }
 
 /// 签两次要说「已经签过了」，不能报成功 —— 现场的人得知道刚才那一下算不算数。
