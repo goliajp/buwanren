@@ -41,4 +41,13 @@ for wxml in sorted(PAGES.glob('*/index.wxml')):
 if bad:
     print('  点下去会抛，而页面开得起来 —— 逐页扫看不出这种洞。', file=sys.stderr)
     sys.exit(1)
+
+# 【查不到东西的核对必须失败】（2026-09-03 五路评审 · 门禁审计）。
+# 判据不是「有没有报错」，是「它够不够得着要验的东西」——
+# 路径改了、目录搬了、glob 写错了，这一支都会一个不落地全绿，
+# 而它其实一个文件都没看。下限比今天低不少，只挡「塌了」这一档。
+if pages < 15:
+    print(f'✗ 只扫到 {pages} 个页面（该有二十来个）—— 这一支够不着要验的东西，不算通过',
+          file=sys.stderr)
+    sys.exit(1)
 print(f'✓ {pages} 个页面，bind 的处理器都真有')

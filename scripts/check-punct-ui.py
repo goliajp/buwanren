@@ -261,23 +261,44 @@ def sql_strings(src):
     return out
 
 
+# 【每一片各有下限，不看总数】（2026-09-03 五路评审 · 门禁审计）。
+#
+# 上一版只判「一个文件都没扫到」。而这一支同时扫十几片 ——
+# 小程序页面、控制台、种子、迁移、房间、后端、脚本。
+# 塌掉其中一片（目录搬了、后缀改了、glob 写错了），
+# 总数还有四百，这一支照样全绿，而它已经完全看不见那一片了。
+# 实测:把 `UI.rglob('*.wxml')` 改成 `*.nope`，退出码仍然是 0。
+#
+# 所以每一片单独数、单独定下限。下限比今天低不少，只挡「这一片塌了」。
+每片 = [
+    ('小程序 wxml', lambda: list(UI.rglob('*.wxml')), 20),
+    ('小程序 ts', lambda: list(UI.rglob('*.ts')), 20),
+    ('控制台 ts/tsx', lambda: list(ADMIN.rglob('*.ts')) + list(ADMIN.rglob('*.tsx')), 20),
+    ('种子 sql', lambda: list(SEED.glob('*.sql')), 1),
+    # 迁移里也有【面向用户的文案】。种子那一片 2026-08-18 就收进来了，
+    # 而 migrations 一直没收 —— 2026-08-30 我把门解、宜忌、收尾句
+    # 全改写进迁移，八个半角冒号一路走到屏幕上，这一支报的还是绿。
+    # 判据跟种子那一片一样:只看单引号里的字面量，SQL 语法不碰。
+    ('迁移 sql', lambda: list(MIGRATIONS.glob('*.sql')), 30),
+    ('房间 js', lambda: list(ROOMSRC.rglob('*.js')), 3),
+    ('后端 rs', lambda: [f for f in BACKEND.rglob('*.rs') if 'target/' not in str(f)], 30),
+    ('工具脚本', lambda: [f for d in TOOLS for ext in ('*.sh', '*.py', '*.mjs')
+                          for f in d.glob(ext)
+                          if 'node_modules' not in str(f) and f.name not in SKIP_FILES], 50),
+]
+
+
+def 数一数每片():
+    """→ [(片名, 实际条数, 下限), …]。塌了的那些由调用方报。"""
+    return [(名, len(取()), 下限) for 名, 取, 下限 in 每片]
+
+
 def scan():
     hits, seen = [], 0
-    files = (list(UI.rglob('*.wxml')) + list(UI.rglob('*.ts'))
-             + list(ADMIN.rglob('*.ts')) + list(ADMIN.rglob('*.tsx'))
-             + list(SEED.glob('*.sql'))
-             # 迁移里也有【面向用户的文案】。种子那一片 2026-08-18 就收进来了，
-             # 而 migrations 一直没收 —— 2026-08-30 我把门解、宜忌、收尾句
-             # 全改写进迁移，八个半角冒号一路走到屏幕上，这一支报的还是绿。
-             # 判据跟种子那一片一样:只看单引号里的字面量，SQL 语法不碰。
-             + list(MIGRATIONS.glob('*.sql')))
-    files += sorted(ROOMSRC.rglob('*.js'))
-    files += [f for f in BACKEND.rglob('*.rs') if 'target/' not in str(f)]
-    for d in TOOLS:
-        for ext in ('*.sh', '*.py', '*.mjs'):
-            files += [f for f in d.glob(ext)
-                      if 'node_modules' not in str(f) and f.name not in SKIP_FILES]
-    for f in sorted(files):
+    files = []
+    for _, 取, _ in 每片:
+        files += 取()
+    for f in sorted(set(files)):
         seen += 1
         src = f.read_text(encoding='utf-8')
         if f.suffix == '.rs':
@@ -307,8 +328,11 @@ def scan():
 
 
 hits, seen = scan()
-if not seen:
-    print('✗ 一个文件都没扫到 —— 路径对不上了？查不到东西的核对必须失败')
+塌了 = [(名, n, 下限) for 名, n, 下限 in 数一数每片() if n < 下限]
+if 塌了:
+    print('✗ 这几片扫不到东西了 —— 路径对不上了？查不到东西的核对必须失败')
+    for 名, n, 下限 in 塌了:
+        print(f'    {名}：只有 {n} 个，至少该有 {下限}')
     sys.exit(1)
 
 for f, txt, m in hits:
