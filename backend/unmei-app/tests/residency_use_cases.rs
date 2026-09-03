@@ -275,3 +275,82 @@ async fn the_enforcement_switch_is_off_by_default_and_reads_the_env() {
     unsafe { std::env::remove_var("UNMEI_RISK_ENFORCE") };
     assert!(!risk::enforcing());
 }
+
+// ═════════ 2026-09-04 · 风控命中了要有人接 ═════════
+
+/// 【`risk_case` 有表、后台有结案路由，而全仓没有一处建案子】。
+///
+/// 命中而不开案子的后果很具体：`risk_event` 是一条流水，
+/// 没有状态、没有负责人、没有「处理完了没有」。
+/// 运营那一屏「风控案子」永远是空的，而看板上「没结的案子」恒为 0 ——
+/// 它读起来像「风控没事」，而实际是「风控的事没人接」。
+#[tokio::test]
+async fn 风控命中会开一个案子() {
+    let _guard = RISK_ENV.lock().unwrap_or_else(|e| e.into_inner());
+    let pool = db_or_skip!();
+    let sku = omamori_sku(&pool, "ayun", 199900).await;
+    let (_user, order_id) = buy(&pool, &sku, 199900).await;
+
+    let 案子: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM risk_case WHERE involved_order_ids && ARRAY[$1]",
+    )
+    .bind(&order_id)
+    .fetch_one(&pool).await.expect("数案子");
+    assert_eq!(案子, 1, "风控命中了却没有案子 —— 那条命中没有人会接");
+
+    let (状态, 严重): (String, String) = sqlx::query_as(
+        "SELECT state, severity FROM risk_case WHERE involved_order_ids && ARRAY[$1]",
+    )
+    .bind(&order_id)
+    .fetch_one(&pool).await.expect("读案子");
+    assert_eq!(状态, "open", "开出来就该是待处理");
+    assert_eq!(严重, "med", "review 这一档记 med —— block/reject 才是 high");
+}
+
+/// 【一件事一个案子】。一单从下单到支付会过两道闸，
+/// 两次都命中就是两条 `risk_event`（流水本来就该有两条），
+/// 而案子是「这件事要不要人管」—— 不该开成两个。
+#[tokio::test]
+async fn 同一单命中两次也只开一个案子() {
+    let _guard = RISK_ENV.lock().unwrap_or_else(|e| e.into_inner());
+    let pool = db_or_skip!();
+    let sku = omamori_sku(&pool, "ayun", 199900).await;
+    let (user, order_id) = buy(&pool, &sku, 199900).await;
+
+    // 再发起一次支付 —— 同一单又过一道闸
+    let _ = unmei_app::payment::start(&pool, &order_id, &user, "alipay_wap", None).await;
+
+    let 案子: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM risk_case WHERE involved_order_ids && ARRAY[$1]",
+    )
+    .bind(&order_id)
+    .fetch_one(&pool).await.expect("数案子");
+    assert_eq!(案子, 1, "同一单开出了 {案子} 个案子 —— 案子是「要不要人管」，不是流水");
+}
+
+/// 结掉之后再命中，要能开新的 —— 不然一个人被结过一次案就再也不会被盯上。
+#[tokio::test]
+async fn 结掉的案子不挡下一次() {
+    let _guard = RISK_ENV.lock().unwrap_or_else(|e| e.into_inner());
+    let pool = db_or_skip!();
+    let sku = omamori_sku(&pool, "ayun", 199900).await;
+    let (user, 头一单) = buy(&pool, &sku, 199900).await;
+    sqlx::query("UPDATE risk_case SET state='resolved', closed_at=NOW() WHERE involved_order_ids && ARRAY[$1]")
+        .bind(&头一单).execute(&pool).await.expect("结案");
+
+    // 同一个人再买一单
+    let 第二单 = unmei_app::order::create(&pool, unmei_app::order::NewOrder {
+        user_id: user.clone(), region: "cn".into(), channel_origin: "web".into(),
+        lines: vec![unmei_app::order::NewOrderLine { sku_id: sku.clone(), qty: 1 }],
+        shipping_address: None, contact: None, coupon_codes: vec![], note: None,
+        ip: None, ua: None,
+    }).await.expect("第二单");
+    let _ = unmei_app::payment::start(&pool, &第二单.order_id, &user, "wechat_jsapi", None).await;
+
+    let 新案子: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM risk_case WHERE involved_order_ids && ARRAY[$1] AND state='open'",
+    )
+    .bind(&第二单.order_id)
+    .fetch_one(&pool).await.expect("数新案子");
+    assert_eq!(新案子, 1, "上一个案子结了，这一单又命中，却没开新的 —— 结过一次就再也不盯了");
+}

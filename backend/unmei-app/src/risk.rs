@@ -524,6 +524,28 @@ pub async fn gate(pool: &PgPool, ctx: &RiskEvalContext) -> Result<(), DomainErro
         return Ok(());
     }
     let blocking = BLOCKING.contains(&d.action.as_str());
+
+    /* 【命中了要开个案子，不然没有人接】（2026-09-04）。
+       `risk_case` 有表、有四个状态、后台有「结案」路由（那一条这一轮
+       刚接上状态机），而**全仓没有一处建案子**，库里零行。
+       同一个形状这一轮遇到第八次:建好了，两头没接上。
+
+       命中而不开案子的后果很具体:`risk_event` 是一条流水，
+       没有状态、没有负责人、没有「处理完了没有」。运营那一屏
+       「风控案子」永远是空的，而看板上「没结的案子」这个 KPI 恒为 0 ——
+       它读起来像「风控没事」，而实际是「风控的事没人接」。
+
+       只给【拦截类】动作开案子:`log_only` / `allow` 那些是留痕，
+       不需要人做什么。观察模式下照开 —— 那些正是「本可拦下」的单，
+       开关翻开前要看的就是它们。 */
+    if blocking {
+        if let Err(e) = 开个案子(pool, ctx, &d).await {
+            // 案子开不出来不该把这一单带走 —— 它是旁证，不是主路径。
+            // 但要 error 一行:一张悄悄不生长的案子表比没有更糟。
+            tracing::error!(kind = %ctx.kind, %e, "风控命中了，案子没开出来");
+        }
+    }
+
     if blocking && enforcing() {
         return Err(DomainError::RiskBlocked {
             rule_id: d.matched_rule_ids.join(","),
@@ -536,6 +558,70 @@ pub async fn gate(pool: &PgPool, ctx: &RiskEvalContext) -> Result<(), DomainErro
         "风控命中{}", if blocking { "（观察模式，本可拦下）" } else { "" }
     );
     Ok(())
+}
+
+/// 给一次拦截类命中开一个案子。
+///
+/// **同一个对象只开一个**:一单从下单到支付会过两道闸，
+/// 两次都命中就是两条 `risk_event`（那是流水，本来就该有两条），
+/// 而案子是「这件事要不要人管」—— 一件事一个案子。
+/// 判据是「这一单/这个人上还有没有没结的案子」。
+///
+/// 严重度按动作定:`block` / `reject` 是真要拦的，记 high；
+/// `review` / `challenge` 是要人看一眼的，记 med。
+/// 不编一个「critical」——那一档留给人工升级，机器判不出来。
+async fn 开个案子(
+    pool: &PgPool,
+    ctx: &RiskEvalContext,
+    d: &RiskDecision,
+) -> Result<(), DomainError> {
+    let 严重 = match d.action.as_str() {
+        "block" | "reject" => "high",
+        _ => "med",
+    };
+    let 用户们: Vec<String> = ctx.user_id.iter().cloned().collect();
+    let 订单们: Vec<String> = ctx.order_id.iter().cloned().collect();
+
+    /* 一条 INSERT ... SELECT，把「还没有没结的案子」写进同一句话里 ——
+       先查再插的话，两道闸几乎同时命中会各插一条。
+       `WHERE NOT EXISTS` 里比的是 involved_*，那是这张表描述「关于谁/关于哪一单」
+       的地方。 */
+    let n = sqlx::query(
+        "INSERT INTO risk_case(id, kind, severity, involved_user_ids, involved_order_ids,
+                               state, opened_at, audit_note, region)
+         SELECT $1, $2, $3, $4, $5, 'open', NOW(), $6, $7
+          WHERE NOT EXISTS (
+                SELECT 1 FROM risk_case c
+                 WHERE c.state IN ('open','investigating')
+                   AND ( ($5::text[] <> '{}' AND c.involved_order_ids && $5::text[])
+                      OR ($5::text[]  = '{}' AND c.involved_user_ids  && $4::text[]) )
+          )",
+    )
+    .bind(new_id("rc"))
+    .bind(&ctx.kind)
+    .bind(严重)
+    .bind(&用户们)
+    .bind(&订单们)
+    .bind(format!("规则 {} 判 {}", d.matched_rule_ids.join("、"), d.action))
+    .bind(区(ctx))
+    .execute(pool)
+    .await.db()?
+    .rows_affected();
+    if n > 0 {
+        tracing::info!(kind = %ctx.kind, action = %d.action, 严重,
+            "风控开了一个案子 —— 等人来看");
+    }
+    Ok(())
+}
+
+/// 这次风控发生在哪个区。`extras` 里带了就用，没带按 `cn`
+/// （跟别处同一个默认，见 `payment.rs` 那段 region 注释）。
+fn 区(ctx: &RiskEvalContext) -> String {
+    ctx.extras
+        .get("region")
+        .and_then(|v| v.as_str())
+        .unwrap_or("cn")
+        .to_string()
 }
 
 /// 结掉一个风控案子。
