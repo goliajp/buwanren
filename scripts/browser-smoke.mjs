@@ -124,9 +124,17 @@ psql(`INSERT INTO order_record(id, user_id, channel_origin, currency, amount_sub
       VALUES ('${oid2}','${uid}','web','CNY',100,100,'unpaid','one_shot','cn',
       NOW() + INTERVAL '30 minutes', NOW())`);
 await page.goto(BASE + '/orders');
-const row2 = page.locator(`tr:has-text("${oid2.slice(-4)}")`).first();
+/* 【跟上面第一处同一个改动，这里漏了】（2026-09-03 全量门禁跑出来的）。
+   两处一模一样的定位法，上面那一处改成了 `briefId` 的前八位、
+   改成了整行点开，而这一处原样留着 —— 于是它等一行含
+   「9162」（时间戳末四位）的记录，而屏上写的是前八位。
+
+   同一个改动只改了一半，比一处都没改更难发现:第一处绿着，
+   报出来的只有第二处，读起来像「这一行真的不见了」。 */
+const 前八2 = oid2.replace(/^ord-/, '').slice(0, 8);
+const row2 = page.locator(`tr:has-text("${前八2}")`).first();
 await row2.waitFor();
-await row2.locator('button').last().click();
+await row2.click();
 await page.locator('button:has-text("取消订单")').click();
 await page.waitForTimeout(1500);
 if (await page.locator('[role="status"]').count() > 0) fail('成功路径不该弹任何通知(列表刷新即反馈)');
