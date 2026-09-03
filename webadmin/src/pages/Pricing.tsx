@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApiMutation } from '../lib/feedback';
 import { commerce } from '../lib/api';
 import PageHeader from '../components/PageHeader';
+import TableError from '../components/TableError';
 import { rel, ts, yuan, shortId, statusClass, statusLabel, thou } from '../components/util';
 import { Plus, XCircle, RefreshCw, Tag } from 'lucide-react';
 
@@ -119,6 +120,7 @@ export default function Pricing() {
             <table className="tbl">
               <thead><tr><th>编号</th><th>货币</th><th className="r">价格</th><th>区域</th><th>平台</th><th>档位</th><th>状态</th><th>生效</th><th>失效</th><th>备注</th><th className="c">动作</th></tr></thead>
               <tbody>
+                <TableError 出错={prices.isError} 列数={11} />
                 {(prices.data ?? []).map((p: any) => (
                   <tr key={p.id}>
                     <td className="id">{shortId(p.id)}</td>

@@ -22,7 +22,8 @@ export default function Master() {
   const chart    = useQuery({ queryKey: ['master-accounts'],    queryFn: () => commerce.masterAccountChart(),   enabled: tab === 'accounts' });
   const risk     = useQuery({ queryKey: ['master-risk'],        queryFn: () => commerce.masterRiskTemplates(),  enabled: tab === 'risk' });
   const rates    = useQuery({ queryKey: ['master-rates'],       queryFn: () => commerce.listExchangeRates(),    enabled: tab === 'rates' });
-  const 全部: any[] = ({ products, plans, accounts: chart, risk, rates }[tab].data ?? []) as any[];
+  const 这一档 = { products, plans, accounts: chart, risk, rates }[tab];
+  const 全部: any[] = (这一档.data ?? []) as any[];
   const [找, 设找] = useState('');
 
   /* 【一万四千行不能一次全渲染】。这张表现役 13,898 条（多数是反复跑测试
@@ -81,6 +82,19 @@ export default function Master() {
         )}
         {找 && 命中.length === 0 && (
           <p className="text-sm text-ink-2 mb-2">这一份里没有含「{找}」的。</p>
+        )}
+
+        {/* 【取不到跟「这一份是空的」不是一回事】
+            （2026-09-03 五路评审 · 后台产品体验）。
+            这一页五张表共用 `全部`，而它是 `data ?? []` ——
+            取不到时那五张表都渲成空的，跟「这一份底档里什么都没有」
+            长得一模一样。而底档【本来就不该是空的】，
+            所以这句空白最误导:它看着像数据出了事，其实是网络出了事。
+            五张表只显示当前页签那一张，所以这句话摆一处就够。 */}
+        {这一档.isError && (
+          <p className="text-sm text-debt mb-2">
+            取不到这一份 —— 下面的空表不代表底档是空的。
+          </p>
         )}
 
         {tab === 'products' && (

@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApiMutation } from '../lib/feedback';
 import { commerce } from '../lib/api';
 import PageHeader from '../components/PageHeader';
+import TableError from '../components/TableError';
 import FilterBar from '../components/FilterBar';
 import Pagination from '../components/Pagination';
 import { rel, ts, yuan, shortId, thou, statusClass, statusLabel } from '../components/util';
@@ -124,17 +125,43 @@ export default function Refunds() {
                   <td className="c">
                     {r.status === 'requested' && (
                       <div className="flex gap-1 justify-center">
-                        <button className="btn btn-soft" onClick={() => approve.mutate(r.id)} title="批准"><Check size={13}/></button>
+                        {/* 【真出钱的那一颗要问一句，而且要把金额念出来】
+                            （2026-09-03 五路评审 · 后台产品体验）。
+
+                            上一版：批准是一个 13px 的对勾，点下去钱当场退出去，
+                            没有确认、没有金额复述；而**不花钱**的「拒绝」
+                            反倒有一个 prompt 要理由。摩擦加在了错的那一侧。
+                            列表里相邻两行的对勾长得一模一样，手滑一行
+                            就是退错一笔钱，而退款是不可撤销的。
+
+                            念的是金额与订单号 —— 那正是「点错了行」时
+                            唯一看得出来的两样东西。 */}
+                        <button className="btn btn-soft" title="批准"
+                                onClick={() => {
+                                  if (!confirm(`把 ${yuan(r.amount_minor, r.currency)} 退给订单 ${shortId(r.order_id)}？钱退出去就收不回来了。`)) return;
+                                  approve.mutate(r.id);
+                                }}><Check size={13}/></button>
                         <button className="btn btn-debt" onClick={() => { const why = prompt('拒绝理由？'); if (why) deny.mutate({ id: r.id, reason: why }); }} title="拒绝"><X size={13}/></button>
                       </div>
                     )}
+                    {/* 重试同理 —— 它走的是同一个接口，也一样出钱 */}
                     {r.status === 'failed' && (
-                      <button className="btn btn-soft" onClick={() => approve.mutate(r.id)} title="重试"><RefreshCw size={13}/></button>
+                      <button className="btn btn-soft" title="重试"
+                              onClick={() => {
+                                if (!confirm(`再退一次 ${yuan(r.amount_minor, r.currency)}（订单 ${shortId(r.order_id)}）？`)) return;
+                                approve.mutate(r.id);
+                              }}><RefreshCw size={13}/></button>
                     )}
                   </td>
                 </tr>
               ))}
-              {list.data && list.data.items.length === 0 && (
+              {/* 【取不到跟「一条都没有」不是一回事】（2026-09-03 五路评审 · 后台产品体验）。
+                  上一版只有空态那一行，而它的条件是 `X.data && …length === 0` ——
+                  查询失败时 `data` 是 undefined，两行都不渲染，
+                  屏上剩一张只有表头的空表。带着筛选条件的页面上，
+                  运营会以为是自己把条件筛空了。 */}
+                <TableError 出错={list.isError} 列数={10} />
+                {list.data && list.data.items.length === 0 && (
                 <tr><td colSpan={10} className="text-center py-10 text-ink-4">等着批的退款一个都没有。要看全部，把上面的状态改成「全部」</td></tr>
               )}
             </tbody>

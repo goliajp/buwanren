@@ -17,7 +17,7 @@ interface MingliHealth {
 }
 
 export default function Mingli() {
-  const { data, dataUpdatedAt } = useQuery({
+  const { data, dataUpdatedAt, isError } = useQuery({
     queryKey: ['mingli.health'],
     queryFn: () => api.get<MingliHealth>('/mingli/health'),
     refetchInterval: 15_000,
@@ -42,8 +42,15 @@ export default function Mingli() {
           <div className="px-4 py-3 flex items-center gap-4">
             <div className="flex items-center gap-2">
               <span className={`w-2 h-2 rounded-full ${data?.reachable ? 'bg-settled animate-pulse' : 'bg-debt'}`} />
+              {/* 【三种状态，不是两种】（2026-09-03 五路评审 · 后台产品体验）。
+                  上一版只分「有 data / 没 data」——而「没 data」有两个原因：
+                  还在探，和**这一次探测本身没发出去**（后台 API 连不上）。
+                  两者都显示「正在探…」，于是后台自己挂了的时候，
+                  这一屏是一个永远转不完的省略号:它看着像还在工作。
+                  而这一页的活儿恰恰是「说清楚谁连不上谁」。 */}
               <span className={`font-semibold ${data?.reachable ? 'text-settled' : 'text-debt'}`}>
-                {data ? (data.reachable ? '在线' : '连不上') : '正在探…'}
+                {isError ? '探不动 —— 后台 API 自己就没应答'
+                  : data ? (data.reachable ? '在线' : '连不上') : '正在探…'}
               </span>
             </div>
             <span className="font-mono text-xs text-ink-3">{data?.base}</span>

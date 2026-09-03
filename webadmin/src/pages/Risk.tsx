@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApiMutation } from '../lib/feedback';
 import { commerce } from '../lib/api';
 import PageHeader from '../components/PageHeader';
+import TableError from '../components/TableError';
 import Pagination from '../components/Pagination';
 import { rel, ts, shortId, statusClass, statusLabel, enumLabel, riskStageLabel } from '../components/util';
 import { Power, RefreshCw } from 'lucide-react';
@@ -83,6 +84,7 @@ export default function Risk() {
             <table className="tbl">
               <thead><tr><th>编号</th><th>名称</th><th>类别</th><th>条件</th><th>动作</th><th className="r">优先</th><th>状态</th><th>生效</th><th className="c">动作</th></tr></thead>
               <tbody>
+                <TableError 出错={rules.isError} 列数={9} />
                 {(rules.data ?? []).map((r: any) => (
                   <tr key={r.id}>
                     <td className="id">{r.id}</td>
@@ -111,6 +113,7 @@ export default function Risk() {
             <table className="tbl">
               <thead><tr><th>编号</th><th>类别</th><th>用户</th><th>订单</th><th>支付</th><th>动作</th><th>命中规则</th><th>时间</th></tr></thead>
               <tbody>
+                <TableError 出错={events.isError} 列数={8} />
                 {(events.data?.items ?? []).map((e: any) => (
                   <tr key={e.id}>
                     <td className="id">{shortId(e.id)}</td>
@@ -137,6 +140,7 @@ export default function Risk() {
             <table className="tbl">
               <thead><tr><th>编号</th><th>类别</th><th>严重度</th><th>状态</th><th>负责</th><th>开始</th><th>结束</th><th>备注</th><th>结案</th></tr></thead>
               <tbody>
+                <TableError 出错={cases.isError} 列数={9} />
                 {(cases.data?.items ?? []).map((c: any) => (
                   <tr key={c.id}>
                     <td className="id">{shortId(c.id)}</td>

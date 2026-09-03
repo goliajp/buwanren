@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import PageHeader from '../components/PageHeader';
+import TableError from '../components/TableError';
 import { ts, rel, shortId, platformLabel, thou, enumLabel } from '../components/util';
 
 interface Row {
@@ -19,7 +20,7 @@ export default function Naji() {
   const [userId, setUserId] = useState('');
   const size = 30;
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['naji', page, gate, platform, userId],
     queryFn: () => api.get<{ items: Row[]; total: number }>(
       `/naji?page=${page}&size=${size}&gate=${gate}&platform=${platform}&user_id=${userId}`
@@ -108,6 +109,12 @@ export default function Naji() {
                     <td className="r text-ink-4">{rel(r.asked_at)}</td>
                   </tr>
                 ))}
+                {/* 【取不到跟「一条都没有」不是一回事】（2026-09-03 五路评审 · 后台产品体验）。
+                  上一版只有空态那一行，而它的条件是 `X.data && …length === 0` ——
+                  查询失败时 `data` 是 undefined，两行都不渲染，
+                  屏上剩一张只有表头的空表。带着筛选条件的页面上，
+                  运营会以为是自己把条件筛空了。 */}
+                <TableError 出错={isError} 列数={8} />
                 {data && data.items.length === 0 && (
                   <tr><td colSpan={8} className="text-center py-8 text-ink-4">没有符合条件的问签</td></tr>
                 )}

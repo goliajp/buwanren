@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApiMutation } from '../lib/feedback';
 import { commerce } from '../lib/api';
 import PageHeader from '../components/PageHeader';
+import TableError from '../components/TableError';
 import FilterBar from '../components/FilterBar';
 import Pagination from '../components/Pagination';
 import Drawer from '../components/Drawer';
@@ -59,6 +60,7 @@ export default function Products() {
               <th>标签</th><th>更新</th><th className="c">动作</th>
             </tr></thead>
             <tbody>
+              <TableError 出错={list.isError} 列数={8} />
               {(list.data?.items ?? []).map((p: any) => (
                 <tr key={p.id}>
                   <td className="font-mono text-ink-3">{shortId(p.id)}</td>

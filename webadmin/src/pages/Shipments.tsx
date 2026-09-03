@@ -2,7 +2,9 @@ import { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApiMutation } from '../lib/feedback';
 import { commerce } from '../lib/api';
+import { 从网址读筛选 } from '../lib/urlfilter';
 import PageHeader from '../components/PageHeader';
+import TableError from '../components/TableError';
 import FilterBar from '../components/FilterBar';
 import Pagination from '../components/Pagination';
 import Drawer from '../components/Drawer';
@@ -14,8 +16,12 @@ const CARRIERS = ['sf','jd','zto','yto','yunda','sto','ems','manual'];
 
 export default function Shipments() {
   const qc = useQueryClient();
-  const [filt, setFilt] = useState<Record<string, any>>({ size: 50, page: 0 });
-  const [draft, setDraft] = useState<Record<string, any>>({});
+  /* 【筛选条件从网址上读】（2026-09-03 五路评审 · 后台产品体验）——
+     看板与用户页跳过来时带着 `?status=…` / `?keyword=…`，
+     而在这之前没有一页读它，那几跳全都落到不带筛选的全量列表上。
+     `draft` 也要一起带上，不然筛选栏显示的跟真在用的对不上。 */
+  const [filt, setFilt] = useState<Record<string, any>>(从网址读筛选({ size: 50, page: 0 }));
+  const [draft, setDraft] = useState<Record<string, any>>(从网址读筛选({}));
   const [detailId, setDetailId] = useState<string | null>(null);
 
   const list = useQuery({
@@ -80,7 +86,13 @@ export default function Shipments() {
                   <td className="c"><button className="btn btn-ghost" onClick={() => setDetailId(s.id)}><Eye size={13}/></button></td>
                 </tr>
               ))}
-              {list.data && list.data.items.length === 0 && (
+              {/* 【取不到跟「一条都没有」不是一回事】（2026-09-03 五路评审 · 后台产品体验）。
+                  上一版只有空态那一行，而它的条件是 `X.data && …length === 0` ——
+                  查询失败时 `data` 是 undefined，两行都不渲染，
+                  屏上剩一张只有表头的空表。带着筛选条件的页面上，
+                  运营会以为是自己把条件筛空了。 */}
+                <TableError 出错={list.isError} 列数={11} />
+                {list.data && list.data.items.length === 0 && (
                 <tr><td colSpan={11} className="text-center py-10 text-ink-4">— 暂无包裹 —</td></tr>
               )}
             </tbody>
