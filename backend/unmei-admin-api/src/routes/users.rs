@@ -7,7 +7,10 @@
 //!
 //! 字段照前端 `Users.tsx` 里 `UserRow` 声明的那几个给，**一个不多**：
 //! 手机号、各家 openid、session key 那些它没要，这里也不给。
-use axum::{extract::{Query, State}, routing::get, Json, Router};
+//!
+//! 2026-09-03 加了 `is_banned` —— 前端那一列要显示他现在进不进得来。
+//! 加字段就把这段注释一起改，不然「一个不多」这句话本身就成了假的。
+use axum::{extract::{Path, Query, State}, routing::{get, post}, Json, Router};
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use serde_json::json;
@@ -17,7 +20,9 @@ use crate::auth::{Admin, ApiError};
 use crate::state::AppState;
 
 pub fn router() -> Router<AppState> {
-    Router::new().route("/admin/users", get(list))
+    Router::new()
+        .route("/admin/users", get(list))
+        .route("/admin/users/:id/ban", post(set_ban))
 }
 
 #[derive(Deserialize)]
@@ -49,7 +54,7 @@ async fn list(
     let like = format!("%{}%", f.q);
 
     let rows = sqlx::query(
-        r#"SELECT id, nickname, platform, region, locale, is_anonymous,
+        r#"SELECT id, nickname, platform, region, locale, is_anonymous, is_banned,
                   created_at, last_active_at
              FROM app_user
             WHERE ($1 = '' OR id ILIKE $2 OR nickname ILIKE $2)
@@ -85,4 +90,43 @@ async fn list(
     }).collect();
 
     Ok(Json(json!({ "items": items, "total": total, "page": page, "size": size })))
+}
+
+#[derive(Deserialize)]
+struct BanBody {
+    banned: bool,
+    /// 为什么封 / 为什么放。**空的不收** —— 只有一个布尔值的话，
+    /// 三个月后没人说得出当初为什么封了这个人。
+    reason: String,
+}
+
+/// 封一个人 / 放一个人。
+///
+/// 【`is_banned` 这一列从建库起就在，而没有任何地方写它、也没有任何地方
+/// 读它】（2026-09-03 查到）。一个建好了却不生效的开关比没有更糟:
+/// 后台看着能封，封完那个人照常下单 —— 而客服会以为自己处理完了。
+///
+/// 现在两头都接上:这里写，`unmei-api` 的 `AuthedUser` 提取器读。
+async fn set_ban(
+    State(st): State<AppState>, admin: Admin, Path(id): Path<String>, Json(b): Json<BanBody>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    admin.requires_any_role(&["support", "operator"])?;    // 封人是客服日常，运营也要动得了
+    if b.reason.trim().is_empty() {
+        return Err(ApiError::from(unmei_domain::DomainError::Validation(
+            "说一句为什么 —— 只有一个开关的话，三个月后没人说得出当初为什么封".into(),
+        )));
+    }
+    let n = sqlx::query("UPDATE app_user SET is_banned=$1 WHERE id=$2")
+        .bind(b.banned)
+        .bind(&id)
+        .execute(&st.db)
+        .await
+        .map_err(|e| ApiError(unmei_domain::AppError::Infra(format!("db: {e}"))))?
+        .rows_affected();
+    if n == 0 {
+        return Err(ApiError::not_found("user"));
+    }
+    // 理由落在审计上 —— 中间件已经把请求体记进 diff 了，
+    // 所以这里不另写一份（两份会各说各的）
+    Ok(Json(json!({ "ok": true, "banned": b.banned })))
 }

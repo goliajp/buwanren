@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useApiMutation } from '../lib/feedback';
+import { commerce } from '../lib/api';
 import { useNavigate } from 'react-router';
 import { api } from '../lib/api';
 import PageHeader from '../components/PageHeader';
@@ -9,6 +11,7 @@ import { Search } from 'lucide-react';
 interface UserRow {
   id: string; nickname: string; platform: string; region: string; locale: string;
   is_anonymous: boolean; created_at: string; last_active_at: string;
+  is_banned?: boolean;
 }
 
 /** 区域代号 → 中文。`cn` 对着屏幕的人不一定认得 */
@@ -25,7 +28,7 @@ export default function Users() {
   const [region, setRegion] = useState('');
   const size = 30;
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, refetch } = useQuery({
     queryKey: ['users', page, search, platform, region],
     queryFn: () => api.get<{ items: UserRow[]; total: number; size: number }>(
       `/users?page=${page}&size=${size}&q=${encodeURIComponent(search)}&platform=${platform}&region=${region}`
@@ -91,6 +94,7 @@ export default function Users() {
                   <th className="w-16 c">匿名</th>
                   <th className="r w-44">创建</th>
                   <th className="r w-40">最后活动</th>
+                  <th className="r w-28">进不进得来</th>
                 </tr>
               </thead>
               <tbody>
@@ -118,10 +122,16 @@ export default function Users() {
                     </td>
                     <td className="r font-mono text-xs text-ink-3">{ts(r.created_at)}</td>
                     <td className="r text-ink-3">{rel(r.last_active_at)}</td>
+                    {/* 【`is_banned` 这一列建库起就在，两头都没接】——
+                        后台看着能封、封完那个人照常下单。现在两头都通了。
+                        这一格挡住行点击，不然点「封」会顺带跳到订单页。 */}
+                    <td className="r" onClick={(e) => e.stopPropagation()}>
+                      <封禁 用户={r} 变了={() => refetch()} />
+                    </td>
                   </tr>
                 ))}
                 {data && data.items.length === 0 && (
-                  <tr><td colSpan={8} className="text-center py-8 text-ink-4">没有符合条件的用户</td></tr>
+                  <tr><td colSpan={9} className="text-center py-8 text-ink-4">没有符合条件的用户</td></tr>
                 )}
               </tbody>
             </table>
@@ -141,6 +151,44 @@ export default function Users() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/* 封一个人 / 放一个人。
+ *
+ * 【要说一句为什么】。只有一个开关的话，三个月后没人说得出
+ * 当初为什么封了这个人 —— 而那正是要翻这条记录的时候。
+ * 理由落进操作记录（中间件把请求体记进 diff）。
+ */
+function 封禁({ 用户, 变了 }: { 用户: any; 变了: () => void }) {
+  const [开着, 设开] = useState(false);
+  const [说, 设说] = useState('');
+  const 提交 = useApiMutation({
+    mutationFn: () => commerce.setUserBan(用户.id, !用户.is_banned, 说.trim()),
+    onSuccess: () => { 设开(false); 设说(''); 变了(); },
+  });
+
+  if (!开着) {
+    return 用户.is_banned ? (
+      <button className="btn btn-soft" onClick={() => 设开(true)}>
+        <span className="st st-debt">进不来</span>
+      </button>
+    ) : (
+      <button className="btn btn-ghost" onClick={() => 设开(true)}>封掉</button>
+    );
+  }
+  return (
+    <div className="flex items-center gap-1.5 justify-end">
+      <input className="input w-40" autoFocus
+             placeholder={用户.is_banned ? '为什么放他进来' : '为什么封'}
+             value={说} onChange={(e) => 设说(e.target.value)} />
+      <button className={`btn ${用户.is_banned ? 'btn-prim' : 'btn-debt'}`}
+              disabled={!说.trim() || 提交.isPending}
+              onClick={() => 提交.mutate()}>
+        {提交.isPending ? '…' : 用户.is_banned ? '放他进来' : '封'}
+      </button>
+      <button className="btn btn-ghost" onClick={() => 设开(false)}>算了</button>
     </div>
   );
 }
