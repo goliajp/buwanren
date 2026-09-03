@@ -314,10 +314,18 @@ pub async fn apply_succeeded(
 
     // 只有**真的**从 pending/processing 翻到 success 的那一次，才动订单金额。
     // RETURNING 把「这次到底改没改到行」变成可判断的值 —— 没有它就只能盲目累加。
+    /* 【`cancelling` 也要收】（2026-09-03）。订单取消时这笔支付被转成
+       `cancelling`（见 `cancel_in_flight`），而渠道那一侧可能已经把钱收了 ——
+       状态机里 `Cancelling => [Cancelled, Success]` 写的就是这条竞态。
+
+       不收的话，那笔钱在系统里【不存在】：payment 停在 cancelling、
+       订单金额不动、总账没有它。而钱真的在渠道那边。
+       `a_late_success_does_not_resurrect_a_cancelled_order` 这条测试
+       钉的正是「订单不复活，但钱要记下来 —— 看不见的钱才是麻烦」。 */
     let applied: Option<(String, String, i64)> = sqlx::query_as(
         "UPDATE payment SET status='success', paid_at=$1,
            channel_txn_id=COALESCE($3, channel_txn_id)
-         WHERE id=$2 AND status IN ('pending','processing')
+         WHERE id=$2 AND status IN ('pending','processing','cancelling')
          RETURNING id, order_id, amount_minor",
     )
     .bind(paid_at)
@@ -438,6 +446,46 @@ pub async fn expire_overdue(pool: &PgPool) -> Result<u64, DomainError> {
     .execute(pool)
     .await.db()?
     .rows_affected();
+    Ok(n)
+}
+
+/// 订单取消 / 过期时，把这一单上还在飞的支付撤下来。
+///
+/// 【`order::cancel` 一处都没碰过支付】（2026-09-03 五路评审 · 资金审计）。
+/// 它改订单、放券、写事件，而已经发起的那笔 pending 支付原封不动地活着，
+/// 最长还能付 30 分钟。付成之后 `apply_succeeded` 的金额那条 UPDATE 是
+/// 无条件累加的，于是订单停在 `cancelled` 而 `amount_paid_minor` 变成全额。
+///
+/// 实测存量：486 单收了钱却是取消状态，合计 ¥48,082，全部 `refunded=0`，
+/// 从 2026-08-16 一直到当天（当天新增 64 单）。**钱进账而买家什么都没拿到，
+/// 且没有任何一处会说出来** —— 看板 11 个 KPI、风控、对账里都没有这条规则。
+///
+/// 转成 `cancelling` 而不是直接 `cancelled`：
+/// - `payment_sweep` 只查 `pending / processing`，转过去它就不再自动结算
+/// - 而 `apply_succeeded` 仍然接受 `cancelling`（状态机里那句注释写着
+///   「渠道竞态：取消请求中可能已经被付掉」）—— 钱真到了就还是要记上，
+///   那种「钱到了但没有归宿」该被看见，不该被一个状态守卫吞掉
+///
+/// 跑在调用方的事务里：订单转 cancelled 与支付转 cancelling 要么一起成、
+/// 要么一起不成。中间断开的话，取消了的单子上挂着一笔还会自动结算的支付。
+pub async fn cancel_in_flight(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    order_id: &str,
+    why: &str,
+) -> Result<u64, DomainError> {
+    let n = sqlx::query(
+        "UPDATE payment SET status='cancelling',
+           audit_note = COALESCE(audit_note, '') || E'\n' || $2
+         WHERE order_id=$1 AND status IN ('pending','processing')",
+    )
+    .bind(order_id)
+    .bind(why)
+    .execute(&mut **tx)
+    .await.db()?
+    .rows_affected();
+    if n > 0 {
+        tracing::info!(order_id, n, why, "订单没了，把在飞的支付撤下来");
+    }
     Ok(n)
 }
 

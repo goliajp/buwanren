@@ -64,6 +64,12 @@ if 码 != 0:
                             AND p.status IN ('success','refunded','refunded_partial'))""",
      '订单说收到钱了，支付表里查不到是哪一笔'),
 
+    ('取消了却收着钱',
+     """SELECT COUNT(*) FROM order_record
+        WHERE status='cancelled'
+          AND COALESCE(amount_paid_minor,0) > COALESCE(amount_refunded_minor,0)""",
+     '订单取消了，钱却收着没退 —— 买家什么都没拿到'),
+
     ('退的比收的还多',
      """SELECT COUNT(*) FROM order_record
         WHERE COALESCE(amount_refunded_minor,0) > COALESCE(amount_paid_minor,0)""",

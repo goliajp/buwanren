@@ -911,3 +911,55 @@ async fn two_half_refunds_leave_both_sides_saying_fully_refunded() {
                "两笔加起来等于全额，支付这一侧也该说全退了");
     assert_eq!(订单态.as_deref(), Some("refunded"), "订单那一侧本来就是累计式");
 }
+
+// ═══════════════════ 取消订单要把在飞的支付撤下来 ═══════════════════
+
+/// 【`order::cancel` 一处都没碰过支付】（2026-09-03 五路评审 · 资金审计）。
+///
+/// 它改订单、放券、写事件，而已经发起的那笔 pending 支付原封不动地活着。
+/// 付成之后订单停在 `cancelled` 而 `amount_paid_minor` 变成全额 ——
+/// 钱进账、买家什么都没拿到，且没有任何一处会说出来。
+///
+/// 实测存量：486 单、¥48,082，全部 `refunded=0`。
+#[tokio::test]
+async fn cancelling_an_order_takes_its_in_flight_payment_down() {
+    let pool = db_or_skip!();
+    let (user, order_id) = unpaid_order(&pool, 9900).await;
+
+    let pay = payment::start(&pool, &order_id, &user, "wechat_h5", None)
+        .await.expect("发起支付");
+    let 起初 = common::scalar_string(
+        &pool, "SELECT status FROM payment WHERE id=$1", &pay.payment_id).await;
+    assert_eq!(起初.as_deref(), Some("pending"), "前提：这笔支付在飞");
+
+    order::cancel(&pool, &order_id, "改主意了", &Actor::system(), Some(&user))
+        .await.expect("取消订单");
+
+    /* 【转 cancelling 而不是 cancelled】。`payment_sweep` 只查
+       pending / processing，转过去它就不再自动结算；
+       而 `apply_succeeded` 仍接受 cancelling —— 渠道那边真收了钱还是要记上，
+       那种「钱到了但没有归宿」该被看见，不该被状态守卫吞掉。 */
+    let 之后 = common::scalar_string(
+        &pool, "SELECT status FROM payment WHERE id=$1", &pay.payment_id).await;
+    assert_eq!(之后.as_deref(), Some("cancelling"),
+               "取消订单之后这笔支付还在飞 —— 它还会被 sweeper 结成 success");
+}
+
+#[tokio::test]
+async fn an_expired_order_takes_its_payment_down_too() {
+    let pool = db_or_skip!();
+    let (user, order_id) = unpaid_order(&pool, 9900).await;
+    let pay = payment::start(&pool, &order_id, &user, "wechat_h5", None)
+        .await.expect("发起支付");
+
+    // 把这一单推到过期线以外，再跑清扫
+    sqlx::query("UPDATE order_record SET expires_at = NOW() - INTERVAL '1 minute' WHERE id=$1")
+        .bind(&order_id).execute(&pool).await.expect("推到过期");
+    order::expire_unpaid(&pool).await.expect("清扫");
+
+    // 【这条路上没有人在场】—— 所以更需要它自己做对
+    let 之后 = common::scalar_string(
+        &pool, "SELECT status FROM payment WHERE id=$1", &pay.payment_id).await;
+    assert_eq!(之后.as_deref(), Some("cancelling"),
+               "订单过期了，支付还在飞 —— 每一次弃购都留下一笔会自动结算的支付");
+}
