@@ -769,5 +769,25 @@ case "${1:-}" in
   seed)  preflight; do_seed ;;
   check) preflight; do_check ;;
   all)   preflight; do_reset && do_seed && do_check ;;
-  *) echo "用法: bash scripts/plan25.sh {reset|seed|check|all}"; exit 2 ;;
+  cases)
+    # 【清单从脚本里读，不手抄】。文档里抄一份的话，加一条用例
+    # 而忘了改文档，那份清单就开始骗人 —— 而它看起来跟真的一样。
+    echo "# 25 计划 · 用例清单"
+    echo
+    echo "由 \`bash scripts/plan25.sh cases\` 生成，别手改。"
+    echo
+    awk '
+      /^  echo "══/ { line=$0
+        sub(/^  echo "══ */, "", line); sub(/ *══".*$/, "", line)
+        printf "\n## %s\n\n", line; next }
+      /want(_some)? "/ {
+        # 从【第一个 want 之后】切起 —— 有几条写在 `[ -n … ] && want …` 里，
+        # 按行首切的话切出来的是那个条件语句本身。
+        line=$0
+        sub(/^.*want(_some)? "/, "", line); sub(/".*$/, "", line)
+        if (line !~ /\$/ && line != "") printf "- %s\n", line
+      }
+    ' "$0"
+    ;;
+  *) echo "用法: bash scripts/plan25.sh {reset|seed|check|all|cases}"; exit 2 ;;
 esac
