@@ -25,7 +25,7 @@ export default function FilterBar({ fields, values, onChange, onSearch, onReset,
         if (f.kind === 'text') {
           return (
             <div key={f.key} className="flex flex-col gap-0.5">
-              <label className="uplabel text-ink-5">{f.label}</label>
+              <label className="label text-ink-4">{f.label}</label>
               <input
                 className="input"
                 style={{ width: f.width ?? 180 }}
@@ -40,7 +40,7 @@ export default function FilterBar({ fields, values, onChange, onSearch, onReset,
         if (f.kind === 'select') {
           return (
             <div key={f.key} className="flex flex-col gap-0.5">
-              <label className="uplabel text-ink-5">{f.label}</label>
+              <label className="label text-ink-4">{f.label}</label>
               <select
                 className="select"
                 style={{ width: f.width ?? 130 }}
@@ -56,7 +56,7 @@ export default function FilterBar({ fields, values, onChange, onSearch, onReset,
         if (f.kind === 'date') {
           return (
             <div key={f.key} className="flex flex-col gap-0.5">
-              <label className="uplabel text-ink-5">{f.label}</label>
+              <label className="label text-ink-4">{f.label}</label>
               <input type="datetime-local" className="input"
                 value={values[f.key] ?? ''}
                 onChange={(e) => setOne(f.key, e.target.value || undefined)}
@@ -67,7 +67,7 @@ export default function FilterBar({ fields, values, onChange, onSearch, onReset,
         if (f.kind === 'number') {
           return (
             <div key={f.key} className="flex flex-col gap-0.5">
-              <label className="uplabel text-ink-5">{f.label}</label>
+              <label className="label text-ink-4">{f.label}</label>
               <input
                 type="number" className="input"
                 style={{ width: f.width ?? 110 }}
@@ -80,7 +80,7 @@ export default function FilterBar({ fields, values, onChange, onSearch, onReset,
         }
         // bool
         return (
-          <label key={f.key} className="flex items-center gap-1.5 px-2 py-1.5 border border-border rounded cursor-pointer">
+          <label key={f.key} className="flex items-center gap-1.5 px-2 py-1.5 border border-rule rounded cursor-pointer">
             <input type="checkbox" checked={!!values[f.key]} onChange={(e) => setOne(f.key, e.target.checked)} />
             <span className="text-[12px]">{f.label}</span>
           </label>

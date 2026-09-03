@@ -4,7 +4,7 @@ import { useApiMutation } from '../lib/feedback';
 import { commerce } from '../lib/api';
 import PageHeader from '../components/PageHeader';
 import Pagination from '../components/Pagination';
-import { rel, ts, shortId, statusChip } from '../components/util';
+import { rel, ts, shortId, statusClass, statusLabel, enumLabel, riskStageLabel } from '../components/util';
 import { Power, RefreshCw } from 'lucide-react';
 
 export default function Risk() {
@@ -27,9 +27,9 @@ export default function Risk() {
 
   return (
     <div>
-      <PageHeader title="风控 · Risk" sub="commerce v2 · risk_rule + risk_event + risk_case · 简易 DSL 规则引擎" stats={[
+      <PageHeader title="风控" sub="看着不太对劲的单子，和你为它们定的规矩" stats={[
         { label: '规则', value: (rules.data ?? []).length },
-        { label: '激活', value: (rules.data ?? []).filter((r: any) => r.status === 'active').length, tone: 'ok' as const },
+        { label: '激活', value: (rules.data ?? []).filter((r: any) => r.status === 'active').length, tone: 'settled' as const },
       ]} />
       <div className="p-4">
         <div className="flex items-center gap-1 mb-3">
@@ -46,18 +46,18 @@ export default function Risk() {
 
         {tab === 'rules' && (
           <div className="panel">
-            <table className="wa-table">
-              <thead><tr><th>id</th><th>name</th><th>kind</th><th>expression</th><th>action</th><th className="r">priority</th><th>status</th><th>生效</th><th className="c">动作</th></tr></thead>
+            <table className="tbl">
+              <thead><tr><th>编号</th><th>名称</th><th>类别</th><th>条件</th><th>动作</th><th className="r">优先</th><th>状态</th><th>生效</th><th className="c">动作</th></tr></thead>
               <tbody>
                 {(rules.data ?? []).map((r: any) => (
                   <tr key={r.id}>
-                    <td className="mono">{r.id}</td>
+                    <td className="id">{r.id}</td>
                     <td className="font-medium">{r.name}</td>
-                    <td><span className="chip chip-info">{r.kind}</span></td>
-                    <td className="mono text-[11px] text-ink-3">{r.expression}</td>
-                    <td><span className={`chip ${r.action === 'review' ? 'chip-warn' : r.action === 'block' ? 'chip-bad' : 'chip-info'}`}>{r.action}</span></td>
-                    <td className="r mono">{r.priority}</td>
-                    <td><span className={statusChip(r.status)}>{r.status}</span></td>
+                    <td><span className="text-ink-2">{riskStageLabel(r.kind)}</span></td>
+                    <td className="font-mono text-xs text-ink-3">{r.expression}</td>
+                    <td><span className={`${r.action === 'review' ? 'text-pending' : r.action === 'block' ? 'text-debt' : 'text-ink-2'}`}>{enumLabel(r.action)}</span></td>
+                    <td className="r font-mono">{r.priority}</td>
+                    <td><span className={statusClass(r.status)}>{statusLabel(r.status)}</span></td>
                     <td title={ts(r.effective_from)}>{rel(r.effective_from)}</td>
                     <td className="c">
                       <button className={`btn ${r.status === 'active' ? 'btn-warn' : 'btn-soft'}`}
@@ -74,23 +74,23 @@ export default function Risk() {
 
         {tab === 'events' && (
           <div className="panel">
-            <table className="wa-table">
-              <thead><tr><th>id</th><th>kind</th><th>user</th><th>order</th><th>payment</th><th>action</th><th>命中规则</th><th>时间</th></tr></thead>
+            <table className="tbl">
+              <thead><tr><th>编号</th><th>类别</th><th>用户</th><th>订单</th><th>支付</th><th>动作</th><th>命中规则</th><th>时间</th></tr></thead>
               <tbody>
                 {(events.data?.items ?? []).map((e: any) => (
                   <tr key={e.id}>
-                    <td className="mono">{shortId(e.id)}</td>
-                    <td className="mono">{e.kind}</td>
-                    <td className="mono text-ink-3">{e.user_id ? shortId(e.user_id) : '—'}</td>
-                    <td className="mono text-ink-3">{e.order_id ? shortId(e.order_id) : '—'}</td>
-                    <td className="mono text-ink-3">{e.payment_id ? shortId(e.payment_id) : '—'}</td>
-                    <td><span className={`chip ${e.decided_action === 'block' ? 'chip-bad' : e.decided_action === 'review' ? 'chip-warn' : 'chip-info'}`}>{e.decided_action}</span></td>
-                    <td className="text-[11px]">{(e.matched_rule_ids ?? []).join(', ')}</td>
+                    <td className="id">{shortId(e.id)}</td>
+                    <td className="id">{riskStageLabel(e.kind)}</td>
+                    <td className="font-mono text-ink-3">{e.user_id ? shortId(e.user_id) : '—'}</td>
+                    <td className="font-mono text-ink-3">{e.order_id ? shortId(e.order_id) : '—'}</td>
+                    <td className="font-mono text-ink-3">{e.payment_id ? shortId(e.payment_id) : '—'}</td>
+                    <td><span className={`${e.decided_action === 'block' ? 'text-debt' : e.decided_action === 'review' ? 'text-pending' : 'text-ink-2'}`}>{e.decided_action}</span></td>
+                    <td className="text-xs">{(e.matched_rule_ids ?? []).join(', ')}</td>
                     <td>{rel(e.decided_at)}</td>
                   </tr>
                 ))}
                 {events.data && events.data.items.length === 0 && (
-                  <tr><td colSpan={8} className="text-center py-10 text-ink-5">— 无风控事件 —</td></tr>
+                  <tr><td colSpan={8} className="text-center py-10 text-ink-4">— 无风控事件 —</td></tr>
                 )}
               </tbody>
             </table>
@@ -100,23 +100,23 @@ export default function Risk() {
 
         {tab === 'cases' && (
           <div className="panel">
-            <table className="wa-table">
-              <thead><tr><th>id</th><th>kind</th><th>severity</th><th>state</th><th>负责</th><th>opened</th><th>closed</th><th>note</th></tr></thead>
+            <table className="tbl">
+              <thead><tr><th>编号</th><th>类别</th><th>严重度</th><th>状态</th><th>负责</th><th>开始</th><th>结束</th><th>备注</th></tr></thead>
               <tbody>
                 {(cases.data?.items ?? []).map((c: any) => (
                   <tr key={c.id}>
-                    <td className="mono">{shortId(c.id)}</td>
-                    <td>{c.kind}</td>
-                    <td><span className={`chip ${c.severity === 'critical' ? 'chip-bad' : c.severity === 'high' ? 'chip-warn' : 'chip-info'}`}>{c.severity}</span></td>
-                    <td><span className={statusChip(c.state)}>{c.state}</span></td>
-                    <td className="mono text-ink-3">{c.assigned_admin_id ?? '—'}</td>
+                    <td className="id">{shortId(c.id)}</td>
+                    <td>{enumLabel(c.kind)}</td>
+                    <td><span className={`${c.severity === 'critical' ? 'text-debt' : c.severity === 'high' ? 'text-pending' : 'text-ink-2'}`}>{c.severity}</span></td>
+                    <td><span className={statusClass(c.state)}>{statusLabel(c.state)}</span></td>
+                    <td className="font-mono text-ink-3">{c.assigned_admin_id ?? '—'}</td>
                     <td>{rel(c.opened_at)}</td>
                     <td>{rel(c.closed_at)}</td>
-                    <td className="text-[11px] text-ink-4 truncate max-w-[300px]">{c.audit_note}</td>
+                    <td className="text-xs text-ink-4 truncate max-w-[300px]">{c.audit_note}</td>
                   </tr>
                 ))}
                 {cases.data && cases.data.items.length === 0 && (
-                  <tr><td colSpan={8} className="text-center py-10 text-ink-5">— 无案件 —</td></tr>
+                  <tr><td colSpan={8} className="text-center py-10 text-ink-4">— 无案件 —</td></tr>
                 )}
               </tbody>
             </table>

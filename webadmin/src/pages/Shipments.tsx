@@ -6,7 +6,7 @@ import PageHeader from '../components/PageHeader';
 import FilterBar from '../components/FilterBar';
 import Pagination from '../components/Pagination';
 import Drawer from '../components/Drawer';
-import { rel, ts, yuan, shortId, statusChip, carrierLabel } from '../components/util';
+import { rel, ts, yuan, shortId, statusClass, statusLabel, carrierLabel } from '../components/util';
 import { Eye, Edit3, AlertTriangle, RefreshCw, Truck } from 'lucide-react';
 
 const SHIPMENT_STATUSES = ['preparing','picked_up','in_transit','out_for_delivery','delivered','exception','returning','returned','cancelled'];
@@ -35,20 +35,20 @@ export default function Shipments() {
     return [
       { label: '当前页', value: items.length },
       { label: '总数', value: list.data?.total ?? 0 },
-      { label: '异常', value: exc, tone: exc ? 'bad' as const : undefined },
+      { label: '异常', value: exc, tone: exc ? 'debt' as const : undefined },
     ];
   }, [list.data]);
 
   return (
     <div>
-      <PageHeader title="物流 · Shipments" sub="commerce v2 · shipment + shipment_trace_event · 只 trace 不仓储" stats={stats} />
+      <PageHeader title="物流" sub="寄出去的实物走到哪儿了。我们不管仓库，只跟单号" stats={stats} />
       <div className="p-4">
         <FilterBar
           fields={[
-            { kind: 'text',   key: 'keyword', label: 'keyword', placeholder: 'id / 单号 / order_id', width: 240 },
-            { kind: 'select', key: 'status', label: 'status', options: SHIPMENT_STATUSES.map(v => ({ v, label: v })) },
-            { kind: 'select', key: 'carrier_code', label: 'carrier', options: CARRIERS.map(v => ({ v, label: carrierLabel(v) })), width: 130 },
-            { kind: 'text',   key: 'order_id', label: 'order_id', width: 180 },
+            { kind: 'text',   key: 'keyword', label: '找', placeholder: 'id / 单号 / order_id', width: 240 },
+            { kind: 'select', key: 'status', label: '状态', options: SHIPMENT_STATUSES.map(v => ({ v, label: v })) },
+            { kind: 'select', key: 'carrier_code', label: '快递公司', options: CARRIERS.map(v => ({ v, label: carrierLabel(v) })), width: 130 },
+            { kind: 'text',   key: 'order_id', label: '哪一单', width: 180 },
             { kind: 'bool',   key: 'exception_only', label: '只看异常+退货' },
           ]}
           values={draft}
@@ -58,21 +58,21 @@ export default function Shipments() {
           right={<button className="btn btn-soft" onClick={() => list.refetch()}><RefreshCw size={13}/> 刷新</button>}
         />
         <div className="panel">
-          <table className="wa-table">
+          <table className="tbl">
             <thead><tr>
-              <th>id</th><th>order</th><th>承运商</th><th>单号</th><th>状态</th><th>方式</th>
+              <th>编号</th><th>订单</th><th>承运商</th><th>单号</th><th>状态</th><th>方式</th>
               <th className="r">成本</th><th>取件</th><th>送达</th><th>更新</th>
               <th className="c">动作</th>
             </tr></thead>
             <tbody>
               {(list.data?.items ?? []).map((s: any) => (
-                <tr key={s.id} className={s.status === 'exception' ? 'bg-vermilion-soft/30' : ''}>
-                  <td className="mono">{shortId(s.id)}</td>
-                  <td className="mono text-ink-3">{shortId(s.order_id)}</td>
+                <tr key={s.id} className={s.status === 'exception' ? 'bg-debt-bg/30' : ''}>
+                  <td className="id">{shortId(s.id)}</td>
+                  <td className="font-mono text-ink-3">{shortId(s.order_id)}</td>
                   <td>{carrierLabel(s.carrier_code)}</td>
-                  <td className="mono">{s.tracking_no ?? <span className="text-ink-5">未录入</span>}</td>
-                  <td><span className={statusChip(s.status)}>{s.status}</span></td>
-                  <td className="text-ink-4">{s.shipping_method}</td>
+                  <td className="id">{s.tracking_no ?? <span className="text-ink-4">未录入</span>}</td>
+                  <td><span className={statusClass(s.status)}>{statusLabel(s.status)}</span></td>
+                  <td className="text-ink-4">{enumLabel(s.shipping_method)}</td>
                   <td className="r">{s.cost_minor ? yuan(s.cost_minor, s.cost_currency || 'CNY') : '—'}</td>
                   <td title={ts(s.picked_up_at)}>{rel(s.picked_up_at)}</td>
                   <td title={ts(s.delivered_at)}>{rel(s.delivered_at)}</td>
@@ -81,7 +81,7 @@ export default function Shipments() {
                 </tr>
               ))}
               {list.data && list.data.items.length === 0 && (
-                <tr><td colSpan={11} className="text-center py-10 text-ink-5">— 暂无包裹 —</td></tr>
+                <tr><td colSpan={11} className="text-center py-10 text-ink-4">— 暂无包裹 —</td></tr>
               )}
             </tbody>
           </table>
@@ -142,12 +142,12 @@ function ShipmentBody({ data }: { data: any }) {
       <section>
         <h3 className="font-semibold mb-2 flex items-center gap-1.5"><Truck size={13}/> 基本</h3>
         <KvGrid kv={[
-          ['id', <span className="mono">{shipment.id}</span>],
-          ['order_id', <span className="mono">{shipment.order_id}</span>],
+          ['id', <span className="id">{shipment.id}</span>],
+          ['order_id', <span className="id">{shipment.order_id}</span>],
           ['承运商', carrierLabel(shipment.carrier_code)],
-          ['运单号', <span className="mono font-semibold">{shipment.tracking_no ?? '—'}</span>],
-          ['状态', <span className={statusChip(shipment.status)}>{shipment.status}</span>],
-          ['运输方式', shipment.shipping_method],
+          ['运单号', <span className="font-mono font-semibold">{shipment.tracking_no ?? '—'}</span>],
+          ['状态', <span className={statusClass(shipment.status)}>{statusLabel(shipment.status)}</span>],
+          ['运输方式', enumLabel(shipment.shipping_method)],
           ['重量', shipment.weight_g ? `${shipment.weight_g} g` : '—'],
           ['成本', shipment.cost_minor ? yuan(shipment.cost_minor, shipment.cost_currency || 'CNY') : '—'],
           ['取件时间', ts(shipment.picked_up_at)],
@@ -161,21 +161,21 @@ function ShipmentBody({ data }: { data: any }) {
         <h3 className="font-semibold mb-2">物流轨迹 ({trace?.length ?? 0})</h3>
         <div className="space-y-0">
           {(trace ?? []).map((e: any, i: number) => (
-            <div key={e.id} className="flex gap-3 py-2 border-b border-border/50">
-              <div className={`w-1.5 mt-1 h-1.5 rounded-full flex-shrink-0 ${i === 0 ? 'bg-jade' : 'bg-ink-5'}`} />
+            <div key={e.id} className="flex gap-3 py-2 border-b border-rule/50">
+              <div className={`w-1.5 mt-1 h-1.5 rounded-full flex-shrink-0 ${i === 0 ? 'bg-settled' : 'bg-ink-4'}`} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-[12px]">{e.event_kind}</span>
-                  {e.location && <span className="text-ink-4 text-[11px]">{e.location}</span>}
-                  <span className="uplabel text-ink-5 ml-auto">{e.raw_source}</span>
+                  {e.location && <span className="text-ink-4 text-xs">{e.location}</span>}
+                  <span className="label text-ink-4 ml-auto">{e.raw_source}</span>
                 </div>
                 <div className="text-ink-3 text-[12px] mt-0.5">{e.description}</div>
-                <div className="text-ink-5 text-[11px] mono mt-0.5">{ts(e.event_at)}</div>
+                <div className="text-ink-4 text-xs font-mono mt-0.5">{ts(e.event_at)}</div>
               </div>
             </div>
           ))}
           {(!trace || trace.length === 0) && (
-            <div className="py-6 text-center text-ink-5">— 暂无 trace，需录入运单号 + 等 sweeper 拉取 —</div>
+            <div className="py-6 text-center text-ink-4">— 暂无 trace，需录入运单号 + 等 sweeper 拉取 —</div>
           )}
         </div>
       </section>
@@ -187,8 +187,8 @@ function KvGrid({ kv }: { kv: [string, React.ReactNode][] }) {
   return (
     <div className="grid grid-cols-2 gap-x-6 gap-y-1">
       {kv.map(([k, v], i) => (
-        <div key={i} className="flex items-center justify-between border-b border-border/50 py-1">
-          <span className="uplabel text-ink-5">{k}</span>
+        <div key={i} className="flex items-center justify-between border-b border-rule/50 py-1">
+          <span className="label text-ink-4">{k}</span>
           <span className="text-ink-2">{v}</span>
         </div>
       ))}

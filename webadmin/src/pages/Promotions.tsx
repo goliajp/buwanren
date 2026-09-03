@@ -6,7 +6,7 @@ import PageHeader from '../components/PageHeader';
 import FilterBar from '../components/FilterBar';
 import Pagination from '../components/Pagination';
 import Drawer from '../components/Drawer';
-import { rel, ts, yuan, shortId, statusChip } from '../components/util';
+import { rel, ts, yuan, shortId, statusClass, statusLabel, enumLabel } from '../components/util';
 import { Eye, Play, Pause, X, RefreshCw } from 'lucide-react';
 
 const STATUSES = ['draft','scheduled','active','paused','exhausted','ended'];
@@ -44,7 +44,7 @@ export default function Promotions() {
 
   return (
     <div>
-      <PageHeader title="营销 · Promotions" sub="commerce v2 · promotion + coupon + coupon_redemption" stats={[
+      <PageHeader title="促销" sub="在做的活动和发出去的券，以及谁用了" stats={[
         { label: '活动总数', value: list.data?.total ?? 0 },
       ]} />
       <div className="p-4">
@@ -62,8 +62,8 @@ export default function Promotions() {
           <>
             <FilterBar
               fields={[
-                { kind: 'text', key: 'keyword', label: 'keyword', placeholder: 'code / name' },
-                { kind: 'select', key: 'status', label: 'status', options: STATUSES.map(v => ({ v, label: v })) },
+                { kind: 'text', key: 'keyword', label: '找', placeholder: 'code / name' },
+                { kind: 'select', key: 'status', label: '状态', options: STATUSES.map(v => ({ v, label: v })) },
               ]}
               values={draft}
               onChange={setDraft}
@@ -72,20 +72,20 @@ export default function Promotions() {
               right={<button className="btn btn-soft" onClick={() => list.refetch()}><RefreshCw size={13}/></button>}
             />
             <div className="panel">
-              <table className="wa-table">
-                <thead><tr><th>id</th><th>code</th><th>名称</th><th>kind</th><th>状态</th>
+              <table className="tbl">
+                <thead><tr><th>编号</th><th>代号</th><th>名称</th><th>类别</th><th>状态</th>
                   <th className="r">预算</th><th className="r">已用</th><th>生效</th><th>失效</th>
                   <th className="c">动作</th></tr></thead>
                 <tbody>
                   {(list.data?.items ?? []).map((p: any) => (
                     <tr key={p.id}>
-                      <td className="mono">{shortId(p.id)}</td>
-                      <td className="mono">{p.code ?? '—'}</td>
+                      <td className="id">{shortId(p.id)}</td>
+                      <td className="id">{p.code ?? '—'}</td>
                       <td className="font-medium">{p.name}</td>
-                      <td><span className="chip chip-info">{p.kind}</span></td>
-                      <td><span className={statusChip(p.status)}>{p.status}</span></td>
-                      <td className="r">{p.budget_minor ? yuan(p.budget_minor) : <span className="text-ink-5">无限</span>}</td>
-                      <td className="r text-jade">{yuan(p.used_minor)}</td>
+                      <td><span className="text-ink-2">{enumLabel(p.kind)}</span></td>
+                      <td><span className={statusClass(p.status)}>{statusLabel(p.status)}</span></td>
+                      <td className="r">{p.budget_minor ? yuan(p.budget_minor) : <span className="text-ink-4">无限</span>}</td>
+                      <td className="r text-settled">{yuan(p.used_minor)}</td>
                       <td title={ts(p.effective_from)}>{rel(p.effective_from)}</td>
                       <td title={ts(p.effective_to)}>{p.effective_to ? rel(p.effective_to) : '—'}</td>
                       <td className="c flex justify-center gap-1">
@@ -105,8 +105,8 @@ export default function Promotions() {
           <>
             <FilterBar
               fields={[
-                { kind: 'text', key: 'keyword', label: 'code / owner_user_id', width: 240 },
-                { kind: 'select', key: 'status', label: 'state', options: ['issued','locked','redeemed','expired','revoked'].map(v => ({ v, label: v })) },
+                { kind: 'text', key: 'keyword', label: '券码或用户号', width: 240 },
+                { kind: 'select', key: 'status', label: '状态', options: ['issued','locked','redeemed','expired','revoked'].map(v => ({ v, label: v })) },
               ]}
               values={draft}
               onChange={setDraft}
@@ -114,16 +114,16 @@ export default function Promotions() {
               onReset={() => { setDraft({}); setFilt({ size: 50, page: 0 }); }}
             />
             <div className="panel">
-              <table className="wa-table">
-                <thead><tr><th>id</th><th>code</th><th>promotion</th><th>owner</th><th>state</th><th>领取</th><th>核销</th><th>过期</th></tr></thead>
+              <table className="tbl">
+                <thead><tr><th>编号</th><th>代号</th><th>活动</th><th>归属</th><th>状态</th><th>领取</th><th>核销</th><th>过期</th></tr></thead>
                 <tbody>
                   {(coupons.data?.items ?? []).map((c: any) => (
                     <tr key={c.id}>
-                      <td className="mono">{shortId(c.id)}</td>
-                      <td className="mono">{c.code ?? '—'}</td>
+                      <td className="id">{shortId(c.id)}</td>
+                      <td className="id">{c.code ?? '—'}</td>
                       <td className="text-ink-3">{c.promotion_name ?? shortId(c.promotion_id)}</td>
-                      <td className="mono text-ink-3">{c.owner_user_id ? shortId(c.owner_user_id) : <span className="text-ink-5">待领</span>}</td>
-                      <td><span className={statusChip(c.state)}>{c.state}</span></td>
+                      <td className="font-mono text-ink-3">{c.owner_user_id ? shortId(c.owner_user_id) : <span className="text-ink-4">待领</span>}</td>
+                      <td><span className={statusClass(c.state)}>{statusLabel(c.state)}</span></td>
                       <td>{rel(c.issued_at)}</td>
                       <td>{rel(c.redeemed_at)}</td>
                       <td title={ts(c.expires_at)}>{rel(c.expires_at)}</td>
@@ -141,7 +141,7 @@ export default function Promotions() {
         open={!!detailId}
         onClose={() => setDetailId(null)}
         title={detail.data?.promotion?.name ?? '促销详情'}
-        subtitle={detail.data?.promotion ? `${detail.data.promotion.kind} · ${detail.data.promotion.status}` : '加载中'}
+        subtitle={detail.data?.promotion ? `${enumLabel(detail.data.promotion.kind)}　${statusLabel(detail.data.promotion.status)}` : '正在取…'}
         width={720}
       >
         {detail.data && <PromoBody data={detail.data} />}
@@ -157,10 +157,10 @@ function PromoBody({ data }: { data: any }) {
       <section>
         <h3 className="font-semibold mb-2">基本</h3>
         <KvGrid kv={[
-          ['code', <span className="mono">{promotion.code ?? '—'}</span>],
+          ['code', <span className="id">{promotion.code ?? '—'}</span>],
           ['名称', <strong>{promotion.name}</strong>],
           ['kind', promotion.kind],
-          ['状态', <span className={statusChip(promotion.status)}>{promotion.status}</span>],
+          ['状态', <span className={statusClass(promotion.status)}>{statusLabel(promotion.status)}</span>],
           ['优先级', promotion.priority],
           ['可叠加', promotion.stackable ? '是' : '否'],
           ['预算', promotion.budget_minor ? yuan(promotion.budget_minor) : '无限'],
@@ -175,16 +175,16 @@ function PromoBody({ data }: { data: any }) {
         ]} />
       </section>
       <section>
-        <h3 className="font-semibold mb-2">benefit_json</h3>
-        <pre className="bg-surface-2 p-3 rounded text-[11px] overflow-x-auto mono">{JSON.stringify(promotion.benefit_json, null, 2)}</pre>
+        <h3 className="font-semibold mb-2">给什么优惠</h3>
+        <pre className="bg-sunk p-3 rounded text-xs overflow-x-auto font-mono">{JSON.stringify(promotion.benefit_json, null, 2)}</pre>
       </section>
       <section>
-        <h3 className="font-semibold mb-2">rule_json</h3>
-        <pre className="bg-surface-2 p-3 rounded text-[11px] overflow-x-auto mono">{JSON.stringify(promotion.rule_json, null, 2)}</pre>
+        <h3 className="font-semibold mb-2">什么条件下给</h3>
+        <pre className="bg-sunk p-3 rounded text-xs overflow-x-auto font-mono">{JSON.stringify(promotion.rule_json, null, 2)}</pre>
       </section>
       <section>
-        <h3 className="font-semibold mb-2">match_json</h3>
-        <pre className="bg-surface-2 p-3 rounded text-[11px] overflow-x-auto mono">{JSON.stringify(promotion.match_json, null, 2)}</pre>
+        <h3 className="font-semibold mb-2">命中了什么</h3>
+        <pre className="bg-sunk p-3 rounded text-xs overflow-x-auto font-mono">{JSON.stringify(promotion.match_json, null, 2)}</pre>
       </section>
     </div>
   );
@@ -194,8 +194,8 @@ function KvGrid({ kv }: { kv: [string, React.ReactNode][] }) {
   return (
     <div className="grid grid-cols-2 gap-x-6 gap-y-1">
       {kv.map(([k, v], i) => (
-        <div key={i} className="flex items-center justify-between border-b border-border/50 py-1">
-          <span className="uplabel text-ink-5">{k}</span>
+        <div key={i} className="flex items-center justify-between border-b border-rule/50 py-1">
+          <span className="label text-ink-4">{k}</span>
           <span className="text-ink-2 text-right">{v}</span>
         </div>
       ))}

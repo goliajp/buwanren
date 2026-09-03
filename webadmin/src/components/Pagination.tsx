@@ -7,7 +7,7 @@ export default function Pagination({ page, size, total, onPage }: Props) {
   const from = total === 0 ? 0 : page * size + 1;
   const to = Math.min(total, (page + 1) * size);
   return (
-    <div className="flex items-center justify-between px-4 py-2 border-t border-border bg-surface-2/60 text-[12px] text-ink-3">
+    <div className="flex items-center justify-between px-4 py-2 border-t border-rule bg-sunk/60 text-[12px] text-ink-3">
       <div className="num">
         {from.toLocaleString()}-{to.toLocaleString()} / {total.toLocaleString()}
       </div>

@@ -6,7 +6,7 @@ import PageHeader from '../components/PageHeader';
 import FilterBar from '../components/FilterBar';
 import Pagination from '../components/Pagination';
 import Drawer from '../components/Drawer';
-import { rel, ts, shortId, statusChip } from '../components/util';
+import { rel, ts, shortId, statusClass, statusLabel, enumLabel } from '../components/util';
 import { Eye, RefreshCw, Repeat, AlertOctagon, CheckCircle2 } from 'lucide-react';
 
 const STATUSES = ['pending','dispatched','failed','dropped'];
@@ -39,28 +39,30 @@ export default function Outbox() {
     const counts = { pending: 0, dispatched: 0, failed: 0, dropped: 0 };
     for (const e of items) counts[e.status as keyof typeof counts] = (counts[e.status as keyof typeof counts] ?? 0) + 1;
     return [
-      { label: '当前页', value: items.length },
-      { label: '总数', value: list.data?.total ?? 0 },
-      { label: '待处理', value: counts.pending, tone: counts.pending > 0 ? 'warn' as const : undefined },
-      { label: '已派发', value: counts.dispatched, tone: 'ok' as const },
-      { label: '失败', value: counts.failed, tone: counts.failed > 0 ? 'bad' as const : undefined },
+      ...(counts.failed > 0
+        ? [{ label: '本页发失败', value: counts.failed, tone: 'debt' as const }]
+        : []),
+      ...(counts.pending > 0
+        ? [{ label: '本页排队中', value: counts.pending, tone: 'pending' as const }]
+        : []),
+      { label: '一共', value: list.data?.total ?? 0 },
     ];
   }, [list.data]);
 
   return (
     <div>
       <PageHeader
-        title="Outbox 事件 · 自演化驾驶舱"
-        sub="commerce v2 · outbox_event · 业务事件源 → dispatcher 异步分发 · 10s 自动刷新"
+        title="事件"
+        sub="系统里发生的事，一件件排队等着发出去"
         stats={stats}
       />
       <div className="p-4">
         <FilterBar
           fields={[
-            { kind: 'text',   key: 'keyword', label: 'keyword', placeholder: 'event id / aggregate id / kind', width: 280 },
-            { kind: 'select', key: 'status',  label: 'status',  options: STATUSES.map(v => ({ v, label: v })) },
-            { kind: 'select', key: 'aggregate_kind', label: 'aggregate', options: AGGREGATE_KINDS.map(v => ({ v, label: v })) },
-            { kind: 'text',   key: 'kind', label: 'kind', placeholder: 'OrderPaid / RefundCompleted / …', width: 200 },
+            { kind: 'text',   key: 'keyword', label: '找', placeholder: 'event id / aggregate id / kind', width: 280 },
+            { kind: 'select', key: 'status',  label: '状态',  options: STATUSES.map(v => ({ v, label: v })) },
+            { kind: 'select', key: 'aggregate_kind', label: '来自哪张表', options: AGGREGATE_KINDS.map(v => ({ v, label: v })) },
+            { kind: 'text',   key: 'kind', label: '类别', placeholder: 'OrderPaid / RefundCompleted / …', width: 200 },
           ]}
           values={draft}
           onChange={setDraft}
@@ -70,40 +72,40 @@ export default function Outbox() {
         />
 
         <div className="panel">
-          <table className="wa-table">
+          <table className="tbl">
             <thead><tr>
-              <th>id</th>
-              <th>kind</th>
-              <th>aggregate</th>
+              <th>编号</th>
+              <th>类别</th>
+              <th>来自</th>
               <th>状态</th>
               <th className="r">尝试</th>
               <th>创建</th>
               <th>下次重试</th>
-              <th>last error</th>
+              <th>最近报错</th>
               <th className="c">动作</th>
             </tr></thead>
             <tbody>
               {(list.data?.items ?? []).map((e: any) => (
                 <tr key={e.id} className={
-                  e.status === 'failed' ? 'bg-vermilion-soft/30' :
-                  e.status === 'dropped' ? 'bg-surface-3' : ''
+                  e.status === 'failed' ? 'bg-debt-bg/30' :
+                  e.status === 'dropped' ? 'bg-sunk' : ''
                 }>
-                  <td className="mono">{shortId(e.id)}</td>
-                  <td><span className="font-medium">{e.kind}</span></td>
+                  <td className="id">{shortId(e.id)}</td>
+                  <td><span className="font-medium">{enumLabel(e.kind)}</span></td>
                   <td>
-                    <span className="chip chip-info">{e.aggregate_kind}</span>
-                    <span className="mono text-ink-3 text-[11px] ml-1">{shortId(e.aggregate_id, 8, 6)}</span>
+                    <span className="text-ink-2">{e.aggregate_kind}</span>
+                    <span className="font-mono text-ink-3 text-xs ml-1">{shortId(e.aggregate_id, 8, 6)}</span>
                   </td>
                   <td>
-                    {e.status === 'dispatched' && <span className={statusChip(e.status)}><CheckCircle2 size={9} className="inline mr-0.5"/>dispatched</span>}
-                    {e.status === 'pending' && <span className={statusChip(e.status)}>pending</span>}
-                    {e.status === 'failed' && <span className={statusChip(e.status)}><AlertOctagon size={9} className="inline mr-0.5"/>failed</span>}
-                    {e.status === 'dropped' && <span className={statusChip(e.status)}>dropped</span>}
+                    {e.status === 'dispatched' && <span className={statusClass(e.status)}>已发出</span>}
+                    {e.status === 'pending' && <span className={statusClass(e.status)}>排队中</span>}
+                    {e.status === 'failed' && <span className={statusClass(e.status)}>发失败</span>}
+                    {e.status === 'dropped' && <span className={statusClass(e.status)}>已丢弃</span>}
                   </td>
-                  <td className="r mono">{e.attempt_count}</td>
+                  <td className="r font-mono">{e.attempt_count}</td>
                   <td title={ts(e.created_at)}>{rel(e.created_at)}</td>
                   <td title={ts(e.next_attempt_at)} className="text-ink-4">{e.status === 'pending' ? rel(e.next_attempt_at) : '—'}</td>
-                  <td className="text-[10.5px] mono text-vermilion truncate max-w-[220px]" title={e.last_error || ''}>{e.last_error ? e.last_error.slice(0, 60) : ''}</td>
+                  <td className="text-xs font-mono text-debt truncate max-w-[220px]" title={e.last_error || ''}>{e.last_error ? e.last_error.slice(0, 60) : ''}</td>
                   <td className="c flex justify-center gap-1">
                     <button className="btn btn-link" onClick={() => setDetailId(e.id)}><Eye size={13}/></button>
                     {(e.status === 'failed' || e.status === 'dropped') && (
@@ -115,7 +117,7 @@ export default function Outbox() {
                 </tr>
               ))}
               {list.data && list.data.items.length === 0 && (
-                <tr><td colSpan={9} className="text-center py-10 text-ink-5">— 暂无 outbox 事件 —</td></tr>
+                <tr><td colSpan={9} className="text-center py-10 text-ink-4">— 暂无 outbox 事件 —</td></tr>
               )}
             </tbody>
           </table>
@@ -142,22 +144,22 @@ export default function Outbox() {
             <section>
               <h3 className="font-semibold mb-2">基本</h3>
               <KvGrid kv={[
-                ['id', <span className="mono">{detail.data.id}</span>],
+                ['id', <span className="id">{detail.data.id}</span>],
                 ['kind', <strong>{detail.data.kind}</strong>],
                 ['aggregate_kind', detail.data.aggregate_kind],
-                ['aggregate_id', <span className="mono">{detail.data.aggregate_id}</span>],
-                ['status', <span className={statusChip(detail.data.status)}>{detail.data.status}</span>],
+                ['aggregate_id', <span className="id">{detail.data.aggregate_id}</span>],
+                ['status', <span className={statusClass(detail.data.status)}>{statusLabel(detail.data.status)}</span>],
                 ['attempts', detail.data.attempt_count],
                 ['next_attempt_at', ts(detail.data.next_attempt_at)],
                 ['created_at', ts(detail.data.created_at)],
               ]} />
               {detail.data.last_error && (
-                <div className="mt-3 px-3 py-2 bg-vermilion-soft text-vermilion rounded text-[12px] mono">{detail.data.last_error}</div>
+                <div className="mt-3 px-3 py-2 bg-debt-bg text-debt rounded text-[12px] font-mono">{detail.data.last_error}</div>
               )}
             </section>
             <section>
-              <h3 className="font-semibold mb-2">payload</h3>
-              <pre className="bg-surface-2 p-3 rounded text-[11px] overflow-x-auto mono">
+              <h3 className="font-semibold mb-2">事件内容</h3>
+              <pre className="bg-sunk p-3 rounded text-xs overflow-x-auto font-mono">
                 {JSON.stringify(detail.data.payload_json, null, 2)}
               </pre>
             </section>
@@ -172,8 +174,8 @@ function KvGrid({ kv }: { kv: [string, React.ReactNode][] }) {
   return (
     <div className="grid grid-cols-2 gap-x-6 gap-y-1">
       {kv.map(([k, v], i) => (
-        <div key={i} className="flex items-center justify-between border-b border-border/50 py-1">
-          <span className="uplabel text-ink-5">{k}</span>
+        <div key={i} className="flex items-center justify-between border-b border-rule/50 py-1">
+          <span className="label text-ink-4">{k}</span>
           <span className="text-ink-2 text-right">{v}</span>
         </div>
       ))}
