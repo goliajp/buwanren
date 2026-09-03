@@ -18,6 +18,7 @@ export default function Promotions() {
   const [draft, setDraft] = useState<Record<string, any>>({});
   const [detailId, setDetailId] = useState<string | null>(null);
   const [tab, setTab] = useState<'promo' | 'coupons'>('promo');
+  const [发券中, 设发券] = useState(false);
 
   const list = useQuery({
     queryKey: ['promotions', filt],
@@ -106,13 +107,15 @@ export default function Promotions() {
             <FilterBar
               fields={[
                 { kind: 'text', key: 'keyword', label: '券码或用户号', width: 240 },
-                { kind: 'select', key: 'status', label: '状态', options: ['issued','locked','redeemed','expired','revoked'].map(v => ({ v, label: v })) },
+                { kind: 'select', key: 'status', label: '状态', options: ['issued','locked','redeemed','expired','revoked'].map(v => ({ v, label: statusLabel(v) })) },
               ]}
               values={draft}
               onChange={setDraft}
               onSearch={() => setFilt({ ...draft, size: 50, page: 0 })}
               onReset={() => { setDraft({}); setFilt({ size: 50, page: 0 }); }}
+              right={<button className="btn btn-prim" onClick={() => 设发券(true)}>发一张券</button>}
             />
+            {发券中 && <发券框 关闭={() => 设发券(false)} />}
             <div className="panel">
               <table className="tbl">
                 <thead><tr><th>编号</th><th>代号</th><th>活动</th><th>归属</th><th>状态</th><th>领取</th><th>核销</th><th>过期</th></tr></thead>
@@ -157,9 +160,9 @@ function PromoBody({ data }: { data: any }) {
       <section>
         <h3 className="font-semibold mb-2">基本</h3>
         <KvGrid kv={[
-          ['code', <span className="id">{promotion.code ?? '—'}</span>],
+          ['代号', <span className="id">{promotion.code ?? '—'}</span>],
           ['名称', <strong>{promotion.name}</strong>],
-          ['kind', promotion.kind],
+          ['类别', promotion.kind],
           ['状态', <span className={statusClass(promotion.status)}>{statusLabel(promotion.status)}</span>],
           ['优先级', promotion.priority],
           ['可叠加', promotion.stackable ? '是' : '否'],
@@ -199,6 +202,84 @@ function KvGrid({ kv }: { kv: [string, React.ReactNode][] }) {
           <span className="text-ink-2 text-right">{v}</span>
         </div>
       ))}
+    </div>
+  );
+}
+
+/* 发一张券。
+ *
+ * 【后端有了端点，界面上一直没有入口】——于是 `coupon` 表从建起来
+ * 就是空的，而下单那一侧的核销代码从没被真数据走过。
+ *
+ * 只收四样东西:券码、优惠、有效期、给谁。多的字段（批次、活动）
+ * 等真的要批量发的时候再说 —— 现在把它们摆上来，
+ * 只会让「发一张券」这件本来一句话的事看起来像要填表。
+ */
+function 发券框({ 关闭 }: { 关闭: () => void }) {
+  const qc = useQueryClient();
+  const [码, 设码] = useState('');
+  const [折, 设折] = useState('20');
+  const [封顶, 设封顶] = useState('');
+  const [天数, 设天数] = useState('30');
+  const [归属, 设归属] = useState('');
+
+  const 发 = useApiMutation({
+    mutationFn: () => {
+      const benefit: Record<string, number> = { pct_off_bps: Math.round(Number(折) * 100) };
+      if (封顶.trim()) benefit.max_off_minor = Math.round(Number(封顶) * 100);
+      return commerce.issueCoupon({
+        code: 码.trim(),
+        benefit_json: benefit,
+        expires_at: new Date(Date.now() + Number(天数) * 86400_000).toISOString(),
+        owner_user_id: 归属.trim() || null,
+      });
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['coupons'] }); 关闭(); },
+  });
+
+  const 能发 = 码.trim().length >= 4 && Number(折) > 0 && Number(折) <= 100 && Number(天数) > 0;
+
+  return (
+    <div className="panel p-4 mb-3 max-w-2xl">
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="flex flex-col gap-1">
+          <span className="label">券码</span>
+          <input className="input w-44" value={码} onChange={(e) => 设码(e.target.value)}
+                 placeholder="至少 4 位，要唯一" />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="label">减几成</span>
+          <input className="input w-20" value={折} onChange={(e) => 设折(e.target.value)}
+                 placeholder="20" />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="label">最多减（元，可空）</span>
+          <input className="input w-28" value={封顶} onChange={(e) => 设封顶(e.target.value)}
+                 placeholder="不限" />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="label">几天后过期</span>
+          <input className="input w-20" value={天数} onChange={(e) => 设天数(e.target.value)} />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="label">给谁（用户号，可空）</span>
+          <input className="input w-44" value={归属} onChange={(e) => 设归属(e.target.value)}
+                 placeholder="留空＝谁都能用" />
+        </label>
+        <button className="btn btn-prim" disabled={!能发 || 发.isPending} onClick={() => 发.mutate()}>
+          {发.isPending ? '正在发…' : '发出去'}
+        </button>
+        <button className="btn btn-ghost" onClick={关闭}>算了</button>
+      </div>
+      {/* 【把这张券实际长什么样说出来】。「减两成、最多减 100 元」
+          比 `{"pct_off_bps":2000,"max_off_minor":10000}` 好核对，
+          而发错一张券是真花钱的事。 */}
+      <p className="label mt-3">
+        发出去的是：{Number(折) > 0 ? `减 ${折} 成` : '（折扣还没填）'}
+        {封顶.trim() ? `，最多减 ${封顶} 元` : '，不封顶'}
+        ，{天数} 天后过期
+        {归属.trim() ? '，只有这一个人能用' : '，谁拿到都能用'}
+      </p>
     </div>
   );
 }

@@ -178,10 +178,10 @@ function OrderDetailBody({ data }: { data: any }) {
         <SectionTitle title="基本" />
         <KvGrid kv={[
           ['id', <span className="id">{order.id}</span>],
-          ['user_id', <span className="id">{order.user_id}</span>],
+          ['用户', <span className="id">{order.user_id}</span>],
           ['状态', <span className={statusClass(order.status)}>{statusLabel(order.status)}</span>],
           ['渠道', order.channel_origin],
-          ['region', order.region],
+          ['区域', order.region],
           ['来源', order.source_kind],
           ['货币', order.currency],
           ['应付', <strong>{yuan(order.amount_total_minor, order.currency)}</strong>],

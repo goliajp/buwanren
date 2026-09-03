@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router';
 import { api } from '../lib/api';
 import PageHeader from '../components/PageHeader';
 import { rel, ts, shortId, platformLabel, thou } from '../components/util';
@@ -10,7 +11,14 @@ interface UserRow {
   is_anonymous: boolean; created_at: string; last_active_at: string;
 }
 
+/** 区域代号 → 中文。`cn` 对着屏幕的人不一定认得 */
+function 区域名(r?: string | null): string {
+  return { cn: '中国大陆', hk: '香港', tw: '台湾', jp: '日本',
+           us: '美国', eu: '欧洲' }[r ?? ''] ?? (r ?? '—');
+}
+
 export default function Users() {
+  const nav = useNavigate();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [platform, setPlatform] = useState('');
@@ -83,7 +91,6 @@ export default function Users() {
                   <th className="w-16 c">匿名</th>
                   <th className="r w-44">创建</th>
                   <th className="r w-40">最后活动</th>
-                  <th className="r w-16">动作</th>
                 </tr>
               </thead>
               <tbody>
@@ -91,7 +98,14 @@ export default function Users() {
                   <tr><td colSpan={9} className="text-center py-8 text-ink-4">正在取…</td></tr>
                 )}
                 {data?.items.map((r) => (
-                  <tr key={r.id}>
+                  /* 【那个「看」按钮没有 onClick】。点了什么都不发生 ——
+                     一个在那儿却不做事的按钮比没有更糟：它让人以为
+                     这里有个详情页，试过一次之后就不再信这一屏别的按钮。
+                     这一页本身没有详情抽屉，而客服真正要的是
+                     「这个人买过什么」——整行点开就跳到他的订单。 */
+                  <tr key={r.id}
+                      className="cursor-pointer"
+                      onClick={() => nav(`/orders?keyword=${r.id}`)}>
                     <td className="font-mono text-ink-3" title={r.id}>{shortId(r.id, 6, 6)}</td>
                     <td className="text-ink font-medium">{r.nickname}</td>
                     <td className="text-ink-2">{platformLabel(r.platform)}</td>
@@ -104,11 +118,10 @@ export default function Users() {
                     </td>
                     <td className="r font-mono text-xs text-ink-3">{ts(r.created_at)}</td>
                     <td className="r text-ink-3">{rel(r.last_active_at)}</td>
-                    <td className="r"><button className="btn btn-ghost">看</button></td>
                   </tr>
                 ))}
                 {data && data.items.length === 0 && (
-                  <tr><td colSpan={9} className="text-center py-8 text-ink-4">没有符合条件的用户</td></tr>
+                  <tr><td colSpan={8} className="text-center py-8 text-ink-4">没有符合条件的用户</td></tr>
                 )}
               </tbody>
             </table>

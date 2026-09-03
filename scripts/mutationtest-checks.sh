@@ -370,9 +370,9 @@ keep "JSON 数组里的逗号（不是文案）" check-punct-ui \
 # 换锚点时挑的是【真显示出来的字】：小程序那一侧现在一句带全角括号的文案都没有,
 # 而后台也归这支门禁管（它是内部工具,看的仍然是人）。
 mutate "括号里是中文却用了半角" check-punct-ui \
-  "edit('webadmin/src/pages/Dashboard.tsx', '（本页是总览）', '(本页是总览)')"
+  "edit('webadmin/src/pages/Naji.tsx', '用户号（要完整）', '用户号(要完整)')"
 keep "括号里是数字或英文（豁免）" check-punct-ui \
-  "edit('webadmin/src/pages/Dashboard.tsx', '（本页是总览）', '（本页是总览）(+8)(control plane)')"
+  "edit('webadmin/src/pages/Naji.tsx', '用户号（要完整）', '用户号（要完整）(+8)(control plane)')"
 keep "中文当对象键的代码" check-punct-ui \
   "edit('mini/miniprogram/pages/village/index.ts', '  /** 他刚说的那一句 */', \"  /* eslint-disable */ // const 五行 = { 木: 'mu', 火: 'huo' }\\n  /** 他刚说的那一句 */\")"
 

@@ -6,7 +6,7 @@ import PageHeader from '../components/PageHeader';
 import FilterBar from '../components/FilterBar';
 import Pagination from '../components/Pagination';
 import Drawer from '../components/Drawer';
-import { rel, ts, yuan, shortId, statusClass, statusLabel, carrierLabel } from '../components/util';
+import { rel, ts, yuan, shortId, statusClass, statusLabel, carrierLabel, enumLabel } from '../components/util';
 import { Eye, Edit3, AlertTriangle, RefreshCw, Truck } from 'lucide-react';
 
 const SHIPMENT_STATUSES = ['preparing','picked_up','in_transit','out_for_delivery','delivered','exception','returning','returned','cancelled'];
@@ -143,7 +143,7 @@ function ShipmentBody({ data }: { data: any }) {
         <h3 className="font-semibold mb-2 flex items-center gap-1.5"><Truck size={13}/> 基本</h3>
         <KvGrid kv={[
           ['id', <span className="id">{shipment.id}</span>],
-          ['order_id', <span className="id">{shipment.order_id}</span>],
+          ['订单', <span className="id">{shipment.order_id}</span>],
           ['承运商', carrierLabel(shipment.carrier_code)],
           ['运单号', <span className="font-mono font-semibold">{shipment.tracking_no ?? '—'}</span>],
           ['状态', <span className={statusClass(shipment.status)}>{statusLabel(shipment.status)}</span>],

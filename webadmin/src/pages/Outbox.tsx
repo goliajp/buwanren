@@ -145,13 +145,13 @@ export default function Outbox() {
               <h3 className="font-semibold mb-2">基本</h3>
               <KvGrid kv={[
                 ['id', <span className="id">{detail.data.id}</span>],
-                ['kind', <strong>{detail.data.kind}</strong>],
-                ['aggregate_kind', detail.data.aggregate_kind],
-                ['aggregate_id', <span className="id">{detail.data.aggregate_id}</span>],
-                ['status', <span className={statusClass(detail.data.status)}>{statusLabel(detail.data.status)}</span>],
-                ['attempts', detail.data.attempt_count],
-                ['next_attempt_at', ts(detail.data.next_attempt_at)],
-                ['created_at', ts(detail.data.created_at)],
+                ['类别', <strong>{detail.data.kind}</strong>],
+                ['来自哪张表', detail.data.aggregate_kind],
+                ['那条记录的号', <span className="id">{detail.data.aggregate_id}</span>],
+                ['状态', <span className={statusClass(detail.data.status)}>{statusLabel(detail.data.status)}</span>],
+                ['试了几次', detail.data.attempt_count],
+                ['下次重试', ts(detail.data.next_attempt_at)],
+                ['创建于', ts(detail.data.created_at)],
               ]} />
               {detail.data.last_error && (
                 <div className="mt-3 px-3 py-2 bg-debt-bg text-debt rounded text-[12px] font-mono">{detail.data.last_error}</div>

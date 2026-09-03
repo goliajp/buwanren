@@ -132,8 +132,8 @@ function PaymentBody({ data }: { data: any }) {
         <h3 className="font-semibold mb-2">基本</h3>
         <KvGrid kv={[
           ['id', <span className="id">{payment.id}</span>],
-          ['order_id', <span className="id">{payment.order_id}</span>],
-          ['user_id', <span className="id">{payment.user_id}</span>],
+          ['订单', <span className="id">{payment.order_id}</span>],
+          ['用户', <span className="id">{payment.user_id}</span>],
           ['渠道', channelLabel(payment.channel)],
           ['状态', <span className={statusClass(payment.status)}>{statusLabel(payment.status)}</span>],
           ['金额', <strong>{yuan(payment.amount_minor, payment.currency)}</strong>],
