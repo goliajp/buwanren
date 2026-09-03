@@ -87,7 +87,17 @@ if (await cancelBtn.isDisabled()) fail('unpaid 订单的取消按钮不该置灰
 console.log('· 详情抽屉打开，取消按钮可点');
 
 // ─── 竞态:点击前把订单推进到 done ───
+/* 【推进到 done 就要连那笔钱一起造】（2026-09-03）。
+   上一版只改订单，于是每跑一轮攒一张「已付 199 元、
+   支付表里查不到是哪一笔」的孤儿单 ——「钱的账目自洽吗」
+   那一支盯着这个数，而这张单是它今天报的唯一一条。
+   真实链路里 done 必然经过一笔 success 的 payment。 */
 psql(`UPDATE order_record SET status='done', paid_at=NOW(), amount_paid_minor=19900, fulfilled_at=NOW() WHERE id='${oid}'`);
+psql(`INSERT INTO payment(id, order_id, user_id, channel, amount_minor, currency,
+                          status, paid_at, region)
+      VALUES ('pay-notice-${oid.slice(-13)}','${oid}','${uid}','wechat_jsapi',
+              19900,'CNY','success',NOW(),'cn')
+      ON CONFLICT (id) DO NOTHING`);
 console.log('· 库里已把订单推进到 done（UI 尚未刷新）');
 
 await cancelBtn.click();

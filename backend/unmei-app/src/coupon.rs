@@ -491,3 +491,82 @@ pub async fn preview(
     }
     Ok((applied, 已减))
 }
+
+/// 一次发一批。
+///
+/// 【`coupon.batch_id` 是又一列「读得到、没人写」】——列表接口查它、
+/// 前端显示它，而没有任何地方往里写。真实的发券是成批的
+/// （一次一千张码往外投），一张张点不可行 —— 于是这一列
+/// 从建库起就是空的，而「批」这个概念在系统里等于不存在。
+///
+/// **码由这里生成，不由调用方给**。让调用方传一千个码的话，
+/// 重码、弱码（连号、可猜）都成了它的责任，而那件事只该做对一次。
+///
+/// 整批一个事务:发了一半的批次比没发更难处理 ——
+/// 后台看到一个数目对不上的批次，而它并不是真的对不上。
+pub async fn issue_batch(
+    pool: &PgPool,
+    req: IssueBatch<'_>,
+    actor: &Actor,
+) -> Result<(String, Vec<String>), DomainError> {
+    let IssueBatch { 张数, 前缀, promotion_id, benefit_json, expires_at, region } = req;
+
+    if !(1..=5000).contains(&张数) {
+        return Err(DomainError::Validation(format!(
+            "一批发 {张数} 张 —— 只收 1 到 5000。要更多就分几批，一次几万张的话，出错时也是几万张要收回"
+        )));
+    }
+    // 券面读不懂的不许进库 —— 跟单张那一条同一个道理，
+    // 只是这里错一次是一千张
+    Benefit::parse(&benefit_json, "（这一批）")?;
+    if expires_at <= Utc::now() {
+        return Err(DomainError::Validation("发一批已经过期的券没有意义".into()));
+    }
+    let 前缀 = 前缀.trim().to_uppercase();
+    if 前缀.is_empty() || 前缀.len() > 12 || !前缀.chars().all(|c| c.is_ascii_alphanumeric()) {
+        return Err(DomainError::Validation(
+            "前缀要 1 到 12 位字母数字 —— 它是人念得出来的那一半".into()));
+    }
+
+    let batch_id = new_id("cb");
+    let mut tx = pool.begin().await.db()?;
+    let mut 码们 = Vec::with_capacity(张数 as usize);
+
+    for _ in 0..张数 {
+        /* 【码要猜不出来】。连号（`SALE001`…`SALE999`）等于把整批
+           送给第一个想到试一下的人。用 uuid 的十六进制取 10 位 ——
+           2^40 的空间，配上库里 `UNIQUE (code)`，撞了就整批回滚重来。 */
+        let 码 = format!("{}{}", 前缀,
+            uuid::Uuid::new_v4().simple().to_string()[..10].to_uppercase());
+        sqlx::query(
+            r#"INSERT INTO coupon(id, code, batch_id, promotion_id, benefit_json,
+                                  state, issued_at, expires_at, audit_note, region)
+               VALUES ($1, $2, $3, $4, $5, 'issued', NOW(), $6, $7, $8)"#,
+        )
+        .bind(new_id("cpn"))
+        .bind(&码)
+        .bind(&batch_id)
+        .bind(promotion_id)
+        .bind(&benefit_json)
+        .bind(expires_at)
+        .bind(format!("{} 发的第 {batch_id} 批", actor.label()))
+        .bind(region)
+        .execute(&mut *tx)
+        .await.db()?;
+        码们.push(码);
+    }
+
+    tx.commit().await.db()?;
+    tracing::info!(batch_id, 张数, "发了一批券");
+    Ok((batch_id, 码们))
+}
+
+pub struct IssueBatch<'a> {
+    pub 张数: i32,
+    /// 码的前半截，人念得出来的那一段（`SPRING` → `SPRING3F9A2C1B04`）
+    pub 前缀: &'a str,
+    pub promotion_id: Option<&'a str>,
+    pub benefit_json: serde_json::Value,
+    pub expires_at: chrono::DateTime<Utc>,
+    pub region: &'a str,
+}

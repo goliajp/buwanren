@@ -44,6 +44,7 @@ pub fn router() -> Router<AppState> {
         .route("/admin/commerce/promotions/:id",                    get(get_promotion))
         .route("/admin/commerce/promotions/:id/state",              post(update_promotion_state))
         .route("/admin/commerce/coupons",                           get(list_coupons).post(issue_coupon))
+        .route("/admin/commerce/coupons/batch",                     post(issue_coupon_batch))
         // ─── subscription ───
         .route("/admin/commerce/plans",                             get(list_plans))
         .route("/admin/commerce/subscriptions",                     get(list_subscriptions))
@@ -671,6 +672,52 @@ async fn issue_coupon(
         &Actor::admin(&admin.0.sub),
     ).await?;
     Ok(Json(json!({"ok": true, "id": id})))
+}
+
+#[derive(Deserialize)]
+struct IssueBatchBody {
+    count: i32,
+    prefix: String,
+    promotion_id: Option<String>,
+    benefit_json: J,
+    expires_at: String,
+    region: Option<String>,
+}
+
+/// 一次发一批券。
+///
+/// 【`coupon.batch_id` 一直是空的】——列表查它、前端显示它，
+/// 而没有任何地方写。真实发券是成批的（一次一千张码往外投），
+/// 一张张点不可行 —— 于是「批」这个概念在系统里等于不存在。
+///
+/// 码由服务端生成 —— 让调用方传一千个码的话，重码与弱码（连号、
+/// 可猜）都成了它的责任，而那件事只该做对一次。
+async fn issue_coupon_batch(
+    State(st): State<AppState>, admin: Admin, Json(b): Json<IssueBatchBody>,
+) -> Result<Json<J>, ApiError> {
+    admin.requires_role("operator")?;    // 跟单张发券同一档：这是花钱的动作
+    let expires: DateTime<Utc> = b.expires_at.parse().map_err(|_| {
+        unmei_domain::DomainError::Validation(
+            "expires_at 要是 RFC3339 的时刻，例如 2026-12-31T23:59:59Z".into(),
+        )
+    })?;
+    let region = normalize_region_scoped(&b.region, &admin)?.unwrap_or_else(|| "cn".to_string());
+    let (batch_id, 码们) = app_coupon::issue_batch(
+        &st.db,
+        app_coupon::IssueBatch {
+            张数: b.count,
+            前缀: &b.prefix,
+            promotion_id: b.promotion_id.as_deref(),
+            benefit_json: b.benefit_json,
+            expires_at: expires,
+            region: &region,
+        },
+        &Actor::admin(&admin.0.sub),
+    ).await?;
+    /* 【码要跟着响应回去】。发完一千张而运营拿不到那一千个码，
+       这一批就白发了 —— 库里躺着，谁也用不上。
+       前端把它们存成一个文本文件。 */
+    Ok(Json(json!({ "ok": true, "batch_id": batch_id, "count": 码们.len(), "codes": 码们 })))
 }
 
 async fn list_coupons(

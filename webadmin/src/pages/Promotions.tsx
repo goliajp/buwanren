@@ -113,7 +113,7 @@ export default function Promotions() {
               onChange={setDraft}
               onSearch={() => setFilt({ ...draft, size: 50, page: 0 })}
               onReset={() => { setDraft({}); setFilt({ size: 50, page: 0 }); }}
-              right={<button className="btn btn-prim" onClick={() => 设发券(true)}>发一张券</button>}
+              right={<button className="btn btn-prim" onClick={() => 设发券(true)}>发券</button>}
             />
             {发券中 && <发券框 关闭={() => 设发券(false)} />}
             <div className="panel">
@@ -222,30 +222,57 @@ function 发券框({ 关闭 }: { 关闭: () => void }) {
   const [封顶, 设封顶] = useState('');
   const [天数, 设天数] = useState('30');
   const [归属, 设归属] = useState('');
+  const [张数, 设张数] = useState('1');
 
   const 发 = useApiMutation({
     mutationFn: () => {
       const benefit: Record<string, number> = { pct_off_bps: Math.round(Number(折) * 100) };
       if (封顶.trim()) benefit.max_off_minor = Math.round(Number(封顶) * 100);
-      return commerce.issueCoupon({
-        code: 码.trim(),
-        benefit_json: benefit,
-        expires_at: new Date(Date.now() + Number(天数) * 86400_000).toISOString(),
-        owner_user_id: 归属.trim() || null,
-      });
+      const 到期 = new Date(Date.now() + Number(天数) * 86400_000).toISOString();
+      return 成批
+        ? commerce.issueCouponBatch({
+            count: n, prefix: 码.trim(), benefit_json: benefit, expires_at: 到期,
+          })
+        : commerce.issueCoupon({
+            code: 码.trim(), benefit_json: benefit, expires_at: 到期,
+            owner_user_id: 归属.trim() || null,
+          });
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['coupons'] }); 关闭(); },
+    onSuccess: (r: any) => {
+      qc.invalidateQueries({ queryKey: ['coupons'] });
+      /* 【一千张码发出去，运营得拿得到】。不给的话这一批就白发了 ——
+         库里躺着，谁也用不上。存成一个文本文件，一行一个码。 */
+      if (成批 && r && r.codes) {
+        const blob = new Blob([r.codes.join('\n') + '\n'], { type: 'text/plain' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `券码-${r.batch_id}-${r.count}张.txt`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      }
+      关闭();
+    },
   });
 
-  const 能发 = 码.trim().length >= 4 && Number(折) > 0 && Number(折) <= 100 && Number(天数) > 0;
+  const n = Math.max(1, Math.round(Number(张数) || 1));
+  const 成批 = n > 1;
+  /* 【发一张跟发一批，码从哪儿来是相反的】。
+     发一张时人自己写码（他要把这个码贴给某个人）；
+     发一批时码由服务端生成 —— 让人传一千个码的话，
+     重码与弱码（连号、可猜）都成了他的责任。
+     所以成批时上面那个「券码」框收的是【前缀】。 */
+  const 能发 = 码.trim().length >= (成批 ? 1 : 4)
+    && Number(折) > 0 && Number(折) <= 100 && Number(天数) > 0
+    && (!成批 || (n >= 1 && n <= 5000))
+    && (!成批 || !归属.trim());   // 成批发的券没有归属，谁拿到谁用
 
   return (
     <div className="panel p-4 mb-3 max-w-2xl">
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1">
-          <span className="label">券码</span>
+          <span className="label">{成批 ? '码的前缀' : '券码'}</span>
           <input className="input w-44" value={码} onChange={(e) => 设码(e.target.value)}
-                 placeholder="至少 4 位，要唯一" />
+                 placeholder={成批 ? '例如 SPRING' : '至少 4 位，要唯一'} />
         </label>
         <label className="flex flex-col gap-1">
           <span className="label">减几成</span>
@@ -262,10 +289,19 @@ function 发券框({ 关闭 }: { 关闭: () => void }) {
           <input className="input w-20" value={天数} onChange={(e) => 设天数(e.target.value)} />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="label">给谁（用户号，可空）</span>
-          <input className="input w-44" value={归属} onChange={(e) => 设归属(e.target.value)}
-                 placeholder="留空＝谁都能用" />
+          <span className="label">发几张</span>
+          <input className="input w-20" value={张数} onChange={(e) => 设张数(e.target.value)} />
         </label>
+        {/* 【成批时这一格不该在】。一千张券挂在同一个人名下没有意义，
+            而摆在那儿会让人以为可以填 —— 上一版是填了再红着说不行。
+            「不需要的东西不在」。 */}
+        {!成批 && (
+          <label className="flex flex-col gap-1">
+            <span className="label">给谁（用户号，可空）</span>
+            <input className="input w-44" value={归属} onChange={(e) => 设归属(e.target.value)}
+                   placeholder="留空＝谁都能用" />
+          </label>
+        )}
         <button className="btn btn-prim" disabled={!能发 || 发.isPending} onClick={() => 发.mutate()}>
           {发.isPending ? '正在发…' : '发出去'}
         </button>
@@ -275,11 +311,14 @@ function 发券框({ 关闭 }: { 关闭: () => void }) {
           比 `{"pct_off_bps":2000,"max_off_minor":10000}` 好核对，
           而发错一张券是真花钱的事。 */}
       <p className="label mt-3">
-        发出去的是：{Number(折) > 0 ? `减 ${折} 成` : '（折扣还没填）'}
+        发出去的是：{成批 ? `${n} 张，码是「${码.trim() || '前缀'}」加十位随机` : '一张'}
+        ，{Number(折) > 0 ? `减 ${折} 成` : '（折扣还没填）'}
         {封顶.trim() ? `，最多减 ${封顶} 元` : '，不封顶'}
         ，{天数} 天后过期
-        {归属.trim() ? '，只有这一个人能用' : '，谁拿到都能用'}
+        {成批 ? '，谁拿到都能用' : (归属.trim() ? '，只有这一个人能用' : '，谁拿到都能用')}
+        {成批 && '。发完会存成一个文本文件，一行一个码'}
       </p>
+
     </div>
   );
 }

@@ -116,6 +116,7 @@ export const commerce = {
     api.post(`/commerce/promotions/${id}/state`, { status }),
   listCoupons: (p: any) => api.get<PageRes<any>>('/commerce/coupons' + qs(p)),
   issueCoupon: (b: any) => api.post('/commerce/coupons', b),
+  issueCouponBatch: (b: any) => api.post('/commerce/coupons/batch', b),
 
   listPlans: () => api.get<any[]>('/commerce/plans'),
   listSubscriptions: (p: any) => api.get<PageRes<any>>('/commerce/subscriptions' + qs(p)),

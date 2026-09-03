@@ -101,12 +101,26 @@ button.btn.btn-wait { background: #EADFCD; color: #7A6A52; box-shadow: none; }
   flex: 1; font-size: 26rpx; text-align: right;
   min-height: 44rpx; color: #333;
 }
+/* 【三条门禁一起说这颗做小了】（2026-09-03）。
+   我按 rpx 估的尺寸，而门禁量的是【渲染后的实际像素】：
+     · 点得到的东西够 44px 吗 —— 实测 29×36
+     · 渲染后的字都读得出来吗 —— 13px 的 #b8632a 对比度 4.22:1，要 4.5
+     · 点得动的都有回应吗 —— `<text>` 上的 bindtap 没有按下去的反馈
+   估算跟量出来的差了一截，而三条各自从不同角度指着同一颗东西。
+   改成真的按钮:够大、够深、按下去会暗一下。 */
 .coupon-try {
-  font-size: 26rpx; color: #b8632a; padding: 8rpx 4rpx;
-  /* 【点得动的地方要够大】——26rpx 的两个字只有 52rpx 宽，
-     手指按不准。左右各撑开一点，摸得到 */
-  min-width: 72rpx; text-align: center;
+  font-size: 26rpx;
+  /* #9a4f1e 对白底 5.4:1 —— 比原来那个橙深一档，过 4.5 的线 */
+  color: #9a4f1e;
+  /* 44px = 88rpx。宽度也撑够 —— 手指的接触面约 9mm */
+  min-height: 88rpx; min-width: 112rpx;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 16rpx;
 }
+/* 按压反馈走 `hover-class="press-btn"`（app.wxss 里那一套）——
+   【不自己写一份 `:active`】。小程序的按压走 hover-class，
+   而 CSS `:active` 在真机上不一定触发;更要紧的是全仓只该有一套
+   按压手感，各页各写一份的话，同一下按在不同屏上是不同的反应。 */
 /* 减掉的钱用同一种橙，跟「一共」那个数是一路的 */
 .row-off .off { color: #b8632a; }
 /* 券试不成时那一句。红字但不加底色 —— 这一屏上没有别的红，
