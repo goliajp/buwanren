@@ -118,6 +118,16 @@ async fn expire_stale(st: &AppState) -> anyhow::Result<()> {
     if 撤成了 > 0 {
         tracing::info!("payment_query_sweeper: 撤到一半的支付落成已撤销 {撤成了} 笔");
     }
+
+    /* 【取消了的单上收着钱，要退回去】（2026-09-04 收口）。
+       上游两个口子都堵了，但渠道竞态仍然会让钱落在已取消的订单上
+       —— 那时钱是真的在渠道那边，必须记上，然后必须退回去。
+       放在扫描里而不挂在那条路径上：进程在「记账已提交、退款未发起」
+       之间死掉时，回调不会再来第二次，而历史存量本来就不经过钩子。 */
+    let 退回 = unmei_app::refund::refund_orphan_money(&st.db).await?;
+    if 退回 > 0 {
+        tracing::info!("payment_query_sweeper: 取消单上无家可归的钱退回 {退回} 笔");
+    }
     Ok(())
 }
 
