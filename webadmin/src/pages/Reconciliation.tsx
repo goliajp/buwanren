@@ -1,11 +1,61 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { commerce } from '../lib/api';
+import { useApiMutation } from '../lib/feedback';
 import PageHeader from '../components/PageHeader';
 import Pagination from '../components/Pagination';
 import Drawer from '../components/Drawer';
 import { rel, ts, yuan, shortId, statusClass, statusLabel, channelLabel, enumLabel } from '../components/util';
 import { Eye, RefreshCw } from 'lucide-react';
+
+/** 四种结法的说法。它们不是同义词 —— 混成一个之后，
+    下个月同一类差异再来时，没人知道上次是怎么判的 */
+const 结法 = {
+  channel_wrong: '渠道那边错了',
+  ours_missing:  '我们漏记了',
+  timing_only:   '只是跨了日切',
+  known_fee:     '差的是手续费',
+} as const;
+
+function 结法名(a?: string | null): string {
+  return 结法[(a ?? '') as keyof typeof 结法] ?? (a ?? '—');
+}
+
+/* 结掉一条对不上的账。
+ *
+ * 【一定要选一种，还要说一句】。只给「标为已处理」的话，
+ * 这一列过一个月就只剩一片「已处理」，跟没记一样。 */
+function 结掉({ 记录, 结完 }: { 记录: any; 结完: () => void }) {
+  const [开着, 设开] = useState(false);
+  const [法, 设法] = useState<string>('known_fee');
+  const [说, 设说] = useState('');
+  const 提交 = useApiMutation({
+    mutationFn: () => commerce.resolveReconRecord(记录.id, 法, 说.trim()),
+    onSuccess: () => { 设开(false); 设说(''); 结完(); },
+  });
+
+  if (!开着) {
+    return <button className="btn btn-soft" onClick={() => 设开(true)}>结掉</button>;
+  }
+  return (
+    <div className="flex items-center gap-1.5">
+      <select className="select" value={法} onChange={(e) => 设法(e.target.value)}>
+        {Object.entries(结法).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+      </select>
+      <input
+        className="input w-48"
+        placeholder="是怎么查的"
+        value={说}
+        onChange={(e) => 设说(e.target.value)}
+      />
+      <button className="btn btn-prim" disabled={!说.trim() || 提交.isPending}
+              onClick={() => 提交.mutate()}>
+        {提交.isPending ? '…' : '存'}
+      </button>
+      <button className="btn btn-ghost" onClick={() => 设开(false)}>算了</button>
+    </div>
+  );
+}
 
 export default function Reconciliation() {
   const [filt, setFilt] = useState<Record<string, any>>({ size: 50, page: 0 });
@@ -87,7 +137,7 @@ export default function Reconciliation() {
             <section>
               <h3 className="font-semibold mb-2">记录 ({(detail.data.records ?? []).length})</h3>
               <table className="tbl">
-                <thead><tr><th>渠道单号</th><th className="r">渠道金额</th><th>渠道状态</th><th>命中</th><th>关联 payment</th></tr></thead>
+                <thead><tr><th>渠道单号</th><th className="r">渠道金额</th><th>渠道状态</th><th>命中</th><th>对上的支付</th><th>怎么结的</th></tr></thead>
                 <tbody>{(detail.data.records ?? []).map((r: any) => (
                   <tr key={r.id} className={r.match_state !== 'matched' ? 'bg-debt-bg/30' : ''}>
                     <td className="id">{r.channel_txn_id ?? '—'}</td>
@@ -95,6 +145,18 @@ export default function Reconciliation() {
                     <td className="id">{r.channel_status ?? '—'}</td>
                     <td><span className={statusClass(r.match_state)}>{statusLabel(r.match_state)}</span></td>
                     <td className="font-mono text-ink-3">{r.matched_payment_id ? shortId(r.matched_payment_id) : '—'}</td>
+                    {/* 【找出来之后总得能做点什么】。在这一列之前，
+                        对账页只到「这一条对不上」为止 —— 库里 1432 条
+                        差异躺着没人处理，不是没人管，是没有路。 */}
+                    <td>
+                      {r.match_state === 'matched'
+                        ? <span className="text-ink-4">—</span>
+                        : r.resolved_at
+                          ? <span className="text-settled" title={r.resolved_note ?? ''}>
+                              {结法名(r.resolved_action)}
+                            </span>
+                          : <结掉 记录={r} 结完={() => detail.refetch()} />}
+                    </td>
                   </tr>
                 ))}</tbody>
               </table>
