@@ -81,6 +81,10 @@ FILES=(
   webadmin/src/pages/Activities.tsx
   backend/unmei-app/src/activity.rs
   scripts/mutation-coverage-gaps.json
+  # 2026-09-04 再补五支
+  webadmin/src/pages/Orders.tsx
+  mini/miniprogram/pages/confirm/index.wxml
+  mini/miniprogram/utils/money.ts
   docs/REDESIGN.md
   backend/seed/art_leaf.sql
   # tsc 那条变异写在这个文件末尾。它必须在名单里 ——
@@ -654,6 +658,21 @@ mutate "开屏取数的页丢了 onAuthReady" check-auth-ready \
 # 而那正是它该说的话。这条变异让它自己也在这条规矩里。
 mutate "覆盖台账里划掉一条（凭空多一支没人守的门禁）" check-mutation-coverage \
   "edit('scripts/mutation-coverage-gaps.json', '    \"check-faces\": \"纯源码 —— 写一条变异就能划掉，欠着\",\n', '')"
+
+# 后台读失败要有话说：把订单页那一行「取不到」拿掉
+mutate "后台某一页读失败又不说话了" check-console-read-error \
+  "edit('webadmin/src/pages/Orders.tsx', '<TableError 出错={list.isError} 列数={8} />', '')"
+
+# 一件事一个名字：把确认屏上那一处「护身符」写回「御守」。
+# 【要种在真的屏上文字里】—— 头一版种到了村民屏的一段注释里，
+# 而门禁把注释剥掉了（那是对的），于是它报「没抓到」，
+# 看着像门禁退化，实际是这条变异挑错了位置。
+mutate "同一件东西又冒出第二个名字" check-one-name \
+  "edit('mini/miniprogram/pages/confirm/index.wxml', '<view class=\"card-name\">{{p.villager.name}}的护身符</view>', '<view class=\"card-name\">{{p.villager.name}}的御守</view>')"
+
+# 前端的状态说法要跟后端枚举对得上：删掉一档
+mutate "前端的状态说法漏了后端有的一档" check-status-words \
+  "sub('mini/miniprogram/utils/money.ts', r\"\\n\\s*refunded: '[^']*',\", '')"
 
 echo
 echo "── tsc（类型）──"
