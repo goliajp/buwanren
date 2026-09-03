@@ -1,0 +1,303 @@
+//! 优惠券用例 · 对真库。
+//!
+//! 在这些测试之前，下单带的券码只被 `tracing::warn!` 记一句
+//! 「折扣引擎尚未接通」，然后按全价收钱 —— 用户以为用了券，扣的是原价，
+//! 而系统里没有任何一处会说出这件事。
+//!
+//! 每条测试钉的是一条「不这么做就会悄悄收错钱」的决定。
+
+mod common;
+
+use chrono::{Duration, Utc};
+use serde_json::json;
+use unmei_app::{coupon, order, Actor, DomainError};
+
+/// 发一张按比例减的券，返回券码。
+async fn 发一张(
+    pool: &sqlx::PgPool,
+    bps: i64,
+    封顶: Option<i64>,
+    归属: Option<&str>,
+) -> String {
+    let code = format!("T{}", uuid::Uuid::new_v4().simple());
+    let mut benefit = json!({ "pct_off_bps": bps });
+    if let Some(c) = 封顶 {
+        benefit["max_off_minor"] = json!(c);
+    }
+    coupon::issue(
+        pool,
+        coupon::IssueCoupon {
+            code: &code,
+            promotion_id: None,
+            owner_user_id: 归属,
+            benefit_json: benefit,
+            expires_at: Utc::now() + Duration::days(30),
+            region: "cn",
+        },
+        &Actor::system(),
+    )
+    .await
+    .expect("发券");
+    code
+}
+
+async fn 下一单(
+    pool: &sqlx::PgPool,
+    user: &str,
+    sku: &str,
+    券: Vec<String>,
+) -> Result<order::CreatedOrder, DomainError> {
+    order::create(
+        pool,
+        order::NewOrder {
+            user_id: user.into(),
+            region: "cn".into(),
+            channel_origin: "web".into(),
+            lines: vec![order::NewOrderLine { sku_id: sku.into(), qty: 1 }],
+            shipping_address: None,
+            contact: None,
+            coupon_codes: 券,
+            note: None,
+            ip: None,
+            ua: None,
+        },
+    )
+    .await
+}
+
+// ═══════════════════════════ 减钱 ═══════════════════════════
+
+#[tokio::test]
+async fn 券真的减钱而不是只被记一句日志() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 19900).await;
+    let code = 发一张(&pool, 2000, None, None).await;
+
+    let o = 下一单(&pool, &user, &sku, vec![code]).await.expect("下单");
+
+    // 【这一条是整个模块的理由】。在它之前 total 恒等于 subtotal。
+    assert_eq!(o.amount_total_minor, 15920, "两成折扣该是 159.20");
+    let 折扣 = common::scalar_i64(
+        &pool, "SELECT amount_discount_minor FROM order_record WHERE id=$1", &o.order_id,
+    ).await;
+    assert_eq!(折扣, 3980, "折扣要落库 —— 不落的话对账时凭空少一笔");
+}
+
+#[tokio::test]
+async fn 封顶按封顶算() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 199000).await;
+    let code = 发一张(&pool, 2000, Some(10000), None).await;
+
+    let o = 下一单(&pool, &user, &sku, vec![code]).await.expect("下单");
+    assert_eq!(o.amount_total_minor, 199000 - 10000);
+}
+
+#[tokio::test]
+async fn 两张券按余额依次算而不是各按原价() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 10000).await;
+    let a = 发一张(&pool, 5000, None, None).await;
+    let b = 发一张(&pool, 5000, None, None).await;
+
+    // 【各按原价算完再相加的话，两张五折就是 100% —— 订单减成 0】
+    let o = 下一单(&pool, &user, &sku, vec![a, b]).await.expect("下单");
+    assert_eq!(o.amount_total_minor, 2500, "第二张该按剩下的 5000 打折");
+}
+
+// ═══════════════════════════ 两阶段 ═══════════════════════════
+
+#[tokio::test]
+async fn 下单只锁定不核销() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 19900).await;
+    let code = 发一张(&pool, 2000, None, None).await;
+
+    let o = 下一单(&pool, &user, &sku, vec![code.clone()]).await.expect("下单");
+
+    /* 【核销要等钱到】。下单就核销的话，一笔取消掉的订单会把券吃掉，
+       而用户既没花钱也没了券。 */
+    let state = common::scalar_string(&pool, "SELECT state FROM coupon WHERE code=$1", &code).await;
+    assert_eq!(state.as_deref(), Some("locked"));
+    let 锁给 = common::scalar_string(
+        &pool, "SELECT locked_for_order_id FROM coupon WHERE code=$1", &code,
+    ).await;
+    assert_eq!(锁给.as_deref(), Some(o.order_id.as_str()));
+    let 核销数 = common::scalar_i64(
+        &pool,
+        "SELECT COUNT(*)::int8 FROM coupon_redemption cr
+         JOIN coupon c ON c.id=cr.coupon_id WHERE c.code=$1",
+        &code,
+    ).await;
+    assert_eq!(核销数, 0, "还没付钱就不该有核销记录");
+}
+
+#[tokio::test]
+async fn 取消订单把券还回去() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 19900).await;
+    let code = 发一张(&pool, 2000, None, None).await;
+
+    let o = 下一单(&pool, &user, &sku, vec![code.clone()]).await.expect("下单");
+    order::cancel(&pool, &o.order_id, "测试", &Actor::system(), Some(&user))
+        .await
+        .expect("取消");
+
+    let state = common::scalar_string(&pool, "SELECT state FROM coupon WHERE code=$1", &code).await;
+    assert_eq!(state.as_deref(), Some("issued"), "订单没成，券是用户的东西");
+    /* `common::scalar_string` 拿 NULL 会 panic（它 decode 成 String，
+       不是 Option<String>）——「这一格是空的」正是这里要断言的事，
+       所以这一条自己查：数一数还有几张锁在这张单上。 */
+    let 还锁着 = common::scalar_i64(
+        &pool,
+        "SELECT COUNT(*)::int8 FROM coupon WHERE code=$1 AND locked_for_order_id IS NOT NULL",
+        &code,
+    ).await;
+    assert_eq!(还锁着, 0, "锁也要一起解开 —— 只改 state 的话它还挂在死单上");
+}
+
+// ═══════════════════════════ 拒绝 ═══════════════════════════
+
+#[tokio::test]
+async fn 券不合用要整单拒绝而不是悄悄跳过() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 19900).await;
+
+    /* 【跳过一张券，在用户那边看到的是「按原价扣款」】。
+       这正是这一整个模块存在的理由，所以单独钉一条。 */
+    let e = 下一单(&pool, &user, &sku, vec!["NOSUCHCODE".into()]).await.unwrap_err();
+    assert!(matches!(e, DomainError::Validation(_)), "拿到的是 {e:?}");
+
+    let 建了几单 = common::scalar_i64(
+        &pool, "SELECT COUNT(*)::int8 FROM order_record WHERE user_id=$1", &user,
+    ).await;
+    assert_eq!(建了几单, 0, "拒绝就要整单不落库，不留半截订单");
+}
+
+#[tokio::test]
+async fn 同一个码报两次要拒绝() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 19900).await;
+    let code = 发一张(&pool, 2000, None, None).await;
+
+    // 去重后当没事发生的话，用户以为用了两张、只减了一张的钱
+    let e = 下一单(&pool, &user, &sku, vec![code.clone(), code]).await.unwrap_err();
+    assert!(matches!(e, DomainError::Validation(_)), "拿到的是 {e:?}");
+}
+
+#[tokio::test]
+async fn 别人的券对外说的是没有这张券() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let 别人 = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 19900).await;
+    let code = 发一张(&pool, 2000, None, Some(&别人)).await;
+
+    let e = 下一单(&pool, &user, &sku, vec![code.clone()]).await.unwrap_err();
+    match e {
+        DomainError::Validation(m) => {
+            // 【不能说「这张券不是你的」】—— 那等于确认这个码真实存在，
+            // 于是撞码就能探出别人的券。跟不存在同一句话。
+            assert!(m.contains("没有这张券"), "说漏了嘴：{m}");
+            assert!(!m.contains("不是你的"), "说漏了嘴：{m}");
+        }
+        其他 => panic!("拿到的是 {其他：?}"),
+    }
+}
+
+#[tokio::test]
+async fn 锁着的券不能再被别的单用() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 19900).await;
+    let code = 发一张(&pool, 2000, None, None).await;
+
+    let 第一单 = 下一单(&pool, &user, &sku, vec![code.clone()]).await.expect("第一单");
+    let 中间态 = common::scalar_string(&pool, "SELECT state FROM coupon WHERE code=$1", &code).await;
+    assert_eq!(中间态.as_deref(), Some("locked"), "第一单之后券该是锁着的");
+
+    let 第二单 = 下一单(&pool, &user, &sku, vec![code]).await;
+    /* 【这一条第一次写出来时是挂的，而挂的原因不在券这边】。
+       `create` 里有一条「同一个人、同一件东西、已经有一笔没付的就还给他」的
+       复用分支，它在事务【之前】return —— 于是第二单根本没走到锁券，
+       返回的是第一单，测试看到 Ok。
+       顺着这条挂追下去发现的是另一个 bug:那条复用分支不看券码，
+       于是「不带券下单 → 退回去输券码再下单」拿到的还是原价那张单，
+       而且不报错（已修：带券就不复用）。 */
+    match 第二单 {
+        Ok(o) => panic!("锁着的券又建出一张单 {}（第一单是 {}）", o.order_id, 第一单.order_id),
+        Err(e) => assert!(
+            matches!(e, DomainError::Validation(_) | DomainError::IllegalStateTransition { .. }),
+            "拿到的是 {e:?}"
+        ),
+    }
+}
+
+#[tokio::test]
+async fn 带券下单不许复用之前那张没付的单() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 19900).await;
+
+    /* 【券码是第三个被复用分支吃掉的字段】（前两个是收货地址和联系人）。
+       用户不带券下了一单，退回去、输了券码再下一次 ——
+       复用命中的话拿到的还是原价那张，而且不报错。 */
+    let 原价单 = 下一单(&pool, &user, &sku, vec![]).await.expect("第一单");
+    assert_eq!(原价单.amount_total_minor, 19900);
+
+    let code = 发一张(&pool, 2000, None, None).await;
+    let 带券单 = 下一单(&pool, &user, &sku, vec![code]).await.expect("第二单");
+    assert_ne!(带券单.order_id, 原价单.order_id, "带券的是另一张单");
+    assert_eq!(带券单.amount_total_minor, 15920, "券要真的减钱");
+}
+
+#[tokio::test]
+async fn 过期的券用不了() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 19900).await;
+    let code = format!("T{}", uuid::Uuid::new_v4().simple());
+    // 发券那一步不许发过期的，所以直接插一行 —— 这里要的是「库里已有一张过期券」
+    sqlx::query(
+        "INSERT INTO coupon(id, code, benefit_json, state, issued_at, expires_at, audit_note, region)
+         VALUES ($1, $2, '{\"pct_off_bps\":2000}'::jsonb, 'issued', NOW() - INTERVAL '2 days',
+                 NOW() - INTERVAL '1 day', '测试', 'cn')",
+    )
+    .bind(format!("cpn-{}", uuid::Uuid::new_v4()))
+    .bind(&code)
+    .execute(&pool)
+    .await
+    .expect("插过期券");
+
+    let e = 下一单(&pool, &user, &sku, vec![code]).await.unwrap_err();
+    assert!(matches!(e, DomainError::Validation(_)), "拿到的是 {e:?}");
+}
+
+#[tokio::test]
+async fn 发券时读不懂的券面就不许进库() {
+    let pool = db_or_skip!();
+    /* 【坏券进了库要等到有人拿它下单才炸，那时炸在用户脸上】。
+       在发的这一步拦下，炸在运营脸上 —— 那是能改的人。 */
+    let e = coupon::issue(
+        &pool,
+        coupon::IssueCoupon {
+            code: "BADBENEFIT_TEST",
+            promotion_id: None,
+            owner_user_id: None,
+            benefit_json: json!({}),
+            expires_at: Utc::now() + Duration::days(1),
+            region: "cn",
+        },
+        &Actor::system(),
+    )
+    .await
+    .unwrap_err();
+    assert!(matches!(e, DomainError::Validation(_)), "拿到的是 {e:?}");
+}

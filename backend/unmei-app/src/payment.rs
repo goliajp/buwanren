@@ -1,8 +1,8 @@
 //! 支付用例。
 //!
 //! 发起支付本身要调 `PaymentAdapter`(渠道 SDK 在 `unmei-wx`),
-//! 而 adapter 的挑选依赖各 binary 自己的 registry。所以这里把用例切成两半:
-//! 落库的部分在这里,调渠道的部分留给调用方,中间用
+//! 而 adapter 的挑选依赖各 binary 自己的 registry。所以这里把用例切成两半：
+//! 落库的部分在这里，调渠道的部分留给调用方，中间用
 //! [`PendingPayment`] / [`record_attempt`] 衔接。这样「写哪些表、幂等怎么做」
 //! 仍然只有一份实现。
 
@@ -28,26 +28,26 @@ pub struct PendingPayment {
     pub expires_at: DateTime<Utc>,
 }
 
-/// 为订单发起一笔支付,落 `payment` 行。
+/// 为订单发起一笔支付，落 `payment` 行。
 ///
-/// 校验:订单存在 → 属主匹配 → 状态为 `unpaid` → 应付余额 > 0。
+/// 校验：订单存在 → 属主匹配 → 状态为 `unpaid` → 应付余额 > 0。
 /// 金额取 `amount_total_minor - amount_paid_minor`,不信任调用方传的数。
 ///
-/// **同一张单上已有一笔没过期的 pending 时,把那一笔原样还回去,不再建新的。**
+/// **同一张单上已有一笔没过期的 pending 时，把那一笔原样还回去，不再建新的。**
 ///
-/// 在这之前它只看订单状态:第一次建完 payment 之后订单仍是 `unpaid`,
+/// 在这之前它只看订单状态：第一次建完 payment 之后订单仍是 `unpaid`,
 /// 于是第二次照样放行。连点两次「去支付」就是两笔独立的 pending,每笔都是全额
-/// (2026-08-23 实测:应付 19900 的单子上两笔各 19900)。幂等键挡不住 ——
-/// 客户端每次点击生成一个新键,两次点击在服务端就是两次新操作。
+/// (2026-08-23 实测：应付 19900 的单子上两笔各 19900)。幂等键挡不住 ——
+/// 客户端每次点击生成一个新键，两次点击在服务端就是两次新操作。
 ///
 /// 为什么是「还回去」而不是「拒绝」:用户点第二次的意思是「我要接着付这张单」,
-/// 不是「我要再付一笔」。还回同一笔 pending,他拿到的是同一份下单参数,
-/// 接着付就是了;拒绝(409)会让放弃支付的人等 30 分钟过期才能重来。
+/// 不是「我要再付一笔」。还回同一笔 pending,他拿到的是同一份下单参数，
+/// 接着付就是了；拒绝(409)会让放弃支付的人等 30 分钟过期才能重来。
 ///
-/// 换渠道是另一回事 —— 那是明确的动作:把旧的那笔作废,再建新的。
+/// 换渠道是另一回事 —— 那是明确的动作：把旧的那笔作废，再建新的。
 ///
-/// 并发由数据库兜底:`uq_payment_one_pending` 是 `payment(order_id) WHERE
-/// status='pending'` 上的唯一索引。只靠这里「先查再写」的话,两个同时进来的
+/// 并发由数据库兜底：`uq_payment_one_pending` 是 `payment(order_id) WHERE
+/// status='pending'` 上的唯一索引。只靠这里「先查再写」的话，两个同时进来的
 /// 请求会双双查到「没有 pending」然后双双插入。
 pub async fn start(
     pool: &PgPool,
@@ -56,7 +56,7 @@ pub async fn start(
     channel: &str,
     channel_user_ref: Option<&str>,
 ) -> Result<PendingPayment, DomainError> {
-    // 风控(台账 D7)。这一处是钱真要动的地方,所以两个接线点里它更要紧。
+    // 风控(台账 D7)。这一处是钱真要动的地方，所以两个接线点里它更要紧。
     crate::risk::gate(pool, &crate::risk::RiskEvalContext {
         kind: "pre_pay".into(),
         user_id: Some(user_id.to_string()),
@@ -105,7 +105,7 @@ pub async fn start(
 
     /* 这张单上还有没有一笔没过期的 pending。
        `FOR UPDATE` 是为了跟同时进来的另一个请求排队 —— 唯一索引兜的是
-       「最终插不进去」,这里排一下队是为了让第二个请求走到「还回去」那一支,
+       「最终插不进去」,这里排一下队是为了让第二个请求走到「还回去」那一支，
        而不是撞索引报一个看不懂的错。 */
     let live = sqlx::query(
         "SELECT id, channel, amount_minor, currency, expires_at
@@ -122,9 +122,9 @@ pub async fn start(
         let old_channel: String = row.get("channel");
         let old_amount: i64 = row.get("amount_minor");
 
-        // 同一个渠道、同样的金额 —— 就是刚才那一笔,原样还回去
+        // 同一个渠道、同样的金额 —— 就是刚才那一笔，原样还回去
         if old_channel == channel && old_amount == due {
-            /* 读成非 Option 是有据的:`payment_pending_has_expiry` 保证
+            /* 读成非 Option 是有据的：`payment_pending_has_expiry` 保证
                pending / processing 的支付一定有到期时间(2026-09-02 迁移)。
                这一行以前配的是 `expires_at IS NULL OR ...` 的 WHERE ——
                那句话说 NULL 可能存在，而这里读的是非 Option，
@@ -143,8 +143,8 @@ pub async fn start(
             });
         }
 
-        /* 渠道换了(或者中间落了一笔部分付款、应付变了)—— 那是另一件事,
-           旧的那一笔就此作废。写清为什么:一笔支付凭空变成 expired,
+        /* 渠道换了(或者中间落了一笔部分付款、应付变了)—— 那是另一件事，
+           旧的那一笔就此作废。写清为什么：一笔支付凭空变成 expired,
            事后查账的人得看得出是被谁顶掉的。 */
         sqlx::query(
             "UPDATE payment
@@ -238,7 +238,7 @@ pub async fn mark_failed(
        `apply_expired`、`apply_succeeded` 三条都写着 `AND status IN (…)`，
        只有这一条没有。
 
-       条件跟上面那句判据一字对齐;影响行数为 0 就是「中间被人改过了」，
+       条件跟上面那句判据一字对齐；影响行数为 0 就是「中间被人改过了」，
        如实报冲突，不假装成功。 */
     let n = sqlx::query(
         "UPDATE payment SET status='failed', failure_code=$1, failure_msg=$2,
@@ -262,21 +262,21 @@ pub async fn mark_failed(
 
 // ═══════════════════════════ 渠道回调 ═══════════════════════════
 
-/// 渠道回调:支付成功。
+/// 渠道回调：支付成功。
 ///
 /// `txn_id` 既可能是渠道流水号也可能是我们自己的 payment_id,
-/// 两种都认(旧实现的行为,保留)。
+/// 两种都认(旧实现的行为，保留)。
 ///
 /// **幂等**。渠道重推同一笔回调是常态而不是异常 —— 微信支付在 24 小时内
-/// 最多重推 15 次,直到拿到成功响应。两道防线:
+/// 最多重推 15 次，直到拿到成功响应。两道防线：
 ///
 /// 1. `payment_event` 上的 `uq_payment_event_channel_eid`
 ///    (`(channel, channel_event_id)` 部分唯一索引)配 `ON CONFLICT DO NOTHING`
-/// 2. `payment` 的 UPDATE 带 `status IN ('pending','processing')` 前置条件,
+/// 2. `payment` 的 UPDATE 带 `status IN ('pending','processing')` 前置条件，
 ///    已经 success 的不会被再加一次钱
 ///
 /// 第 1 条以前漏了 `ON CONFLICT` —— 索引建了、注释也写着「幂等」,但重推会撞
-/// 唯一约束直接报错,于是渠道收到 500、继续重推,循环到重试耗尽。
+/// 唯一约束直接报错，于是渠道收到 500、继续重推，循环到重试耗尽。
 /// 由 `apply_succeeded_moves_order_to_paid_and_is_idempotent` 这条测试钉住。
 /// ★ 两个标识各归各位(2026-08-17 修):
 /// `our_ref` 是我方单号(= `payment.id`,微信的 `out_trade_no`),**定位用它**;
@@ -285,8 +285,8 @@ pub async fn mark_failed(
 /// 从前这里只有一个 `txn_id`,匹配写成 `channel_txn_id=$2 OR id=$2`。
 /// 真回调传进来的是渠道流水号 —— 它既不等于我方 payment id,
 /// `channel_txn_id` 那一列此刻又是 NULL,于是**两个条件都不成立、
-/// UPDATE 影响 0 行、这笔支付永远不会入账**。mock 把两者填成同一个值,
-/// 所以测试一直全绿,只有真接渠道那天才会暴露。
+/// UPDATE 影响 0 行、这笔支付永远不会入账**。mock 把两者填成同一个值，
+/// 所以测试一直全绿，只有真接渠道那天才会暴露。
 pub async fn apply_succeeded(
     pool: &PgPool,
     our_ref: &str,
@@ -295,8 +295,8 @@ pub async fn apply_succeeded(
 ) -> Result<(), DomainError> {
     let mut tx = pool.begin().await.db()?;
 
-    // 去重键优先用渠道流水号:渠道重推的是同一笔交易,它才是那一笔的身份。
-    // 渠道没给就退回我方单号 —— 一笔支付只成功一次,按单号去重同样成立。
+    // 去重键优先用渠道流水号：渠道重推的是同一笔交易，它才是那一笔的身份。
+    // 渠道没给就退回我方单号 —— 一笔支付只成功一次，按单号去重同样成立。
     let event_key = channel_txn_id.unwrap_or(our_ref);
     sqlx::query(
         r#"INSERT INTO payment_event(id, payment_id, kind, channel, channel_event_id, payload_json, received_at)
@@ -312,7 +312,7 @@ pub async fn apply_succeeded(
     .execute(&mut *tx)
     .await.db()?;
 
-    // 只有**真的**从 pending/processing 翻到 success 的那一次,才动订单金额。
+    // 只有**真的**从 pending/processing 翻到 success 的那一次，才动订单金额。
     // RETURNING 把「这次到底改没改到行」变成可判断的值 —— 没有它就只能盲目累加。
     let applied: Option<(String, String, i64)> = sqlx::query_as(
         "UPDATE payment SET status='success', paid_at=$1,
@@ -327,14 +327,14 @@ pub async fn apply_succeeded(
     .await.db()?;
 
     let Some((payment_id, order_id, amount_minor)) = applied else {
-        // 这笔早就入过账了。渠道重推而已,不是错误 —— 提交空事务,回 200 让它别再推。
+        // 这笔早就入过账了。渠道重推而已，不是错误 —— 提交空事务，回 200 让它别再推。
         tx.commit().await.db()?;
         tracing::debug!(our_ref, "payment.success 重复回调，已忽略");
         return Ok(());
     };
 
-    // 旧实现这条 UPDATE 挂在 `FROM payment p` 上,没有任何前置条件,
-    // 每收到一次回调就往订单上加一次钱。微信 24 小时内最多重推 15 次,
+    // 旧实现这条 UPDATE 挂在 `FROM payment p` 上，没有任何前置条件，
+    // 每收到一次回调就往订单上加一次钱。微信 24 小时内最多重推 15 次，
     // 于是一笔 199 元的订单能被记成实付 2985 元。
     // 由 `apply_succeeded_moves_order_to_paid_and_is_idempotent` 钉住。
     /* 金额照加 —— 钱确实到了，那是事实。但**状态只在状态机允许时才动**。
@@ -365,10 +365,27 @@ pub async fn apply_succeeded(
 
     // 订单这一刻才付清 → 发 OrderPaid,下游 dispatcher 据此推进履约。
     //
-    // 这条事件原先只有 payment_sweep worker 会发,渠道回调这条路径不发 ——
-    // 也就是说真接入微信之后,走 webhook 进来的支付**永远不会触发履约**。
-    // 两条路径本来就该是同一件事,所以合并到这里。
+    // 这条事件原先只有 payment_sweep worker 会发，渠道回调这条路径不发 ——
+    // 也就是说真接入微信之后，走 webhook 进来的支付**永远不会触发履约**。
+    // 两条路径本来就该是同一件事，所以合并到这里。
     if order_status == "paid" {
+        /* 【钱到账了，券这时候才算用掉】。下单时只是锁住 ——
+           在付款成功之前核销的话，一笔取消掉的订单会把券吃掉，
+           而用户既没花钱也没了券。
+
+           跑在收款这个事务里：钱记上了、券核销了、活动预算也扣了，
+           要么一起成、要么一起不成。 */
+        let 折扣: i64 = sqlx::query_scalar(
+            "SELECT COALESCE(amount_discount_minor, 0) FROM order_record WHERE id=$1",
+        )
+        .bind(&order_id)
+        .fetch_one(&mut *tx)
+        .await.db()?;
+        let 张数 = crate::coupon::redeem_for_order(&mut tx, &order_id, 折扣).await?;
+        if 张数 > 0 {
+            tracing::info!(order_id, 张数, 折扣, "优惠券已核销");
+        }
+
         outbox::write(
             &mut *tx,
             &DomainEvent::OrderPaid {
@@ -387,12 +404,12 @@ pub async fn apply_succeeded(
 
 /// 同 [`apply_succeeded`]:按我方单号定位。
 pub async fn apply_failed(pool: &PgPool, our_ref: &str, code: &str, msg: &str) -> Result<(), DomainError> {
-    // 只翻【还在飞】的那一笔。渠道会乱序、会重推,`payment_sweep` 也可能轮到
-    // 一条陈旧的渠道记录 —— 没有这个条件的话,一条迟到的失败回调就能把
+    // 只翻【还在飞】的那一笔。渠道会乱序、会重推，`payment_sweep` 也可能轮到
+    // 一条陈旧的渠道记录 —— 没有这个条件的话，一条迟到的失败回调就能把
     // 已经成功的一笔改成 failed,而订单那边仍然是 paid。对账、退款、后台
     // 看到的都是「付过钱但支付失败」。
     //
-    // 这不是新规矩:`apply_succeeded` / `apply_expired` 都带着同样的守卫,
+    // 这不是新规矩：`apply_succeeded` / `apply_expired` 都带着同样的守卫，
     // 后台手工那条 `mark_failed` 更是直接返回 Conflict。只有这里漏了。
     sqlx::query(
         "UPDATE payment SET status='failed', failure_code=$1, failure_msg=$2
@@ -436,7 +453,7 @@ pub async fn apply_expired(pool: &PgPool, our_ref: &str) -> Result<(), DomainErr
     Ok(())
 }
 
-/// 支付发起后返回给客户端的载荷,原样透传 adapter 的 outcome。
+/// 支付发起后返回给客户端的载荷，原样透传 adapter 的 outcome。
 pub fn outcome_payload(payment_id: &str, outcome: &impl serde::Serialize) -> Result<Value, DomainError> {
     Ok(json!({
         "payment_id": payment_id,

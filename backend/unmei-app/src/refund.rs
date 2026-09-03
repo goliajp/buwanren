@@ -11,7 +11,7 @@ use crate::{new_id, Actor};
 
 /// 用户发起退款申请。
 ///
-/// 可退金额 = `amount_paid_minor - amount_refunded_minor`,由服务端算,
+/// 可退金额 = `amount_paid_minor - amount_refunded_minor`,由服务端算，
 /// 不接受调用方传的余额。`payment_id` 缺省时自动挑最近一笔成功支付。
 pub async fn request(
     pool: &PgPool,
@@ -22,12 +22,17 @@ pub async fn request(
     reason_code: &str,
     reason_text: Option<&str>,
 ) -> Result<String, DomainError> {
+    /* 【整段放进事务、锁住订单行】（2026-09-03）。
+       上一版这里是三次各自独立的 `pool` 查询：读余额、查支付、插申请。
+       两个请求同时进来，都读到同一个余额、都通过、都插一张申请。 */
+    let mut tx = pool.begin().await.db()?;
+
     let order = sqlx::query(
         "SELECT user_id, amount_paid_minor, amount_refunded_minor, currency
-         FROM order_record WHERE id=$1",
+         FROM order_record WHERE id=$1 FOR UPDATE",
     )
     .bind(order_id)
-    .fetch_optional(pool)
+    .fetch_optional(&mut *tx)
     .await.db()?
     .ok_or_else(|| DomainError::NotFound(format!("order {order_id}")))?;
 
@@ -36,21 +41,47 @@ pub async fn request(
         return Err(DomainError::NotFound(format!("order {order_id}")));
     }
 
+    /* 【在途的那些也算已退】（2026-09-03）。
+       `amount_refunded_minor` 要到审批才增加 —— 于是同一单先后申请两次，
+       第二次读到的余额仍是全额，两张申请都建得起来。
+
+       审批那一步已经拦得住（下面 `approve` 里拿着行锁复核了余额，
+       2026-08-18 那次实测的两笔就是它修之前留下的），所以钱退不出去两份。
+       但**申请这一步说的是假话**:用户收到「申请成功」，
+       后台多出一张永远批不下去的单子，而没有人知道它为什么批不动。
+       申请要么建得起来、要么当场说清为什么不行 —— 不留这种半截状态。 */
+    let 在途: i64 = sqlx::query_scalar(
+        "SELECT COALESCE(SUM(amount_minor), 0)::int8 FROM refund
+         WHERE order_id=$1 AND status IN ('requested','approved','processing')",
+    )
+    .bind(order_id)
+    .fetch_one(&mut *tx)
+    .await.db()?;
+
     let paid: i64 = order.get("amount_paid_minor");
     let refunded: i64 = order.get("amount_refunded_minor");
-    let remaining = paid - refunded;
+    let remaining = paid - refunded - 在途;
     let amount = amount_minor.unwrap_or(remaining);
     if amount <= 0 || amount > remaining {
-        return Err(DomainError::Validation(format!(
-            "退款金额 {amount} 超出可退余额 {remaining}"
-        )));
+        // 【说清是「为什么退不了」，不是复述两个数】。
+        // 上一版这里发出去的是「退款金额 0 超出可退余额 0」——
+        // 两个 0 对着看，没有人猜得到是因为上一笔还在审核里。
+        return Err(DomainError::Validation(if 在途 > 0 && remaining <= 0 {
+            format!("这一单的 {在途} 分已经在退款审核里了，等它有结果再说")
+        } else if 在途 > 0 {
+            format!(
+                "最多还能退 {remaining} 分（已付 {paid}，已退 {refunded}，另有 {在途} 在审核中）"
+            )
+        } else {
+            format!("退款金额 {amount} 超出可退余额 {remaining}")
+        }));
     }
 
     let payment_id = match payment_id {
         /* 【传进来的那个 id 得真属于这张单】（2026-09-02 第四轮评审 · 工程审计）。
            原先是 `Some(p) => p` —— 原样采信。上面只校了「这张单是不是你的」
            和「金额超没超」，没有人问过这笔支付是谁的。
-           审计实测:甲对自己的单发起退款、`payment_id` 填乙的，回 200 落库。
+           审计实测：甲对自己的单发起退款、`payment_id` 填乙的，回 200 落库。
            退款走的是支付渠道，那条 id 最终会变成一次真的退款请求。 */
         Some(p) => {
             /* 【「退过一半」的也还能再退】（2026-09-03）。
@@ -61,18 +92,18 @@ pub async fn request(
             let 属于这张单: Option<String> = sqlx::query_scalar(
                 "SELECT id FROM payment WHERE id=$1 AND order_id=$2 \
                    AND status IN ('success','refunded_partial')",
-            ).bind(&p).bind(order_id).fetch_optional(pool).await.db()?;
+            ).bind(&p).bind(order_id).fetch_optional(&mut *tx).await.db()?;
             属于这张单.ok_or_else(|| DomainError::Validation(
                 "这笔支付不属于这张订单，或者它没有收到过钱".into()))?
         }
         None => sqlx::query_scalar(
-            // 同上:退过一半的那笔仍然可退
+            // 同上：退过一半的那笔仍然可退
             "SELECT id FROM payment WHERE order_id=$1
                AND status IN ('success','refunded_partial')
              ORDER BY paid_at DESC LIMIT 1",
         )
         .bind(order_id)
-        .fetch_optional(pool)
+        .fetch_optional(&mut *tx)
         .await.db()?
         .ok_or_else(|| DomainError::Validation("无成功支付可退".into()))?,
     };
@@ -81,7 +112,7 @@ pub async fn request(
     let refund_id = new_id("rfd");
 
     sqlx::query(
-        // region 从订单取 —— 见 payment.rs 里那段注释:这一列有默认值 'cn'，
+        // region 从订单取 —— 见 payment.rs 里那段注释：这一列有默认值 'cn'，
         // 不写它永远不会报错，而后台按区分组的每一张表都会永远是空的。
         r#"INSERT INTO refund(id, order_id, payment_id, amount_minor, currency,
                               reason_code, reason_text, actor_kind, actor_id, status, region)
@@ -96,16 +127,17 @@ pub async fn request(
     .bind(reason_code)
     .bind(reason_text.unwrap_or_default())
     .bind(user_id)
-    .execute(pool)
+    .execute(&mut *tx)
     .await.db()?;
 
+    tx.commit().await.db()?;
     Ok(refund_id)
 }
 
 /// 后台批准退款。
 ///
 /// 目前是 mock 直推 success —— 真接入后这里改成 `adapter.refund()` 发起、
-/// 由渠道 webhook 推到 success。`RefundCompleted` 事件照写,
+/// 由渠道 webhook 推到 success。`RefundCompleted` 事件照写，
 /// dispatcher 据此做财务复式挂账。
 pub async fn approve(pool: &PgPool, refund_id: &str, actor: &Actor) -> Result<(), DomainError> {
     let mut tx = pool.begin().await.db()?;
@@ -229,7 +261,7 @@ pub async fn deny(
     .await.db()?
     .rows_affected();
 
-    // 旧实现不看影响行数:驳回一个不存在的、或已经成功的退款都会返回 ok:true。
+    // 旧实现不看影响行数：驳回一个不存在的、或已经成功的退款都会返回 ok:true。
     if affected == 0 {
         return Err(DomainError::NotFound(format!(
             "refund {refund_id}（或状态不是 requested/failed）"
@@ -238,12 +270,12 @@ pub async fn deny(
     Ok(())
 }
 
-/// 渠道回调:退款成功 / 失败。
+/// 渠道回调：退款成功 / 失败。
 pub async fn apply_succeeded(pool: &PgPool, channel_refund_id: &str) -> Result<(), DomainError> {
-    // 只改【还在渠道手里】的那笔。渠道会乱序、会重推 —— 没有这个条件的话,
+    // 只改【还在渠道手里】的那笔。渠道会乱序、会重推 —— 没有这个条件的话，
     // 一条迟到的回调就能改写一笔已经结掉的退款。
     //
-    // 注意:真接渠道之后 `approve` 应当把状态置为 `processing` 而不是像现在的
+    // 注意：真接渠道之后 `approve` 应当把状态置为 `processing` 而不是像现在的
     // mock 那样直接 `success`,否则回调进来时这里已经没有可改的行了。
     sqlx::query(
         "UPDATE refund SET status='success', completed_at=NOW()
@@ -261,9 +293,9 @@ pub async fn apply_failed(
     code: &str,
     msg: &str,
 ) -> Result<(), DomainError> {
-    // 同上,而且后果更具体:一笔已经成功的退款被翻成 `failed` 之后,
+    // 同上，而且后果更具体：一笔已经成功的退款被翻成 `failed` 之后，
     // `deny` 的守卫(`status IN ('requested','failed')`)就重新接受它 ——
-    // 钱已经退回去、`amount_refunded_minor` 已经加过,单子却还能被「驳回」。
+    // 钱已经退回去、`amount_refunded_minor` 已经加过，单子却还能被「驳回」。
     sqlx::query(
         "UPDATE refund SET status='failed', failure_code=$1, failure_msg=$2
          WHERE (channel_refund_id=$3 OR id=$3) AND status IN ('approved','processing')",

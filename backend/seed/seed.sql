@@ -1,5 +1,5 @@
 -- unmei seed · PG18 兼容
--- 由 unmei-api 启动时通过 sqlx::query(include_str!) 一次性执行;表名注意 user → app_user
+-- 由 unmei-api 启动时通过 sqlx::query(include_str!) 一次性执行；表名注意 user → app_user
 -- 所有 INSERT 用 ON CONFLICT DO NOTHING 幂等
 
 -- ─── quote · 24 句 ───────────────────────────────────────────────
@@ -76,8 +76,8 @@ INSERT INTO yiji_word (id, type, word, category, favor_when_main_wuxing, disfavo
 ON CONFLICT (id) DO NOTHING;
 
 -- ─── product seed 已迁移到 commerce_v2 migration(详见 commerce v2 schema)──────────
--- v0.1 字段(price_cn / stock / image_urls / recommend_when_main_wuxing)已废,
--- 本段保留占位避免文件结构变化;新 seed 见 backend/migrations/20260627_commerce_v2.sql
+-- v0.1 字段(price_cn / stock / image_urls / recommend_when_main_wuxing)已废，
+-- 本段保留占位避免文件结构变化；新 seed 见 backend/migrations/20260627_commerce_v2.sql
 SELECT 1;
 
 -- ─── activity · 3 场 ────────────────────────────────────────────
@@ -103,7 +103,12 @@ INSERT INTO feature_flag (code, default_on, by_platform, by_region, description)
   ('show_product_iap',TRUE,'{}'::jsonb,'{"cn":false,"us":true,"eu":true}'::jsonb,'iOS IAP 商品入口（国内 OFF，海外 ON）'),
   ('sensitive_terms_strict',FALSE,'{"mini":true}'::jsonb,'{}'::jsonb,'敏感词严格模式（mini 必开）'),
   ('show_dayun_in_summary',FALSE,'{}'::jsonb,'{}'::jsonb,'本命简介是否露出大运（默认 OFF，保持极轻）')
-ON CONFLICT (code) DO NOTHING;
+-- 【文案要覆盖，开关状态不能覆盖】。description 是这份文件说了算的；
+-- 而 default_on / by_platform / by_region 是运营在后台改的运行时数据，
+-- 重新 seed 一次不许把人家的设置冲掉。
+-- 上一版整句是 DO NOTHING，于是文案在文件里改对了、库里还是旧的 ——
+-- 屏幕上写着半角括号，而标点门禁扫文件，一直报绿。
+ON CONFLICT (code) DO UPDATE SET description = EXCLUDED.description;
 
 -- ─── admin_user · 默认 admin@unmei.local / admin123 ───────────
 INSERT INTO admin_user (id, email, password_hash, name, roles) VALUES

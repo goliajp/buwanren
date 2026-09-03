@@ -1,6 +1,6 @@
 //! 订单用例。
 //!
-//! 合并自两份旧实现,逐条取的是各自对的那一半:
+//! 合并自两份旧实现，逐条取的是各自对的那一半：
 //!
 //! | 分歧点 | 旧路由 | 旧 PgOrderService | 这里 |
 //! |---|---|---|---|
@@ -55,17 +55,17 @@ pub struct CreatedOrder {
     pub status: &'static str,
 }
 
-/// 建单。整笔在一个事务里:订单 + 行 + meta + 审计事件 + outbox,失败全回滚。
+/// 建单。整笔在一个事务里：订单 + 行 + meta + 审计事件 + outbox,失败全回滚。
 ///
-/// **取价必须带 region 与 platform**。`price_book` 是按区域分行的:同一个 sku
+/// **取价必须带 region 与 platform**。`price_book` 是按区域分行的：同一个 sku
 /// 在 cn 是 CNY 4900、在 jp 是 JPY 1200。这里原先只按 `effective_from DESC`
 /// 取最新的一行 —— 于是 `region=cn` 的用户下单下出一笔 **JPY 1200**,
-/// 而商品页上写着 ¥49.00(2026-08-19 实测)。用户看到的价和被记的账不是同一个,
-/// 这比报错糟得多:两边都「成功」了。
+/// 而商品页上写着 ¥49.00(2026-08-19 实测)。用户看到的价和被记的账不是同一个，
+/// 这比报错糟得多：两边都「成功」了。
 ///
-/// 挑法照 `routes/commerce.rs::get_product` 一直在用的那套:
-/// `region IN (那个区, 'global')` + `platform IN (那个端, 'all')`。
-/// 挑不出价就是 `sku 无激活价`,报错,不退到别的区的价上。
+/// 挑法照 `routes/commerce.rs::get_product` 一直在用的那套：
+/// `region IN (那个区， 'global')` + `platform IN (那个端， 'all')`。
+/// 挑不出价就是 `sku 无激活价`,报错，不退到别的区的价上。
 pub async fn create(pool: &PgPool, req: NewOrder) -> Result<CreatedOrder, DomainError> {
     if req.lines.is_empty() {
         return Err(DomainError::Validation("lines is empty".into()));
@@ -93,13 +93,13 @@ pub async fn create(pool: &PgPool, req: NewOrder) -> Result<CreatedOrder, Domain
        守卫一次都不会跑到（这是写完第一版、测试当场红出来的）。
        拦截要在任何一条早退之前。
 
-       为什么不在履约那一侧兜:那时钱已经收了，剩下的只有退款，而退款要人工。
+       为什么不在履约那一侧兜：那时钱已经收了，剩下的只有退款，而退款要人工。
        能在收钱之前说清楚的事，不该留到收钱之后。 */
     /* 【同一张单里不许出现同一位村民两次】（2026-09-02 第四轮评审 · 工程审计）。
-       下面那个循环是【逐行独立】判的:每一行各自查「这位是不是已经住着」。
+       下面那个循环是【逐行独立】判的：每一行各自查「这位是不是已经住着」。
        而阿云名下在架的 SKU 有三百多件 —— 两个不同的 sku 都指着他，
        两行各自都合法，加起来收 ¥198 只搬进来一个人。
-       审计实测:`sku-oma-t46166-11` + `sku-oma-t25287-13` 回 19800。
+       审计实测：`sku-oma-t46166-11` + `sku-oma-t25287-13` 回 19800。
        所以在逐行判之前，先把这一单内部的重复挑出来。 */
     let mut 这单里的村民: Vec<String> = Vec::new();
     for l in &req.lines {
@@ -154,7 +154,7 @@ pub async fn create(pool: &PgPool, req: NewOrder) -> Result<CreatedOrder, Domain
         }
     }
 
-    // 风控(台账 D7)。默认观察模式:规则照跑、事件照落、一单不拦 ——
+    // 风控(台账 D7)。默认观察模式：规则照跑、事件照落、一单不拦 ——
     // 开关在 `risk::enforcing()`,由运营看过真实命中率之后再翻。
     crate::risk::gate(pool, &crate::risk::RiskEvalContext {
         kind: "pre_order".into(),
@@ -167,7 +167,7 @@ pub async fn create(pool: &PgPool, req: NewOrder) -> Result<CreatedOrder, Domain
     }).await?;
 
     /* 【同一个人、同一件东西，已经有一笔没付的，就把那一笔还给他】。
-       在这之前:确认屏每次 `onLoad` 都生成一个新的幂等键（那是对的 ——
+       在这之前：确认屏每次 `onLoad` 都生成一个新的幂等键（那是对的 ——
        同一屏内连点两次要撞上同一个键），可【退回上一页再进来】就是
        一个新键、一张新单。库里因此攒着「同一个用户、同一个 sku、
        四笔未付、合计 796 元」这样的记录（2026-09-01 五路评审 · 工程审计）。
@@ -177,7 +177,18 @@ pub async fn create(pool: &PgPool, req: NewOrder) -> Result<CreatedOrder, Domain
        判据是【行完全一样】:同样的 sku、同样的数量、同样多的行。
        真想买两份的人改数量，不是下两张一模一样的单。
        只认 unpaid —— 已付、已取消、已过期的都不算。 */
-    if req.lines.len() == 1 {
+    /* 【带券就不复用】（2026-09-03）。
+       复用的前提是「这一单跟上一单一模一样」，而券会改金额 —— 不一样了。
+       上一版的判据只看 sku 与数量：
+         不带券下单 → ¥199 未付 → 退回去、输了券码再下单
+         → 复用命中，还给他那张 ¥199 的单，券没用上，也不报错。
+       反过来换一张券也一样：拿到的还是上一张券的折扣。
+
+       这是同一个坑的第三次 —— 收货地址那次（上面那段注释）和联系人那次
+       都是「复用分支在事务之前 return，而这一次填的东西写在事务里」。
+       券码没法像地址那样「补写进去」:券要在事务里锁，锁完金额就变了，
+       那已经是另一张单。所以带券的时候直接不走复用。 */
+    if req.lines.len() == 1 && req.coupon_codes.is_empty() {
         let l = &req.lines[0];
         let 已有: Option<String> = sqlx::query_scalar(
             r#"SELECT o.id FROM order_record o
@@ -192,13 +203,13 @@ pub async fn create(pool: &PgPool, req: NewOrder) -> Result<CreatedOrder, Domain
             /* 【这一次填的地址要写进去】。
                复用分支在事务【之前】return，而 `shipping_address` / `contact`
                / `note` 是在事务里写 order_meta 的 —— 不补这一步，
-               这一次填的东西一个字都不落库，而且不报错:
+               这一次填的东西一个字都不落库，而且不报错：
                  选地址 A 下单 → 退回去 → 选地址 B 再下单 → 复用命中第一张 →
                  屏上显示 B，运单收件人快照读 order_meta 拿到 A，包裹寄到 A。
                运单那一头还套着 `COALESCE(…, '{}')`，连空都不会报。
                2026-09-01 五路评审 · 工程审计当场抓到 —— 这是我为了消掉
                「四笔一样的未付单」而引入的。
-               最新填的那个才是他要的，所以覆盖;这一次没填就不动旧的。 */
+               最新填的那个才是他要的，所以覆盖；这一次没填就不动旧的。 */
             if req.shipping_address.is_some() || req.contact.is_some() {
                 sqlx::query(
                     r#"INSERT INTO order_meta(order_id, shipping_address_json, contact_json, extra_json)
@@ -213,11 +224,11 @@ pub async fn create(pool: &PgPool, req: NewOrder) -> Result<CreatedOrder, Domain
             }
             /* note 落在 `audit_note` 上 —— 建单那条路（本文件下面那条 INSERT）
                就是这么写的，复用这一支不该另找一个地方。
-               上一版这里写的是 `SET note = $2`，而 order_record 【没有】note 这一列:
+               上一版这里写的是 `SET note = $2`，而 order_record 【没有】note 这一列：
                它编译得过（本仓禁用 query! 宏，SQL 是运行期才解析的），
                一跑就是 500。`check-sql · 每条 SQL 过一遍 Postgres` 抓到的
                （2026-09-01）—— 这正是那一支存在的理由。
-               覆盖改成追加:第一次下单写的那句是审计串的一部分，不该被后来的抹掉。 */
+               覆盖改成追加：第一次下单写的那句是审计串的一部分，不该被后来的抹掉。 */
             if let Some(n) = req.note.as_ref().filter(|n| !n.trim().is_empty()) {
                 sqlx::query(
                     "UPDATE order_record SET audit_note = COALESCE(audit_note, '') || E'\\n' || $2
@@ -310,7 +321,7 @@ pub async fn create(pool: &PgPool, req: NewOrder) -> Result<CreatedOrder, Domain
             .map_err(|_| DomainError::Validation(format!("sku {} 价格无币种", l.sku_id)))?;
 
         // 旧的两份都是「后一行覆盖前一行」,混币种下单会算出一笔币种错误的总额。
-        // 一笔订单只能有一个币种,不一致就拒绝。
+        // 一笔订单只能有一个币种，不一致就拒绝。
         match &currency {
             None => currency = Some(cur),
             Some(existing) if *existing != cur => {
@@ -353,21 +364,38 @@ pub async fn create(pool: &PgPool, req: NewOrder) -> Result<CreatedOrder, Domain
     }
 
     let currency = currency.expect("lines 非空则必有币种");
-    let total = subtotal;
+
+    /* 【券在这里真的减钱】。在它之前这一段是 `let total = subtotal;`，
+       而带来的券码只在下面被 warn 一句「折扣引擎尚未接通」——
+       用户以为用了券，扣的是原价，没有任何一处会说出这件事。
+
+       锁券跑在同一个事务里：券锁上了、订单也落库了，要么都成要么都不成。
+       券不合用就整单拒绝（`lock_for_order` 里逐条抛），
+       不悄悄跳过 —— 跳过在用户那边看到的就是「按原价扣款」。 */
+    let (券们, discount) = crate::coupon::lock_for_order(
+        &mut tx, &order_id, &req.user_id, &req.region, subtotal, &req.coupon_codes,
+    ).await?;
+    let total = subtotal
+        .checked_sub(discount)
+        .filter(|t| *t >= 0)
+        .ok_or_else(|| DomainError::Internal(format!(
+            "折扣 {discount} 超过了订单金额 {subtotal}"
+        )))?;
 
     sqlx::query(
         r#"INSERT INTO order_record(
              id, user_id, channel_origin, currency,
-             amount_subtotal_minor, amount_total_minor,
+             amount_subtotal_minor, amount_discount_minor, amount_total_minor,
              status, source_kind, region, ip, ua, expires_at, audit_note
-           ) VALUES ($1, $2, $3, $4, $5, $6, 'unpaid', 'one_shot', $7, $8, $9,
-                     NOW() + INTERVAL '30 minutes', $10)"#,
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'unpaid', 'one_shot', $8, $9, $10,
+                     NOW() + INTERVAL '30 minutes', $11)"#,
     )
     .bind(&order_id)
     .bind(&req.user_id)
     .bind(&req.channel_origin)
     .bind(&currency)
     .bind(subtotal)
+    .bind(discount)
     .bind(total)
     .bind(&req.region)
     .bind(&req.ip)
@@ -428,13 +456,12 @@ pub async fn create(pool: &PgPool, req: NewOrder) -> Result<CreatedOrder, Domain
     )
     .await?;
 
-    // 优惠券:两份旧实现都只留了 TODO,没有任何一份真的核销过。
-    // 不在这里假装处理 —— 明确记录进审计,等 PromotionService 真正接通。
-    if !req.coupon_codes.is_empty() {
-        tracing::warn!(
+    if !券们.is_empty() {
+        tracing::info!(
             order_id = %order_id,
-            codes = ?req.coupon_codes,
-            "订单带了优惠券码但折扣引擎尚未接通，本单未核销"
+            discount_minor = discount,
+            n = 券们.len(),
+            "本单锁了优惠券，付款成功时核销"
         );
     }
 
@@ -452,7 +479,7 @@ pub async fn create(pool: &PgPool, req: NewOrder) -> Result<CreatedOrder, Domain
 
 /// 取消订单。
 ///
-/// `owner` 传 `Some(user_id)` 时同时做归属校验 —— 客户端路径必须传,
+/// `owner` 传 `Some(user_id)` 时同时做归属校验 —— 客户端路径必须传，
 /// 后台路径传 `None`。这一条是旧路由对而旧 service 漏掉的。
 pub async fn cancel(
     pool: &PgPool,
@@ -481,7 +508,7 @@ pub async fn cancel(
 
     let cur = OrderStatus::from_str_lax(&cur_str)
         .ok_or_else(|| DomainError::Internal(format!("unknown order status {cur_str}")))?;
-    // 状态机是唯一判据。旧路由那句硬编码的 ["draft","unpaid"] 和状态机等价,
+    // 状态机是唯一判据。旧路由那句硬编码的 ["draft","unpaid"] 和状态机等价，
     // 但状态机改了它不会跟着改 —— 这正是双写的病。
     cur.assert_transition(OrderStatus::Cancelled)?;
 
@@ -494,6 +521,10 @@ pub async fn cancel(
     .bind(order_id)
     .execute(&mut *tx)
     .await.db()?;
+
+    // 【订单没成，券要还给人家】。走状态机里那条 Locked → Issued。
+    // 不还的话，一次点错的下单就把用户的券吃掉了，而他既没花钱也没了券。
+    crate::coupon::release_for_order(&mut tx, order_id).await?;
 
     sqlx::query(
         r#"INSERT INTO order_event(id, order_id, kind, actor_kind, actor_id,
@@ -542,7 +573,7 @@ pub async fn annotate(
     .await.db()?
     .rows_affected();
 
-    // 旧的两份都不检查影响行数,批注一个不存在的订单会静默成功。
+    // 旧的两份都不检查影响行数，批注一个不存在的订单会静默成功。
     if affected == 0 {
         return Err(DomainError::NotFound(format!("order {order_id}")));
     }
@@ -553,12 +584,35 @@ pub async fn annotate(
 
 /// 把超时未支付的订单标记为取消。sweeper 调用。
 pub async fn expire_unpaid(pool: &PgPool) -> Result<u64, DomainError> {
+    /* 【过期也要还券】。跟手动取消同一个道理，只是这条路上没有人在场 ——
+       所以更需要它自己做对：一张锁在过期订单上的券，
+       不还就永远是 locked，用户再也用不了，也没有任何提示。
+
+       两句写在一个事务里：订单标了取消、券也放回去，要么都成要么都不成。 */
+    let mut tx = pool.begin().await.db()?;
+    let 过期单: Vec<String> = sqlx::query_scalar(
+        "SELECT id FROM order_record
+         WHERE status='unpaid' AND expires_at < NOW() FOR UPDATE",
+    )
+    .fetch_all(&mut *tx)
+    .await.db()?;
+
+    if 过期单.is_empty() {
+        return Ok(0);
+    }
+
     let res = sqlx::query(
         r#"UPDATE order_record SET status='cancelled', cancelled_at=NOW(),
              cancel_reason='expired', cancel_actor='system'
-           WHERE status='unpaid' AND expires_at < NOW()"#,
+           WHERE id = ANY($1)"#,
     )
-    .execute(pool)
+    .bind(&过期单)
+    .execute(&mut *tx)
     .await.db()?;
+
+    for id in &过期单 {
+        crate::coupon::release_for_order(&mut tx, id).await?;
+    }
+    tx.commit().await.db()?;
     Ok(res.rows_affected())
 }
