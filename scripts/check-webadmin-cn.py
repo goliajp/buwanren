@@ -20,13 +20,23 @@ import pathlib, re, sys
     'SKU', 'SPU', 'ID', 'API', 'JSON', 'CNY', 'USD', 'JPY', 'HKD', 'TWD', 'EUR',
     'Apple IAP', 'Google Play', 'Stripe', 'unmei', 'mingli', 'admin',
     'Claude', 'OK', 'A/B', 'iOS', 'Android',
+    # 登录页上的字标。产品对外叫「不完人」，代号叫 unmei ——
+    # 这一行是标识，不是没翻译的文案（2026-09-03 正则补上 `·` 之后现形的）。
+    'unmei · console',
 }
 中文 = re.compile(r'[一-鿿]')
 # 整段英文：字母开头，通篇只有字母、空格与常见标点
-纯英 = re.compile(r'^[A-Za-z][A-Za-z0-9 ._/…&+()\'’-]{2,40}$')
+# 【`·` 也要算进去】（2026-09-03 五路评审 · 门禁审计）。
+# 上面那段文档里举的例子是 `naji_record · JOIN app_user` ——
+# 而分隔点不在这个字符集里，所以这一支【连自己文档里的例子都匹配不上】。
+# 中点是这台控制台里最常见的连接符（`表名 · 用途` 到处都是），
+# 漏掉它等于漏掉最像的那一类。
+纯英 = re.compile(r'^[A-Za-z][A-Za-z0-9 ._/…&+()\'’·,-]{2,40}$')
 
 坏 = []
+文件数, 看过 = 0, 0
 for f in sorted(根.rglob('*.tsx')):
+    文件数 += 1
     源 = f.read_text(encoding='utf-8')
     for i, 行 in enumerate(源.splitlines(), 1):
         if 行.lstrip().startswith(('*', '//', '/*')):
@@ -49,6 +59,7 @@ for f in sorted(根.rglob('*.tsx')):
         # 而一支有假阳性的门禁会被学着忽略，那比没有它更糟。
         # 元素内容与 placeholder / title 这两条是准的，留着。
         for 文 in 候选:
+            看过 += 1
             文 = 文.strip()
             if not 文 or 中文.search(文) or 文 in 放过:
                 continue
@@ -63,4 +74,10 @@ if 坏:
         print(f'   …… 另有 {len(坏) - 30} 处')
     print('   （真该是英文的，加进脚本里的「放过」集合，一条一条地豁免）')
     sys.exit(1)
-print('✓ 运营台文案 · 界面上没有未翻译的英文')
+# 【查不到东西的核对必须失败】（2026-09-03 五路评审 · 门禁审计）。
+# 上一版零个文件也印 ✓ —— 控制台改个目录名，这一支就此永远绿着。
+if 文件数 < 15 or 看过 < 100:
+    print(f'✗ 只扫到 {文件数} 个 .tsx、{看过} 段界面文字 —— '
+          '路径对不上了？这一支够不着要验的东西，不算通过', file=sys.stderr)
+    sys.exit(1)
+print(f'✓ 运营台文案 · {文件数} 个页面 · {看过} 段界面文字，没有未翻译的英文')

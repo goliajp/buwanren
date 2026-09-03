@@ -82,7 +82,8 @@ if len(尺寸) > 1:
 # 用到头像的屏，必须走 脸()，不许自己裸写末字
 页 = 根 / 'mini/miniprogram/pages'
 注释 = re.compile(r'<!--.*?-->', re.S)
-for f in sorted(页.glob('*/index.wxml')):
+页面们 = sorted(页.glob('*/index.wxml'))
+for f in 页面们:
     源 = 注释.sub('', f.read_text(encoding='utf-8'))
     有头像 = ('face-{{' in 源) or ('soon-face' in 源) \
              or re.search(r'class="[^"]*\bface-(move|still|keep|let_go|ask|near|wait)\b', 源)
@@ -104,6 +105,16 @@ for f in sorted(页.glob('*/index.wxml')):
         错.append(f'{f.parent.name} 屏上有头像，却没接 utils/face —— 那一屏还是圆底加一个字')
     elif 没铺图:
         错.append(f'{f.parent.name} 有 {len(没铺图)} 处头像没绑 style（铺不上真脸）：{没铺图[0]}')
+
+
+# 【查不到东西的核对必须失败】（2026-09-03 五路评审 · 门禁审计）。
+# 判据不是「有没有报错」，是「它够不够得着要验的东西」——
+# 路径改了、目录搬了、glob 写错了，这一支都会一个不落地全绿，
+# 而它其实一个文件都没看。下限比今天低不少，只挡「塌了」这一档。
+if len(脸) < 30 or len(页面们) < 15:
+    print(f'  ✗ 只找到 {len(脸)} 张脸 / {len(页面们)} 屏 —— '
+          '这一支够不着要验的东西，不算通过')
+    错.append('扫到的东西太少')
 
 for e in 错:
     print('  ✗ ' + e)
