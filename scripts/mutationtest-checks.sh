@@ -85,6 +85,8 @@ FILES=(
   webadmin/src/pages/Orders.tsx
   mini/miniprogram/pages/confirm/index.wxml
   mini/miniprogram/pages/villager/index.wxml
+  backend/unmei-api/src/routes/report.rs
+  mini/miniprogram/pages/invite/index.wxml
   mini/miniprogram/utils/money.ts
   docs/REDESIGN.md
   backend/seed/art_leaf.sql
@@ -683,6 +685,23 @@ mutate "掏钱的按钮又不写价了" check-price-on-cta \
 # 注册了的页面要有路走得到：新注册一页而不给任何入口
 mutate "新注册一个页面却没人链接得到" check-dead-screens \
   "edit('mini/miniprogram/app.json', '\"pages/activity/index\",', '\"pages/activity/index\",\n    \"pages/nowhere/index\",')"
+
+# 挂着人不等于是御守：把「的护身符」那一处的条件去掉。
+# 香也挂着苏合，而买香是寄一盒香，不是请她搬进来。
+# 【要打瘸的是判据本身，不是某一行的写法】。头两版分别改了明细行与卡片，
+# 而这一支看的是「上下四行的窗口里有没有 `住进来`」——
+# 那两处的判据都写在上一行，窗口照样够得着，于是它报「没抓到」，
+# 看着像门禁退化。把那两处的判据【一起】拿掉，才是它该拦的那件事。
+mutate "拼「的护身符」却不看会不会住进来" check-omamori-sense \
+  "edit('mini/miniprogram/pages/confirm/index.wxml', '<view class=\"card card-who\" wx:if=\"{{p.villager && 住进来}}\">', '<view class=\"card card-who\" wx:if=\"{{p.villager}}\">'); edit('mini/miniprogram/pages/confirm/index.wxml', '御守是一个人。上一屏还是', '那一枚东西。上一屏还是')"
+
+# 说明书不许原样转发排盘的文言推理
+mutate "说明书又原样转发排盘的 reasoning" check-report-passthrough \
+  "edit('backend/unmei-api/src/routes/report.rs', '\"lead\": 串(y.get(\"method\")),', '\"lead\": 串(y.get(\"reasoning\")),')"
+
+# 村民缺的是他自己的，不是拿来补你的
+mutate "屏上又写「跟你补得上」" check-lack-sense \
+  "edit('mini/miniprogram/pages/invite/index.wxml', '<text class=\"soon-lack\" wx:if=\"{{item.lack}}\">缺{{item.lack}}</text>', '<text class=\"soon-lack\" wx:if=\"{{item.lack}}\">缺{{item.lack}} · 跟你补得上</text>')"
 
 echo
 echo "── tsc（类型）──"
