@@ -488,6 +488,10 @@ gate "查询失败不许说成零" . python3 scripts/check-silent-zero.py
 # 【建好了两头没接上】是这个仓库里最常见的一种洞，而 rustc 看不见它 ——
 # pub 的东西对它来说「可能被外面用」。这一支数整个工作区的调用方。
 gate "导出了而没人调的" . python3 scripts/check-dead-exports.py
+# 【加门禁的时候当场想一次「怎么验它报得出红」】。
+# mutationtest 自己覆盖的是八十一支里的三十支，剩下的只在写它们那天
+# 手动验过一次 —— 而那种验证只存在于当时那次会话里。
+gate "门禁自己有人守着吗" . python3 scripts/check-mutation-coverage.py
 # 【索引存在跟用得上是两回事】——后台一半的页是「新的在最上面」，
 # 而 outbox_event 三万三千行按时间翻页曾是全表扫 + 落盘排序 12MB。
 # 这一支问 Postgres 自己怎么执行，不查 pg_indexes 里有没有那个名字。

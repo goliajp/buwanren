@@ -74,6 +74,13 @@ FILES=(
   scripts/dead-exports.json
   webadmin/src/pages/Login.tsx
   backend/unmei-api/src/routes/user.rs
+  # 再补六支（2026-09-03 晚）
+  mini/miniprogram/pages/activity/index.json
+  mini/miniprogram/pages/activity/index.ts
+  mini/miniprogram/app.json
+  webadmin/src/pages/Activities.tsx
+  backend/unmei-app/src/activity.rs
+  scripts/mutation-coverage-gaps.json
   docs/REDESIGN.md
   backend/seed/art_leaf.sql
   # tsc 那条变异写在这个文件末尾。它必须在名单里 ——
@@ -613,6 +620,40 @@ mutate "后台屏上留一句没翻译的英文" check-webadmin-cn \
 # 变异不编译，门禁只读文本 —— 所以这里只要把「失败被吃掉」那个形状种进去。
 mutate "查询失败被当成零" check-silent-zero \
   "edit('backend/unmei-api/src/routes/user.rs', ').bind(&claims.sub).fetch_one(&st.db).await?;', ').bind(&claims.sub).fetch_one(&st.db).await.ok().unwrap_or(0);')"
+
+# 导航栏标题：页面自己写页面名，那条原生栏上就会有两个标题
+mutate "导航栏又写了一遍页面名" check-nav-title \
+  "edit('mini/miniprogram/pages/activity/index.json', '\"navigationBarTitleText\": \"不完人\"', '\"navigationBarTitleText\": \"线下活动\"')"
+
+# 底栏选中色：改成一个既不是 --ink 也不是 --amber 的黑，
+# 那正是 2026-09-01 之前的样子（「这是个通用小程序」）
+mutate "底栏选中色又变成随便一个黑" check-tabbar \
+  "edit('mini/miniprogram/app.json', '\"selectedColor\": \"#A34700\"', '\"selectedColor\": \"#1a1a1c\"')"
+
+# 设计令牌：墨只有四档，`text-ink-9` 不存在 ——
+# Tailwind 对不认识的类不报错，只是不生成规则，页面「渲染成功」而那一格没有样式
+mutate "后台引用了一个不存在的令牌" check-webadmin-tokens \
+  "edit('webadmin/src/pages/Activities.tsx', 'className=\"label text-ink-3\">{类别(r.category)}', 'className=\"label text-ink-9\">{类别(r.category)}')"
+
+# 行锁空转：`FOR UPDATE` 跑在连接池上，语句一结束隐式事务就提交，锁当场释放 ——
+# 而它要保护的那段（数位子、占位子）在那之后才跑
+mutate "行锁跑在连接池上（空转）" check-row-locks \
+  "edit('backend/unmei-app/src/activity.rs', '\"SELECT status, regions_avail, start_at FROM activity WHERE id=\$1 FOR UPDATE\",\n    )\n    .bind(activity_id)\n    .fetch_optional(&mut *tx)', '\"SELECT status, regions_avail, start_at FROM activity WHERE id=\$1 FOR UPDATE\",\n    )\n    .bind(activity_id)\n    .fetch_optional(pool)')"
+
+# 技术原文上屏：把 `一句()` 换成 `.message`，后端的原文直接进 setData
+mutate "后端原文直接摆到屏上" check-no-raw-error \
+  "edit('mini/miniprogram/pages/activity/index.ts', \"err: '取不到：' + 一句(e as { status?: number; message?: string }),\", \"err: '取不到：' + (e as { message?: string }).message,\")"
+
+# 开屏取数却没有 onAuthReady：冷启动那一次赶在 token 之前发出去、拿 401，
+# 而之后再也不取 —— 那一屏停在「取不到」，刷新一下又好了
+mutate "开屏取数的页丢了 onAuthReady" check-auth-ready \
+  "edit('mini/miniprogram/pages/activity/index.ts', '  onAuthReady() {\n    this.load()\n  },\n\n', '')"
+
+# 【守门的那一支自己也要有人守】。它把自己也逮住过一次 ——
+# 接进 gates.sh 的那一刻它报「check-mutation-coverage 没有变异守着它」，
+# 而那正是它该说的话。这条变异让它自己也在这条规矩里。
+mutate "覆盖台账里划掉一条（凭空多一支没人守的门禁）" check-mutation-coverage \
+  "edit('scripts/mutation-coverage-gaps.json', '    \"check-faces\": \"纯源码 —— 写一条变异就能划掉，欠着\",\n', '')"
 
 echo
 echo "── tsc（类型）──"
