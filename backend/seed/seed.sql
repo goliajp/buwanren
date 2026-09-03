@@ -81,10 +81,13 @@ ON CONFLICT (id) DO NOTHING;
 SELECT 1;
 
 -- ─── activity · 3 场 ────────────────────────────────────────────
-INSERT INTO activity (id, title, sub_title, category, banner_url, location, city, start_at, end_at, max_participants, current_count, description) VALUES
-  ('a_gw','古物市集·夏至专场','匠心手作·古物古玩·香氛药香','market','https://images.pexels.com/photos/776653/pexels-photo-776653.jpeg?auto=compress&w=800','西溪湿地','杭州','2026-07-21 10:00:00+08','2026-07-21 18:00:00+08',100,48,'汇集各地古物古玩，传承东方美学。'),
-  ('a_dy','道医问诊·义诊专场','名师坐诊·中医调理','market','https://images.pexels.com/photos/4226892/pexels-photo-4226892.jpeg?auto=compress&w=800','平江路','苏州','2026-07-28 09:00:00+08','2026-07-28 17:00:00+08',60,32,'特邀道医传人坐诊，提供中医问诊、针灸调理、养生建议等服务。'),
-  ('a_xd','香道入门课','三日浸修·从识香到调香','course','https://images.pexels.com/photos/4226892/pexels-photo-4226892.jpeg?auto=compress&w=800','栖云堂','上海','2026-08-15 09:00:00+08','2026-08-17 17:00:00+08',20,12,'三日课程，从识香、品香、用香到自调香方，系统入门。')
+-- `current_count` 这一列已删（20260903005）——「已报名多少人」现在
+-- 从 activity_registration 现算。种一个 48 在这儿，就是种一个
+-- 没有任何人在背后的数字。
+INSERT INTO activity (id, title, sub_title, category, banner_url, location, city, start_at, end_at, max_participants, description) VALUES
+  ('a_gw','古物市集·夏至专场','匠心手作·古物古玩·香氛药香','market','https://images.pexels.com/photos/776653/pexels-photo-776653.jpeg?auto=compress&w=800','西溪湿地','杭州','2026-07-21 10:00:00+08','2026-07-21 18:00:00+08',100,'汇集各地古物古玩，传承东方美学。'),
+  ('a_dy','道医问诊·义诊专场','名师坐诊·中医调理','market','https://images.pexels.com/photos/4226892/pexels-photo-4226892.jpeg?auto=compress&w=800','平江路','苏州','2026-07-28 09:00:00+08','2026-07-28 17:00:00+08',60,'特邀道医传人坐诊，提供中医问诊、针灸调理、养生建议等服务。'),
+  ('a_xd','香道入门课','三日浸修·从识香到调香','course','https://images.pexels.com/photos/4226892/pexels-photo-4226892.jpeg?auto=compress&w=800','栖云堂','上海','2026-08-15 09:00:00+08','2026-08-17 17:00:00+08',20,'三日课程，从识香、品香、用香到自调香方，系统入门。')
 ON CONFLICT (id) DO NOTHING;
 
 -- ─── badge · 6 徽章 ─────────────────────────────────────────────

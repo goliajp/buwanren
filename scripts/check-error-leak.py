@@ -55,17 +55,31 @@ def main() -> int:
     #   · `AppError::出面()` 要存在，且把 Repository 换成不含库原文的话
     #   · 响应体要用 `出面()`，不是 `to_string()`
     err_rs = (ROOT / 'backend/unmei-domain/src/error.rs').read_text(encoding='utf-8')
-    auth_rs = (ROOT / 'backend/unmei-api/src/auth.rs').read_text(encoding='utf-8')
+    # 【两侧都要盯】（2026-09-03 五路评审 · 越权审计）。
+    # 这一支上一版只读 `unmei-api/src/auth.rs` 这一个写死的路径 ——
+    # 于是 `unmei-admin-api/src/auth.rs` 一直是 `to_string()`，
+    # 库原文照发，而这一支一直报绿。
+    # 「只查了一半」跟「查过了」在输出上长得一模一样。
+    响应体们 = [
+        'backend/unmei-api/src/auth.rs',
+        'backend/unmei-admin-api/src/auth.rs',
+    ]
     if 'fn 出面' not in err_rs:
         bad.append('unmei-domain/src/error.rs  没有 `AppError::出面()` —— '
                    '库的原文会顺着 Domain(Repository(..)) 原样出现在响应体里')
     elif not re.search(r'Domain\(DomainError::Repository\(_\)\)\s*=>\s*"internal error"', err_rs):
         bad.append('unmei-domain/src/error.rs  `出面()` 不再把 Repository 挡下来 —— '
                    '库的原文会上屏')
-    if 'self.0.出面()' not in auth_rs:
-        bad.append('unmei-api/src/auth.rs  响应体没用 `出面()` —— '
-                   '换回 to_string() 等于把库原文放出去')
-    checked += 2
+    for 相对 in 响应体们:
+        p = ROOT / 相对
+        if not p.exists():
+            bad.append(f'{相对}  这个文件不见了 —— 判据的形状变了，这一支没法判')
+            continue
+        if 'self.0.出面()' not in p.read_text(encoding='utf-8'):
+            bad.append(f'{相对}  响应体没用 `出面()` —— '
+                       '换回 to_string() 等于把库原文放出去')
+        checked += 1
+    checked += 1
 
     if not checked:
         print('✗ 一处外部错误的 From 转换都没找到 —— 判据的形状变了？这一步没法判。',

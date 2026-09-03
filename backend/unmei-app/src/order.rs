@@ -190,14 +190,27 @@ pub async fn create(pool: &PgPool, req: NewOrder) -> Result<CreatedOrder, Domain
        那已经是另一张单。所以带券的时候直接不走复用。 */
     if req.lines.len() == 1 && req.coupon_codes.is_empty() {
         let l = &req.lines[0];
+        /* 【区与平台要一起比】（2026-09-03 五路评审 · 资金审计）。
+           上一版的判据只有 user + sku + qty + 行数=1 —— 不带 region、
+           不带 channel_origin，而这一支在事务【之前】就 return，
+           取价那整个循环一次都不跑。
+
+           实测：同一个用户先 `region=jp` 下单拿到 JPY 1200，
+           再 `region=cn` 下单拿到的是【同一张单】，仍然是 JPY 1200，
+           而 cn 的商品页上写着 ¥49.00。
+
+           这是同一个坑的第四次（前三次是收货地址、联系人、券码）——
+           而这一次漏掉的是金额和币种本身。 */
         let 已有: Option<String> = sqlx::query_scalar(
             r#"SELECT o.id FROM order_record o
                  JOIN order_line ol ON ol.order_id = o.id
                 WHERE o.user_id = $1 AND o.status = 'unpaid'
                   AND ol.sku_id = $2 AND ol.qty = $3
+                  AND o.region = $4 AND o.channel_origin = $5
                   AND (SELECT count(*) FROM order_line x WHERE x.order_id = o.id) = 1
                 ORDER BY o.created_at DESC LIMIT 1"#,
         ).bind(&req.user_id).bind(&l.sku_id).bind(l.qty)
+         .bind(&req.region).bind(&req.channel_origin)
          .fetch_optional(pool).await.db()?;
         if let Some(id) = 已有 {
             /* 【这一次填的地址要写进去】。
@@ -271,7 +284,20 @@ pub async fn create(pool: &PgPool, req: NewOrder) -> Result<CreatedOrder, Domain
                    AND (effective_to IS NULL OR effective_to > NOW())
                  ORDER BY effective_from DESC LIMIT 1
                ) pb ON TRUE
-               WHERE s.id=$1 AND s.status='active'"#,
+               /* 【买得到的东西不能比看得到的多】（2026-09-03 五路评审 · 资金审计）。
+                  上一版只看 `s.status='active'`，不 join product ——
+                  而目录那一侧每一条都过滤 `p.status='listed'`。
+                  实测:13,678 个 draft 商品的 sku 可以直接下单
+                  （可下单面比可展示面大 1200 倍），
+                  而那些草稿商品的定价从没被人核过 —— 其中 202 个同一区里
+                  挂着两条不同币种的在架价，`ORDER BY effective_from DESC`
+                  挑到的是 JPY 那行:cn 用户下单拿到一张 JPY 1200 的单。
+
+                  `available_regions` 一并看:商品说了它在哪些区卖。 */
+               JOIN product p ON p.id = s.product_id
+               WHERE s.id=$1 AND s.status='active'
+                 AND p.status='listed'
+                 AND ($2 = ANY(p.available_regions) OR 'global' = ANY(p.available_regions))"#,
         )
         .bind(&l.sku_id)
         .bind(&req.region)
@@ -477,6 +503,39 @@ pub async fn create(pool: &PgPool, req: NewOrder) -> Result<CreatedOrder, Domain
 
 // ═══════════════════════════ 取消 ═══════════════════════════
 
+/// 把限量商品的库存还回去。取消与超时这两条路调用。
+///
+/// 【只减不还等于每次弃购烧掉一份货】（2026-09-03 五路评审 · 资金审计）。
+/// `stock_count` 在整个仓里只有一个写者，是 `create` 里那句 `- $2`，
+/// 没有任何地方写过 `+`。于是一个人点开又反悔，那一份就永远回不来了 ——
+/// 审计期间唯一那个限量 sku 从 30 掉到 27，没有一单成交。
+/// 商品会在卖光之前先「卖光」，而账上一分钱没有。
+///
+/// **退款那条路不还**：货可能已经发出去了，还回去就是凭空多出一份。
+/// 取消与超时不同 —— 这两条路上货一次都没出过门。
+///
+/// 只动 `stock_kind='limited'` 的行，`unlimited` 的 `stock_count` 是 NULL，
+/// 加进去会把 NULL 一直传下去。
+async fn 把货还回去(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    order_id: &str,
+) -> Result<u64, DomainError> {
+    let n = sqlx::query(
+        "UPDATE sku SET stock_count = stock_count + ol.qty \
+         FROM order_line ol \
+         WHERE ol.order_id = $1 AND ol.sku_id = sku.id \
+           AND sku.stock_kind = 'limited' AND sku.stock_count IS NOT NULL",
+    )
+    .bind(order_id)
+    .execute(&mut **tx)
+    .await.db()?
+    .rows_affected();
+    if n > 0 {
+        tracing::info!(order_id, n, "订单没成，限量货还回去了");
+    }
+    Ok(n)
+}
+
 /// 取消订单。
 ///
 /// `owner` 传 `Some(user_id)` 时同时做归属校验 —— 客户端路径必须传，
@@ -534,6 +593,7 @@ pub async fn cancel(
 
        实测存量 486 单、¥48,082，全部 `refunded=0`。 */
     crate::payment::cancel_in_flight(&mut tx, order_id, &format!("订单取消：{reason}")).await?;
+    把货还回去(&mut tx, order_id).await?;
 
     sqlx::query(
         r#"INSERT INTO order_event(id, order_id, kind, actor_kind, actor_id,
@@ -623,6 +683,7 @@ pub async fn expire_unpaid(pool: &PgPool) -> Result<u64, DomainError> {
         crate::coupon::release_for_order(&mut tx, id).await?;
         // 过期这条路同理 —— 而且更需要它自己做对：这里没有人在场
         crate::payment::cancel_in_flight(&mut tx, id, "订单超时未付，自动取消").await?;
+        把货还回去(&mut tx, id).await?;
     }
     tx.commit().await.db()?;
     Ok(res.rows_affected())

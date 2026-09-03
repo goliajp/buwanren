@@ -133,8 +133,17 @@ pub async fn renew_due(pool: &PgPool, subscription_id: &str) -> Result<RenewOutc
     let mut tx = pool.begin().await.db()?;
 
     // FOR UPDATE:同一笔订阅不会被两个 tick 同时续
+    /* 【续费取价要跟下单一样看区与平台】（2026-09-03 五路评审 · 资金审计）。
+       上一版这段 LATERAL 只按 sku_id 取价，不带 region、不带 platform ——
+       而下单那条路（`order::create`）两个都带。同一个 sku 在两个区
+       挂着两条在架价时，`ORDER BY effective_from DESC` 挑到哪一条
+       全看谁后生效:一笔 jp 订阅按 cn 的价扣钱，而且币种也跟着错。
+
+       今天库里订阅 sku 的在架价恰好只有 `cn`/`all` 一种，所以还没扣错过 ——
+       但那是数据碰巧，不是代码守住了。多开一个区就当场错。 */
     let row = sqlx::query(
         r#"SELECT s.user_id, s.status, s.current_period_end, s.cancel_at_period_end,
+                  s.region, s.source_channel,
                   p.billing_period, p.sku_id,
                   pb.price_minor, pb.currency
            FROM subscription s
@@ -142,6 +151,8 @@ pub async fn renew_due(pool: &PgPool, subscription_id: &str) -> Result<RenewOutc
            LEFT JOIN LATERAL (
              SELECT price_minor, currency FROM price_book
              WHERE sku_id = p.sku_id AND status='active'
+               AND region IN (s.region, 'global')
+               AND platform IN (s.source_channel, 'all')
                AND effective_from <= NOW()
                AND (effective_to IS NULL OR effective_to > NOW())
              ORDER BY effective_from DESC LIMIT 1
@@ -155,6 +166,7 @@ pub async fn renew_due(pool: &PgPool, subscription_id: &str) -> Result<RenewOutc
     .ok_or_else(|| DomainError::NotFound(format!("subscription {subscription_id}")))?;
 
     let status: String = row.get("status");
+    let 区: String = row.get("region");
     if !["active", "past_due", "trialing"].contains(&status.as_str()) {
         tx.commit().await.db()?;
         return Ok(RenewOutcome::NotDue);
@@ -270,13 +282,17 @@ pub async fn renew_due(pool: &PgPool, subscription_id: &str) -> Result<RenewOutc
              amount_subtotal_minor, amount_total_minor, amount_paid_minor,
              status, source_kind, source_ref_id, region, expires_at, paid_at
            ) VALUES ($1, $2, 'system', $3, $4, $4, $4, 'paid', 'subscription_renew', $5,
-                     'cn', NOW() + INTERVAL '30 minutes', NOW())"#,
+                     $6, NOW() + INTERVAL '30 minutes', NOW())"#,
+        // region 写死 'cn' 的那一版，把每一笔续费订单都记在 cn 账上 ——
+        // 分区报表里 jp 的订阅收入会整个消失在 cn 那一行下面。
+        // 订阅自己说了它属于哪个区，照它写。
     )
     .bind(&order_id)
     .bind(&user_id)
     .bind(&currency)
     .bind(amount_minor)
     .bind(&invoice_id)
+    .bind(&区)
     .execute(&mut *tx)
     .await.db()?;
 

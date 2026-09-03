@@ -611,3 +611,141 @@ async fn a_limited_sku_stops_selling_when_it_runs_out() {
     let 随便买 = order::create(&pool, new_order(&user, vec![(不限, 99)])).await;
     assert!(随便买.is_ok(), "unlimited 那一档不该被拦，实际 {:?}", 随便买.err());
 }
+
+// ═════════════ 2026-09-03 五路评审 · 资金审计 补的四条 ═════════════
+
+/// 【买得到的东西不能比看得到的多】。
+///
+/// 建单原先只看 `sku.status='active'`，不 join `product` ——
+/// 而目录那一侧每一条都过滤 `p.status='listed'`。
+/// 实测库里 13,678 个 draft 商品的 sku 可以直接下单，
+/// 可下单面比可展示面大 1200 倍，而那些草稿的定价从没被人核过。
+#[tokio::test]
+async fn 草稿商品下不了单() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 4900).await;
+
+    // 把它挂的商品退回草稿 —— sku 本身仍是 active
+    sqlx::query("UPDATE product SET status='draft' WHERE id=(SELECT product_id FROM sku WHERE id=$1)")
+        .bind(&sku)
+        .execute(&pool)
+        .await
+        .expect("退回草稿");
+
+    let err = order::create(&pool, new_order(&user, vec![(sku, 1)]))
+        .await
+        .unwrap_err();
+    assert!(matches!(err, DomainError::NotFound(_)), "该是 NotFound，实际 {err:?}");
+}
+
+/// 商品说了它在哪些区卖，别的区就买不着。
+#[tokio::test]
+async fn 别的区的商品下不了单() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 4900).await;
+
+    sqlx::query(
+        "UPDATE product SET available_regions=ARRAY['jp'] \
+         WHERE id=(SELECT product_id FROM sku WHERE id=$1)",
+    )
+    .bind(&sku)
+    .execute(&pool)
+    .await
+    .expect("改成只在 jp 卖");
+
+    let err = order::create(&pool, new_order(&user, vec![(sku, 1)]))
+        .await
+        .unwrap_err();
+    assert!(matches!(err, DomainError::NotFound(_)), "该是 NotFound，实际 {err:?}");
+}
+
+/// 【复用未付单要看区】。
+///
+/// 复用那一支原先只按 user + sku + qty + 行数=1 判，不带 region ——
+/// 而它在事务【之前】就 return，取价那整个循环一次都不跑。
+/// 于是同一个用户先 jp 下单拿到 JPY 1200，再 cn 下单拿回的是同一张单，
+/// 仍然是 JPY 1200，而 cn 的商品页上写着 ¥49.00。
+#[tokio::test]
+async fn 换个区不复用上一张未付单() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 4900).await;
+
+    // 同一个 sku 再挂一条 jp 价，并让商品两个区都卖
+    sqlx::query(
+        "UPDATE product SET available_regions=ARRAY['cn','jp'] \
+         WHERE id=(SELECT product_id FROM sku WHERE id=$1)",
+    )
+    .bind(&sku).execute(&pool).await.expect("两个区都卖");
+    sqlx::query(
+        "INSERT INTO price_book(id, sku_id, currency, price_minor, region, platform, status) \
+         VALUES ($1, $2, 'JPY', 1200, 'jp', 'all', 'active')",
+    )
+    .bind(common::uniq("pb-jp")).bind(&sku)
+    .execute(&pool).await.expect("加 jp 价");
+
+    let mut jp = new_order(&user, vec![(sku.clone(), 1)]);
+    jp.region = "jp".into();
+    let 日单 = order::create(&pool, jp).await.expect("jp 下单");
+
+    let 陆单 = order::create(&pool, new_order(&user, vec![(sku, 1)]))
+        .await
+        .expect("cn 下单");
+
+    assert_ne!(日单.order_id, 陆单.order_id, "换了区还把上一张未付单还回来了");
+    let 币: Option<String> = common::scalar_string(
+        &pool, "SELECT currency FROM order_record WHERE id=$1", &陆单.order_id,
+    ).await;
+    assert_eq!(币.as_deref(), Some("CNY"), "cn 的单拿到的不是 CNY");
+}
+
+/// 【限量的货，取消要还回去】。
+///
+/// `stock_count` 原先只有一个写者，是建单里那句 `- $2`，没有任何地方写 `+`。
+/// 于是一个人点开又反悔，那一份就永远回不来 ——
+/// 商品会在卖光之前先「卖光」，而账上一分钱没有。
+#[tokio::test]
+async fn 取消订单把限量的货还回去() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 4900).await;
+
+    sqlx::query("UPDATE sku SET stock_kind='limited', stock_count=3 WHERE id=$1")
+        .bind(&sku).execute(&pool).await.expect("设成限量 3 件");
+
+    let 单 = order::create(&pool, new_order(&user, vec![(sku.clone(), 2)]))
+        .await
+        .expect("下单 2 件");
+    let 扣后 = common::scalar_i64(&pool, "SELECT stock_count::int8 FROM sku WHERE id=$1", &sku).await;
+    assert_eq!(扣后, 1, "下单没扣库存");
+
+    order::cancel(&pool, &单.order_id, "不要了", &Actor::user(&user), Some(&user))
+        .await
+        .expect("取消");
+    let 还后 = common::scalar_i64(&pool, "SELECT stock_count::int8 FROM sku WHERE id=$1", &sku).await;
+    assert_eq!(还后, 3, "取消了而货没还回去 —— 那两件永远回不来了");
+}
+
+/// 不限量的那一档不许被碰 —— `stock_count` 是 NULL，加进去会把 NULL 传下去。
+#[tokio::test]
+async fn 取消不限量的单不碰库存() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 4900).await;
+
+    let 单 = order::create(&pool, new_order(&user, vec![(sku.clone(), 1)]))
+        .await
+        .expect("下单");
+    order::cancel(&pool, &单.order_id, "不要了", &Actor::user(&user), Some(&user))
+        .await
+        .expect("取消");
+
+    let 还是空的 = common::scalar_i64(
+        &pool,
+        "SELECT count(*) FROM sku WHERE id=$1 AND stock_count IS NULL",
+        &sku,
+    ).await;
+    assert_eq!(还是空的, 1, "不限量的 stock_count 被写成了数字");
+}

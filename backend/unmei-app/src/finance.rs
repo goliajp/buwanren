@@ -176,14 +176,26 @@ pub async fn post_refund_journal(pool: &PgPool, refund_id: &str) -> Result<(), D
        只有它没有。库里因此有 3 条为 `failed` / `cancelled` 退款记的分录，
        ¥287 的现金流出记在账上而钱根本没退出去。 */
     let row = sqlx::query(
-        "SELECT order_id, payment_id, amount_minor, currency FROM refund \
-         WHERE id=$1 AND status IN ('success','refunded')",
+        "SELECT order_id, payment_id, amount_minor, currency, status FROM refund WHERE id=$1",
     )
         .bind(refund_id)
         .fetch_optional(&mut *tx)
         .await
         .db()?;
-    let Some(r) = row else { return Ok(()) };
+    let Some(r) = row else {
+        return Err(DomainError::NotFound(format!("refund {refund_id}")));
+    };
+    /* 【状态不对就报出来，别静静地不记】。
+       第一版把状态条件写进 WHERE 里、查不到就 `return Ok(())` ——
+       那是这一轮反复遇到的那个形状:失败长得跟数据一模一样。
+       调用它的是 `RefundCompleted` 这个事件，能走到这儿就意味着钱退成了；
+       状态却不是 success，那是真出事了，得让 outbox 红着重试、让人看见。 */
+    let 状态: String = r.get("status");
+    if !matches!(状态.as_str(), "success" | "refunded") {
+        return Err(DomainError::Conflict(format!(
+            "退款 {refund_id} 现在是「{状态}」，钱没退出去，不给它记账"
+        )));
+    }
     let order_id: String = r.get("order_id");
     let amount: i64 = r.get("amount_minor");
     let currency: String = r.get("currency");

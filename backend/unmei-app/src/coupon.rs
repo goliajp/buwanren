@@ -179,6 +179,7 @@ pub async fn lock_for_order(
         }
 
         // 挂着活动的券，活动本身也要在有效期内、且没停
+        let mut 预算还剩: Option<i64> = None;
         let promo_status: Option<String> = row.get("promo_status");
         if let Some(st) = promo_status {
             if st != "active" {
@@ -191,10 +192,20 @@ pub async fn lock_for_order(
             if now < from || to.is_some_and(|t| now > t) {
                 return Err(DomainError::Validation(format!("券 {code} 挂的活动不在有效期内")));
             }
+            /* 【预算要在减之前问「兜得住吗」】（2026-09-03 五路评审 · 资金审计）。
+               `used >= budget` 只拦「已经花超了」，拦不住「这一张就会花超」——
+               预算 1000 已用 999 时，一张减 500 的券照样能用，
+               活动实际支出 1499，超预算 49.9%。预算越紧，超得越狠:
+               只剩 1 分钱额度的活动能被一张大额券撑破。
+
+               所以把判断挪到算完 `off` 之后 —— 那时才知道这一张要减多少。 */
             let budget: Option<i64> = row.get("budget_minor");
             let used: i64 = row.get("used_minor");
-            if budget.is_some_and(|b| used >= b) {
-                return Err(DomainError::Validation(format!("券 {code} 挂的活动预算用完了")));
+            if let Some(b) = budget {
+                if used >= b {
+                    return Err(DomainError::Validation(format!("券 {code} 挂的活动预算用完了")));
+                }
+                预算还剩 = Some(b - used);
             }
         }
 
@@ -204,6 +215,13 @@ pub async fn lock_for_order(
         // 不是各自按原价算完再相加（那样两张五折能把订单减成负数）。
         let 余 = subtotal_minor - 已减;
         let off = benefit.off(余, code)?;
+        if let Some(剩) = 预算还剩 {
+            if off > 剩 {
+                return Err(DomainError::Validation(format!(
+                    "券 {code} 挂的活动预算兜不住这一张：还剩 {剩} 分，它要减 {off} 分"
+                )));
+            }
+        }
 
         sqlx::query(
             "UPDATE coupon SET state='locked', locked_for_order_id=$1 WHERE id=$2",
@@ -462,6 +480,7 @@ pub async fn preview(
         if expires <= now {
             return Err(DomainError::Validation(format!("券 {code} 已经过期")));
         }
+        let mut 预算还剩: Option<i64> = None;
         let promo_status: Option<String> = row.get("promo_status");
         if let Some(st) = promo_status {
             if st != "active" {
@@ -472,16 +491,33 @@ pub async fn preview(
             if now < from || to.is_some_and(|t| now > t) {
                 return Err(DomainError::Validation(format!("券 {code} 挂的活动不在有效期内")));
             }
+            /* 【预算要在减之前问「兜得住吗」】（2026-09-03 五路评审 · 资金审计）。
+               `used >= budget` 只拦「已经花超了」，拦不住「这一张就会花超」——
+               预算 1000 已用 999 时，一张减 500 的券照样能用，
+               活动实际支出 1499，超预算 49.9%。预算越紧，超得越狠:
+               只剩 1 分钱额度的活动能被一张大额券撑破。
+
+               所以把判断挪到算完 `off` 之后 —— 那时才知道这一张要减多少。 */
             let budget: Option<i64> = row.get("budget_minor");
             let used: i64 = row.get("used_minor");
-            if budget.is_some_and(|b| used >= b) {
-                return Err(DomainError::Validation(format!("券 {code} 挂的活动预算用完了")));
+            if let Some(b) = budget {
+                if used >= b {
+                    return Err(DomainError::Validation(format!("券 {code} 挂的活动预算用完了")));
+                }
+                预算还剩 = Some(b - used);
             }
         }
 
         let benefit_json: serde_json::Value = row.get("benefit_json");
         let benefit = Benefit::parse(&benefit_json, code)?;
         let off = benefit.off(subtotal_minor - 已减, code)?;
+        if let Some(剩) = 预算还剩 {
+            if off > 剩 {
+                return Err(DomainError::Validation(format!(
+                    "券 {code} 挂的活动预算兜不住这一张：还剩 {剩} 分，它要减 {off} 分"
+                )));
+            }
+        }
         已减 += off;
         applied.push(AppliedCoupon {
             coupon_id,
