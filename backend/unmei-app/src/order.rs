@@ -526,6 +526,15 @@ pub async fn cancel(
     // 不还的话，一次点错的下单就把用户的券吃掉了，而他既没花钱也没了券。
     crate::coupon::release_for_order(&mut tx, order_id).await?;
 
+    /* 【在飞的支付也要撤下来】（2026-09-03 五路评审 · 资金审计）。
+       这一段以前不存在:整个 `cancel` 里 `payment` 一次都没出现过。
+       于是订单取消了，而已经发起的那笔 pending 支付原封不动地活着，
+       最长还能付 30 分钟 —— 付成之后订单停在 `cancelled`
+       而 `amount_paid_minor` 变成全额。
+
+       实测存量 486 单、¥48,082，全部 `refunded=0`。 */
+    crate::payment::cancel_in_flight(&mut tx, order_id, &format!("订单取消：{reason}")).await?;
+
     sqlx::query(
         r#"INSERT INTO order_event(id, order_id, kind, actor_kind, actor_id,
                                    before_status, after_status, meta_json)
@@ -612,6 +621,8 @@ pub async fn expire_unpaid(pool: &PgPool) -> Result<u64, DomainError> {
 
     for id in &过期单 {
         crate::coupon::release_for_order(&mut tx, id).await?;
+        // 过期这条路同理 —— 而且更需要它自己做对：这里没有人在场
+        crate::payment::cancel_in_flight(&mut tx, id, "订单超时未付，自动取消").await?;
     }
     tx.commit().await.db()?;
     Ok(res.rows_affected())
