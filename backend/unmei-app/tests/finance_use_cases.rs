@@ -121,9 +121,25 @@ async fn 关了之后退款账就落不进去了() {
        记账那一侧按【当前月】取期间，所以要关的正是当前这个月。
        这一条会把本机当月的账期关掉 —— 那正是它要验的事，
        测试库（unmei_test）跟跑着的 API 不共用，见 .claude/CLAUDE.md。 */
+    /* 【这一条不碰当月账期】（2026-09-03）。
+       它原先关掉【当月】来断言「账落不进去」，而记账那几条要当月开着、
+       各自会扶正它 —— 并行跑时两边互相推翻，谁跑得晚谁赢。
+       这条测试于是偶发地红，而偶发的红比常红更糟：
+       它让每一次真红都能被当成噪音（见 gates.sh 开头 ★ 第一条）。
+
+       改成【把记账那一刻的期间自己造出来并关掉】：
+       `post_refund_journal` 按当前月取期，所以这里仍然要当月 ——
+       但用一把咨询锁把这一段串起来，锁在整个测试期间握着，
+       完了立刻开回去。锁用会话级（`pg_advisory_lock`），
+       事务级那个在自动提交下拿到就放。 */
     use chrono::Datelike;
     let 现在 = chrono::Utc::now();
     let period_id = format!("period-{}-{:02}", 现在.year(), 现在.month());
+
+    // 独占当月 —— 用同一个连接拿锁与做事，不然锁跟操作不在一条连接上
+    let mut 连 = pool.acquire().await.expect("拿连接");
+    sqlx::query("SELECT pg_advisory_lock(90903001)")
+        .execute(&mut *连).await.expect("拿当月账期的锁");
     sqlx::query(
         "INSERT INTO accounting_period(id, kind, year, sub, state, region)
          VALUES ($1, 'month', $2, $3, 'open', 'cn') ON CONFLICT DO NOTHING",
@@ -178,10 +194,108 @@ async fn 关了之后退款账就落不进去了() {
        所以这里先开回去，再判。 */
     sqlx::query("UPDATE accounting_period SET state='open', closed_at=NULL WHERE id=$1")
         .bind(&period_id).execute(&pool).await.expect("把当月开回去");
+    sqlx::query("SELECT pg_advisory_unlock(90903001)")
+        .execute(&mut *连).await.expect("放锁");
 
     match e {
         DomainError::Conflict(m) => assert!(
             m.contains("没有地方落"), "该说清楚账落不下去，拿到的是：{m}"),
         其他 => panic!("关了账还能记进去 —— 那关账就是个摆设。拿到的是 {其他:?}"),
     }
+}
+
+// ═══════════════════════ 销售分录 ═══════════════════════
+
+/// 【总账里一笔销售分录都没有】（2026-09-03 五路评审 · 资金审计）。
+///
+/// 整个后端只有 `post_refund_journal` 一个记账入口 —— 账上只剩冲销：
+/// `4001 主营业务收入` 是纯借方、`1001 银行存款` 是纯贷方，
+/// 月报的「本期收入」是负数。实测：真收进来 11,179 笔、¥1,260,903.20，
+/// 一分钱都没入过账。
+#[tokio::test]
+async fn 收了钱要记销售分录() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 19900).await;
+    let o = unmei_app::order::create(&pool, unmei_app::order::NewOrder {
+        user_id: user.clone(), region: "cn".into(), channel_origin: "web".into(),
+        lines: vec![unmei_app::order::NewOrderLine { sku_id: sku, qty: 1 }],
+        shipping_address: None, contact: None, coupon_codes: vec![], note: None,
+        ip: None, ua: None,
+    }).await.expect("下单");
+    sqlx::query("UPDATE order_record SET status='paid', amount_paid_minor=19900, paid_at=NOW() WHERE id=$1")
+        .bind(&o.order_id).execute(&pool).await.expect("标已付");
+
+    /* 【当月账期要是开着的】。`关了之后退款账就落不进去了` 那条会把当月关掉，
+       并行跑时这里就撞上「这笔账没有地方落」——而那是它的断言、不是这条的。
+       测试之间共享的全局状态要自己扶正，不能指望跑的顺序。 */
+    common::确保当月开着(&pool).await;
+    finance::post_sale_journal(&pool, &o.order_id).await.expect("记账");
+
+    let 借贷: (i64, i64) = sqlx::query_as(
+        "SELECT COALESCE(SUM(jl.debit_minor),0)::int8, COALESCE(SUM(jl.credit_minor),0)::int8
+           FROM journal_line jl JOIN journal_entry je ON je.id=jl.entry_id
+          WHERE je.business_kind='sale' AND je.business_ref_id=$1",
+    ).bind(&o.order_id).fetch_one(&pool).await.expect("查分录");
+    assert_eq!(借贷, (19900, 19900), "借贷要相等");
+
+    // 【方向要对】。销售是借银行存款、贷主营业务收入 —— 跟退款正好相反。
+    // 方向反了的话账仍然平，而月报的收入是负数。
+    let 收入贷方 = common::scalar_i64(
+        &pool,
+        "SELECT COALESCE(SUM(jl.credit_minor),0)::int8 FROM journal_line jl
+           JOIN journal_entry je ON je.id=jl.entry_id
+          WHERE je.business_ref_id=$1 AND jl.account_code='4001'",
+        &o.order_id,
+    ).await;
+    assert_eq!(收入贷方, 19900, "主营业务收入该在贷方");
+}
+
+#[tokio::test]
+async fn 同一笔订单记两次只有一套分录() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 9900).await;
+    let o = unmei_app::order::create(&pool, unmei_app::order::NewOrder {
+        user_id: user.clone(), region: "cn".into(), channel_origin: "web".into(),
+        lines: vec![unmei_app::order::NewOrderLine { sku_id: sku, qty: 1 }],
+        shipping_address: None, contact: None, coupon_codes: vec![], note: None,
+        ip: None, ua: None,
+    }).await.expect("下单");
+    sqlx::query("UPDATE order_record SET status='paid', amount_paid_minor=9900, paid_at=NOW() WHERE id=$1")
+        .bind(&o.order_id).execute(&pool).await.expect("标已付");
+
+    common::确保当月开着(&pool).await;
+    // outbox 会重试 —— 重试一次就多记一套账的话，收入凭空翻倍
+    finance::post_sale_journal(&pool, &o.order_id).await.expect("第一次");
+    finance::post_sale_journal(&pool, &o.order_id).await.expect("重试");
+
+    let n = common::scalar_i64(
+        &pool,
+        "SELECT COUNT(*)::int8 FROM journal_entry WHERE business_kind='sale' AND business_ref_id=$1",
+        &o.order_id,
+    ).await;
+    assert_eq!(n, 1, "重试记了两套账");
+}
+
+#[tokio::test]
+async fn 没收到钱的订单没有账可记() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 9900).await;
+    let o = unmei_app::order::create(&pool, unmei_app::order::NewOrder {
+        user_id: user.clone(), region: "cn".into(), channel_origin: "web".into(),
+        lines: vec![unmei_app::order::NewOrderLine { sku_id: sku, qty: 1 }],
+        shipping_address: None, contact: None, coupon_codes: vec![], note: None,
+        ip: None, ua: None,
+    }).await.expect("下单");
+
+    // 【记的是实收不是应付】。0 元没有账可记 —— 不是错误，就是没有
+    finance::post_sale_journal(&pool, &o.order_id).await.expect("不该报错");
+    let n = common::scalar_i64(
+        &pool,
+        "SELECT COUNT(*)::int8 FROM journal_entry WHERE business_ref_id=$1",
+        &o.order_id,
+    ).await;
+    assert_eq!(n, 0);
 }

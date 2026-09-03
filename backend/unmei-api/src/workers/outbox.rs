@@ -6,11 +6,12 @@
 //! - `OrderFulfilled`      — 通知 + finance(可选)
 //! - `OrderCancelled`      — log
 //! - `RefundCompleted`     — finance 反向分录(收入冲销)
+//! - `OrderPaid`           — finance 销售分录(借银行存款 / 贷主营业务收入)
 //! - `ShipmentDelivered`   — 若 order 所有 line 都 done → order.mark_done(等下游接通)
 //! - 其它                  — log + mark dispatched
 //!
 //! **规模对照**（2026-08-18 数过）：`DomainEvent` 一共 **31 种**。
-//! 真去做事的只有 3 种（`OrderPaid` → 履约、`RefundCompleted` → 财务分录、
+//! 真去做事的只有 3 种（`OrderPaid` → 销售分录 + 履约、`RefundCompleted` → 冲销分录、
 //! `ShipmentDelivered` → 履约收尾）；3 种只打日志；**其余 25 种是有意的空转**
 //! —— 它们照样落进 `outbox_event` 表、照样打一行 info，所以不是丢了，是还没接。
 //! 记在这里是因为「事件已经发出去了」很容易被读成「下游已经在动」。
@@ -27,6 +28,7 @@ use sqlx::Row;
 use std::time::Duration;
 use unmei_domain::commerce::events::DomainEvent;
 
+use unmei_app::finance as app_finance;
 use unmei_app::fulfillment as app_fulfillment;
 
 use crate::state::AppState;
@@ -125,6 +127,16 @@ async fn handle_event(st: &AppState, kind: &str, payload: &Value) -> anyhow::Res
             Ok(())
         }
         Ok(DomainEvent::OrderPaid { order_id, .. }) => {
+            /* 【收钱也要记账】（2026-09-03 五路评审 · 资金审计）。
+               上一版这里只推履约 —— 于是总账里一笔销售分录都没有，
+               `4001 主营业务收入` 是纯借方（只有退款冲销），
+               月报的「本期收入」是负数。
+
+               两件事都挂在这一条事件上:记账先做 —— 履约可能要调排盘服务，
+               慢且会失败，而账不该等它。两个都是幂等的，重试不会重复。 */
+            app_finance::post_sale_journal(&st.db, &order_id)
+                .await
+                .map_err(|e| anyhow::anyhow!("post_sale_journal {order_id}: {e}"))?;
             // 履约推进在用例层:一个事务、shipment 防重、重试不重复发 OrderFulfilled。
             // 这里原有一份自己的实现,四处幂等漏洞,见 unmei_app::fulfillment 模块注释。
             app_fulfillment::apply_order_paid(&st.db, &order_id)
