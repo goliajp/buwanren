@@ -166,8 +166,18 @@ def jsx_text(src):
     一支会误报的门禁,人很快就开始无视它,那比没有它更糟。"""
     out = []
     for t in re.findall(r'>([^<>]+)<', src):
-        if re.search(rf'[{CJK}]', t) and not re.search(r'[{}=;]', t):
-            out.append(t)
+        if not re.search(rf'[{CJK}]', t):
+            continue
+        if re.search(r'[{}=;]', t):
+            continue
+        # 【比较运算符之间那一段也会被 `>…<` 捞进来】（2026-09-03）。
+        # `Number(折) > 0 && Number(折) <= 100` 里,`>` 到 `<` 之间是
+        # 「 0 && Number(折) 」——不含 {}=;、含汉字（中文变量名），
+        # 于是它被当成界面文案，那对半角括号被报成违规。
+        # 界面上的字不会写 `&&` / `||` / `=>` / `?.`，代码里到处都是。
+        if re.search(r'&&|\|\||=>|\?\.|\breturn\b|\bconst\b|\blet\b', t):
+            continue
+        out.append(t)
     return out
 
 

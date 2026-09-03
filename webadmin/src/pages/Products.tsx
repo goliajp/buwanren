@@ -108,7 +108,7 @@ function ProductBody({ data }: { data: any }) {
       <section>
         <h3 className="font-semibold mb-2 flex items-center gap-1.5"><Tag size={13}/> 基本</h3>
         <KvGrid kv={[
-          ['code', <span className="id">{product.code}</span>],
+          ['代号', <span className="id">{product.code}</span>],
           ['名称', <strong>{product.name}</strong>],
           ['副标题', product.sub_title ?? '—'],
           ['卖的是什么', enumLabel(product.category)],
@@ -116,10 +116,10 @@ function ProductBody({ data }: { data: any }) {
           ['履约', product.fulfillment_kind],
           ['状态', <span className={statusClass(product.status)}>{statusLabel(product.status)}</span>],
           ['权重', product.sort_weight],
-          ['locale', (product.available_locales ?? []).join(', ')],
-          ['region', (product.available_regions ?? []).join(', ')],
-          ['platform', (product.available_platforms ?? []).join(', ')],
-          ['tags', (product.tags ?? []).join(', ') || '—'],
+          ['语言', (product.available_locales ?? []).join(', ')],
+          ['区域', (product.available_regions ?? []).join(', ')],
+          ['平台', (product.available_platforms ?? []).join(', ')],
+          ['标签', (product.tags ?? []).join(', ') || '—'],
           ['创建', ts(product.created_at)],
           ['更新', ts(product.updated_at)],
         ]} />

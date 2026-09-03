@@ -115,6 +115,7 @@ export const commerce = {
   updatePromotionState: (id: string, status: string) =>
     api.post(`/commerce/promotions/${id}/state`, { status }),
   listCoupons: (p: any) => api.get<PageRes<any>>('/commerce/coupons' + qs(p)),
+  issueCoupon: (b: any) => api.post('/commerce/coupons', b),
 
   listPlans: () => api.get<any[]>('/commerce/plans'),
   listSubscriptions: (p: any) => api.get<PageRes<any>>('/commerce/subscriptions' + qs(p)),
@@ -152,6 +153,7 @@ export const commerce = {
   listRiskCases: (p: any) => api.get<PageRes<any>>('/commerce/risk/cases' + qs(p)),
 
   listPeriods: () => api.get<any[]>('/commerce/finance/periods'),
+  closePeriod: (id: string) => api.post(`/commerce/finance/periods/${id}/close`),
   listJournalEntries: (p: any) =>
     api.get<PageRes<any>>('/commerce/finance/entries' + qs(p)),
   getJournalEntry: (id: string) => api.get<any>(`/commerce/finance/entries/${id}`),

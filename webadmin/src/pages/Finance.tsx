@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useApiMutation } from '../lib/feedback';
 import { commerce } from '../lib/api';
 import PageHeader from '../components/PageHeader';
 import Pagination from '../components/Pagination';
@@ -25,6 +26,7 @@ function 会计期名(p: any): string {
 }
 
 export default function Finance() {
+  const qc = useQueryClient();
   const [periodId, setPeriodId] = useState<string | undefined>(undefined);
   const [page, setPage] = useState(0);
   const [tab, setTab] = useState<'entries' | 'report'>('entries');
@@ -50,6 +52,12 @@ export default function Finance() {
     queryKey: ['entry', entryId],
     queryFn: () => commerce.getJournalEntry(entryId!),
     enabled: !!entryId,
+  });
+
+  const 当前期 = (periods.data ?? []).find((p: any) => p.id === periodId);
+  const 关账 = useApiMutation({
+    mutationFn: (id: string) => commerce.closePeriod(id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['periods'] }); },
   });
 
   const report = useQuery({
@@ -80,9 +88,27 @@ export default function Finance() {
               {t === 'entries' ? '分录浏览' : '月报'}
             </button>
           ))}
-          <button className="btn btn-soft ml-auto" onClick={() => { entries.refetch(); report.refetch(); }}>
-            <RefreshCw size={13}/>
-          </button>
+          <div className="ml-auto flex items-center gap-2">
+            {/* 【关账是这一页真正的动作】。在它之前财务页只能看 ——
+                而一本随时还能往里记的账，不能拿来对外说话。
+                已经关了的期间不显示这个按钮:它已经做完了。 */}
+            {当前期?.state === 'open' && (
+              <button
+                className="btn btn-soft"
+                disabled={关账.isPending}
+                onClick={() => {
+                  if (!periodId) return;
+                  if (!confirm(`把「${会计期名(当前期)}」封住？封了之后这一期不能再记账。`)) return;
+                  关账.mutate(periodId);
+                }}
+              >
+                {关账.isPending ? '正在关…' : '关账'}
+              </button>
+            )}
+            <button className="btn btn-soft" onClick={() => { entries.refetch(); report.refetch(); }}>
+              <RefreshCw size={13}/>
+            </button>
+          </div>
         </div>
 
         {tab === 'entries' && (
