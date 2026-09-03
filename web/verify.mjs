@@ -774,10 +774,18 @@ if (API) {
      于是这一条报「只挑到 5 件」，看着像动线坏了。
      下面只用第一张单（`单们[0]`），多建几张是为了让订单列表不空；
      所以判据改成【至少能建一张】，这才是它真正依赖的东西。 */
+  /* 【只挑 cn 真买得到的】（2026-09-03）。上一版只看 `p.status='listed'`——
+     而「上架」跟「这个区买得到」是两件事:`verify-semantics.sh` 的那件
+     校验商品正是「上架、但只在 verify 区上架」（它自己也是这一天
+     从 draft 换过来的，因为 draft 现在下不了单）。
+     它的 sort_weight 是默认 100，于是排在头一位；下面那个循环拿
+     `region:'cn'` 建单，第一件就 404，`break` 掉，六张单一张都没建出来。
+     报出来的是「超过五笔就分页」那一条，读起来像订单列表坏了。 */
   const 六件 = sql1(
     "SELECT string_agg(id, ',') FROM ("
     + " SELECT s.id FROM sku s JOIN product p ON p.id = s.product_id"
     + "  WHERE s.status='active' AND p.status='listed'"
+    + "    AND ('cn' = ANY(p.available_regions) OR 'global' = ANY(p.available_regions))"
     + "    AND p.fulfillment_kind <> 'residency'"   // 护身符要挑没住过的人，另一套判据
     + "  ORDER BY p.sort_weight DESC, s.id LIMIT 6) t").split(',').filter(Boolean)
   ok(六件.length >= 1, '夹具：货架上挑得出在售商品来建单', `挑到 ${六件.length} 件`)
