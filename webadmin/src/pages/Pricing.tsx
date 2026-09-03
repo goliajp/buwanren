@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApiMutation } from '../lib/feedback';
 import { commerce } from '../lib/api';
 import PageHeader from '../components/PageHeader';
-import { rel, ts, yuan, shortId, statusChip } from '../components/util';
+import { rel, ts, yuan, shortId, statusClass, statusLabel, thou } from '../components/util';
 import { Plus, XCircle, RefreshCw, Tag } from 'lucide-react';
 
 const CURRENCIES = ['CNY','USD','HKD','JPY','EUR'];
@@ -46,37 +46,52 @@ export default function Pricing() {
 
   const skus = productDetail.data ?? [];
   const currentSku = skus.find((s: any) => s.id === skuId);
+  const [找, 设找] = useState('');
+  const 命中 = 找.trim()
+    ? skus.filter((s: any) =>
+        `${s.name} ${s.product_name} ${s.code}`.toLowerCase().includes(找.trim().toLowerCase()))
+    : skus;
 
   return (
     <div>
-      <PageHeader title="定价 · Pricing" sub="commerce v2 · price_book · 多区域 × 多平台 × 时段 × 阶梯" stats={[
-        { label: '商品', value: prods.data?.total ?? 0 },
-        { label: 'SKU', value: skus.length },
-      ]} />
+      <PageHeader
+        title="定价"
+        sub="同一件东西在哪个区、哪个平台、什么时候卖多少钱"
+        stats={[{ label: '规格', value: thou(skus.length) }]}
+      />
       <div className="p-4 grid grid-cols-12 gap-4">
         <div className="col-span-4 panel">
+          {/* 【两百个规格得能搜】。上一版只有一列可以滚的清单，
+              而标题旁边写着「选一个 →」—— 一句提示替代不了一个搜索框。 */}
           <div className="panel-head">
-            <div className="panel-title">SKU 列表</div>
-            <span className="uplabel text-ink-5">选一个 →</span>
+            <input
+              className="input w-full"
+              placeholder="按名字或编号找规格"
+              value={找}
+              onChange={(e) => 设找(e.target.value)}
+            />
           </div>
           <div className="max-h-[70vh] overflow-y-auto">
-            {skus.map((s: any) => (
+            {命中.map((s: any) => (
               <button key={s.id}
                 onClick={() => setSkuId(s.id)}
-                className={`block w-full text-left px-3 py-2 border-b border-border/50 hover:bg-surface-2 transition ${skuId === s.id ? 'bg-surface-3' : ''}`}>
-                <div className="text-[12.5px] font-medium text-ink truncate">{s.name}</div>
-                <div className="uplabel text-ink-5">{s.product_name} · {s.code}</div>
+                className={`block w-full text-left px-3 py-2 border-b border-rule/50 hover:bg-sunk transition ${skuId === s.id ? 'bg-sunk' : ''}`}>
+                <div className="text-xs font-medium text-ink truncate">{s.name}</div>
+                <div className="label text-ink-4">{s.product_name} · {s.code}</div>
               </button>
             ))}
-            {skus.length === 0 && <div className="text-center py-10 text-ink-5">— 加载中 —</div>}
+            {skus.length === 0 && <div className="text-center py-10 text-ink-4">正在取…</div>}
+            {skus.length > 0 && 命中.length === 0 && (
+              <div className="px-3 py-6 text-sm text-ink-2">没有名字或编号含「{找}」的规格。</div>
+            )}
           </div>
         </div>
 
         <div className="col-span-8 panel">
           <div className="panel-head">
             <div>
-              <div className="panel-title flex items-center gap-1.5"><Tag size={13}/> {currentSku?.name ?? '请先选 SKU'}</div>
-              {currentSku && <div className="uplabel text-ink-5 mt-0.5">{currentSku.id}</div>}
+              <div className="panel-title flex items-center gap-1.5"><Tag size={13}/> {currentSku?.name ?? '定价时间线'}</div>
+              {currentSku && <div className="label text-ink-4 mt-0.5">{currentSku.id}</div>}
             </div>
             <div className="flex items-center gap-1.5">
               <button className="btn btn-soft" onClick={() => prices.refetch()} disabled={!skuId}>
@@ -99,23 +114,23 @@ export default function Pricing() {
               </button>
             </div>
           </div>
-          {!skuId && <div className="p-10 text-center text-ink-5">从左侧选一个 SKU 查看 / 维护定价时间线</div>}
+          {!skuId && <div className="p-10 text-center text-ink-4">在左边选一个规格，这里显示它的历次定价。</div>}
           {skuId && (
-            <table className="wa-table">
-              <thead><tr><th>id</th><th>货币</th><th className="r">价格</th><th>region</th><th>platform</th><th>tier</th><th>状态</th><th>生效</th><th>失效</th><th>note</th><th className="c">动作</th></tr></thead>
+            <table className="tbl">
+              <thead><tr><th>编号</th><th>货币</th><th className="r">价格</th><th>区域</th><th>平台</th><th>档位</th><th>状态</th><th>生效</th><th>失效</th><th>备注</th><th className="c">动作</th></tr></thead>
               <tbody>
                 {(prices.data ?? []).map((p: any) => (
                   <tr key={p.id}>
-                    <td className="mono">{shortId(p.id)}</td>
-                    <td className="mono">{p.currency}</td>
+                    <td className="id">{shortId(p.id)}</td>
+                    <td className="id">{p.currency}</td>
                     <td className="r font-semibold">{yuan(p.price_minor, p.currency)}</td>
                     <td>{p.region}</td>
                     <td>{p.platform}</td>
                     <td className="text-ink-4">{p.tier_kind}</td>
-                    <td><span className={statusChip(p.status)}>{p.status}</span></td>
+                    <td><span className={statusClass(p.status)}>{statusLabel(p.status)}</span></td>
                     <td title={ts(p.effective_from)}>{rel(p.effective_from)}</td>
                     <td title={ts(p.effective_to)}>{p.effective_to ? rel(p.effective_to) : '—'}</td>
-                    <td className="text-[11px] text-ink-4">{p.audit_note}</td>
+                    <td className="text-xs text-ink-4">{p.audit_note}</td>
                     <td className="c">
                       {p.status === 'active' && (
                         <button className="btn btn-warn" onClick={() => { if (confirm('立即 expire 此价？')) expire.mutate(p.id); }}>
@@ -126,7 +141,7 @@ export default function Pricing() {
                   </tr>
                 ))}
                 {prices.data && prices.data.length === 0 && (
-                  <tr><td colSpan={11} className="text-center py-10 text-ink-5">— 暂无价格，「发新价」起步 —</td></tr>
+                  <tr><td colSpan={11} className="text-center py-10 text-ink-4">这个规格还没定过价。点右上角「发新价」开始</td></tr>
                 )}
               </tbody>
             </table>

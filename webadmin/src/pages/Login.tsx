@@ -28,15 +28,15 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-canvas flex items-center justify-center px-6">
+    <div className="min-h-screen bg-paper flex items-center justify-center px-6">
       <div className="w-full max-w-sm">
         <div className="mb-8">
           <div className="text-[22px] font-semibold text-ink leading-none">unmei · console</div>
-          <div className="uplabel text-ink-5 mt-1">OPS / CONTENT / FINANCE</div>
+          <div className="label text-ink-4 mt-1">运营 · 内容 · 财务</div>
         </div>
         <form onSubmit={submit} className="panel p-5 space-y-3.5">
           <label className="block">
-            <span className="uplabel text-ink-4 block mb-1">email</span>
+            <span className="label text-ink-4 block mb-1">邮箱</span>
             <input
               type="email"
               value={email}
@@ -45,7 +45,7 @@ export default function Login() {
             />
           </label>
           <label className="block">
-            <span className="uplabel text-ink-4 block mb-1">password</span>
+            <span className="label text-ink-4 block mb-1">密码</span>
             <input
               type="password"
               value={password}
@@ -54,7 +54,7 @@ export default function Login() {
             />
           </label>
           {err && (
-            <div className="text-[11.5px] text-vermilion bg-vermilion-soft px-2.5 py-2 rounded num">
+            <div className="text-xs text-debt bg-debt-bg px-2.5 py-2 rounded num">
               {err}
             </div>
           )}
@@ -63,10 +63,10 @@ export default function Login() {
             disabled={loading}
             className="btn btn-prim w-full justify-center h-9 disabled:opacity-50"
           >
-            {loading ? 'signing in…' : 'Sign in'}
+            {loading ? '正在登录…' : '登录'}
           </button>
         </form>
-        <p className="text-[10.5px] text-ink-5 mt-4 num">
+        <p className="text-xs text-ink-4 mt-4 num">
           default · admin@unmei.local / admin123
         </p>
       </div>

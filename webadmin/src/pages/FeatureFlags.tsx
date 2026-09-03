@@ -42,55 +42,55 @@ export default function FeatureFlags() {
   return (
     <div className="min-w-0">
       <PageHeader
-        title="Flags · 差异化"
-        sub="feature_flag · platform × region × user_segment"
+        title="灰度开关"
+        sub="哪些人能先用上新功能"
       />
       <div className="p-4 space-y-3">
         <div className="panel">
           <div className="panel-head">
-            <span className="panel-title">matrix</span>
-            <span className="panel-sub">默认值 · platform override · region override</span>
+            <span className="panel-title">开关矩阵</span>
+            <span className="label">默认开不开，以及哪些平台、哪些区域另说</span>
           </div>
           <div className="overflow-x-auto">
-            <table className="wa-table">
+            <table className="tbl">
               <thead>
                 <tr>
-                  <th>code</th>
-                  <th>description</th>
-                  <th className="c w-20">default</th>
-                  <th colSpan={4} className="c border-l border-border">platforms</th>
-                  <th colSpan={6} className="c border-l border-border">regions</th>
-                  <th className="r w-32 border-l border-border">updated</th>
+                  <th>代号</th>
+                  <th>说明</th>
+                  <th className="c w-20">默认</th>
+                  <th colSpan={4} className="c border-l border-rule">平台</th>
+                  <th colSpan={6} className="c border-l border-rule">区域</th>
+                  <th className="r w-32 border-l border-rule">更新</th>
                 </tr>
                 <tr>
                   <th></th>
                   <th></th>
                   <th></th>
-                  {PLATFORMS.map(p => <th key={p} className="c uplabel">{p}</th>)}
-                  {REGIONS.map(r => <th key={r} className="c uplabel">{r}</th>)}
+                  {PLATFORMS.map(p => <th key={p} className="c label">{p}</th>)}
+                  {REGIONS.map(r => <th key={r} className="c label">{r}</th>)}
                   <th></th>
                 </tr>
               </thead>
               <tbody>
-                {isLoading && <tr><td colSpan={13} className="text-center py-8 text-ink-5">loading…</td></tr>}
+                {isLoading && <tr><td colSpan={13} className="text-center py-8 text-ink-4">正在取…</td></tr>}
                 {data?.items.map(f => (
                   <tr key={f.code}>
-                    <td className="mono text-[11px] text-ink">{f.code}</td>
+                    <td className="font-mono text-xs text-ink">{f.code}</td>
                     <td className="text-ink-3 leading-relaxed">{f.description ?? '—'}</td>
                     <td className="c">
                       <button
                         onClick={() => update.mutate({ code: f.code, body: { default_on: !f.default_on } })}
-                        className={`chip ${f.default_on ? 'chip-ok' : 'chip-mute'}`}
-                      >{f.default_on ? 'on' : 'off'}</button>
+                        className={`${f.default_on ? 'text-settled' : 'text-ink-3'}`}
+                      >{f.default_on ? '开' : '关'}</button>
                     </td>
                     {PLATFORMS.map(p => (
                       <td key={p} className="c">
                         <button
                           onClick={() => togglePlatform(f, p)}
-                          className={`w-5 h-5 rounded text-[10px] font-medium ${
-                            f.by_platform?.[p] === false ? 'bg-vermilion text-canvas' : 'bg-surface-2 text-ink-5 hover:bg-surface-3'
+                          className={`w-5 h-5 rounded text-xs font-medium ${
+                            f.by_platform?.[p] === false ? 'bg-debt text-paper' : 'bg-sunk text-ink-4 hover:bg-sunk'
                           }`}
-                          title={f.by_platform?.[p] === false ? `${p} OFF override` : `${p} 跟随默认`}
+                          title={f.by_platform?.[p] === false ? `${p} 上单独关掉了` : `${p} 跟随默认`}
                         >{f.by_platform?.[p] === false ? '×' : '•'}</button>
                       </td>
                     ))}
@@ -98,21 +98,21 @@ export default function FeatureFlags() {
                       <td key={r} className="c">
                         <button
                           onClick={() => toggleRegion(f, r)}
-                          className={`w-5 h-5 rounded text-[10px] font-medium ${
-                            f.by_region?.[r] === false ? 'bg-vermilion text-canvas' : 'bg-surface-2 text-ink-5 hover:bg-surface-3'
+                          className={`w-5 h-5 rounded text-xs font-medium ${
+                            f.by_region?.[r] === false ? 'bg-debt text-paper' : 'bg-sunk text-ink-4 hover:bg-sunk'
                           }`}
-                          title={f.by_region?.[r] === false ? `${r} OFF override` : `${r} 跟随默认`}
+                          title={f.by_region?.[r] === false ? `${r} 上单独关掉了` : `${r} 跟随默认`}
                         >{f.by_region?.[r] === false ? '×' : '•'}</button>
                       </td>
                     ))}
-                    <td className="r mono text-[11px] text-ink-3">{ts(f.updated_at)}</td>
+                    <td className="r font-mono text-xs text-ink-3">{ts(f.updated_at)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <div className="border-t border-border px-4 py-2 text-[10.5px] text-ink-5">
-            <span className="mono">•</span> = follow default · <span className="mono text-vermilion">×</span> = OFF override
+          <div className="border-t border-rule px-4 py-2 text-xs text-ink-4">
+            <span className="id">•</span> 跟随默认　<span className="font-mono text-debt">×</span> 在这里单独关掉
           </div>
         </div>
       </div>
