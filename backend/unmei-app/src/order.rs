@@ -154,15 +154,33 @@ pub async fn create(pool: &PgPool, req: NewOrder) -> Result<CreatedOrder, Domain
         }
     }
 
-    // 风控(台账 D7)。默认观察模式：规则照跑、事件照落、一单不拦 ——
-    // 开关在 `risk::enforcing()`,由运营看过真实命中率之后再翻。
+    /* 风控(台账 D7)。默认观察模式：规则照跑、事件照落、一单不拦 ——
+       开关在 `risk::enforcing()`,由运营看过真实命中率之后再翻。
+
+       【账龄这个字段一直没传进去】（2026-09-04）。上一版这里
+       `amount_minor` 与 `user_age_days` 都写死 `None`，而 `build_env`
+       里那两个 `if let Some` 于是永远不成立 —— `user.age_days`
+       一次都没进过求值环境，种子里那条按账龄写的规则永远命中不了。
+
+       **金额这一处确实给不出**：价要到下面那个循环里按区、按平台取，
+       而这道闸在事务开始之前（取价在 264 行之后）。给一个猜的数
+       比不给更糟 —— 风控按它判，而它不是真会收的钱。
+       金额那一半在 `payment::start` 上，那里订单已经建好、
+       应付是确定的，而且那才是钱真要动的地方。 */
+    let 账龄: Option<i32> = sqlx::query_scalar(
+        "SELECT GREATEST(0, EXTRACT(DAY FROM NOW() - created_at))::int4 \
+           FROM app_user WHERE id = $1",
+    )
+    .bind(&req.user_id)
+    .fetch_optional(pool)
+    .await.db()?;
     crate::risk::gate(pool, &crate::risk::RiskEvalContext {
         kind: "pre_order".into(),
         user_id: Some(req.user_id.clone()),
         order_id: None,
         payment_id: None,
         amount_minor: None,
-        user_age_days: None,
+        user_age_days: 账龄,
         extras: serde_json::json!({ "lines": req.lines.len(), "region": req.region }),
     }).await?;
 
