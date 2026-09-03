@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Package, Tags, BadgePercent, Repeat,
   Receipt, CreditCard, Undo2, Truck, Scale, ShieldAlert, Wallet,
   Activity, ToggleLeft, Users as UsersI, Compass, BookOpen,
-  Radio, Database, LogOut, ScrollText,
+  Radio, Database, LogOut, ScrollText, CalendarDays,
 } from 'lucide-react';
 import { authAtom, setAuthAtom, activeRegionAtom, setActiveRegionAtom } from '../store/auth';
 import { commerce } from '../lib/api';
@@ -53,6 +53,9 @@ const groups: { title: string; items: Item[] }[] = [
   {
     title: '内容与人', items: [
       { to: '/users', cn: '用户', icon: UsersI },
+      /* 【`/admin/activities` 一直在，而这里没有入口】——
+         一条服务不了任何人的接口。报名这条链也是这一轮才接上的。 */
+      { to: '/activities', cn: '线下活动', icon: CalendarDays },
       { to: '/naji', cn: '问签记录', icon: Compass },
       { to: '/quotes', cn: '语料', icon: BookOpen },
       { to: '/feature_flags', cn: '灰度开关', icon: ToggleLeft },

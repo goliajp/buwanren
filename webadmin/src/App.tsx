@@ -19,6 +19,7 @@ import Outbox from './pages/Outbox';
 import Audit from './pages/Audit';
 import Master from './pages/Master';
 import Users from './pages/Users';
+import Activities from './pages/Activities';
 import Naji from './pages/Naji';
 import Quotes from './pages/Quotes';
 import FeatureFlags from './pages/FeatureFlags';
@@ -53,6 +54,7 @@ export default function App() {
         <Route path="/outbox" element={<Outbox />} />
         <Route path="/master" element={<Master />} />
         <Route path="/users" element={<Users />} />
+        <Route path="/activities" element={<Activities />} />
         <Route path="/naji" element={<Naji />} />
         <Route path="/quotes" element={<Quotes />} />
         <Route path="/feature_flags" element={<FeatureFlags />} />

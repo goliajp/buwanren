@@ -38,7 +38,12 @@ async fn list(
                FROM activity a
                LEFT JOIN activity_registration r ON r.activity_id = a.id
               GROUP BY a.id
-           ) activity WHERE status IN ('open','closed')"#
+           /* 【办完的场不再列】（2026-09-03 五路评审 · 架构审计）。
+              上一版只按 status 过滤 —— 而 status 没有任何人会去改：
+              库里三场全是七八月的，到九月还挂着 `open`，
+              用户点进去报名拿到「这场已经开始了」，而它就摆在那一屏上。
+              「结束了没有」是时间说了算，不是一个要人去翻的开关。 */
+           ) activity WHERE status IN ('open','closed') AND end_at > NOW()"#
     ).fetch_all(&st.db).await?;
     let items: Vec<ActivityPublic> = rows.into_iter().filter_map(|r| {
         let regs: Vec<String> = serde_json::from_value(r.get("regions_avail")).ok()?;
