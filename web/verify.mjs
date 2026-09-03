@@ -1529,6 +1529,60 @@ if (API) {
   ).catch(() => {})
   ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/confirm/index',
      '挑一档点得进确认那一屏', await p.evaluate(() => globalThis.__router.current().__route))
+
+  /* ── 券码那一格（2026-09-03）──────────────────────────────
+     后端的优惠券这条链早就通了（锁定 → 核销 → 释放），
+     而**用户这一侧一直没有输码的地方** —— 券发得出去，没人用得上。
+     现在确认屏上有了，这一段验它真的能用。
+
+     只在打真后端时验:假服务端不认券码，它会把任何码都放过去，
+     那样「用上了」这三个字说的不是真事。 */
+  if (API) {
+    const 券码 = 'MIRROR' + Date.now()
+    run(`INSERT INTO coupon(id, code, benefit_json, state, issued_at, expires_at, audit_note, region)
+         VALUES ('cpn-mir-${Date.now()}', '${券码}',
+                 '{"pct_off_bps":2000}'::jsonb, 'issued', NOW(),
+                 NOW() + INTERVAL '30 days', '镜像验证', 'cn')`)
+
+    const 原价 = await p.evaluate(() => globalThis.__router.current().data.totalText)
+    await p.locator('.coupon-in').fill(券码)
+    await p.locator('.coupon-try').click()
+    await p.waitForFunction(
+      () => globalThis.__router.current().data.券状态 !== '在算'
+            && globalThis.__router.current().data.券状态 !== '',
+      null, { timeout: 15000 },
+    ).catch(() => {})
+    const 券状态 = await p.evaluate(() => globalThis.__router.current().data.券状态)
+    ok(券状态 === '用上了', '输一张真券，服务端认', 券状态 + '｜' + await p.evaluate(
+      () => globalThis.__router.current().data.券说))
+
+    /* 【减了多少要看得见】。这一格的全部意义就是让人在按付款之前
+       知道自己少付了多少 —— 状态对而屏幕上没数，等于没做。 */
+    const 屏 = await text()
+    ok(/− ¥/.test(屏), '屏幕上写着减了多少', (屏.match(/− ¥\S+/) || [''])[0])
+    const 实付 = await p.evaluate(() => globalThis.__router.current().data.实付文本)
+    ok(!!实付 && 实付 !== 原价, '「一共」跟着变成实付', `原价 ${原价} → 实付 ${实付}`)
+
+    /* 【试算不许动库】。它是「先算一遍」，锁券是下单那一步的事 ——
+       试完就锁的话，人只是看了一眼价，券就挂在一张不存在的单上了。 */
+    const 券态 = sql1(`SELECT state FROM coupon WHERE code='${券码}'`)
+    ok(券态 === 'issued', '试算不锁券', 券态)
+
+    // 编不出来的码要当场说清，而不是默默不动
+    await p.locator('.coupon-in').fill('NOSUCHCODE' + Date.now())
+    await p.locator('.coupon-try').click()
+    await p.waitForFunction(
+      () => globalThis.__router.current().data.券状态 === '不行',
+      null, { timeout: 15000 },
+    ).catch(() => {})
+    const 坏说 = await p.evaluate(() => globalThis.__router.current().data.券说)
+    ok(/没有这张券/.test(坏说 || ''), '编的码说得出为什么不行', 坏说)
+
+    // 清掉，别让它影响后面那一段
+    await p.locator('.coupon-in').fill('')
+    await p.locator('.coupon-try').click()
+    await p.waitForTimeout(300)
+  }
   }
   await open('pages/incense/index', { id: 'prod-suhe-incense' })
   await p.waitForTimeout(1200)
@@ -4377,7 +4431,7 @@ if (!(CAL > 0)) {
 
    所以除了对账，再加一条【反向】的：实跑数比账高出一成以上时也报出来，
    要求把账更新。它不拦（多验不是错），但它让账不会再悄悄过期。 */
-const 基准 = { 假: 130, 真: 379 }
+const 基准 = { 假: 130, 真: 385 }   // 2026-09-03 券码那一段 +6（只在真后端那一档）
 const LEAST = Math.floor((API ? 基准.真 : 基准.假) * 0.9)
 const 该有 = API ? 基准.真 : 基准.假
 

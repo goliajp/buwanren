@@ -26,7 +26,21 @@
   // picker 的 mode 与浏览器原生输入的对应。不在表里的 mode 抛 ——
   // 「不认识就抛」比渲成一个点不动的方块强,后者看着是完整的一页
   const PICKER = { date: 'date', time: 'time' }
-  const EVENTS = { bindtap: 'click', bindinput: 'input', bindchange: 'change' }
+  /* 【浏览器真有的就要真接上】（第二条铁律）。
+     `bindconfirm` 一度被归进「只有真机才有」——而按回车确认输入
+     浏览器里明明有（keydown Enter）。归错类的后果不是渲不出来，
+     是渲成一个【长得完全正常、按回车什么都不发生】的输入框，
+     而验证脚本等在那儿会报「元素超时」，读起来像页面没渲出来。
+     2026-09-03 加券码输入框时撞到。
+
+     `bindblur` 同理 —— 浏览器有 blur。
+     `bindlongpress` / `bindchooseavatar` 才是真机独有的:
+     前者浏览器没有长按语义（要自己攒 500ms 计时器，那是造一个
+     跟真机不一样的东西）、后者是微信的头像选择器。 */
+  const EVENTS = {
+    bindtap: 'click', bindinput: 'input', bindchange: 'change',
+    bindblur: 'blur', bindconfirm: 'confirm',
+  }
   // 解析过程中遇到的「只有真机才有」的事件,记下来,渲染时接一个会抛的处理器
   const NATIVE_ONLY = {}
   const DIRECTIVES = ['wx:if', 'wx:elif', 'wx:else', 'wx:for', 'wx:key', 'wx:for-item', 'wx:for-index']
@@ -383,8 +397,19 @@
               ? globalThis.__router.current() : null
             if (换页前 !== 换页后) ev.stopImmediatePropagation()
           }
-          el.addEventListener(type, fn)
-          el.__off.push(() => el.removeEventListener(type, fn))
+          /* 【`confirm` 不是原生事件名】。WXML 的 `bindconfirm` 是
+             「在输入框上按回车（真机上是键盘那颗「完成」）」——
+             浏览器里对应的是 keydown + Enter，不是一个叫 confirm 的事件。
+             直接 `addEventListener('confirm')` 会挂上去、永远不触发，
+             而那正是「接了等于没接」——比不接更难发现。 */
+          if (type === 'confirm') {
+            const 回车 = (ev) => { if (ev.key === 'Enter') fn(ev) }
+            el.addEventListener('keydown', 回车)
+            el.__off.push(() => el.removeEventListener('keydown', 回车))
+          } else {
+            el.addEventListener(type, fn)
+            el.__off.push(() => el.removeEventListener(type, fn))
+          }
           /* 【点得到的东西，要能被量出来】。真机上手指的接触面约 9mm，
              苹果与谷歌两家的人机指南都写 44pt / 48dp —— 比这小就要靠瞄。
              而这一层是全仓唯一知道「哪个元素绑了点击」的地方:

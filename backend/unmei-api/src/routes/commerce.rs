@@ -17,8 +17,7 @@ use serde_json::{json, Value as J};
 use sqlx::{Column as _, Row, TypeInfo};
 use unmei_app::{
     order as app_order, payment as app_payment, refund as app_refund, shipment as app_shipment,
-    Actor,
-};
+    Actor, coupon as app_coupon};
 use unmei_domain::commerce::adapters::{CreatePaymentParam, WebhookEvent, WebhookHeaders};
 use unmei_domain::AppError;
 
@@ -34,6 +33,7 @@ pub fn router() -> Router<AppState> {
         .route("/v1/products/:id",                        get(get_product))
         // 订单 · 必须登录
         .route("/v1/orders",                              get(my_orders).post(create_order))
+        .route("/v1/orders/preview",                      post(preview_order))
         .route("/v1/orders/:id",                          get(get_my_order))
         .route("/v1/orders/:id/cancel",                   post(cancel_my_order))
         .route("/v1/orders/:id/pay",                      post(pay_my_order))
@@ -211,6 +211,86 @@ struct CreateOrderBody {
 fn default_channel_origin() -> String { "web".into() }
 #[derive(Deserialize, Serialize)]
 struct CreateLine { sku_id: String, qty: i32 }
+
+#[derive(Deserialize, Serialize)]
+struct PreviewBody {
+    lines: Vec<CreateLine>,
+    #[serde(default)]
+    coupon_codes: Vec<String>,
+    region: Option<String>,
+    channel_origin: Option<String>,
+}
+
+/// 下单之前先算一遍：这些东西加上这些券，一共多少。
+///
+/// 【券的折扣只有服务端算得准】——封顶、余额、活动有效期、
+/// 多张券按余额依次算。客户端自己算一遍必然跟服务端不一致，
+/// 而不一致的那一刻，用户是在看着客户端那个数按下付款的。
+///
+/// 不动库、不锁券。校验一条不少 —— 试算说得通、下单却被拒，
+/// 跟试算说减 40、下单扣 50 是同一种欺骗。
+async fn preview_order(
+    State(st): State<AppState>, AuthedUser(claims): AuthedUser,
+    Json(b): Json<PreviewBody>,
+) -> Result<Json<J>, ApiError> {
+    if b.lines.is_empty() {
+        return Err(ApiError::bad("没说买什么"));
+    }
+    /* 小计要跟下单那一步【用同一条 SQL】——取价看区、看平台、看时段，
+       抄一份简化版的话，试算与实扣就会在某些组合下对不上，
+       而那种不一致只有在特定区 / 特定平台才显形。 */
+    let region = b.region.clone().unwrap_or_else(|| "cn".to_string());
+    let 平台 = b.channel_origin.clone().unwrap_or_else(|| "web".to_string());
+    let mut subtotal: i64 = 0;
+    let mut currency: Option<String> = None;
+    for l in &b.lines {
+        if l.qty <= 0 {
+            return Err(ApiError::bad("数量要大于 0"));
+        }
+        let row = sqlx::query(
+            r#"SELECT pb.price_minor, pb.currency
+                 FROM sku s
+                 LEFT JOIN LATERAL (
+                   SELECT price_minor, currency FROM price_book
+                   WHERE sku_id = s.id AND status='active'
+                     AND region IN ($2, 'global')
+                     AND platform IN ($3, 'all')
+                     AND effective_from <= NOW()
+                     AND (effective_to IS NULL OR effective_to > NOW())
+                   ORDER BY effective_from DESC LIMIT 1
+                 ) pb ON TRUE
+                WHERE s.id=$1 AND s.status='active'"#,
+        )
+        .bind(&l.sku_id)
+        .bind(&region)
+        .bind(&平台)
+        .fetch_optional(&st.db)
+        .await?
+        .ok_or_else(|| ApiError::bad(format!("sku {} 现在买不了", l.sku_id)))?;
+        let unit: i64 = row
+            .try_get("price_minor")
+            .map_err(|_| ApiError::bad(format!("sku {} 现在没有价", l.sku_id)))?;
+        let cur: String = row
+            .try_get("currency")
+            .map_err(|_| ApiError::bad(format!("sku {} 的价没有币种", l.sku_id)))?;
+        match &currency {
+            None => currency = Some(cur),
+            Some(c) if *c != cur => return Err(ApiError::bad("这几件的币种不一样")),
+            Some(_) => {}
+        }
+        subtotal += unit * l.qty as i64;
+    }
+    let (券们, discount) =
+        app_coupon::preview(&st.db, &claims.sub, &region, subtotal, &b.coupon_codes).await?;
+
+    Ok(Json(json!({
+        "amount_subtotal_minor": subtotal,
+        "amount_discount_minor": discount,
+        "amount_total_minor": subtotal - discount,
+        "currency": currency.unwrap_or_else(|| "CNY".into()),
+        "coupons": 券们,
+    })))
+}
 
 async fn create_order(
     State(st): State<AppState>, AuthedUser(claims): AuthedUser,

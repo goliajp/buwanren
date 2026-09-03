@@ -12,7 +12,7 @@ import { commerceApi } from '../../services/commerce'
 import { 脸 } from '../../utils/face'
 import type { ProductDetail } from '../../types/commerce'
 import { money } from '../../utils/money'
-import { 一句 } from '../../utils/say'
+import { 一句, 照原文 } from '../../utils/say'
 
 interface Contact { name?: string; phone?: string; address?: string }
 
@@ -43,6 +43,15 @@ interface IData {
   付完呢: string
   qty: number
   message: string
+  /** 券码。空着就是没用券 —— 不预填、不记住上一次 */
+  券码: string
+  /** 这张券试得怎么样。'' = 还没试 */
+  券状态: '' | '在算' | '用上了' | '不行'
+  /** 试不成时的那一句 —— 说清是为什么，不只说「不行」 */
+  券说: string
+  减了: number
+  减了文本: string
+  实付文本: string
   contact: Contact | null
   /** 选地址失败时那一行字。真机独有的能力，在网页上会抛 */
   addrNote: string
@@ -79,6 +88,10 @@ Page<IData, WechatMiniprogram.IAnyObject>({
   data: {
     id: '', wantSku: '', loading: true, err: '', p: null,
     skuId: '', unit: 0, cur: 'CNY', unitText: '', totalText: '', face: '', 脸样: '', 住进来: false,
+    /* 券码。空着就是没用券 —— 不预填、不记住上一次:
+       券是一次性的东西，替人记住它只会让人以为还能再用一次。 */
+    券码: '', 券状态: '' as '' | '在算' | '用上了' | '不行',
+    券说: '', 减了: 0, 减了文本: '', 实付文本: '',
     要寄: false, 付完呢: '',
     qty: 1, message: '',
     contact: null, addrNote: '', buying: false, note: '', buyKey: '',
@@ -163,6 +176,8 @@ Page<IData, WechatMiniprogram.IAnyObject>({
   setQty(n: number) {
     const qty = Math.min(99, Math.max(1, n))
     this.setData({ qty, totalText: this.data.skuId ? money(this.data.unit * qty, this.data.cur) : '' })
+    // 数量变了，折扣要重算 —— 按比例减的券，减多少跟买多少有关
+    if (this.data.券状态 === '用上了') this.试券()
   },
   minus() { this.setQty(this.data.qty - 1) },
   plus() { this.setQty(this.data.qty + 1) },
@@ -209,6 +224,47 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     )
   },
 
+  券码输入(e: { detail: { value: string } }) {
+    // 输的时候先把上一次的结论清掉 —— 留着旧的「用上了」，
+    // 人会以为改完的这个码也验过了
+    this.setData({ 券码: e.detail.value, 券状态: '', 券说: '', 减了: 0, 减了文本: '', 实付文本: '' })
+  },
+
+  /* 问一次服务端：这张券在这一单上能减多少。
+     【不在客户端算】——封顶、余额、活动有效期都在服务端;
+     自己算一遍必然对不上，而人是看着这个数按下付款的。 */
+  试券() {
+    const 码 = this.data.券码.trim()
+    if (!码) {
+      this.setData({ 券状态: '', 券说: '', 减了: 0, 减了文本: '', 实付文本: '' })
+      return
+    }
+    if (!this.data.skuId) return
+    this.setData({ 券状态: '在算', 券说: '' })
+    commerceApi.previewOrder(this.data.skuId, this.data.qty, [码]).then(
+      (r) => {
+        if (r.amount_discount_minor <= 0) {
+          // 服务端认这张券，但这一单上减不出钱（比如封顶算下来是 0）——
+          // 说清楚，别让人以为用上了
+          this.setData({ 券状态: '不行', 券说: '这张券在这一单上减不出钱', 减了: 0, 减了文本: '', 实付文本: '' })
+          return
+        }
+        this.setData({
+          券状态: '用上了',
+          券说: '',
+          减了: r.amount_discount_minor,
+          减了文本: money(r.amount_discount_minor, r.currency),
+          实付文本: money(r.amount_total_minor, r.currency),
+        })
+      },
+      /* 【券的失败理由照原文说】。后端那几句本来就是给人看的:
+         「没有这张券：ABC」「已经挂在另一张单上」「已经过期」——
+         翻成通用的「有个地方填得不对」，对着输入框的人不知道
+         是码打错了还是这张券用过了。 */
+      (e) => this.setData({ 券状态: '不行', 券说: 照原文(e), 减了: 0, 减了文本: '', 实付文本: '' }),
+    )
+  },
+
   go() {
     const { p, qty, buying, buyKey, contact, message } = this.data
     if (buying || !p) return
@@ -227,7 +283,13 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     this.setData({ buying: true, note: '' })
     const c: Record<string, unknown> = { ...(contact || {}) }
     if (message.trim()) c.message = message.trim()
-    commerceApi.createOrder(this.data.skuId, qty, buyKey, Object.keys(c).length ? c : undefined).then(
+    /* 【只把验过的那张券带上】。输了码但没验成（或者还在算）就不带 ——
+       带上去后端会整单拒（券不合用不许悄悄跳过），
+       而人以为自己只是少减了点钱，实际是这一单建不出来。 */
+    const 券们 = this.data.券状态 === '用上了' && this.data.券码.trim()
+      ? [this.data.券码.trim()]
+      : undefined
+    commerceApi.createOrder(this.data.skuId, qty, buyKey, Object.keys(c).length ? c : undefined, 券们).then(
       (o) => {
         this.setData({ buying: false })
         wx.redirectTo({ url: '/pages/order/index?id=' + o.order_id })
