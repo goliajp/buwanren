@@ -512,6 +512,34 @@ do_admin_day() {  # do_admin_day <阿超的 token> <U1..U5 的 id>
   fi
 }
 
+# ── 逐屏走 ─────────────────────────────────────────────────
+#
+# 【空态与满态都要看到】。24 个小程序页，匿名一个新人走一遍只截得到空态 ——
+# 而空态是这个产品的主设计，满态是它卖的东西，两半缺一不可。
+#
+# 五个人各走一轮:U1 出空态、U2 出命理、U3 出村子、U4 出钱、U5 出别的区。
+# 图留在 ${SHOTS}/<谁>/，人扫一眼；机器判的是「该非空的屏真的非空」。
+SHOTS=${PLAN25_SHOTS:-/tmp/plan25-shots}
+
+do_shots() {
+  command -v bun >/dev/null || { say_dim "没有 bun，逐屏走这一段跳过 —— 这一段【没验】"; return 0; }
+  rm -rf "${SHOTS}"; mkdir -p "${SHOTS}"
+  bun web/build.mjs >/dev/null 2>&1 || { say_bad "镜像组装不起来"; return 1; }
+
+  local who tok n
+  for who in u1 u2 u3 u4 u5; do
+    tok=$(jq -r ".${who}.token" "${STATE}")
+    if ! bun web/shots.mjs --out="${SHOTS}/${who}" --api="${API}" --token="${tok}" >/dev/null 2>&1; then
+      say_bad "${who} 那一轮截屏没跑完"
+      n_bad=$((n_bad+1)); bad_list+=("${who} 截屏")
+      continue
+    fi
+    n=$(ls "${SHOTS}/${who}"/*.png 2>/dev/null | wc -l | tr -d ' ')
+    want_some "${who}（$(p25_name "${who}")）截到的屏数" "${n}"
+  done
+  say_dim "图在 ${SHOTS}/ —— 一页看完：open ${SHOTS}/u3/index.html"
+}
+
 do_check() {
   [ -f "$STATE" ] || { say_bad "没有名册（${STATE}）—— 先 seed"; exit 2; }
   local T1 T2 T3 T4 T5 I1 I2 I3 I4 I5
@@ -575,6 +603,10 @@ do_check() {
   want_some "阿超看得见 P25 的人" "$root_sees"
 
   do_admin_day "$A_root" "$I1" "$I2" "$I3" "$I4" "$I5"
+
+  echo
+  echo "══ 逐屏走 · 五个人各一轮 ══"
+  do_shots
 
   echo
   if [ "$n_bad" = 0 ]; then say_ok "25 计划 · $n_ok 条都过了"; else
