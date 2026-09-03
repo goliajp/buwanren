@@ -95,6 +95,27 @@ DELETE FROM idempotency_log    WHERE user_id IN (SELECT id FROM p25_users);
 DELETE FROM app_user           WHERE id IN (SELECT id FROM p25_users);
 
 -- 造出来的目录（御守那一件，见文档里的先决条件）
+-- 【按 sku 也要摸一遍】。验收商品可能被别人的单引着 ——
+-- 镜像动线就从目录里挑过它。只顺着用户删的话，那些行留在库里，
+-- 而 sku 被 order_line 引着删不掉，清零当场报外键。
+CREATE TEMP TABLE p25_stray AS
+  SELECT DISTINCT order_id FROM order_line WHERE sku_id LIKE 'p25-%';
+DELETE FROM shipment_trace_event WHERE shipment_id IN
+  (SELECT id FROM shipment WHERE order_id IN (SELECT order_id FROM p25_stray));
+DELETE FROM shipment      WHERE order_id IN (SELECT order_id FROM p25_stray);
+DELETE FROM refund        WHERE order_id IN (SELECT order_id FROM p25_stray);
+DELETE FROM payment_event WHERE payment_id IN
+  (SELECT id FROM payment WHERE order_id IN (SELECT order_id FROM p25_stray));
+DELETE FROM payment_attempt WHERE payment_id IN
+  (SELECT id FROM payment WHERE order_id IN (SELECT order_id FROM p25_stray));
+DELETE FROM payment       WHERE order_id IN (SELECT order_id FROM p25_stray);
+DELETE FROM order_event   WHERE order_id IN (SELECT order_id FROM p25_stray);
+DELETE FROM order_meta    WHERE order_id IN (SELECT order_id FROM p25_stray);
+DELETE FROM report        WHERE order_line_id IN
+  (SELECT id FROM order_line WHERE order_id IN (SELECT order_id FROM p25_stray));
+DELETE FROM order_line    WHERE order_id IN (SELECT order_id FROM p25_stray);
+DELETE FROM order_record  WHERE id       IN (SELECT order_id FROM p25_stray);
+
 DELETE FROM omamori_credential WHERE omamori_id LIKE 'p25-%';
 DELETE FROM omamori            WHERE id LIKE 'p25-%';
 DELETE FROM price_book         WHERE id LIKE 'p25-%';   -- 含补给 hk 的那条
@@ -271,12 +292,28 @@ ON CONFLICT (id) DO UPDATE SET status='active';
 -- 25 计划不去改真商品的上架区（那是产品决定：定价、合规、物流各区不同），
 -- 改造一件自己的「会寄的东西」，两个区都上 —— 这样「香港用户买一件实物、
 -- 包裹出状况、阿港去处理」这条链才验得到。
+-- 【验收用的东西不许混进真目录】（2026-09-04，两条门禁同时报出来）。
+-- 头一版把它挂在 cn+hk 上架，于是：
+--   · 「在售的东西给得出吗」报它没有商品图 —— 那条门禁是对的，
+--     在架的实物买家要看得见它长什么样
+--   · 镜像动线从目录里挑「在售的东西」建单，挑中了它 ——
+--     那张单不属于 P25 的人，于是清零顺着用户删不到，
+--     而 sku 被它的 order_line 引着，删不掉
+--
+-- 跟 `verify-semantics.sh` 那件校验商品同一个办法：给它一个只属于验收的区。
+-- 真目录（cn/hk/…）里看不见它，而 U5 用 region=p25 下单照样买得到。
+-- 【在架的实物必须有图】——「在售的东西给得出吗」那一支不看区，
+-- 它是对的:在架就该有图，买家要看得见自己买的东西长什么样。
+-- 这一只借用玉坠那张:它不面向买家（只在验收区），不值得单画一张，
+-- 而留空会让那支门禁红，那条红说的是别的事。
 INSERT INTO product (id, code, name, sub_title, category, kind, status,
-                     fulfillment_kind, tags, sort_weight, available_regions)
-VALUES ('p25-box', 'p25_box', '验收用的一只盒子', '两个区都寄得到',
+                     fulfillment_kind, tags, sort_weight, available_regions,
+                     hero_image_url)
+VALUES ('p25-box', 'p25_box', '验收用的一只盒子', '只在验收区里寄得到',
         'charm', 'one_shot', 'listed', 'shipping', ARRAY['验收'], 10,
-        ARRAY['cn','hk'])
-ON CONFLICT (id) DO UPDATE SET status='listed', available_regions=ARRAY['cn','hk'];
+        ARRAY['p25'], '/images/goods-jade.png')
+ON CONFLICT (id) DO UPDATE SET status='listed', available_regions=ARRAY['p25'],
+        hero_image_url='/images/goods-jade.png';
 INSERT INTO sku (id, product_id, code, name, stock_kind, default_currency, status)
 VALUES ('p25-sku-box', 'p25-box', 'p25_sku_box', '验收用的一只盒子',
         'unlimited', 'CNY', 'active')
@@ -287,11 +324,10 @@ ON CONFLICT (id) DO UPDATE SET status='active';
 INSERT INTO price_book (id, sku_id, currency, price_minor, region, platform, status, effective_from)
 VALUES ('p25-pb-oma-cn', 'p25-sku-oma-ayun', 'CNY', 9900, 'cn', 'all', 'active', NOW()),
        ('p25-pb-oma-hk', 'p25-sku-oma-ayun', 'CNY', 9900, 'hk', 'all', 'active', NOW()),
-       ('p25-pb-box-cn', 'p25-sku-box',      'CNY', 8800, 'cn', 'all', 'active', NOW()),
-       -- hk 那一档定得贵，为的是让种子里那条风控规则真命中
+       -- 定得贵，为的是让种子里那条风控规则真命中
        -- （`amount > 100000 AND user.age_days < 7`）——
        -- 观察模式要看的就是「它会拦下什么」，而不命中的话那一整块验不到。
-       ('p25-pb-box-hk', 'p25-sku-box',      'CNY', 128000, 'hk', 'all', 'active', NOW())
+       ('p25-pb-box-p25', 'p25-sku-box',     'CNY', 128000, 'p25', 'all', 'active', NOW())
 ON CONFLICT (id) DO UPDATE SET status='active';
 SQL
 }
@@ -393,7 +429,7 @@ do_seed() {
     wait_move_in "$I5" ayun || return 1
   fi
   local o5b
-  o5b=$(call POST "$T5" /v1/orders '{"lines":[{"sku_id":"p25-sku-box","qty":1}],"region":"hk","contact":{"name":"P25","phone":"85200000005"},"shipping_address":{"province":"香港","city":"香港","district":"中西区","detail":"某处 5 号","name":"P25","phone":"85200000005"}}' | jq -r '.order_id // empty')
+  o5b=$(call POST "$T5" /v1/orders '{"lines":[{"sku_id":"p25-sku-box","qty":1}],"region":"p25","contact":{"name":"P25","phone":"85200000005"},"shipping_address":{"province":"香港","city":"香港","district":"中西区","detail":"某处 5 号","name":"P25","phone":"85200000005"}}' | jq -r '.order_id // empty')
   if [ -n "$o5b" ]; then
     call POST "$T5" "/v1/orders/$o5b/pay" '{"channel":"wechat_jsapi","openid":"p25_u5"}' >/dev/null
     wait_paid "$o5b" || return 1
@@ -682,7 +718,10 @@ do_check() {
   echo
   echo "══ U5 香港那位 · 别的区 ══"
   want "他在 hk"            hk "$(psql1 "SELECT region FROM app_user WHERE id='$I5'")"
-  want "他的单也记在 hk"    hk "$(psql1 "SELECT region FROM order_record WHERE user_id='$I5' LIMIT 1")"
+  # 【要说清是哪一单】。U5 有两单:御守记在 hk、验收那只盒子记在 p25 区
+  # （验收用的东西不混进真目录）。`LIMIT 1` 取到哪一张全看行序。
+  want "他买御守那一单记在 hk" hk "$(psql1 "SELECT o.region FROM order_record o JOIN order_line ol ON ol.order_id=o.id WHERE o.user_id='$I5' AND ol.sku_id='p25-sku-oma-ayun' LIMIT 1")"
+  want "他买盒子那一单记在验收区" p25 "$(psql1 "SELECT o.region FROM order_record o JOIN order_line ol ON ol.order_id=o.id WHERE o.user_id='$I5' AND ol.sku_id='p25-sku-box' LIMIT 1")"
   want_some "他的包裹出了状况" "$(psql1 "SELECT count(*) FROM shipment s JOIN order_record o ON o.id=s.order_id WHERE o.user_id='$I5' AND s.status='exception'")"
 
   echo
