@@ -17,6 +17,7 @@ use serde_json::json;
 use sqlx::Row;
 
 use crate::auth::{Admin, ApiError};
+use crate::routes::commerce::{normalize_region_scoped, 这个对象归他管吗};
 use crate::state::AppState;
 
 pub fn router() -> Router<AppState> {
@@ -44,9 +45,25 @@ fn thirty() -> i64 { 30 }
 
 async fn list(
     State(st): State<AppState>,
-    _: Admin,
+    admin: Admin,
     Query(f): Query<Filter>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
+    /* 【这一条既不分区也不分角色】（2026-09-03 五路评审 · 越权审计）。
+
+       签名是 `_: Admin` —— token 有效就给全库的人。而它偏偏收一个
+       `region` 参数，收下来只当过滤条件用，从不跟管理员的
+       `region_scope` 对一下:`scope={hk}` 的管理员传 `region=cn`
+       就把大陆全部用户拉出来，不传则连所有区一起拉。
+
+       它掉在两支门禁中间:`check-admin-roles` 只看写方法（这是 GET），
+       `check-admin-region` 只扫 commerce.rs（这在 users.rs）。
+       两支都绿，而这一条一直敞着。
+
+       看用户名单是客服与运营的日常，跟封人同一档 —— 角色照 `set_ban` 那条写。 */
+    admin.requires_any_role(&["support", "operator"])?;
+    let 想看的区 = if f.region.is_empty() { None } else { Some(f.region.clone()) };
+    let 区 = normalize_region_scoped(&想看的区, &admin)?.unwrap_or_default();
+
     // 前端那一页的页码从 1 起（`useState(1)`），这里换算成 offset
     let size = f.size.clamp(1, 200);
     let page = f.page.max(1);
@@ -62,7 +79,7 @@ async fn list(
               AND ($4 = '' OR region = $4)
             ORDER BY created_at DESC OFFSET $5 LIMIT $6"#,
     )
-    .bind(&f.q).bind(&like).bind(&f.platform).bind(&f.region)
+    .bind(&f.q).bind(&like).bind(&f.platform).bind(&区)
     .bind(off).bind(size)
     .fetch_all(&st.db).await?;
 
@@ -72,7 +89,7 @@ async fn list(
               AND ($3 = '' OR platform = $3)
               AND ($4 = '' OR region = $4)"#,
     )
-    .bind(&f.q).bind(&like).bind(&f.platform).bind(&f.region)
+    .bind(&f.q).bind(&like).bind(&f.platform).bind(&区)
     .fetch_one(&st.db).await?;
 
     let items: Vec<serde_json::Value> = rows.into_iter().map(|r| {
@@ -111,6 +128,8 @@ async fn set_ban(
     State(st): State<AppState>, admin: Admin, Path(id): Path<String>, Json(b): Json<BanBody>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
     admin.requires_any_role(&["support", "operator"])?;    // 封人是客服日常，运营也要动得了
+    // 封人也要分区 —— 香港的客服封不着大陆的用户
+    这个对象归他管吗(&st.db, &admin, "app_user", &id).await?;
     if b.reason.trim().is_empty() {
         return Err(ApiError::from(unmei_domain::DomainError::Validation(
             "说一句为什么 —— 只有一个开关的话，三个月后没人说得出当初为什么封".into(),

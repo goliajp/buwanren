@@ -1,13 +1,19 @@
-use axum::{routing::get, Router, Json, extract::{State, Query}};
+use axum::{routing::{get, post}, Router, Json, extract::{Path, State, Query}};
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use sqlx::Row;
 use unmei_domain::ActivityPublic;
 use crate::state::AppState;
-use crate::auth::ApiError;
+use crate::auth::{AuthedUser, ApiError};
 
 pub fn router() -> Router<AppState> {
-    Router::new().route("/v1/activity", get(list))
+    Router::new()
+        .route("/v1/activity", get(list))
+        // 【报名这条链以前不存在】（2026-09-03 五路评审 · 架构审计）——
+        // 活动看得见，报名没有路，而屏上还写着「48/100 已报名」
+        .route("/v1/activity/mine", get(mine))
+        .route("/v1/activity/:id/register", post(register))
+        .route("/v1/activity/:id/cancel", post(cancel))
 }
 
 #[derive(Debug, Deserialize)]
@@ -24,7 +30,15 @@ async fn list(
     let rows = sqlx::query(
         r#"SELECT id, title, sub_title, category, banner_url, city,
                   start_at, max_participants, current_count, price_cn, regions_avail, status
-           FROM activity WHERE status IN ('open','closed')"#
+           /* 已报名多少人从名单现算 —— `current_count` 那一列已经删了
+              （20260903005）。它跟 activity_registration 是两个真相源，
+              而实测差着 92 个人：列里写着数，表里零行。 */
+           FROM (
+             SELECT a.*, COUNT(r.id) FILTER (WHERE r.status='registered')::int4 AS current_count
+               FROM activity a
+               LEFT JOIN activity_registration r ON r.activity_id = a.id
+              GROUP BY a.id
+           ) activity WHERE status IN ('open','closed')"#
     ).fetch_all(&st.db).await?;
     let items: Vec<ActivityPublic> = rows.into_iter().filter_map(|r| {
         let regs: Vec<String> = serde_json::from_value(r.get("regions_avail")).ok()?;
@@ -51,4 +65,47 @@ async fn list(
         })
     }).collect();
     Ok(Json(serde_json::json!({"items": items})))
+}
+
+/// 我报了哪些场。活动页拿它把按钮从「报名」换成「已报名」。
+async fn mine(
+    State(st): State<AppState>,
+    AuthedUser(c): AuthedUser,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let ids = unmei_app::activity::mine(&st.db, &c.sub).await?;
+    Ok(Json(serde_json::json!({ "activity_ids": ids })))
+}
+
+#[derive(Debug, Deserialize)]
+struct RegQ {
+    /// 报哪个区的场。不给就按用户自己的区 —— 而不是默认 cn：
+    /// 默认成 cn 的话，一个日本用户点报名会拿到「没有这一场」，
+    /// 而屏上明明列着它。
+    region: Option<String>,
+}
+
+async fn register(
+    State(st): State<AppState>,
+    AuthedUser(c): AuthedUser,
+    Path(id): Path<String>,
+    Query(q): Query<RegQ>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let 区 = match q.region {
+        Some(r) => r,
+        None => sqlx::query_scalar::<_, String>("SELECT region FROM app_user WHERE id=$1")
+            .bind(&c.sub)
+            .fetch_one(&st.db)
+            .await?,
+    };
+    let 报名号 = unmei_app::activity::register(&st.db, &id, &c.sub, &区).await?;
+    Ok(Json(serde_json::json!({ "ok": true, "registration_id": 报名号 })))
+}
+
+async fn cancel(
+    State(st): State<AppState>,
+    AuthedUser(c): AuthedUser,
+    Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    unmei_app::activity::cancel(&st.db, &id, &c.sub).await?;
+    Ok(Json(serde_json::json!({ "ok": true })))
 }

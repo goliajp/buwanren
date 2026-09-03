@@ -809,6 +809,13 @@ async fn refund_journal_is_balanced() {
         .await
         .expect("request");
 
+    /* 【钱退出去了才记账】（2026-09-03 五路评审 · 资金审计）。
+       上一版申请完就直接记 —— 而 `post_refund_journal` 是
+       `RefundCompleted` 事件的处理器，那个事件只在退款走成之后才发。
+       测试跳过审批这一步，测的就不是生产里发生的顺序。
+       它现在会明确拒记一笔还没退出去的钱。 */
+    refund::approve(&pool, &refund_id, &Actor::admin("adm-test")).await.expect("审批");
+
     unmei_app::finance::post_refund_journal(&pool, &refund_id).await.expect("记账");
 
     let (debit, credit): (i64, i64) = sqlx::query_as(
@@ -835,6 +842,13 @@ async fn posting_the_same_refund_twice_does_not_double_post() {
     let refund_id = refund::request(&pool, &order_id, &user, None, None, "user_request", None)
         .await
         .expect("request");
+
+    /* 【钱退出去了才记账】（2026-09-03 五路评审 · 资金审计）。
+       上一版申请完就直接记 —— 而 `post_refund_journal` 是
+       `RefundCompleted` 事件的处理器，那个事件只在退款走成之后才发。
+       测试跳过审批这一步，测的就不是生产里发生的顺序。
+       它现在会明确拒记一笔还没退出去的钱。 */
+    refund::approve(&pool, &refund_id, &Actor::admin("adm-test")).await.expect("审批");
 
     for _ in 0..3 {
         unmei_app::finance::post_refund_journal(&pool, &refund_id).await.expect("重试记账");

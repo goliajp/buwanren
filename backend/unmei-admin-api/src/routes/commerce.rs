@@ -219,8 +219,18 @@ async fn list_outbox(
 }
 
 async fn get_outbox(
-    State(st): State<AppState>, _: Admin, Path(id): Path<String>,
+    State(st): State<AppState>, admin: Admin, Path(id): Path<String>,
 ) -> Result<Json<J>, ApiError> {
+    /* 【读也要问归属】（2026-09-03 五路评审 · 越权审计）。
+       `这个对象归他管吗` 从前只出现在写路由上 —— 十九处，一处不落，
+       而每一个 `get_X(:id)` 的签名都是 `_: Admin`。
+       实测:`region_scope={hk}` 的管理员按 id 读大陆的订单、支付、
+       运单、对账批次、凭证，七条全通。
+
+       门禁那六条探针里只有一条是读（`GET /orders?region=cn` 列表），
+       另五条全是写 —— 于是「读」这一整个面从来没被探过，
+       而列表被挡住这件事【恰好让人以为读已经守住了】。 */
+    这个对象归他管吗(&st.db, &admin, "outbox_event", &id).await?;
     let r = sqlx::query("SELECT * FROM outbox_event WHERE id=$1").bind(&id)
         .fetch_optional(&st.db).await.map_err(map_db)?
         .ok_or_else(|| ApiError::not_found("event"))?;
@@ -258,7 +268,7 @@ async fn retry_outbox(
 /// - 没指定 / 要 global：scope 只有一个区就锁到那个区；
 ///   多个区先拒 —— 跨区聚合要另设一个明确的接口，
 ///   不能让「不填参数」意外地变成跨区
-fn normalize_region_scoped(
+pub(crate) fn normalize_region_scoped(
     r: &Option<String>,
     admin: &Admin,
 ) -> Result<Option<String>, ApiError> {
@@ -295,7 +305,7 @@ fn normalize_region_scoped(
 /// 而漏掉的那一处就是越权还开着的那一处。所以收进一个函数。
 ///
 /// 表名是**代码里写死的字面量**，不来自请求 —— 不然这就成了注入口。
-async fn 这个对象归他管吗(
+pub(crate) async fn 这个对象归他管吗(
     db: &sqlx::PgPool,
     admin: &Admin,
     表: &'static str,
@@ -348,7 +358,47 @@ async fn 这个对象归他管吗(
         // 而且回 403 会把幽灵 id 的 404 盖掉，那一支门禁正盯着这个。
         None => Ok(()),
         Some(true) => Ok(()),
-        Some(false) => Err(ApiError(AppError::Forbidden)),
+        /* 【不归他管 = 不存在，连同那句话也要一模一样】
+           （2026-09-03 五路评审 · 越权审计）。
+
+           上一版这里回 403，而上面那条注释自己说明了为什么不该回 ——
+           它只把「幽灵 id」那一半修了，「存在但不归你」这一半原样留着。
+           于是同一个分区管理员拿两个 id 试:一个回 404、一个回 403，
+           两者之差就把「这个 id 在库里真的存在」这件事说出来了。
+           订单号是有规律的，靠这个差可以把别的区的订单量数出来。
+
+           所以回 404，**并且回跟业务层完全相同的那句话** ——
+           `not_found(表)` 会说 "order_record" 而处理器说 "order"，
+           两句不一样，差别照样是一个可读的信号。 */
+        Some(false) => Err(ApiError::not_found(业务叫它什么(表))),
+    }
+}
+
+/// 表名 → 处理器在 404 里用的那个词。
+///
+/// 【它必须跟处理器那一句逐字相同】——这个函数存在的唯一理由，
+/// 就是让「不归你管」和「没这东西」连响应正文都分不出来。
+/// 新增一张表时，照着那张表的处理器里 `not_found("…")` 抄。
+fn 业务叫它什么(表: &str) -> &'static str {
+    match 表 {
+        "outbox_event" => "event",
+        "product" => "product",
+        "sku" => "sku",
+        "price_book" => "price",
+        "promotion" => "promotion",
+        "coupon" => "coupon",
+        "subscription" => "subscription",
+        "order_record" => "order",
+        "payment" => "payment",
+        "refund" => "refund",
+        "shipment" => "shipment",
+        "recon_batch" => "batch",
+        "risk_rule" => "rule",
+        "risk_case" => "case",
+        "accounting_period" => "period",
+        "journal_entry" => "entry",
+        "app_user" => "user",
+        _ => "resource",
     }
 }
 
@@ -472,8 +522,18 @@ async fn list_products(
 }
 
 async fn get_product(
-    State(st): State<AppState>, _: Admin, Path(id): Path<String>,
+    State(st): State<AppState>, admin: Admin, Path(id): Path<String>,
 ) -> Result<Json<J>, ApiError> {
+    /* 【读也要问归属】（2026-09-03 五路评审 · 越权审计）。
+       `这个对象归他管吗` 从前只出现在写路由上 —— 十九处，一处不落，
+       而每一个 `get_X(:id)` 的签名都是 `_: Admin`。
+       实测:`region_scope={hk}` 的管理员按 id 读大陆的订单、支付、
+       运单、对账批次、凭证，七条全通。
+
+       门禁那六条探针里只有一条是读（`GET /orders?region=cn` 列表），
+       另五条全是写 —— 于是「读」这一整个面从来没被探过，
+       而列表被挡住这件事【恰好让人以为读已经守住了】。 */
+    这个对象归他管吗(&st.db, &admin, "product", &id).await?;
     let p = sqlx::query("SELECT * FROM product WHERE id=$1").bind(&id)
         .fetch_optional(&st.db).await.map_err(map_db)?
         .ok_or_else(|| ApiError::not_found("product"))?;
@@ -498,8 +558,18 @@ async fn list_skus_for_product(
 }
 
 async fn get_sku(
-    State(st): State<AppState>, _: Admin, Path(id): Path<String>,
+    State(st): State<AppState>, admin: Admin, Path(id): Path<String>,
 ) -> Result<Json<J>, ApiError> {
+    /* 【读也要问归属】（2026-09-03 五路评审 · 越权审计）。
+       `这个对象归他管吗` 从前只出现在写路由上 —— 十九处，一处不落，
+       而每一个 `get_X(:id)` 的签名都是 `_: Admin`。
+       实测:`region_scope={hk}` 的管理员按 id 读大陆的订单、支付、
+       运单、对账批次、凭证，七条全通。
+
+       门禁那六条探针里只有一条是读（`GET /orders?region=cn` 列表），
+       另五条全是写 —— 于是「读」这一整个面从来没被探过，
+       而列表被挡住这件事【恰好让人以为读已经守住了】。 */
+    这个对象归他管吗(&st.db, &admin, "sku", &id).await?;
     let s = sqlx::query("SELECT * FROM sku WHERE id=$1").bind(&id)
         .fetch_optional(&st.db).await.map_err(map_db)?
         .ok_or_else(|| ApiError::not_found("sku"))?;
@@ -599,8 +669,18 @@ async fn list_promotions(
 }
 
 async fn get_promotion(
-    State(st): State<AppState>, _: Admin, Path(id): Path<String>,
+    State(st): State<AppState>, admin: Admin, Path(id): Path<String>,
 ) -> Result<Json<J>, ApiError> {
+    /* 【读也要问归属】（2026-09-03 五路评审 · 越权审计）。
+       `这个对象归他管吗` 从前只出现在写路由上 —— 十九处，一处不落，
+       而每一个 `get_X(:id)` 的签名都是 `_: Admin`。
+       实测:`region_scope={hk}` 的管理员按 id 读大陆的订单、支付、
+       运单、对账批次、凭证，七条全通。
+
+       门禁那六条探针里只有一条是读（`GET /orders?region=cn` 列表），
+       另五条全是写 —— 于是「读」这一整个面从来没被探过，
+       而列表被挡住这件事【恰好让人以为读已经守住了】。 */
+    这个对象归他管吗(&st.db, &admin, "promotion", &id).await?;
     let p = sqlx::query("SELECT * FROM promotion WHERE id=$1").bind(&id)
         .fetch_optional(&st.db).await.map_err(map_db)?
         .ok_or_else(|| ApiError::not_found("promotion"))?;
@@ -859,8 +939,18 @@ async fn list_orders(
 }
 
 async fn get_order(
-    State(st): State<AppState>, _: Admin, Path(id): Path<String>,
+    State(st): State<AppState>, admin: Admin, Path(id): Path<String>,
 ) -> Result<Json<J>, ApiError> {
+    /* 【读也要问归属】（2026-09-03 五路评审 · 越权审计）。
+       `这个对象归他管吗` 从前只出现在写路由上 —— 十九处，一处不落，
+       而每一个 `get_X(:id)` 的签名都是 `_: Admin`。
+       实测:`region_scope={hk}` 的管理员按 id 读大陆的订单、支付、
+       运单、对账批次、凭证，七条全通。
+
+       门禁那六条探针里只有一条是读（`GET /orders?region=cn` 列表），
+       另五条全是写 —— 于是「读」这一整个面从来没被探过，
+       而列表被挡住这件事【恰好让人以为读已经守住了】。 */
+    这个对象归他管吗(&st.db, &admin, "order_record", &id).await?;
     let o = sqlx::query("SELECT * FROM order_record WHERE id=$1").bind(&id)
         .fetch_optional(&st.db).await.map_err(map_db)?
         .ok_or_else(|| ApiError::not_found("order"))?;
@@ -980,8 +1070,18 @@ async fn list_payments(
 }
 
 async fn get_payment(
-    State(st): State<AppState>, _: Admin, Path(id): Path<String>,
+    State(st): State<AppState>, admin: Admin, Path(id): Path<String>,
 ) -> Result<Json<J>, ApiError> {
+    /* 【读也要问归属】（2026-09-03 五路评审 · 越权审计）。
+       `这个对象归他管吗` 从前只出现在写路由上 —— 十九处，一处不落，
+       而每一个 `get_X(:id)` 的签名都是 `_: Admin`。
+       实测:`region_scope={hk}` 的管理员按 id 读大陆的订单、支付、
+       运单、对账批次、凭证，七条全通。
+
+       门禁那六条探针里只有一条是读（`GET /orders?region=cn` 列表），
+       另五条全是写 —— 于是「读」这一整个面从来没被探过，
+       而列表被挡住这件事【恰好让人以为读已经守住了】。 */
+    这个对象归他管吗(&st.db, &admin, "payment", &id).await?;
     let p = sqlx::query("SELECT * FROM payment WHERE id=$1").bind(&id)
         .fetch_optional(&st.db).await.map_err(map_db)?
         .ok_or_else(|| ApiError::not_found("payment"))?;
@@ -1116,8 +1216,18 @@ async fn list_shipments(
 }
 
 async fn get_shipment(
-    State(st): State<AppState>, _: Admin, Path(id): Path<String>,
+    State(st): State<AppState>, admin: Admin, Path(id): Path<String>,
 ) -> Result<Json<J>, ApiError> {
+    /* 【读也要问归属】（2026-09-03 五路评审 · 越权审计）。
+       `这个对象归他管吗` 从前只出现在写路由上 —— 十九处，一处不落，
+       而每一个 `get_X(:id)` 的签名都是 `_: Admin`。
+       实测:`region_scope={hk}` 的管理员按 id 读大陆的订单、支付、
+       运单、对账批次、凭证，七条全通。
+
+       门禁那六条探针里只有一条是读（`GET /orders?region=cn` 列表），
+       另五条全是写 —— 于是「读」这一整个面从来没被探过，
+       而列表被挡住这件事【恰好让人以为读已经守住了】。 */
+    这个对象归他管吗(&st.db, &admin, "shipment", &id).await?;
     let s = sqlx::query("SELECT * FROM shipment WHERE id=$1").bind(&id)
         .fetch_optional(&st.db).await.map_err(map_db)?
         .ok_or_else(|| ApiError::not_found("shipment"))?;
@@ -1189,8 +1299,18 @@ async fn list_recon_batches(
 }
 
 async fn get_recon_batch(
-    State(st): State<AppState>, _: Admin, Path(id): Path<String>,
+    State(st): State<AppState>, admin: Admin, Path(id): Path<String>,
 ) -> Result<Json<J>, ApiError> {
+    /* 【读也要问归属】（2026-09-03 五路评审 · 越权审计）。
+       `这个对象归他管吗` 从前只出现在写路由上 —— 十九处，一处不落，
+       而每一个 `get_X(:id)` 的签名都是 `_: Admin`。
+       实测:`region_scope={hk}` 的管理员按 id 读大陆的订单、支付、
+       运单、对账批次、凭证，七条全通。
+
+       门禁那六条探针里只有一条是读（`GET /orders?region=cn` 列表），
+       另五条全是写 —— 于是「读」这一整个面从来没被探过，
+       而列表被挡住这件事【恰好让人以为读已经守住了】。 */
+    这个对象归他管吗(&st.db, &admin, "recon_batch", &id).await?;
     let b = sqlx::query("SELECT * FROM recon_batch WHERE id=$1").bind(&id)
         .fetch_optional(&st.db).await.map_err(map_db)?
         .ok_or_else(|| ApiError::not_found("batch"))?;
@@ -1373,8 +1493,18 @@ async fn list_journal_entries(
 }
 
 async fn get_journal_entry(
-    State(st): State<AppState>, _: Admin, Path(id): Path<String>,
+    State(st): State<AppState>, admin: Admin, Path(id): Path<String>,
 ) -> Result<Json<J>, ApiError> {
+    /* 【读也要问归属】（2026-09-03 五路评审 · 越权审计）。
+       `这个对象归他管吗` 从前只出现在写路由上 —— 十九处，一处不落，
+       而每一个 `get_X(:id)` 的签名都是 `_: Admin`。
+       实测:`region_scope={hk}` 的管理员按 id 读大陆的订单、支付、
+       运单、对账批次、凭证，七条全通。
+
+       门禁那六条探针里只有一条是读（`GET /orders?region=cn` 列表），
+       另五条全是写 —— 于是「读」这一整个面从来没被探过，
+       而列表被挡住这件事【恰好让人以为读已经守住了】。 */
+    这个对象归他管吗(&st.db, &admin, "journal_entry", &id).await?;
     let e = sqlx::query("SELECT * FROM journal_entry WHERE id=$1").bind(&id)
         .fetch_optional(&st.db).await.map_err(map_db)?
         .ok_or_else(|| ApiError::not_found("entry"))?;

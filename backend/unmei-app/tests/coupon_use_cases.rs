@@ -388,3 +388,90 @@ async fn 一批发出来的券真的用得上() {
     let o = 下一单(&pool, &user, &sku, vec![码们[0].clone()]).await.expect("拿第一张下单");
     assert_eq!(o.amount_total_minor, 9000, "一成折扣该是 90 元");
 }
+
+// ═════════ 2026-09-03 五路评审 · 资金审计：活动预算 ═════════
+
+/// 建一个带预算的活动，返回 promotion_id。
+async fn 一个活动(pool: &sqlx::PgPool, 预算: i64, 已用: i64) -> String {
+    let id = common::uniq("promo");
+    sqlx::query(
+        "INSERT INTO promotion(id, code, name, kind, benefit_json,
+                               effective_from, effective_to,
+                               budget_minor, used_minor, status, region)
+         VALUES ($1, $1, '测试活动', 'pct_off', '{}'::jsonb,
+                 NOW() - INTERVAL '1 day', NOW() + INTERVAL '30 days',
+                 $2, $3, 'active', 'cn')",
+    )
+    .bind(&id)
+    .bind(预算)
+    .bind(已用)
+    .execute(pool)
+    .await
+    .expect("insert promotion");
+    id
+}
+
+async fn 发一张挂活动的(pool: &sqlx::PgPool, promo: &str, bps: i64) -> String {
+    let code = format!("P{}", uuid::Uuid::new_v4().simple());
+    coupon::issue(
+        pool,
+        coupon::IssueCoupon {
+            code: &code,
+            promotion_id: Some(promo),
+            owner_user_id: None,
+            benefit_json: json!({ "pct_off_bps": bps }),
+            expires_at: Utc::now() + Duration::days(30),
+            region: "cn",
+        },
+        &Actor::system(),
+    )
+    .await
+    .expect("发券");
+    code
+}
+
+/// 【预算要在减之前问「兜得住吗」】。
+///
+/// 原先的判据是 `used >= budget` —— 只拦「已经花超了」，
+/// 拦不住「这一张就会花超」。预算 10000 已用 9900 时，
+/// 一张减 5000 的券照样能用，活动实际支出 14900，超预算 49%。
+#[tokio::test]
+async fn 一张券撑破活动预算就用不了() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 10000).await;
+    let promo = 一个活动(&pool, 10000, 9900).await;   // 只剩 100 分额度
+    let code = 发一张挂活动的(&pool, &promo, 5000).await; // 五折 = 减 5000
+
+    let e = 下一单(&pool, &user, &sku, vec![code]).await.unwrap_err();
+    assert!(matches!(e, DomainError::Validation(_)), "拿到的是 {e:?}");
+}
+
+/// 兜得住的就照用 —— 这一条防的是「一刀切拦掉所有挂活动的券」。
+#[tokio::test]
+async fn 预算兜得住的券照常能用() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 10000).await;
+    let promo = 一个活动(&pool, 10000, 0).await;
+    let code = 发一张挂活动的(&pool, &promo, 5000).await;
+
+    let 单 = 下一单(&pool, &user, &sku, vec![code]).await.expect("该能用");
+    let 应付 = common::scalar_i64(
+        &pool, "SELECT amount_total_minor FROM order_record WHERE id=$1", &单.order_id,
+    ).await;
+    assert_eq!(应付, 5000, "券没减到");
+}
+
+/// 预算早就用光的，仍然是「用完了」那一句 —— 这一支原来就有，别改坏。
+#[tokio::test]
+async fn 预算用光的活动券用不了() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 10000).await;
+    let promo = 一个活动(&pool, 10000, 10000).await;
+    let code = 发一张挂活动的(&pool, &promo, 1000).await;
+
+    let e = 下一单(&pool, &user, &sku, vec![code]).await.unwrap_err();
+    assert!(matches!(e, DomainError::Validation(_)), "拿到的是 {e:?}");
+}

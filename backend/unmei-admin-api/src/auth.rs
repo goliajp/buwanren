@@ -7,6 +7,7 @@ use axum::{
 use jsonwebtoken::{encode, decode, EncodingKey, DecodingKey, Header, Validation, Algorithm};
 use serde::{Deserialize, Serialize};
 use unmei_domain::{AppError, ApiErrorBody, DomainError};
+use sqlx::Row;
 use crate::state::AppState;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -47,7 +48,43 @@ impl FromRequestParts<AppState> for Admin {
         let v = v.to_str().map_err(|_| ApiError(AppError::Unauthorized))?;
         let tok = v.strip_prefix("Bearer ").or_else(|| v.strip_prefix("bearer "))
             .ok_or(ApiError(AppError::Unauthorized))?;
-        let claims = decode_token(tok, &state.jwt_secret).map_err(ApiError)?;
+        let mut claims = decode_token(tok, &state.jwt_secret).map_err(ApiError)?;
+
+        /* 【停用一个管理员要当场生效】（2026-09-03 五路评审 · 越权审计）。
+
+           上一版验完签名就放行 —— 这个提取器【一次都没查过库】。
+           于是把一个管理员 `is_active=false`、甚至把整行删掉，
+           他手里那张 token 仍然能用满八小时，写操作照做。
+           而用户那一侧每个请求都查 `is_banned`（见 unmei-api/src/auth.rs）——
+           同一个仓里两套标准，松的那一套管的偏偏是权限更大的人。
+
+           角色与分区也从库里现取，不认 token 里那两份:
+           收回一个人的 `finance` 角色、把他的区从 cn 改成 hk，
+           都不该等到他重新登录才算数。token 里那两份只是签发时的快照，
+           而权限的真相在库里。
+
+           代价是每个请求多一次主键查询 —— 跟用户那一侧同一笔账。 */
+        let row = sqlx::query(
+            "SELECT is_active, roles, region_scope FROM admin_user WHERE id=$1",
+        )
+        .bind(&claims.sub)
+        .fetch_optional(&state.db)
+        .await
+        .map_err(|e| ApiError(AppError::Infra(format!("db: {e}"))))?;
+
+        // 人没了 = token 作废。这里给 401 不给 403 ——
+        // 「你这张票不算数了」，不是「你的票有效但不让你进」
+        let row = row.ok_or(ApiError(AppError::Unauthorized))?;
+        if !row.get::<bool, _>("is_active") {
+            return Err(ApiError(AppError::Unauthorized));
+        }
+        claims.roles = row
+            .get::<serde_json::Value, _>("roles")
+            .as_array()
+            .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+            .unwrap_or_default();
+        claims.region_scope = row.get::<Vec<String>, _>("region_scope");
+
         Ok(Admin(claims))
     }
 }
@@ -79,7 +116,15 @@ impl IntoResponse for ApiError {
         if let Some(detail) = self.0.detail() {
             tracing::error!(status = status.as_u16(), detail, "infra failure");
         }
-        let body = ApiErrorBody { error: self.0.to_string(), code: self.0.code().to_string() };
+        /* 【后台也不许把库的原文发出去】（2026-09-03 五路评审 · 越权审计）。
+           用户侧早改成 `出面()` 了，这一边一直是 `to_string()` ——
+           于是 `db: error returned from database: duplicate key value
+           violates unique constraint "…"` 连表名带约束名一起进响应体。
+           后台不是内网:它就是一个挂在公网上的登录页，
+           一个撞库成功的人由此拿到整张表结构。
+
+           原文照旧进日志（上面那一句），排查的人一点没少拿。 */
+        let body = ApiErrorBody { error: self.0.出面(), code: self.0.code().to_string() };
         (status, Json(body)).into_response()
     }
 }
