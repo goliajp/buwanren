@@ -420,6 +420,11 @@ if curl -sf http://127.0.0.1:6029/admin/health >/dev/null 2>&1; then
     # 【留痕覆盖不全等于没有】——查不到就只能假设它没发生过。
     # 这一支不看「写过没有」，看的是每条写路由打一次、审计里就要多一条。
     gate "后台写操作留痕了吗" . python3 scripts/check-audit-coverage.py
+    # 【前端挡的东西不算挡】——`region_scope` 一直只发不查:
+    # 登录时写进 token、前端拿它筛下拉框，而后端一处都不校验。
+    # 这一类靠自己人的 token 测永远看不出来（super 干什么都通），
+    # 所以这一支专门造一个只管一个区的管理员去碰别的区。
+    gate "分区管理员越不越得了区" . python3 scripts/check-admin-region.py
   else
     skip "幽灵 id 的写操作不许说成功" "业务 API（:6028）没起，跳过 —— 这一项【没验】"
   fi
