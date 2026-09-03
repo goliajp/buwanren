@@ -417,6 +417,9 @@ if curl -sf http://127.0.0.1:6029/admin/health >/dev/null 2>&1; then
   # 它两边都探（后台 17 条 + 用户侧 6 条），所以两个 API 都得起着。
   if curl -sf http://127.0.0.1:6028/v1/health >/dev/null 2>&1; then
     gate "幽灵 id 的写操作不许说成功" . python3 scripts/check-ghost-id.py
+    # 【留痕覆盖不全等于没有】——查不到就只能假设它没发生过。
+    # 这一支不看「写过没有」，看的是每条写路由打一次、审计里就要多一条。
+    gate "后台写操作留痕了吗" . python3 scripts/check-audit-coverage.py
   else
     skip "幽灵 id 的写操作不许说成功" "业务 API（:6028）没起，跳过 —— 这一项【没验】"
   fi

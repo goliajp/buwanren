@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Package, Tags, BadgePercent, Repeat,
   Receipt, CreditCard, Undo2, Truck, Scale, ShieldAlert, Wallet,
   Activity, ToggleLeft, Users as UsersI, Compass, BookOpen,
-  Radio, Database, LogOut,
+  Radio, Database, LogOut, ScrollText,
 } from 'lucide-react';
 import { authAtom, setAuthAtom, activeRegionAtom, setActiveRegionAtom } from '../store/auth';
 import { commerce } from '../lib/api';
@@ -37,6 +37,9 @@ const groups: { title: string; items: Item[] }[] = [
       { to: '/finance', cn: '财务', icon: Wallet },
       { to: '/risk', cn: '风控', icon: ShieldAlert, watch: 'open_risk_cases' },
       { to: '/outbox', cn: '事件', icon: Radio },
+      /* 【记了没人看等于没记】。审计表建库起就是空的，
+         而后台有十八个花钱或改账的写操作。 */
+      { to: '/audit', cn: '操作记录', icon: ScrollText },
     ],
   },
   {
