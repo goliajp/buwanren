@@ -579,6 +579,68 @@ do_console() {
   done
 }
 
+# ── 每一条读接口都打一遍 ────────────────────────────────────
+#
+# 【谁去打，决定了它是空态还是满态】。41 条用户接口里，前面那些用例
+# 顺带打到了 15 条 —— 剩下的没人碰过，而「没人碰过」跟「碰了没事」
+# 在总账上长得一模一样。
+#
+# 这一段逐条打，并且**用对的人打**：
+# 说明书要用买过的人去取，卦要用问过的人，本命摘要要用建过的人 ——
+# 用错人拿到的是 404，而那 404 说不清是「接口坏了」还是「这个人没有」。
+do_read_all() {  # do_read_all <T1..T5> <I2 的本命 id>
+  local T1=$1 T2=$2 T3=$3 T4=$4 T5=$5
+  local code
+
+  # 谁都能看的（不需要身份也不需要数据）
+  # 【`/v1/incense` 不在这一组】——它要身份（「你今天点没点香」是这个人的事）。
+  # 头一版把它列成公开的，报的是 401，而那 401 读起来像「接口挂了」。
+  for p in /v1/health /v1/products /v1/villagers /v1/badge /v1/activity; do
+    code=$(curl -s -o /dev/null -w '%{http_code}' "${API}${p}")
+    want "谁都看得到 ${p}" 200 "${code}"
+  done
+
+  # 要身份的:用【手里真有那样东西】的人去打
+  local pairs
+  # 每一行是「说明 | 用谁的 token | 路径」
+  pairs="我是谁|${T1}|/v1/user/me
+我的徽章|${T1}|/v1/user/me/badges
+我的本命|${T2}|/v1/user/natals
+问过的签|${T2}|/v1/naji/history
+我的村子|${T3}|/v1/village
+我买过的|${T4}|/v1/orders
+我订着的|${T4}|/v1/subscriptions
+我报了哪些活动|${T2}|/v1/activity/mine
+今天点没点香|${T3}|/v1/incense"
+  while IFS='|' read -r 名 tok p; do
+    [ -z "${p}" ] && continue
+    code=$(curl -s -o /dev/null -w '%{http_code}' "${API}${p}" -H "authorization: Bearer ${tok}")
+    want "${名}" 200 "${code}"
+  done <<< "${pairs}"
+
+  # 【要身份的，没身份就得挡住】。挑一条真会漏数据的:我买过的。
+  code=$(curl -s -o /dev/null -w '%{http_code}' "${API}/v1/orders")
+  want "不带身份看不到别人买过什么" 401 "${code}"
+
+  # 按 id 取的三条 —— 各用手里真有那一件的人
+  local nid oid rid naji
+  nid=$(call GET "${T2}" /v1/user/natals | jq -r '.[0].id // empty')
+  [ -n "${nid}" ] && want "本命摘要" 200 "$(curl -s -o /dev/null -w '%{http_code}' "${API}/v1/natal/${nid}/summary" -H "authorization: Bearer ${T2}")"
+  naji=$(call GET "${T2}" /v1/naji/history | jq -r '.items[0].id // empty')
+  [ -n "${naji}" ] && want "那一签" 200 "$(curl -s -o /dev/null -w '%{http_code}' "${API}/v1/naji/${naji}" -H "authorization: Bearer ${T2}")"
+  oid=$(call GET "${T4}" /v1/orders | jq -r '.items[0].id // empty')
+  if [ -n "${oid}" ]; then
+    want "一张单的详情" 200 "$(curl -s -o /dev/null -w '%{http_code}' "${API}/v1/orders/${oid}" -H "authorization: Bearer ${T4}")"
+    want "那一单的物流" 200 "$(curl -s -o /dev/null -w '%{http_code}' "${API}/v1/orders/${oid}/shipments" -H "authorization: Bearer ${T4}")"
+    # 【别人的单看不到】——这一条是这一段里最要紧的
+    want "别人的单看不到" 404 "$(curl -s -o /dev/null -w '%{http_code}' "${API}/v1/orders/${oid}" -H "authorization: Bearer ${T5}")"
+  fi
+  rid=$(psql1 "SELECT r.id FROM report r JOIN order_line ol ON ol.id=r.order_line_id
+                JOIN order_record o ON o.id=ol.order_id
+               WHERE o.user_id=(SELECT id FROM app_user WHERE nickname='P25·算过命的' LIMIT 1) LIMIT 1")
+  [ -n "${rid}" ] && want "买来的那册说明书" 200 "$(curl -s -o /dev/null -w '%{http_code}' "${API}/v1/reports/${rid}" -H "authorization: Bearer ${T2}")"
+}
+
 do_check() {
   [ -f "$STATE" ] || { say_bad "没有名册（${STATE}）—— 先 seed"; exit 2; }
   local T1 T2 T3 T4 T5 I1 I2 I3 I4 I5
@@ -640,6 +702,10 @@ do_check() {
   local root_sees
   root_sees=$(curl -s "$ADMIN/admin/users?size=200&q=P25" -H "authorization: Bearer $A_root" | jq -r '.total')
   want_some "阿超看得见 P25 的人" "$root_sees"
+
+  echo
+  echo "══ 每一条读接口都打一遍 · 用手里真有那样东西的人 ══"
+  do_read_all "$T1" "$T2" "$T3" "$T4" "$T5"
 
   do_admin_day "$A_root" "$I1" "$I2" "$I3" "$I4" "$I5"
 
