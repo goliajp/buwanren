@@ -24,9 +24,12 @@ const 去处: Record<string, { url: string; 说: string }> = {
   continous_30: { url: '/pages/home/index', 说: '去问一件事' },
   hundred_naji: { url: '/pages/home/index', 说: '去问一件事' },
   first_purchase: { url: '/pages/incense/index?id=prod-suhe-incense', 说: '去看看香' },
-  /* first_activity（到过场）那一条撤了 —— 那枚徽章 2026-09-01 下架了:
-     小程序里没有任何活动页面，也没有一处调活动接口，而这条路指向的是
-     「谁能来」名册，跟线下活动毫无关系。有活动入口那天再把两边一起加回来。 */
+  /* 【2026-09-03 加回来了】。这一条 2026-09-01 撤过 —— 那时小程序里没有
+     任何活动页面，也没有一处调活动接口，而它原先指向的是「谁能来」名册，
+     跟线下活动毫无关系。当时写的是「有活动入口那天再把两边一起加回来」。
+     今天报名整条链接上了（服务端 + 这一屏 + 后台签到），
+     徽章也随之回到在架（20260903006），所以这条路指得出去了。 */
+  first_activity: { url: '/pages/activity/index', 说: '看看有什么活动' },
 }
 
 /* 同一条路上只给最近的那一枚:按 `去处` 里的 url 分组，

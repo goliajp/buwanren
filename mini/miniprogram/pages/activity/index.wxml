@@ -1,0 +1,66 @@
+<view class="page">
+  <view class="hd">
+    <view class="title title-lg">去得了的</view>
+    <view class="hr"></view>
+  </view>
+
+  <view class="sk-rows" wx:if="{{loading}}">
+    <view class="sk-card" wx:for="{{[1,2]}}" wx:key="*this">
+      <view class="sk-body">
+        <view class="sk sk-line mid"></view>
+        <view class="sk sk-line short"></view>
+      </view>
+    </view>
+  </view>
+
+  <view class="err" wx:elif="{{err}}">
+    <view class="err-msg">{{err}}</view>
+    <button class="btn ghost" bindtap="load">再试一次</button>
+  </view>
+
+  <block wx:else>
+    <view class="list" wx:if="{{场次.length > 0}}">
+      <view wx:for="{{场次}}" wx:key="id" class="act">
+        <view class="act-top">
+          <view class="act-name">{{item.title}}</view>
+          <view class="act-cat">{{item.category}}</view>
+        </view>
+        <view class="act-sub" wx:if="{{item.sub_title}}">{{item.sub_title}}</view>
+        <!-- 三样要紧的摆一行：什么时候、在哪儿、多少钱。
+             价由后端给显示串（免费 / ¥49.00）—— 客户端不再自己拼一次，
+             那是「某一页又抄了一份金额格式」那条门禁盯着的事。 -->
+        <view class="act-meta">
+          <text>{{item.什么时候}}</text>
+          <text wx:if="{{item.city}}"> · {{item.city}}</text>
+          <text> · {{item.price_display}}</text>
+        </view>
+        <view class="act-foot">
+          <text class="act-left {{item.满了没有 ? 'full' : ''}}">{{item.人数话}}</text>
+          <!-- 报过名的那颗按钮说「不去了」——「已报名」是状态不是动作，
+               而这颗按钮按下去会发生事，它得说自己会做什么。
+               满了且没报过的按不动:那时它唯一诚实的样子是灰的。 -->
+          <button class="btn {{item.报了没有 ? 'ghost' : ''}}"
+                  disabled="{{!!忙着的 || (item.满了没有 && !item.报了没有)}}"
+                  data-id="{{item.id}}" bindtap="onSignUp">
+            <text wx:if="{{忙着的 === item.id}}">稍等</text>
+            <text wx:elif="{{item.报了没有}}">不去了</text>
+            <text wx:elif="{{item.满了没有}}">满了</text>
+            <text wx:else>报名</text>
+          </button>
+        </view>
+      </view>
+    </view>
+
+    <view class="empty" wx:else>
+      <view class="empty-t">这阵子没有活动</view>
+      <!-- 【空状态要指出去处】（设计册 10.7）。而这一屏没有去处可指 ——
+           活动是线下办的，不是买得到的东西。所以这里说清「什么时候会有」，
+           那是这一屏能给的唯一一件真事。 -->
+      <view class="empty-sub">办起来会摆在这儿 · 一场提前两周放出来</view>
+    </view>
+  </block>
+
+  <view class="cta">
+    <button class="btn ghost" bindtap="onBack">回去</button>
+  </view>
+</view>
