@@ -443,6 +443,10 @@ if curl -sf http://127.0.0.1:6029/admin/health >/dev/null 2>&1; then
     # 这一类靠自己人的 token 测永远看不出来（super 干什么都通），
     # 所以这一支专门造一个只管一个区的管理员去碰别的区。
     gate "分区管理员越不越得了区" . python3 scripts/check-admin-region.py
+    # 【建好了却不生效的开关比没有更糟】——`is_banned` 这一列从建库起就在，
+    # 两头都不接:后台看着能封，封完那个人照常下单。
+    # 这一支验的是「封完真的进不来、放开又能进」，不是「有没有这个接口」。
+    gate "封了的人真进不来吗" . python3 scripts/check-ban-works.py
   else
     skip "幽灵 id 的写操作不许说成功" "业务 API（:6028）没起，跳过 —— 这一项【没验】"
   fi

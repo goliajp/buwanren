@@ -69,9 +69,18 @@ console.log('· 登录成功');
 
 // ─── Orders 页 → 打开详情抽屉 ───
 await page.goto(BASE + '/orders');
-const row = page.locator(`tr:has-text("${oid.slice(-4)}")`).first(); // 列表用 shortId 截断,拿尾 4 位匹配
+/* 【单号列的截法改过，这里跟着改】（2026-09-03）。
+   原先是 `shortId`（头尾各留几位，中间省略号），所以拿【尾 4 位】能匹配到;
+   现在是 `briefId`（去掉 `ord-` 前缀取前 8 位），尾巴不再显示 ——
+   门禁报的是「等一行含 4835 的记录，等不到」，而那一行好好地在那儿。
+
+   改成拿 uuid 的【前 8 位】，跟 briefId 一致。 */
+const 前八 = oid.replace(/^ord-/, '').slice(0, 8);
+const row = page.locator(`tr:has-text("${前八}")`).first();
 await row.waitFor();
-await row.locator('button').last().click(); // Eye 详情按钮
+/* 详情原先靠行尾那个 Eye 按钮，2026-09-03 起【整行可点】——
+   那一行上现在没有按钮了，`locator('button').last()` 找不到东西。 */
+await row.click();
 const cancelBtn = page.locator('button:has-text("取消订单")');
 await cancelBtn.waitFor();
 if (await cancelBtn.isDisabled()) fail('unpaid 订单的取消按钮不该置灰');
