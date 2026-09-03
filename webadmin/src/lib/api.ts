@@ -143,6 +143,10 @@ export const commerce = {
   markShipmentException: (id: string, reason: string) =>
     api.post(`/commerce/shipments/${id}/mark-exception`, { reason }),
 
+  resolveReconRecord: (id: string, action: string, note: string) =>
+    api.post(`/commerce/recon/records/${id}/resolve`, { action, note }),
+  closeRiskCase: (id: string, state: string, note: string) =>
+    api.post(`/commerce/risk/cases/${id}/state`, { state, note }),
   listReconBatches: (p: any) => api.get<PageRes<any>>('/commerce/recon/batches' + qs(p)),
   getReconBatch: (id: string) => api.get<any>(`/commerce/recon/batches/${id}`),
 

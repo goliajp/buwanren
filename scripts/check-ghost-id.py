@@ -54,6 +54,13 @@ ADMIN_PROBES = [
      {'carrier_code': 'sf', 'tracking_no': '1'}),
     ('POST', '/admin/commerce/shipments/:id/mark-exception', {'reason': 'x'}),
     ('POST', '/admin/commerce/subscriptions/:id/cancel', {'immediate': False}),
+    # 2026-09-03 新加的三条写操作 —— 财务、对账、风控这三块
+    # 此前一个写操作都没有
+    ('POST', '/admin/commerce/finance/periods/:id/close', {}),
+    ('POST', '/admin/commerce/recon/records/:id/resolve',
+     {'action': 'known_fee', 'note': '手续费'}),
+    ('POST', '/admin/commerce/risk/cases/:id/state',
+     {'state': 'resolved', 'note': '查过了'}),
 ]
 
 

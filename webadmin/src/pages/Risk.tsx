@@ -7,6 +7,40 @@ import Pagination from '../components/Pagination';
 import { rel, ts, shortId, statusClass, statusLabel, enumLabel, riskStageLabel } from '../components/util';
 import { Power, RefreshCw } from 'lucide-react';
 
+function 严重度名(s?: string | null): string {
+  return { low: '轻', med: '中', high: '重', critical: '要命' }[s ?? ''] ?? (s ?? '—');
+}
+
+/* 结掉一个风控案子。
+ *
+ * 【「确实有问题」和「规则报错了」要分得开】。混成一个之后，
+ * 规则调不调、调哪一条，就再也无从判断。 */
+function 结案({ 案子, 结完 }: { 案子: any; 结完: () => void }) {
+  const [开着, 设开] = useState(false);
+  const [判, 设判] = useState('resolved');
+  const [说, 设说] = useState('');
+  const 提交 = useApiMutation({
+    mutationFn: () => commerce.closeRiskCase(案子.id, 判, 说.trim()),
+    onSuccess: () => { 设开(false); 设说(''); 结完(); },
+  });
+
+  if (!开着) return <button className="btn btn-soft" onClick={() => 设开(true)}>结案</button>;
+  return (
+    <div className="flex items-center gap-1.5">
+      <select className="select" value={判} onChange={(e) => 设判(e.target.value)}>
+        <option value="resolved">确实有问题，已处理</option>
+        <option value="false_positive">规则报错了</option>
+        <option value="investigating">还在查</option>
+      </select>
+      <input className="input w-44" placeholder="是怎么判的"
+             value={说} onChange={(e) => 设说(e.target.value)} />
+      <button className="btn btn-prim" disabled={!说.trim() || 提交.isPending}
+              onClick={() => 提交.mutate()}>{提交.isPending ? '…' : '存'}</button>
+      <button className="btn btn-ghost" onClick={() => 设开(false)}>算了</button>
+    </div>
+  );
+}
+
 export default function Risk() {
   const qc = useQueryClient();
   const [tab, setTab] = useState<'rules' | 'events' | 'cases'>('rules');
@@ -101,22 +135,30 @@ export default function Risk() {
         {tab === 'cases' && (
           <div className="panel">
             <table className="tbl">
-              <thead><tr><th>编号</th><th>类别</th><th>严重度</th><th>状态</th><th>负责</th><th>开始</th><th>结束</th><th>备注</th></tr></thead>
+              <thead><tr><th>编号</th><th>类别</th><th>严重度</th><th>状态</th><th>负责</th><th>开始</th><th>结束</th><th>备注</th><th>结案</th></tr></thead>
               <tbody>
                 {(cases.data?.items ?? []).map((c: any) => (
                   <tr key={c.id}>
                     <td className="id">{shortId(c.id)}</td>
                     <td>{enumLabel(c.kind)}</td>
-                    <td><span className={`${c.severity === 'critical' ? 'text-debt' : c.severity === 'high' ? 'text-pending' : 'text-ink-2'}`}>{c.severity}</span></td>
+                    <td><span className={c.severity === 'critical' ? 'text-debt' : c.severity === 'high' ? 'text-pending' : 'text-ink-2'}>{严重度名(c.severity)}</span></td>
                     <td><span className={statusClass(c.state)}>{statusLabel(c.state)}</span></td>
                     <td className="font-mono text-ink-3">{c.assigned_admin_id ?? '—'}</td>
                     <td>{rel(c.opened_at)}</td>
                     <td>{rel(c.closed_at)}</td>
                     <td className="text-xs text-ink-4 truncate max-w-[300px]">{c.audit_note}</td>
+                    {/* 【看完了总得能判】。在这一列之前风控页只能看:
+                        `RiskCaseState` 四个状态定义了，
+                        没有一条路走到 resolved 或 false_positive。 */}
+                    <td>
+                      {['resolved', 'false_positive'].includes(c.state)
+                        ? <span className="text-ink-4">已结</span>
+                        : <结案 案子={c} 结完={() => cases.refetch()} />}
+                    </td>
                   </tr>
                 ))}
                 {cases.data && cases.data.items.length === 0 && (
-                  <tr><td colSpan={8} className="text-center py-10 text-ink-4">— 无案件 —</td></tr>
+                  <tr><td colSpan={9} className="text-center py-10 text-ink-4">没有风控案子</td></tr>
                 )}
               </tbody>
             </table>

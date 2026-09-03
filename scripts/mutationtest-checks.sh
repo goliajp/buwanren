@@ -49,6 +49,9 @@ FILES=(
   webadmin/src/App.tsx
   webadmin/src/components/Layout.tsx
   webadmin/src/pages/Dashboard.tsx
+  # 标点那一支的变异对象（2026-09-03 从 Dashboard 换过来 ——
+  # 原锚点「（本页是总览）」在重写看板时删掉了）
+  webadmin/src/pages/Naji.tsx
   web/run-verify.sh
   backend/unmei-domain/src/lib.rs
   mini/miniprogram/types/natal.ts
