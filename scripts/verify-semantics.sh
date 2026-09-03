@@ -180,11 +180,16 @@ PAID=$(curl -sS -X POST "$API/v1/orders" \
 # 造出来的是真实链路造不出的状态（订单说收到钱、支付表一条记录都没有），
 # 而这一支每跑一次攒一笔。下面 371 行那一处一直是走真支付的，
 # 只有这里漏了。`check-money-consistency` 盯着这个数。
+#
+# 【`'\$PAID'` 多一层转义，这句就静静插 0 行】——第一次补的时候
+# 我在 heredoc 里写成了 `'\\$PAID'`，变量没展开，SELECT 匹配不到任何行。
+# INSERT ... SELECT 匹配 0 行【不报错】，于是这一支照常绿，
+# 而每跑一轮仍旧攒一笔孤儿订单 —— 隔了两轮门禁才被那条不变量抓出来。
 PSQL "UPDATE order_record SET status='paid', amount_paid_minor=amount_total_minor, paid_at=NOW() WHERE id='$PAID';
       INSERT INTO payment(id, order_id, user_id, channel, amount_minor, currency, status, paid_at, region)
       SELECT 'pay-vs-' || substring(o.id from 5), o.id, o.user_id, 'wechat_jsapi',
              o.amount_total_minor, o.currency, 'success', NOW(), o.region
-        FROM order_record o WHERE o.id='\$PAID'
+        FROM order_record o WHERE o.id='$PAID'
       ON CONFLICT (id) DO NOTHING;" >/dev/null
 echo "  自己造一笔已付的单： $PAID"
 code=$(curl -sS -o /tmp/cancelpaid.json -w '%{http_code}' -X POST "$ADMIN/admin/commerce/orders/$PAID/cancel" \

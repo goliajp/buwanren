@@ -147,6 +147,7 @@ export const commerce = {
     api.post(`/commerce/recon/records/${id}/resolve`, { action, note }),
   closeRiskCase: (id: string, state: string, note: string) =>
     api.post(`/commerce/risk/cases/${id}/state`, { state, note }),
+  listAudit: (p: any) => api.get<PageRes<any>>('/commerce/audit' + qs(p)),
   listReconBatches: (p: any) => api.get<PageRes<any>>('/commerce/recon/batches' + qs(p)),
   getReconBatch: (id: string) => api.get<any>(`/commerce/recon/batches/${id}`),
 

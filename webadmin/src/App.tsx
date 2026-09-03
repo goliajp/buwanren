@@ -16,6 +16,7 @@ import Reconciliation from './pages/Reconciliation';
 import Risk from './pages/Risk';
 import Finance from './pages/Finance';
 import Outbox from './pages/Outbox';
+import Audit from './pages/Audit';
 import Master from './pages/Master';
 import Users from './pages/Users';
 import Naji from './pages/Naji';
@@ -37,6 +38,7 @@ export default function App() {
     <Layout>
       <Routes>
         <Route path="/" element={<Dashboard />} />
+        <Route path="/audit" element={<Audit />} />
         <Route path="/products" element={<Products />} />
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/promotions" element={<Promotions />} />

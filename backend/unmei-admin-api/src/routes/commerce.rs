@@ -88,6 +88,7 @@ pub fn router() -> Router<AppState> {
         .route("/admin/commerce/outbox/:id/retry",                  post(retry_outbox))
         // ─── kpi 顶部仪表 ───
         .route("/admin/commerce/dashboard",                         get(dashboard_kpi))
+        .route("/admin/commerce/audit",                             get(list_audit))
         // ─── 6 region cell metadata(给 webadmin 顶部 region 切换器)───
         .route("/admin/regions",                                    get(list_regions))
         .route("/admin/exchange-rates",                             get(list_exchange_rates))
@@ -1266,6 +1267,31 @@ async fn monthly_report(
    而那正是这台控制台最不该说错的一句话。
    `map_db` 上抛之后前端拿到 500，react-query 会显示取数失败 ——
    「取不到」跟「是零」终于分得开。 */
+/// 后台做过的事。
+///
+/// 【`audit_log` 一直是空的，也没有地方看】——十八个写操作各自往业务表的
+/// `audit_note` 里拼一句话，那能回答「这条记录被谁动过」，
+/// 回答不了「今天这个人做了什么」。
+async fn list_audit(
+    State(st): State<AppState>, _: Admin, Query(q): Query<Pg>,
+) -> Result<Json<Page<J>>, ApiError> {
+    let kw = q.keyword.clone().unwrap_or_default();
+    let kw_like = format!("%{kw}%");
+    let rows = sqlx::query(
+        r#"SELECT a.id, a.admin_id, a.action, a.target_type, a.target_id,
+                  a.diff, a.ip, a.created_at, u.name AS admin_name
+             FROM audit_log a LEFT JOIN admin_user u ON u.id = a.admin_id
+            WHERE ($1='' OR a.action ILIKE $2 OR a.target_id ILIKE $2 OR a.admin_id ILIKE $2)
+            ORDER BY a.created_at DESC OFFSET $3 LIMIT $4"#,
+    ).bind(&kw).bind(&kw_like).bind(q.off()).bind(q.lim())
+     .fetch_all(&st.db).await.map_err(map_db)?;
+    let total: i64 = sqlx::query_scalar(
+        r#"SELECT COUNT(*) FROM audit_log
+            WHERE ($1='' OR action ILIKE $2 OR target_id ILIKE $2 OR admin_id ILIKE $2)"#,
+    ).bind(&kw).bind(&kw_like).fetch_one(&st.db).await.map_err(map_db)?;
+    Ok(Json(Page { items: map_rows(rows), total, page: q.page, size: q.size }))
+}
+
 async fn dashboard_kpi(
     State(st): State<AppState>, _: Admin, Query(q): Query<Pg>,
 ) -> Result<Json<J>, ApiError> {
