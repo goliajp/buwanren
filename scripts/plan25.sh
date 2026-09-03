@@ -523,6 +523,12 @@ SHOTS=${PLAN25_SHOTS:-/tmp/plan25-shots}
 
 do_shots() {
   command -v bun >/dev/null || { say_dim "没有 bun，逐屏走这一段跳过 —— 这一段【没验】"; return 0; }
+  # 【想跳过要显式说】。五轮截屏十来分钟，改一行文案就重跑一遍不划算 ——
+  # 但跳过必须留在总账上:`PLAN25_NO_SHOTS=1` 跳过，而它**不算通过**。
+  if [ "${PLAN25_NO_SHOTS:-0}" = 1 ]; then
+    say_dim "PLAN25_NO_SHOTS=1，逐屏走跳过 —— 这一段【没验】，不是通过"
+    return 0
+  fi
   rm -rf "${SHOTS}"; mkdir -p "${SHOTS}"
   bun web/build.mjs >/dev/null 2>&1 || { say_bad "镜像组装不起来"; return 1; }
 
@@ -551,6 +557,10 @@ do_shots() {
 # **接口给了 N 条，页面却一行都没渲** —— 那条判据对两个人一样成立。
 do_console() {
   command -v bun >/dev/null || { say_dim "没有 bun，后台逐页走跳过 —— 这一段【没验】"; return 0; }
+  if [ "${PLAN25_NO_SHOTS:-0}" = 1 ]; then
+    say_dim "PLAN25_NO_SHOTS=1，后台逐页走跳过 —— 这一段【没验】，不是通过"
+    return 0
+  fi
   local who email out
   for who in root hk; do
     case "${who}" in
