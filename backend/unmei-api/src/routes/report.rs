@@ -135,7 +135,11 @@ fn 人话(缺: &str, 够多: &str) -> String {
         "水" => "想得已经够多了，剩下的交给做",
         _ => "",
     };
-    if 够了.is_empty() { format!("{使劲}。") } else { format!("{使劲}。{够了}。") }
+    /* 【结尾不写句号】（.claude/CLAUDE.md ★ · 2026-09-05 逐屏走看见的）。
+       这一句摆在填完出生时间那一屏的圆角框里，是【界面短句】不是文章:
+       句号会让它读起来像念稿，而这一句正是全屏唯一一句人话。
+       两句时中间那个句号照留 —— 规矩只去掉结尾那一个。 */
+    if 够了.is_empty() { 使劲.to_string() } else { format!("{使劲}。{够了}") }
 }
 
 fn 排页(c: &J, version: Option<&str>, 今: chrono::NaiveDate) -> Vec<J> {
@@ -281,17 +285,15 @@ fn 排页(c: &J, version: Option<&str>, 今: chrono::NaiveDate) -> Vec<J> {
         pages.push(json!({
             "key": "yongshen", "title": "用神",
             "lead": 串(y.get("method")),
-            "rows": vec![
-                json!({"k": "主用", "v": format!("{} · {}", 串(y.get("primary_wuxing")), 串(y.get("primary_role")))}),
-                json!({"k": "次用", "v": format!("{} · {}", 串(y.get("secondary_wuxing")), 串(y.get("secondary_role")))}),
-                json!({"k": "所忌", "v": avoid}),
-            ],
+            "rows": 用神那三行(y, &avoid),
             "quote": 用神怎么读(
                 &串(y.get("method")),
                 &串(y.get("primary_wuxing")), &串(y.get("primary_role")),
                 &串(y.get("secondary_wuxing")), &串(y.get("secondary_role")),
                 &avoid,
                 c.get("strength").and_then(|s| s.get("score")).and_then(|v| v.as_i64()),
+                // 强弱那个词【照排盘给的写】，不从别的字段里猜 —— 见下面那一段
+                &c.get("strength").map(|s| 串(s.get("level"))).unwrap_or_default(),
             ),
             "source": 出处,
         }));
@@ -476,33 +478,76 @@ fn 这一步怎么读(这格: &J, 下格: Option<&J>, 喜: &str, 不喜: &[Strin
 ///
 /// 认不出的角色不硬编一句:宁可少说一句，也不给一段跟这张盘无关的话
 /// （跟 `格局怎么读` 同一条规矩）。
+/* 用神那一页的三行:主用 / 次用 / 所忌。
+   【空的那一行不摆上屏】（2026-09-05 · 25 计划的用户逐屏走）。
+   上一版三行无条件都摆，而「调候为主」这一路【本来就没有次用、没有所忌】
+   （mingli 的 yongshen.rs 里那一支 secondary 是 None、avoid 是空）。
+   于是屏上「次用」那一行只剩一个孤零零的分隔点「 · 」，
+   「所忌」那一行整个空着 —— 三行里两行是空的，其中一行还画着个点。
+   没有就是没有，不摆比摆一个空壳诚实。 */
+fn 用神那三行(y: &J, 忌: &str) -> Vec<J> {
+    // 两截都有才用分隔点连;只有一截就单摆那一截
+    let 连 = |a: String, b: String| match (a.is_empty(), b.is_empty()) {
+        (true, true) => String::new(),
+        (true, false) => b,
+        (false, true) => a,
+        (false, false) => format!("{a} · {b}"),
+    };
+    let mut rows = vec![];
+    for (k, v) in [
+        ("主用", 连(串(y.get("primary_wuxing")), 串(y.get("primary_role")))),
+        ("次用", 连(串(y.get("secondary_wuxing")), 串(y.get("secondary_role")))),
+        ("所忌", 忌.to_string()),
+    ] {
+        if !v.is_empty() { rows.push(json!({ "k": k, "v": v })); }
+    }
+    rows
+}
+
 fn 用神怎么读(法: &str, 主行: &str, 主角: &str, 次行: &str, 次角: &str,
-              忌: &str, 分: Option<i64>) -> String {
+              忌: &str, 分: Option<i64>, 级: &str) -> String {
     let 一路 = |角: &str| match 角.trim_end_matches('星') {
         "印" => Some("生你、护你的那一路 —— 长辈、学问、退路。它一边补你，一边替你挡住压你的那一路，一举两得"),
         "比劫" | "比" => Some("跟你同一路的人和事 —— 同伴、同行、你自己那股劲。它不给你新东西，但能陪你一起扛"),
         "食伤" | "食" => Some("你往外拿出来的那一路 —— 表达、手艺、做出来的成果。它替你把憋着的劲泄出去"),
         "财" => Some("你要经手、要守住的那一路 —— 钱、事、答应下来的责任。它耗你，也是你使力的地方"),
         "官杀" | "官" => Some("压着你的那一路 —— 职位、制度、别人对你的期待，以及突然压到头上的事"),
+        // 【调候不是十神】。中和那一路的 primary_role 是「调候」,
+        // 上面五条一条也对不上，于是这句解释整个不出现 —— 而那正是
+        // 最需要解释的一路:它既不帮你也不耗你，光写一个五行名说明不了什么
+        "调候" => Some("把冷暖燥湿拉回中间的那一味 —— 它不添力气，只让这张盘待着舒服"),
         _ => None,
     };
+    /* 【三条路，不是两条】（2026-09-05 · 25 计划的用户逐屏走）。
+       上一版判的是 `法.contains("身弱")`，两支:身弱、其余。
+       而排盘那边的 `method` 有三个值（mingli 的 yongshen.rs）:
+         「扶抑 · 身强宜耗」「扶抑 · 身弱宜扶」「调候为主」
+       第三个落进了 else，于是【中和的盘被写成偏强】。
+
+       实测就在 25 计划的那一册里:日主那一页的标题写着「中和 · 综合 47」，
+       翻一页到用神，这里写着「你这张盘偏强（综合 47 分）」——
+       同一个数字，隔着一页两个说法，而后面整段
+       「偏强不缺力气，缺的是使出去的地方」都是照着一个不成立的前提说的。
+
+       强弱那个词现在照排盘给的 `strength.level` 写
+       （强 / 偏强 / 中和 / 偏弱 / 弱），不从 method 里猜。 */
     let 弱 = 法.contains("身弱");
+    let 调候 = 法.contains("调候");
+    // 排盘没给 level 时才退回按 method 说 —— 退回的话也只说得出两档
+    let 叫法 = if !级.is_empty() { 级 } else if 弱 { "偏弱" } else { "偏强" };
+    let 分文 = match 分 { Some(n) => format!("（综合 {n} 分）"), None => String::new() };
     let mut 话 = String::new();
-    match 分 {
-        Some(n) if 弱 => 话.push_str(&format!("你这张盘偏弱（综合 {n} 分）。偏弱不是不好，是手上的牌需要人搭把手 ——
-
-")),
-        Some(n) => 话.push_str(&format!("你这张盘偏强（综合 {n} 分）。偏强不缺力气，缺的是使出去的地方 ——
-
-")),
-        None if 弱 => 话.push_str("你这张盘偏弱，需要人搭把手 ——
-
-"),
-        None => 话.push_str("你这张盘偏强，缺的是使出去的地方 ——
-
-"),
-    }
-    let 头 = if 弱 { "先找能帮你的" } else { "先找能替你使出去的" };
+    话.push_str(&if 调候 {
+        // 中和这一路要说清【为什么不扶也不耗】——否则下面那句「调匀」没有来由
+        format!("你这张盘{叫法}{分文}。扶一把、耗一点都使不上劲，这时候看的是冷暖燥湿 ——\n\n")
+    } else if 弱 {
+        format!("你这张盘{叫法}{分文}。{叫法}不是不好，是手上的牌需要人搭把手 ——\n\n")
+    } else {
+        format!("你这张盘{叫法}{分文}。{叫法}不缺力气，缺的是使出去的地方 ——\n\n")
+    });
+    let 头 = if 调候 { "先找能把这张盘调匀的" }
+             else if 弱 { "先找能帮你的" }
+             else { "先找能替你使出去的" };
     话.push_str(&format!("{头}：{主行}排第一"));
     if let Some(说) = 一路(主角) { 话.push_str(&format!("，它在你这儿是{说}")); }
     话.push_str("。");
@@ -680,6 +725,75 @@ mod tests {
     }
 
     /// 格局那一页:那句出处正是下面两行拼起来的,拆得开就不摆原句。
+    /* 用神那一页有三条路，而上一版只有两条 —— 中和那一路落进了「偏强」。
+       这两条断言各盯一半:说法对不对（叫法跟隔壁那页一致），
+       以及空的行摆没摆上屏。 */
+    /* 界面短句结尾不写句号（.claude/CLAUDE.md ★）。
+       两句时中间那个照留 —— 规矩只去掉结尾那一个。 */
+    #[test]
+    fn 结论那一句不以句号收尾() {
+        let 一句 = 人话("金", "");
+        assert_eq!(一句, "该收的收、该断的断，别拖着");
+        let 两句 = 人话("金", "金");
+        assert_eq!(两句, "该收的收、该断的断，别拖着。已经够克制了，不用再逼自己一把");
+        for x in [&一句, &两句] {
+            assert!(!x.ends_with('。'), "界面短句结尾不写句号：{x}");
+        }
+    }
+
+    #[test]
+    fn 中和的盘不许写成偏强() {
+        // mingli 的 yongshen.rs:中和这一路走调候，次用是 None、所忌是空
+        let c = json!({
+            "input": { "year": 1992, "month": 3, "day": 15 },
+            "strength": { "level": "中和", "score": 47 },
+            "yongshen": {
+                "method": "调候为主",
+                "primary_wuxing": "金", "primary_role": "调候",
+                "secondary_wuxing": J::Null, "secondary_role": J::Null,
+                "avoid_wuxing": [],
+            },
+        });
+        let 页 = 排页(&c, None, 日(2026, 9, 5));
+        let p = 页.iter().find(|x| x["key"] == "yongshen").unwrap();
+        let 文 = p["quote"].as_str().unwrap();
+        assert!(文.contains("中和"), "强弱那个词要照排盘给的写：{文}");
+        assert!(!文.contains("偏强") && !文.contains("偏弱"),
+                "中和的盘不许被说成偏强或偏弱：{文}");
+        assert!(文.contains("冷暖燥湿"), "调候这一路要说清为什么不扶也不耗：{文}");
+
+        // 次用与所忌都没有 —— 不该在屏上留一行「 · 」和一行空的
+        let 行 = p["rows"].as_array().unwrap();
+        assert_eq!(行.len(), 1, "只有主用一行才对：{行:?}");
+        assert_eq!(串(行[0].get("k")), "主用");
+        assert_eq!(串(行[0].get("v")), "金 · 调候");
+    }
+
+    #[test]
+    fn 身强身弱那两路照旧说得出来() {
+        let 说 = |法: &str, 级: &str, 次: J, 忌: Vec<&str>| {
+            let c = json!({
+                "input": { "year": 1992, "month": 3, "day": 15 },
+                "strength": { "level": 级, "score": 70 },
+                "yongshen": {
+                    "method": 法,
+                    "primary_wuxing": "水", "primary_role": "食伤",
+                    "secondary_wuxing": 次, "secondary_role": if 次.is_null() { J::Null } else { json!("财") },
+                    "avoid_wuxing": 忌,
+                },
+            });
+            let 页 = 排页(&c, None, 日(2026, 9, 5));
+            let p = 页.iter().find(|x| x["key"] == "yongshen").unwrap().clone();
+            (p["quote"].as_str().unwrap().to_string(), p["rows"].as_array().unwrap().len())
+        };
+        let (强, 行数) = 说("扶抑 · 身强宜耗", "偏强", json!("木"), vec!["土", "金"]);
+        assert!(强.contains("偏强") && 强.contains("缺的是使出去的地方"), "{强}");
+        assert_eq!(行数, 3, "三样都有的时候三行都要在");
+
+        let (弱, _) = 说("扶抑 · 身弱宜扶", "偏弱", json!("木"), vec!["土"]);
+        assert!(弱.contains("偏弱") && 弱.contains("搭把手"), "{弱}");
+    }
+
     #[test]
     fn 格局拆得开就不摆那句原话() {
         let 拆 = |p: J| -> Vec<String> {
