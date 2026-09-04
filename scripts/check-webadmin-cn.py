@@ -25,6 +25,13 @@ import pathlib, re, sys
     'unmei · console',
     # 单位与代号:夹缝那一条会扫到它们，而它们本来就是这么写的
     'ms', 'cell',
+    # 【事件页那两句真该是英文】（2026-09-04 · 25 计划的后台逐页走）。
+    # 这一页是给排查用的:运营在这儿输的就是 `event id`、`aggregate id`,
+    # 而事件类别（`OrderPaid` / `RefundCompleted`）是【领域事件的名字】——
+    # 它要跟代码里、日志里的那个字对得上，翻成中文就搜不着了。
+    # 跟 `util.ts` 里那条取舍同源:编出来的名字比英文原值更难查。
+    'event id / aggregate id / kind',
+    'OrderPaid / RefundCompleted / …',
 }
 中文 = re.compile(r'[一-鿿]')
 # 整段英文：字母开头，通篇只有字母、空格与常见标点
@@ -61,6 +68,14 @@ for f in sorted(根.rglob('*.tsx')):
             候选 += [m.group(1) for m in re.finditer(r'>([^<>{}\n]{3,50})<', 行)]
         # 给人看的属性
         候选 += [m.group(2) for m in re.finditer(r'(placeholder|title)="([^"]{3,50})"', 行)]
+        # 【写成对象属性的那些也算】（2026-09-04 · 25 计划的后台逐页走）。
+        # 上面那条只认 JSX 属性 `placeholder="…"`,
+        # 而这台控制台的筛选条是【数据驱动】的:
+        #   { kind: 'text', key: 'keyword', label: '找', placeholder: 'code / name' }
+        # 同一个东西两种写法，判据只认一种 —— 于是促销页搜索框里那句
+        # `code / name`、事件页的 `event id / aggregate id / kind`
+        # 从来没被这一支看见过。
+        候选 += [m.group(2) for m in re.finditer(r"(placeholder|label|title):\s*'([^']{3,50})'", 行)]
         # 【夹在两个表达式之间的那些字】（2026-09-04 · 25 计划的后台逐页走）。
         # 上面那条要的是 `>文字<`，而 JSX 里最常见的文案位置是
         # `{从}–{到} of {总}` —— 「of」夹在 `}` 与 `{` 之间，
