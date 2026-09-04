@@ -66,8 +66,18 @@ function 这一单走到哪儿(status: string, d: OrderDetail): Array<{ t: strin
   const 住下了 = 付了 && !d.to_scan &&
     (d.lines || []).filter((l) => l.becomes_resident)
                    .every((l) => l.fulfillment_status === 'done')
+  /* 【「收到」判的是签收，不是「建了运单」】（2026-09-04 · 25 计划）。
+     上一版写的是 `(d.shipments||[]).length > 0` —— 运单一建出来
+     最后那一格就亮，而包裹这时候刚离开仓库。买家看到「收到」亮着，
+     读到的是「已经签收了」。
+
+     这跟上面那段御守的教训是同一句话的另一半:那次发现
+     「有没有运单」对御守【永远为假】,这次是它对实物【太早为真】。
+     判据换成运单自己说的:`delivered` 才是收到。 */
+  const 收到了 = (d.shipments || []).some(
+    (x) => x.status === 'delivered' || !!x.delivered_at)
   const 做好了 = 住 ? 住下了
-    : (!册 ? (d.shipments || []).length > 0 : 册.status === 'ready')
+    : (!册 ? 收到了 : 册.status === 'ready')
   const 完了 = status === 'done' || (住 && 住下了)
 
   /* 【走过的必须是连着的一段】。分开判各步的话会出现「还没付款、
@@ -139,7 +149,17 @@ function 下一步等什么(status: string, d: OrderDetail): string {
      真实的两种是:履约跑完了（他住下了），或者还没跑到（正在收拾）。 */
   if (住) return d.to_scan ? '正在收拾屋子 —— 一会儿就好' : '已经住进来了 —— 上面那颗按钮进得去'
   if (册) return 册.status === 'ready' ? '算好了 —— 上面那颗按钮打得开' : '在算了 —— 算好会告诉你'
-  return '已经付过了，等寄出'
+  /* 【寄东西的那一支，要看包裹走到哪儿】（2026-09-04 · 25 计划）。
+     上一版这里只有一句「已经付过了，等寄出」—— 而下面那一块
+     物流卡上明明白白写着「在途 · sf · P25ADMIN0001」。
+     同一屏两个说法，而「等寄出」那句是错的:它已经在路上了。
+     买家最想知道的就是这一件事，它却是屏上唯一说错的地方。 */
+  const 包裹 = (d.shipments || [])[0]
+  if (!包裹) return '已经付过了，等寄出'
+  if (包裹.status === 'delivered' || 包裹.delivered_at) return '寄到了 —— 收好'
+  if (包裹.status === 'exception') return '路上出了点状况 —— 底下那张卡上有轨迹'
+  if (包裹.status === 'in_transit') return '在路上了 —— 底下那张卡看得到走到哪儿'
+  return '已经交给快递了 —— 有了单号这一屏会告诉你'
 }
 
 Page({

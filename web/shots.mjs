@@ -110,22 +110,66 @@ if (API && !TOKEN) {
   }
 }
 
-const 单子 = API ? await p.evaluate(async (base) => {
-  const t = JSON.parse(localStorage.getItem('unmei:buwanren:token') || 'null')
-  if (!t) return null
-  const r = await fetch(base + '/v1/orders', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: 'Bearer ' + t, 'idempotency-key': 'shot-' + Math.random() },
-    body: JSON.stringify({ lines: [{ sku_id: 'sku-naji-deep', qty: 1 }], region: 'cn' }),
-  })
-  return r.ok ? (await r.json()).order_id : null
-}, API) : null
+/* 【带身份走的时候，看他自己的单子】（2026-09-04 · 25 计划）。
+   下面那一段是给匿名新人准备的:他一张单也没有，不造一张就截不到
+   订单那一屏。而 `--token` 进来的是 25 计划那五个人，他们【本来就有单子】,
+   而且各是一种状态 —— 在途的、出了状况的、退了款的、刚下还没付的。
+
+   头一版不管三七二十一先下一单深纳吉，于是那五个人的订单屏
+   【一模一样】：都是一张「你的说明书 ¥199 待付」。
+   「五个人各是一种状态」这句话在订单这几屏上一个字都没兑现，
+   而三十九张图看上去张张都在。
+
+   挑的顺序按【最该被人看一眼的】排:在履约的（包裹在路上或出了状况）
+   排最前，然后是退过款的，再是已付、待付。 */
+const 挑一张已有的单 = async () => {
+  const 全部 = await p.evaluate(async (base) => {
+    const t = JSON.parse(localStorage.getItem('unmei:buwanren:token') || 'null')
+    if (!t) return []
+    const r = await fetch(base + '/v1/orders?size=50', { headers: { authorization: 'Bearer ' + t } })
+    if (!r.ok) return []
+    const j = await r.json()
+    return (j.items || j.orders || []).map((x) => ({ id: x.id, status: x.status }))
+  }, API)
+  const 顺序 = ['fulfilling', 'refunded', 'refund_partial', 'paid', 'done', 'unpaid']
+  for (const st of 顺序) {
+    const 中 = 全部.find((x) => x.status === st)
+    if (中) { console.log(`· 订单那一屏用他自己的（${st}）`); return 中.id }
+  }
+  return null
+}
+
+const 单子 = API
+  ? (TOKEN && await 挑一张已有的单()) || await p.evaluate(async (base) => {
+      const t = JSON.parse(localStorage.getItem('unmei:buwanren:token') || 'null')
+      if (!t) return null
+      const r = await fetch(base + '/v1/orders', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: 'Bearer ' + t, 'idempotency-key': 'shot-' + Math.random() },
+        body: JSON.stringify({ lines: [{ sku_id: 'sku-naji-deep', qty: 1 }], region: 'cn' }),
+      })
+      return r.ok ? (await r.json()).order_id : null
+    }, API)
+  : null
 
 /* 那一册要有真内容才看得出好坏 —— 六页盘面是这一屏的全部。
    跟 verify 同一个路子:把册子种进库，页面照样走真的 /v1/reports/:id，
    跳过的只有「付钱」那一跳（那只有真机有）。 */
+/* 【册子只种在本来就该有册子的那一单上】（2026-09-04 · 25 计划）。
+   下面这段是给匿名新人补一份说明书用的 —— 没有真内容那一屏看不出好坏。
+   它认的是 `单子`，而 `单子` 现在可能是【带身份走时挑出来的那一笔】,
+   那一笔完全可能是一只实物盒子。往实物单上种一份说明书，
+   订单详情就按「有册子」那一支画:进度条走成「算好 → 读过」、
+   主按钮写「读你的说明书」—— 一只寄出去的盒子被画成了一本书。
+
+   第一版就是这么截出来的，图上那句「读你的说明书」看着像产品 bug，
+   其实是这个脚本自己种出来的。**验收工具造出来的假象，
+   比它没验到的东西更坏** —— 后者是个缺口，前者会让人去修一个不存在的毛病。
+
+   所以带身份走时不种:那五个人里该有册子的（买过说明书的那位）
+   本来就有，走到那一屏读的是他自己的真册子。 */
 let 册 = null
-if (API && 单子) {
+if (API && 单子 && !TOKEN) {
   try {
     const uid = sql1(`SELECT user_id FROM order_record WHERE id='${单子}'`)
     const 盘 = sql1(`SELECT natal_id FROM natal_summary WHERE raw_chart IS NOT NULL LIMIT 1`)
