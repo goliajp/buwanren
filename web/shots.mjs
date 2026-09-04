@@ -169,6 +169,29 @@ const 单子 = API
    所以带身份走时不种:那五个人里该有册子的（买过说明书的那位）
    本来就有，走到那一屏读的是他自己的真册子。 */
 let 册 = null
+/* 【带身份走时，用他自己的那一册】（2026-09-05 · 25 计划）。
+   下面那一段是给匿名新人【种】一册用的。而 `--token` 进来的五个人里，
+   买过说明书的那位【本来就有】——上一版只做到「带 token 时不种」,
+   于是他有册子也截不到，报告那一屏空着;
+   而什么都没买的那位（U1「新来的」）本来就不该有,
+   却被判成「种不出册子」。两种都报成同一句红。 */
+if (API && TOKEN) {
+  /* 【问后端要「我是谁」，不等前端写下来】。
+     `--token` 那一段只往 localStorage 里塞了 token，页面还没再走一趟,
+     所以 `buwanren:user` 这时候是【空的】——照着它查，
+     买过说明书的那位也会被判成「没有说明书」（头一版就是这样）。
+     token 自己就能换出用户，直接问 `/v1/user/me`。 */
+  const 我是谁 = await p.evaluate(async (a) => {
+    const r = await fetch(a.base + '/v1/user/me', { headers: { authorization: 'Bearer ' + a.t } })
+    return r.ok ? (await r.json()).id : null
+  }, { base: API, t: TOKEN })
+  if (我是谁) {
+    try {
+      册 = sql1(`SELECT id FROM report WHERE user_id='${我是谁}' AND status='ready'`
+                + ` ORDER BY ready_at DESC LIMIT 1`) || null
+    } catch { 册 = null }
+  }
+}
 if (API && 单子 && !TOKEN) {
   try {
     const uid = sql1(`SELECT user_id FROM order_record WHERE id='${单子}'`)
@@ -260,9 +283,21 @@ const 屏 = [
  * 不打真后端时它们本来就到不了，那一档只要求其余的一张不少。 */
 const 该有几屏 = 屏.length
 const 缺的 = []
-if (API) {
+/* 【带身份走的那一档，「他没有」不是「坏了」】（2026-09-05 · 25 计划）。
+   匿名那一档是这个脚本自己种册子、自己下单 —— 所以缺了就是真出事:
+   下单坏了，或者册子生成坏了。
+
+   而 `--token` 进来的是 25 计划那五个人，他们各是一种状态:
+   「新来的」那位【什么都没买过】，那正是他存在的理由（他撑着每一屏的空态）。
+   要求他有一册说明书，等于要求空态用户不空。
+   上一版把这两件事报成同一句「种不出册子」——
+   五个人里两个人当场红，而红的说法指向一个不存在的故障。 */
+if (API && !TOKEN) {
   if (!册) 缺的.push('report —— 种不出册子，报告那一屏没截到')
   if (!单子) 缺的.push('order —— 下不成单，订单那一屏没截到')
+} else if (API) {
+  if (!册) console.log('· 这个人没有说明书 —— 报告那一屏跳过（不是缺）')
+  if (!单子) console.log('· 这个人没下过单 —— 订单那一屏跳过（不是缺）')
 }
 
 const 量 = {}
