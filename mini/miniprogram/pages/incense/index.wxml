@@ -71,9 +71,11 @@
        那张占位页换个地方摆出来。 -->
   <view wx:if="{{tonight}}" class="flexslot slot-e1 slot-on"
         bindtap="goTonight" hover-class="entry-hover" hover-stay-time="100">
-    <text>今晚九点已经开始了，一起点一支</text><text class="slot-arrow">›</text>
+    <text>{{今口}}已经开始了，一起点一支</text><text class="slot-arrow">›</text>
   </view>
-  <view wx:else class="flexslot slot-e1">周四晚九点，村里一起点一支</view>
+  <!-- 时刻由后端那份排期生成（`utils/incense-when.ts`）。取不到就整句不摆 ——
+       屏上那句话曾经写死是「周四晚九点」，而它在后端是配置。 -->
+  <view wx:elif="{{当口}}" class="flexslot slot-e1">{{当口}}，村里一起点一支</view>
 
   <view class="acts">
     <button class="btn ghost" bindtap="onBack">回去</button>

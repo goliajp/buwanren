@@ -11,6 +11,7 @@
 import { natalApi } from '../../services/natal'
 import { 脸 } from '../../utils/face'
 import { incenseApi } from '../../services/incense'
+import { 那一天那一刻, 今天那一刻 } from '../../utils/incense-when'
 import { commerceApi } from '../../services/commerce'
 import { storage } from '../../services/storage'
 import type { ApiError } from '../../services/api'
@@ -37,6 +38,11 @@ interface IData {
   err: string
   /** 今晚那一场开着没有（设计册 E1）。开着这一槽才是入口 */
   tonight: boolean
+  /** 点香是几点（「周四晚九点」/「今晚九点」）。**按后端那份排期生成** ——
+   *  几点点香在后端是配置，写死在屏上的话，挪了时间就成了一句假话。
+   *  取不到就是空串:这一句宁可不显示，也不说一个可能已经不对的时刻 */
+  当口: string
+  今口: string
   /** 她那一句。没有本命时是空 —— **不编一句**，改说不知道并给出口 */
   line: string
   skus: Array<{ id: string; name: string; priceText: string; 荐: boolean }>
@@ -60,7 +66,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     /* 这一屏就是苏合的 —— 头像也就写死她。
        上一轮接四十张脸时扫的是 `face-{{…}}` 那种模式，
        这里的类名是写死的 `face-near`，于是漏掉了。 */
-    脸样: 脸('suhe'), productId: 'prod-suhe-incense', loading: true, err: '', line: '', skus: [], tonight: false },
+    脸样: 脸('suhe'), productId: 'prod-suhe-incense', loading: true, err: '', line: '', skus: [], tonight: false, 当口: '', 今口: '' },
 
   onLoad(q: Record<string, string | undefined>) {
     if (q.id) this.setData({ productId: q.id })
@@ -97,6 +103,11 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     incenseApi.now().then(
       (n) => this.setData({ tonight: !!n }),
       () => this.setData({ tonight: false }),
+    )
+    incenseApi.schedule().then(
+      (s) => this.setData({ 当口: 那一天那一刻(s), 今口: 今天那一刻(s) }),
+      // 取不到就不说时刻。说错一个钟点比不说更伤 —— 有人会照着它来
+      () => this.setData({ 当口: '', 今口: '' }),
     )
   },
 
