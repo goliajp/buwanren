@@ -256,6 +256,32 @@ mock_carrier_exception()  { mock_ship "$1" exception  "$2"; }
 # mock：承运商推来「已签收」
 mock_carrier_delivered()  { mock_ship "$1" delivered; }
 
+# 下一单，把单号打出来。下不成就【当场喊】，不往下走。
+#
+# 【下单失败不许静默】（2026-09-04）。头一版写的是
+#   o4b=$(call POST ... | jq -r '.order_id // empty')
+#   if [ -n "$o4b" ]; then ... fi
+# —— 下单失败时 `o4b` 是空的，整块直接跳过，seed 报「造好了」，
+# 而三个环节之后用例报「有一件包裹在途 空的」。那条红指的是履约，
+# 真正坏掉的是三步之前的下单，中间隔着两个函数。
+# 真因当时是库存耗尽，接口原原本本答了「不够了 —— 要 1，还剩 0」,
+# 这句话被 `// empty` 吃掉了。
+must_order() {  # must_order <token> <单据 JSON> <这一单是干嘛的> → 打印单号
+  local tok=$1 body=$2 what=$3 resp oid
+  resp=$(call POST "$tok" /v1/orders "$body")
+  oid=$(printf '%s' "$resp" | jq -r '.order_id // empty')
+  if [ -z "$oid" ]; then
+    # 【报错要走 stderr】。这个函数的返回值是【命令替换取走的】——
+    # 打在 stdout 上的话，这句话会被 `$( )` 连同单号一起吞进变量里，
+    # 于是脚本静默退出，一个字都不留在屏幕上。
+    # 2026-09-04 这个函数第一版就栽在这:它是为了「失败不许静默」而写的，
+    # 自己却静默了一次。
+    say_bad "下不了单（${what}）—— 接口说：$(printf '%s' "$resp" | head -c 300)" >&2
+    return 1
+  fi
+  printf '%s' "$oid"
+}
+
 make_user() {  # make_user <代号> <区> → 打印 "token id"
   local tok id
   tok=$(anon_login)
@@ -329,6 +355,30 @@ VALUES ('p25-pb-oma-cn', 'p25-sku-oma-ayun', 'CNY', 9900, 'cn', 'all', 'active',
        -- 观察模式要看的就是「它会拦下什么」，而不命中的话那一整块验不到。
        ('p25-pb-box-p25', 'p25-sku-box',     'CNY', 128000, 'p25', 'all', 'active', NOW())
 ON CONFLICT (id) DO UPDATE SET status='active';
+
+-- 【super 的 scope 是 global，不是某一个区】。种子给阿超的是 {cn} ——
+-- 于是验收区里的单他在后台一条都读不到，「给包裹填运单号」当场 403。
+--
+-- 头一版想的是给他加一格写成 {cn,p25}。那条路把另一件事炸了出来：
+-- `normalize_region_scoped` 的规矩是「scope 有多个区、请求又不带 region
+-- 参数 → 当场拒」（注释写着「跨区聚合要另设一个明确的接口」）。
+-- 于是阿超一管两个区，`/admin/users`、发券这些不带 region 的端点
+-- 【全部 403】—— 后台大半个页面对他空着。
+-- 那条规矩本身是对的（悄悄换区比报错糟得多），代价却从来没人付过：
+-- 种子里【一个多区管理员都没有】，所以这条路径一次都没被走过。
+-- 记在 docs/ACCEPTANCE-25.md 的先决条件里 —— 要不要给跨区聚合开一个
+-- 明确的接口，那是产品决定，不是这个脚本该拍的。
+--
+-- 这里走的是代码本来就留好的那一条：`不限 = scope 为空 || 含 global`。
+-- super 本来就该不限区，{cn} 是种子的遗漏。阿港不动（仍只有 hk），
+-- 「分区管理员越不越得了区」验的是他。
+--
+-- 另一条走不通的路：把这只盒子也挂到 cn 上架，U4 就能在 cn 区买它 ——
+-- 上架就进目录，镜像的动线会从目录里挑东西建单，挑中它的话那张单
+-- 不属于 P25 的人，清零顺着用户就删不到（2026-09-04 撞过一次）。
+-- 【验收用的东西不许混进真目录】优先于「让 U4 的单落在 cn」。
+UPDATE admin_user SET region_scope = ARRAY['global']
+ WHERE email = 'admin@unmei.local' AND NOT ('global' = ANY(region_scope));
 SQL
 }
 
@@ -355,44 +405,40 @@ do_seed() {
            WHERE user_id='$I2'" >/dev/null
   done
   local o2
-  o2=$(call POST "$T2" /v1/orders "{\"lines\":[{\"sku_id\":\"sku-naji-deep\",\"qty\":1}],\"region\":\"cn\"}" | jq -r '.order_id // empty')
-  if [ -n "$o2" ]; then
-    call POST "$T2" "/v1/orders/$o2/pay" '{"channel":"wechat_jsapi","openid":"p25_u2"}' >/dev/null
-    wait_paid "$o2" || return 1
-  fi
+  o2=$(must_order "$T2" "{\"lines\":[{\"sku_id\":\"sku-naji-deep\",\"qty\":1}],\"region\":\"cn\"}" "U2 的那册说明书") || return 1
+  call POST "$T2" "/v1/orders/$o2/pay" '{"channel":"wechat_jsapi","openid":"p25_u2"}' >/dev/null
+  wait_paid "$o2" || return 1
   say_dim "U2 算过命的 $I2 —— 本命 + 七天签 + 说明书一册"
 
   # ── U3 请了人的：买御守 → 发货 → 扫开 → 进屋追问 ────────────
   read -r T3 I3 <<<"$(make_user u3 cn)"
   local o3
-  o3=$(call POST "$T3" /v1/orders '{"lines":[{"sku_id":"p25-sku-oma-ayun","qty":1}],"region":"cn","contact":{"name":"P25·请了人的","phone":"13800000003"},"shipping_address":{"province":"浙江","city":"杭州","district":"西湖","detail":"某处 1 号","name":"P25","phone":"13800000003"}}' | jq -r '.order_id // empty')
-  if [ -n "$o3" ]; then
-    call POST "$T3" "/v1/orders/$o3/pay" '{"channel":"wechat_jsapi","openid":"p25_u3"}' >/dev/null
-    wait_paid "$o3" || return 1
-    # 【买御守不寄东西 —— 付款即入住】。fulfillment_kind=residency
-    # 那一支在 fulfillment.rs 里直接 move_in_from_line，不建运单。
-    # 头一版在这里等运单，等了两分钟等不到 —— 而报出来的是
-    # 「outbox 在跑吗」，看着像履约坏了，实际是我把两条入口搞混了。
-    #
-    # 御守有【两条】入口，这一版两条都要覆盖：
-    #   · 线上买 → 付款即入住（就是上面这一单）
-    #   · 线下拿到实体的一枚 → 扫开它（下面这一段，走真的扫码接口）
-    # 第二条用另一位村民（婆婆）—— 同一个人同一位村民有唯一约束，
-    # 用同一位的话第二条会被吃掉，而那一下什么都验不到。
-    #
-    # 【shell 里没有块注释】。头一版这一段写成 Rust 的 /* … */，
-    # 于是整段被当成命令执行 —— 报出来是十几行 command not found，
-    # 而中间那句带括号的还引发了语法错误。
-    wait_move_in "$I3" ayun || return 1
+  o3=$(must_order "$T3" '{"lines":[{"sku_id":"p25-sku-oma-ayun","qty":1}],"region":"cn","contact":{"name":"P25·请了人的","phone":"13800000003"},"shipping_address":{"province":"浙江","city":"杭州","district":"西湖","detail":"某处 1 号","name":"P25","phone":"13800000003"}}' "U3 请阿云回村的那一单") || return 1
+  call POST "$T3" "/v1/orders/$o3/pay" '{"channel":"wechat_jsapi","openid":"p25_u3"}' >/dev/null
+  wait_paid "$o3" || return 1
+  # 【买御守不寄东西 —— 付款即入住】。fulfillment_kind=residency
+  # 那一支在 fulfillment.rs 里直接 move_in_from_line，不建运单。
+  # 头一版在这里等运单，等了两分钟等不到 —— 而报出来的是
+  # 「outbox 在跑吗」，看着像履约坏了，实际是我把两条入口搞混了。
+  #
+  # 御守有【两条】入口，这一版两条都要覆盖：
+  #   · 线上买 → 付款即入住（就是上面这一单）
+  #   · 线下拿到实体的一枚 → 扫开它（下面这一段，走真的扫码接口）
+  # 第二条用另一位村民（婆婆）—— 同一个人同一位村民有唯一约束，
+  # 用同一位的话第二条会被吃掉，而那一下什么都验不到。
+  #
+  # 【shell 里没有块注释】。头一版这一段写成 Rust 的 /* … */，
+  # 于是整段被当成命令执行 —— 报出来是十几行 command not found，
+  # 而中间那句带括号的还引发了语法错误。
+  wait_move_in "$I3" ayun || return 1
 
-    # mock：线下那一枚。真实里御守是随货寄出的实体，凭据印在上面 ——
-    # 这里造一枚并走**真的**扫码接口，替代的只是「手机对着它碰一下」。
-    psql "$DB" -q -c "INSERT INTO omamori(id, villager_id, note) VALUES ('p25-oma-popo-01','popo','25 计划 · 线下那一枚') ON CONFLICT (id) DO NOTHING;
-       INSERT INTO omamori_credential(omamori_id, carrier_kind, credential) VALUES ('p25-oma-popo-01','qr','P25POPO0001') ON CONFLICT DO NOTHING;"
-    call POST "$T3" /v1/omamori/scan '{"carrier":"qr","credential":"P25POPO0001"}' >/dev/null
-    # 进屋追问三次 —— 第三次才松口，那是设计好的
-    for _ in 1 2 3; do call POST "$T3" /v1/villagers/ayun/reading '{"question":"最近顺不顺"}' >/dev/null; done
-  fi
+  # mock：线下那一枚。真实里御守是随货寄出的实体，凭据印在上面 ——
+  # 这里造一枚并走**真的**扫码接口，替代的只是「手机对着它碰一下」。
+  psql "$DB" -q -c "INSERT INTO omamori(id, villager_id, note) VALUES ('p25-oma-popo-01','popo','25 计划 · 线下那一枚') ON CONFLICT (id) DO NOTHING;
+     INSERT INTO omamori_credential(omamori_id, carrier_kind, credential) VALUES ('p25-oma-popo-01','qr','P25POPO0001') ON CONFLICT DO NOTHING;"
+  call POST "$T3" /v1/omamori/scan '{"carrier":"qr","credential":"P25POPO0001"}' >/dev/null
+  # 进屋追问三次 —— 第三次才松口，那是设计好的
+  for _ in 1 2 3; do call POST "$T3" /v1/villagers/ayun/reading '{"question":"最近顺不顺"}' >/dev/null; done
   say_dim "U3 请了人的 $I3 —— 阿云住进来了、屋里追问过"
 
   # ── U4 钱在飞的：待付 + 已付在履约 + 一笔退款等着批 + 订阅 ──
@@ -400,42 +446,44 @@ do_seed() {
   # ① 一张待付（不付款，留给「快过期」那一屏）
   call POST "$T4" /v1/orders '{"lines":[{"sku_id":"sku-incense-try","qty":1}],"region":"cn","contact":{"name":"P25·钱在飞的","phone":"13800000004"},"shipping_address":{"province":"上海","city":"上海","district":"静安","detail":"某处 4 号","name":"P25","phone":"13800000004"}}' >/dev/null
   # ② 一张已付、在履约、包裹在途
+  #
+  # 买的是【验收自己那只盒子】，不是种子里的玉坠。玉坠是 limited、只有 50 件，
+  # 25 计划每跑一轮吃掉一件 —— 跑到第 50 轮它就永远下不了单，
+  # 而那时的报错会落在三步之后的「有一件包裹在途 空的」上。
+  # 盒子是 unlimited，跑一万轮也不会把真目录吃空。
+  #
+  # 单落在 p25 区 —— 盒子只在那里上架，而【验收的东西不许混进真目录】。
+  # U4 这一格要的是「钱在飞」：待付 / 在途 / 等着批的退款，
+  # 跟这张单记在哪个区无关；他本人仍然是 cn 的人。
+  # 阿超在后台够得着这张单，是因为上面给他的 scope 加了 p25。
   local o4b
-  o4b=$(call POST "$T4" /v1/orders '{"lines":[{"sku_id":"sku-jade-pendant","qty":1}],"region":"cn","contact":{"name":"P25·钱在飞的","phone":"13800000004"},"shipping_address":{"province":"上海","city":"上海","district":"静安","detail":"某处 4 号","name":"P25","phone":"13800000004"}}' | jq -r '.order_id // empty')
-  if [ -n "$o4b" ]; then
-    call POST "$T4" "/v1/orders/$o4b/pay" '{"channel":"wechat_jsapi","openid":"p25_u4"}' >/dev/null
-    wait_paid "$o4b" || return 1
-    wait_shipment "$o4b" || return 1
-    mock_carrier_in_transit "$o4b" P25TRACK0004
-  fi
+  o4b=$(must_order "$T4" '{"lines":[{"sku_id":"p25-sku-box","qty":1}],"region":"p25","contact":{"name":"P25·钱在飞的","phone":"13800000004"},"shipping_address":{"province":"上海","city":"上海","district":"静安","detail":"某处 4 号","name":"P25","phone":"13800000004"}}' "U4 那件会寄的东西") || return 1
+  call POST "$T4" "/v1/orders/$o4b/pay" '{"channel":"wechat_jsapi","openid":"p25_u4"}' >/dev/null
+  wait_paid "$o4b" || return 1
+  wait_shipment "$o4b" || return 1
+  mock_carrier_in_transit "$o4b" P25TRACK0004
   # ③ 一笔退款等着批 —— 走真接口，不批（那是阿超在后台要做的事）
   local o4c
-  o4c=$(call POST "$T4" /v1/orders '{"lines":[{"sku_id":"sku-naji-deep","qty":1}],"region":"cn"}' | jq -r '.order_id // empty')
-  if [ -n "$o4c" ]; then
-    call POST "$T4" "/v1/orders/$o4c/pay" '{"channel":"wechat_jsapi","openid":"p25_u4"}' >/dev/null
-    wait_paid "$o4c" || return 1
-    call POST "$T4" "/v1/orders/$o4c/refund" '{"reason_code":"user_request","reason_text":"不想要了"}' >/dev/null
-  fi
+  o4c=$(must_order "$T4" '{"lines":[{"sku_id":"sku-naji-deep","qty":1}],"region":"cn"}' "U4 那笔要退的") || return 1
+  call POST "$T4" "/v1/orders/$o4c/pay" '{"channel":"wechat_jsapi","openid":"p25_u4"}' >/dev/null
+  wait_paid "$o4c" || return 1
+  call POST "$T4" "/v1/orders/$o4c/refund" '{"reason_code":"user_request","reason_text":"不想要了"}' >/dev/null
   say_dim "U4 钱在飞的 $I4 —— 待付 / 在途 / 等着批的退款"
 
   # ── U5 香港那位：贵的一单（触发风控）+ 包裹出状况 ────────────
   read -r T5 I5 <<<"$(make_user u5 hk)"
   local o5
-  o5=$(call POST "$T5" /v1/orders '{"lines":[{"sku_id":"p25-sku-oma-ayun","qty":1}],"region":"hk","contact":{"name":"P25·香港那位","phone":"85200000005"},"shipping_address":{"province":"香港","city":"香港","district":"中西区","detail":"某处 5 号","name":"P25","phone":"85200000005"}}' | jq -r '.order_id // empty')
-  if [ -n "$o5" ]; then
-    call POST "$T5" "/v1/orders/$o5/pay" '{"channel":"wechat_jsapi","openid":"p25_u5"}' >/dev/null
-    wait_paid "$o5" || return 1
-    # 御守不寄东西（付款即入住），所以包裹那一条另买一件真会寄的
-    wait_move_in "$I5" ayun || return 1
-  fi
+  o5=$(must_order "$T5" '{"lines":[{"sku_id":"p25-sku-oma-ayun","qty":1}],"region":"hk","contact":{"name":"P25·香港那位","phone":"85200000005"},"shipping_address":{"province":"香港","city":"香港","district":"中西区","detail":"某处 5 号","name":"P25","phone":"85200000005"}}' "U5 请阿云回村的那一单") || return 1
+  call POST "$T5" "/v1/orders/$o5/pay" '{"channel":"wechat_jsapi","openid":"p25_u5"}' >/dev/null
+  wait_paid "$o5" || return 1
+  # 御守不寄东西（付款即入住），所以包裹那一条另买一件真会寄的
+  wait_move_in "$I5" ayun || return 1
   local o5b
-  o5b=$(call POST "$T5" /v1/orders '{"lines":[{"sku_id":"p25-sku-box","qty":1}],"region":"p25","contact":{"name":"P25","phone":"85200000005"},"shipping_address":{"province":"香港","city":"香港","district":"中西区","detail":"某处 5 号","name":"P25","phone":"85200000005"}}' | jq -r '.order_id // empty')
-  if [ -n "$o5b" ]; then
-    call POST "$T5" "/v1/orders/$o5b/pay" '{"channel":"wechat_jsapi","openid":"p25_u5"}' >/dev/null
-    wait_paid "$o5b" || return 1
-    wait_shipment "$o5b" || return 1
-    mock_carrier_exception "$o5b" P25TRACK0005
-  fi
+  o5b=$(must_order "$T5" '{"lines":[{"sku_id":"p25-sku-box","qty":1}],"region":"p25","contact":{"name":"P25","phone":"85200000005"},"shipping_address":{"province":"香港","city":"香港","district":"中西区","detail":"某处 5 号","name":"P25","phone":"85200000005"}}' "U5 那只出状况的包裹") || return 1
+  call POST "$T5" "/v1/orders/$o5b/pay" '{"channel":"wechat_jsapi","openid":"p25_u5"}' >/dev/null
+  wait_paid "$o5b" || return 1
+  wait_shipment "$o5b" || return 1
+  mock_carrier_exception "$o5b" P25TRACK0005
   say_dim "U5 香港那位 $I5 —— hk 区、包裹出了状况"
 
   roster=$(jq -n --arg u1 "$I1" --arg u2 "$I2" --arg u3 "$I3" --arg u4 "$I4" --arg u5 "$I5" \
@@ -648,10 +696,14 @@ do_read_all() {  # do_read_all <T1..T5> <I2 的本命 id>
 我订着的|${T4}|/v1/subscriptions
 我报了哪些活动|${T2}|/v1/activity/mine
 今天点没点香|${T3}|/v1/incense"
-  while IFS='|' read -r 名 tok p; do
+  # 变量名一律 ASCII —— bash 不收中文标识符（zsh 收，所以 `bash -n` 才是判据）。
+  # 这里栽的是第四次：`read -r 名 tok p` 让整个循环【一次都没跑】，
+  # 而 read 的报错混在一片 ✓ 里，总账「过 50」看着仍然像回事 ——
+  # 九条读接口的断言凭空消失，没有一条报红。
+  while IFS='|' read -r label tok p; do
     [ -z "${p}" ] && continue
     code=$(curl -s -o /dev/null -w '%{http_code}' "${API}${p}" -H "authorization: Bearer ${tok}")
-    want "${名}" 200 "${code}"
+    want "${label}" 200 "${code}"
   done <<< "${pairs}"
 
   # 【要身份的，没身份就得挡住】。挑一条真会漏数据的:我买过的。

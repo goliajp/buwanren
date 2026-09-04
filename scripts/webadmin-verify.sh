@@ -43,9 +43,23 @@ if lsof -nP -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
 fi
 
 rm -rf webadmin/node_modules/.vite
-(cd webadmin && npx vite --port "$PORT" --strictPort --host 127.0.0.1 >/tmp/webadmin-vite.log 2>&1 &
+# 【直接起 vite，不经 npx】。npx 会 fork 出真正的 vite 进程，`$!` 记下的是
+# npx 自己 —— 退出时 trap 杀的是父，监听 6030 的那个子进程活了下来。
+# 于是每跑一轮就在 6030 上留一个孤儿，【下一轮的这支必红】，而红的看着
+# 像「有人占了端口」，不像「上一轮没收干净」。2026-09-04 连撞两轮才认出来：
+# 孤儿的启动时间正好是上一轮跑到这支的时刻。
+(cd webadmin && ./node_modules/.bin/vite --port "$PORT" --strictPort --host 127.0.0.1 >/tmp/webadmin-vite.log 2>&1 &
  echo $! > /tmp/webadmin-vite.pid)
-trap 'kill "$(cat /tmp/webadmin-vite.pid)" 2>/dev/null || true' EXIT
+# 收尾两道:先杀记下的那个,再【按端口兜底】—— 记下的 pid 万一不是真身,
+# 端口这一道仍然收得干净。兜底只杀这个端口上的,不误伤别人。
+cleanup_vite() {
+  kill "$(cat /tmp/webadmin-vite.pid 2>/dev/null)" 2>/dev/null || true
+  local leftover
+  leftover="$(lsof -nP -iTCP:"$PORT" -sTCP:LISTEN -t 2>/dev/null || true)"
+  [ -n "$leftover" ] && kill $leftover 2>/dev/null || true
+  return 0
+}
+trap cleanup_vite EXIT
 
 VITE_PID="$(cat /tmp/webadmin-vite.pid)"
 for _ in $(seq 1 60); do
