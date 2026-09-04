@@ -16,6 +16,8 @@ import { storage } from '../../services/storage'
 interface IData {
   /** 人数。取不到是 null —— 不是 0，那是句假话 */
   count: number | null
+  /** 屏上那一行。取不到就是空串（不显示），真的一个都没有时说「你是头一个」 */
+  人数话: string
   iLit: boolean
   busy: boolean
   /** 已烧 / 约多久，mm:ss */
@@ -37,13 +39,28 @@ function 退出去() {
   })
 }
 
+/* 屏上那一行人数。
+   【0 不能写成「还有 0 个人在点」】（2026-09-05 · 25 计划的用户逐屏走）。
+   wxml 里那条注释早就写着「显示『0 个人在点』比不显示更糟：那是句假话」——
+   而它的判据是 `count !== null`，够不到 0。这一屏一周只开二十五分钟，
+   0 又只在头一个人进来那一下出现，所以那句话从来没人看见过。
+   把窗口挪到现在头一回照相，屏上正是它。
+
+   头一个进来的人不该被告知「还有 0 个人」——
+   这一屏整个是在说「一起」，而那句话是全屏最孤单的一行。 */
+function 人数怎么说(n: number | null): string {
+  if (n === null) return ''          // 取不到:不显示，香照点
+  if (n <= 0) return '你是头一个'
+  return `还有 ${n} 个人在点`
+}
+
 function mmss(秒: number): string {
   const s = Math.max(0, Math.floor(秒))
   return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0')
 }
 
 Page<IData, WechatMiniprogram.IAnyObject>({
-  data: { count: null, iLit: false, busy: false, burned: '00:00', total: '25:00', 刚点着: false },
+  data: { count: null, 人数话: '', iLit: false, busy: false, burned: '00:00', total: '25:00', 刚点着: false },
 
   起于: 0,
   烧多久: 25 * 60,
@@ -75,6 +92,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
         this.烧多久 = s.burn_seconds
         this.setData({
           count: s.lit_count,
+          人数话: 人数怎么说(s.lit_count),
           iLit: s.i_lit,
           total: mmss(s.burn_seconds),
         })
