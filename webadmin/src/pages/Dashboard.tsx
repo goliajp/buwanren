@@ -45,7 +45,7 @@ export default function Dashboard() {
     { n: (k?.unpaid_orders ?? 0) + (k?.pending_payments ?? 0), 是: '笔订单还没付', 去: '/orders?status=unpaid', 做: '看看是卡在哪一步' },
     { n: k?.pending_refunds ?? 0, 是: '笔退款等着批', 去: '/refunds', 做: '批一批' },
     { n: k?.exception_shipments ?? 0, 是: '件包裹出了状况', 去: '/shipments?exception_only=true', 做: '查物流' },
-    { n: k?.open_risk_cases ?? 0, 是: '个风控案子没结', 去: '/risk', 做: '去看' },
+    { n: k?.open_risk_cases ?? 0, 是: '个风控案子没结', 去: '/risk?tab=cases', 做: '去看' },
   ].filter((x) => x.n > 0);
 
   return (
