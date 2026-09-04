@@ -61,8 +61,15 @@ function 结掉({ 记录, 结完 }: { 记录: any; 结完: () => void }) {
 export default function Reconciliation() {
   /* 【默认落在对不上的那些上】。这一页的活儿是「看有没有对不上的」，
      而上一版默认按时间列出全部 1466 个批次 —— 第一屏全是「对上了」，
-     真要处理的那些得往后翻。跟退款页同一个道理。 */
-  const [filt, setFilt] = useState<Record<string, any>>({ status: 'has_discrepancy', size: 50, page: 0 });
+     真要处理的那些得往后翻。跟退款页同一个道理。
+
+     【而「对不上的」不包括已经结过的】（2026-09-04 · 25 计划的后台逐页走）。
+     结完一整批只写 `resolved_at`，`status` 留着 `has_discrepancy`
+     不改 —— 账上不改写历史。于是光按 status 筛，头上那个
+     「有对不上的 1,074」把二十六批【已经处理完的】也算了进去,
+     而每结一批它就多虚高一点。上面那句「默认落在要处理的上」
+     本来就该把它们排除:结过了就不用再处理了。 */
+  const [filt, setFilt] = useState<Record<string, any>>({ status: 'has_discrepancy', resolved: false, size: 50, page: 0 });
   const [detailId, setDetailId] = useState<string | null>(null);
 
   const list = useQuery({
@@ -92,7 +99,7 @@ export default function Reconciliation() {
             className="btn btn-soft"
             onClick={() => setFilt(看差异
               ? { size: 50, page: 0 }
-              : { status: 'has_discrepancy', size: 50, page: 0 })}
+              : { status: 'has_discrepancy', resolved: false, size: 50, page: 0 })}
           >
             {看差异 ? '看全部批次' : '只看对不上的'}
           </button>
@@ -120,7 +127,20 @@ export default function Reconciliation() {
                   <td>{channelLabel(b.channel)}</td>
                   <td className="id">{b.batch_date}</td>
                   <td className="text-ink-4">{enumLabel(b.source)}</td>
-                  <td><span className={statusClass(b.status)}>{statusLabel(b.status)}</span></td>
+                  {/* 【结过的那一批，别再写「对不上」】
+                      （2026-09-04 · 25 计划的后台逐页走）。
+                      后端结完一整批只写 `resolved_at`，`status` 一直留着
+                      `has_discrepancy` —— 那是有意的:差异发生过就是发生过，
+                      账上不改写历史（`recon.rs` 里那段注释）。
+                      可列表照着 `status` 渲，于是二十六批【已经处理完的】
+                      跟一千零四十八批还等着的写着同一个词，
+                      只有最右边「解决」那一格的时间能分辨。
+                      状态列说的是「现在要不要管它」，那就按现在说。 */}
+                  <td>
+                    {b.resolved_at
+                      ? <span className="st st-settled">结过了</span>
+                      : <span className={statusClass(b.status)}>{statusLabel(b.status)}</span>}
+                  </td>
                   <td className="r font-mono">{b.total_count.toLocaleString()}</td>
                   <td className="r font-semibold">{yuan(b.total_amount_minor, b.currency)}</td>
                   <td title={ts(b.pulled_at)}>{rel(b.pulled_at)}</td>
