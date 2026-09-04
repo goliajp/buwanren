@@ -233,9 +233,28 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
           /* 同上:重挂要等这一次渲染真的落地。`fitCanvas` 会再 setData 一次
              （改 cssW/cssH），所以 mount 排在它后面那一拍。 */
           () => {
-            if (!变了 || !this.data.cssW) return
-            this.fitCanvas()
-            this.setData({}, () => this.mount())
+            if (!this.data.cssW) return
+            // 卡换了就得重算画布的可用高度 —— 那一格的高度变了。
+            if (变了) this.fitCanvas()
+            /* 【每次都核一下画布，不猜它什么时候会被换掉】（2026-09-04 · 25 计划）。
+               上一版是「变了才重挂」。而这一次 `setData` 本身就会让 canvas
+               节点被替换掉 —— 换成一块新的、空的、像素退回默认 300×150 的。
+               换不换跟 `变了` 无关，`变了` 管的是【高度要不要重算】。
+
+               有住户的人碰巧没事:他们的卡从开场白跳到说话卡，`变了` 为真，
+               顺带重挂了一次。而新用户的每一个字段都没变
+               （toScan=false、says=null、lived=0、err=''），`变了` 恒为假 ——
+               于是他的画布停在那块被换上来的空节点上，一个像素都没画。
+
+               25 计划的逐屏走把这一条量出来了:同一屏、同样的 CSS 尺寸
+               292×398，空村那位的画布像素是 300×150、画了 0 个像素;
+               住了两位的那位是 704×960、675840 个像素全画。
+               屏幕上他看到的是「四十间屋子，还都空着」这句话，
+               底下一间屋子也没有 —— 那不是空态，是坏了，
+               而它跟空态长得一模一样。
+
+               核一次只是一回 selectorQuery，便宜;画布好好的时候它什么都不做。 */
+            this.核一下(0)
           },
         )
       },
@@ -338,6 +357,7 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
 
   onReady() {
     if (typeof VILLAGE_CENSUS !== 'function') {
+      console.error('[村子] onReady 时引擎还没加载出来 —— 这一次不挂画布')
       this.setData({ err: '村子脚本没加载出来 —— 跑过 npm run build:engine 吗？' })
       return
     }
@@ -372,7 +392,7 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
      所以不猜时序，看结果:`mountVillage` 一定会把画布像素设成
      村子的真实尺寸，那么挂完之后它还等于默认的 300×150，就是没挂上。
      下一帧重试一次 —— 只一次，反复重试会把一个时序问题变成一个死循环。 */
-  mount(再来 = false) {
+  mount(第几次 = 0) {
     wx.createSelectorQuery()
       .select('#village')
       .fields({ node: true, size: true })
@@ -385,16 +405,26 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
         try {
           if (this.handle) { this.handle.stop(); this.handle = null }
           this.handle = mountVillage(node, TILES, (s) => this.setData({ sub: s }))
-          /* 核一下。`node.width` 是画布的【像素】尺寸，跟 CSS 尺寸是两回事;
-             `mountVillage` 一定会把它设成 VILLAGE_SIZE。还等于默认值
-             就是这一次没挂成 —— 下一帧再来一次。 */
-          const n = node as { width?: number }
-          if (!再来 && (!n.width || n.width <= 300)) {
-            console.warn('村子画布还停在默认尺寸，等这一次渲染落地再挂一次')
-            // 用 setData 的渲染回调，不用 nextTick —— 前者两边都真有，
-            // 而且它等的正是「这一次渲染落地」，就是缺的那一拍。
-            this.setData({}, () => this.mount(true))
-          }
+          /* 【核的是屏幕上那一个，不是我手里这一个】（2026-09-04 · 25 计划）。
+             上一版核的是 `node.width` —— 而 `mountVillage` 上一行刚把它
+             设成 704×960，它【必然】是对的。那条核查在验「我设成功了吗」，
+             而真问题是「我设的是不是屏上那一个」：`fitCanvas` 改 cssW/cssH
+             会让 canvas 节点被替换掉，引擎握着并且正在画的是【旧的那个】，
+             屏幕上换成了一块新的、空的、像素退回默认 300×150 的画布。
+             于是核查通过、不重挂，而屏幕上村子那一块【一片空白】。
+
+             有住户的人碰不到:`reload` 里「开场白 → 说话卡」那一跳会让
+             `变了` 为真，顺带重挂一次盖过去。而**新用户的每一个字段都没变**
+             （toScan=false、says=null、lived=0、err=''），`变了` 恒为假 ——
+             他第一眼看到的就是村子该在的地方空着。
+
+             25 计划的逐屏走把这一条量了出来:同一屏、同一份 CSS 尺寸
+             （292×398），U1 的画布像素是 300×150、画了 0 个像素;
+             住了两位的 U3 是 704×960、675840 个像素全画。
+
+             所以重新查一次节点再核。查到的是屏上那一个 —— 它还停在默认
+             尺寸就说明我挂错了对象，换新的那个再挂一遍。 */
+          if (第几次 < 4) this.核一下(第几次)
         } catch (e) {
           /* 【原文进控制台，屏上说人话】。引擎挂不上时它报的是
              「房间没拆出宿主那一段」「声明了按钮而这一页没给」——
@@ -404,6 +434,35 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
           this.setData({ err: '村子一时打不开 —— 退回去再进来试试' })
         }
       })
+  },
+
+  /* 挂完之后，等这一次渲染落地，【重新查一次】屏上的画布节点，
+     核它的像素尺寸。
+
+     为什么要重新查：见 `mount` 里那段注释 —— 手里那个是我刚设过的，
+     核它等于核我自己。屏上那一个才是用户看见的。
+
+     试满四次仍然不对就【说出来】。留一块空白是最糟的收场:
+     文案写着「四十间屋子，还都空着」，而屏幕上一间也没有 ——
+     那不是空态，那是坏了，可它长得跟空态一模一样。 */
+  核一下(第几次: number) {
+    this.setData({}, () => {
+      wx.createSelectorQuery()
+        .select('#village')
+        .fields({ node: true })
+        .exec((r: Array<{ node?: unknown }>) => {
+          const 屏上那个 = (r && r[0] && r[0].node) as { width?: number } | undefined
+          if (!屏上那个) return
+          if (屏上那个.width && 屏上那个.width > 300) return
+          if (第几次 + 1 < 4) {
+            console.warn('村子画布还停在默认尺寸（第 ' + (第几次 + 1) + ' 次），换屏上那个再挂一遍')
+            this.mount(第几次 + 1)
+            return
+          }
+          console.error('村子画布挂了四次都还停在默认尺寸')
+          this.setData({ err: '村子这一块没画出来 —— 退回去再进来试试' })
+        })
+    })
   },
 
   /* 选中之后把卡片滚进视野。
