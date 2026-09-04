@@ -435,6 +435,7 @@ echo "── 后台（webadmin）──"
 # 死类和小字号在打包【成功】的产物里一样存在。
 gate "运营台 · 令牌与字号" . python3 scripts/check-webadmin-tokens.py
 gate "运营台 · 界面说中文" . python3 scripts/check-webadmin-cn.py
+gate "库里的枚举都有中文说法" . python3 scripts/check-enum-labels.py
 # 【读失败也要有话说】。写操作那一半 2026-09-01 接上了反馈条，
 # 读这一半到 09-03 还是零个 isError —— 取不到时是一张只有表头的空表。
 gate "运营台 · 取不到时说得出来" . python3 scripts/check-console-read-error.py

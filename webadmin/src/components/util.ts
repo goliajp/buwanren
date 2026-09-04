@@ -151,6 +151,12 @@ export function statusLabel(s: string): string {
 /** 渠道展示名 */
 export function channelLabel(ch: string): string {
   return {
+    /* 【裸的 `wechat` 也要收】（2026-09-04 · 25 计划的后台逐页走）。
+       订阅表里 1,179 条的 `source_channel` 就是这个值（另外 1,246 条
+       是 `wechat_mp`）—— 支付那边分得细，订阅这边记的是【来自哪个大渠道】。
+       只收了带后缀的那几个，于是订阅页的渠道列里
+       「微信小程序」跟 `wechat` 一行隔一行地交替出现。 */
+    wechat:        '微信',
     wechat_jsapi:  '微信 JSAPI',
     wechat_mp:     '微信小程序',
     wechat_h5:     '微信 H5',
