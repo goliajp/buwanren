@@ -411,6 +411,14 @@ struct Pg {
     from: Option<DateTime<Utc>>,
     to: Option<DateTime<Utc>>,
     region: Option<String>,
+    /// 【结过的算不算】（2026-09-04 · 25 计划的后台逐页走）。
+    /// 对账批次结完一整批只写 `resolved_at`，`status` 一直留着
+    /// `has_discrepancy` —— 那是有意的:账上不改写历史
+    /// （`unmei-app/src/recon.rs` 里那段注释）。
+    /// 于是「有对不上的」这个数把【已经处理完的】也算了进去,
+    /// 运营看到的待办永远比真要做的多，而且每结一批就多虚高一点。
+    /// `resolved=false` 只要还没结的;不给就跟从前一样，两种都列。
+    resolved: Option<bool>,
     /// IANA timezone (e.g. "Asia/Shanghai" / "America/New_York")。
     /// dashboard 的「今日」按此 tz 算当日零点，绕开 sqlx UTC session 漂移。
     /// 前端由 `Intl.DateTimeFormat().resolvedOptions().timeZone` 取客户端 tz。
@@ -1287,14 +1295,20 @@ async fn list_recon_batches(
            FROM recon_batch
            WHERE ($1::text IS NULL OR status=$1)
              AND ($2::text IS NULL OR region=$2)
+             AND ($5::bool IS NULL
+                  OR ($5 = true AND resolved_at IS NOT NULL)
+                  OR ($5 = false AND resolved_at IS NULL))
            ORDER BY batch_date DESC OFFSET $3 LIMIT $4"#,
-    ).bind(&q.status).bind(&region).bind(q.off()).bind(q.lim())
+    ).bind(&q.status).bind(&region).bind(q.off()).bind(q.lim()).bind(q.resolved)
      .fetch_all(&st.db).await.map_err(map_db)?;
     let total: i64 = sqlx::query_scalar(
         r#"SELECT COUNT(*) FROM recon_batch
            WHERE ($1::text IS NULL OR status=$1)
-             AND ($2::text IS NULL OR region=$2)"#,
-    ).bind(&q.status).bind(&region).fetch_one(&st.db).await.map_err(map_db)?;
+             AND ($2::text IS NULL OR region=$2)
+             AND ($3::bool IS NULL
+                  OR ($3 = true AND resolved_at IS NOT NULL)
+                  OR ($3 = false AND resolved_at IS NULL))"#,
+    ).bind(&q.status).bind(&region).bind(q.resolved).fetch_one(&st.db).await.map_err(map_db)?;
     Ok(Json(Page { items: map_rows(rows), total, page: q.page, size: q.size }))
 }
 
