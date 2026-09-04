@@ -641,19 +641,31 @@ async function 量一屏(route, params) {
 
    量的是「谁的右边越过了视口」，不是 `scrollWidth`：
    后者被任何一个 `overflow:hidden` 的祖先吃掉，
-   而被吃掉的溢出照样是屏幕上看不全的字。 */
-const 横着出界的 = () => p.evaluate(() => {
+   而被吃掉的溢出照样是屏幕上看不全的字。
+
+   【允许表】。跟竖向欠账同一个办法:可以有例外，每个都得有名有姓、
+   写明为什么。现在只有一条 —— 说明书那一行页签是【故意】比屏宽的:
+   七个页签每个要够 44px 才按得准（苹果人机指南那条线），
+   而 375 宽的屏放不下七个 44。两件事真的冲突，
+   于是那一行 `overflow-x: auto`，横着出界是它的工作方式。
+   我一度反过来收窄内距让它放下，触达面积当场掉到 42 ——
+   为了 1px 的观感牺牲手指按得准，主次反了。 */
+const 横向允许 = {
+  report: { 类: 'tab', 为什么: '页签条本来就横滑：七个够 44px 的页签在 375 宽上放不下' },
+}
+const 横着出界的 = (屏) => p.evaluate((准) => {
   const 宽 = document.documentElement.clientWidth
   const 出 = []
   for (const el of document.querySelectorAll('#app .page *')) {
     const r = el.getBoundingClientRect()
     if (r.width === 0 || r.height === 0) continue
-    if (r.right > 宽 + 0.5) {
-      出.push(`${(el.className || el.tagName).toString().split(' ')[0]}:${Math.round(r.right - 宽)}px「${(el.textContent || '').trim().slice(0, 10)}」`)
-    }
+    if (r.right <= 宽 + 0.5) continue
+    const 类 = (el.className || el.tagName).toString().split(' ')[0]
+    if (准 && 类 === 准.类) continue
+    出.push(`${类}:${Math.round(r.right - 宽)}px「${(el.textContent || '').trim().slice(0, 10)}」`)
   }
   return 出.slice(0, 6)
-})
+}, 横向允许[屏] || null)
 
 /* 【集齐那一句】。40/40 是这个产品情感最高的一刻，而原先屏上说的是
    「还差 0 位就集齐了」—— 语法没错，意思荒谬。
@@ -3028,8 +3040,10 @@ console.log('\n── 一屏放得下吗（iPhone SE · 内容区 597）──')
     /* 横着出界的，一处都不许有 —— 见上面 `横着出界的` 那段。
        这一条在 390 宽上量（`量一屏` 收尾时把视口设回 390）,
        比 375 宽松一点;375 那一档由逐屏走的几何数据兜着。 */
-    const 出界 = await 横着出界的()
-    ok(出界.length === 0, `${名} 横着没出界`, 出界.join(' · '))
+    const 出界 = await 横着出界的(名)
+    ok(出界.length === 0,
+       `${名} 横着没出界${横向允许[名] ? '（除了记着的那一处）' : ''}`,
+       出界.join(' · '))
     /* 【每一屏的字都要读得出来】。判据 3.2:1 跟 `check-contrast.py` 同一条。
        这一支量的是【真实渲染】:底写在祖先上、写在渐变里、写在按钮上的，
        它一律问得到浏览器。2026-09-02 接线当天它抓到三处，
