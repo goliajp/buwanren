@@ -798,7 +798,8 @@ do_read_all() {  # do_read_all <T1..T5> <I2 的本命 id>
 我买过的|${T4}|/v1/orders
 我订着的|${T4}|/v1/subscriptions
 我报了哪些活动|${T2}|/v1/activity/mine
-今天点没点香|${T3}|/v1/incense"
+今天点没点香|${T3}|/v1/incense
+点香是几点|${T3}|/v1/incense/schedule"
   # 变量名一律 ASCII —— bash 不收中文标识符（zsh 收，所以 `bash -n` 才是判据）。
   # 这里栽的是第四次：`read -r 名 tok p` 让整个循环【一次都没跑】，
   # 而 read 的报错混在一片 ✓ 里，总账「过 50」看着仍然像回事 ——

@@ -62,6 +62,10 @@ const FAKE = {
      而 M5 那一屏的主设计就是这个空状态（设计册 10.7）。
      少了这条它停在错误态，空状态那一支反而永远验不到。 */
   '/v1/subscriptions': () => [],
+  /* 点香是几点。少了这条，不到点那一句话整条不摆（屏上那句是按它生成的），
+     于是「不到点时那一槽只是一句话」那条断言就落在一片空白上。
+     数照后端的默认值来:周四（0=周一，故 3）晚九点、二十五分钟。 */
+  '/v1/incense/schedule': () => ({ weekday: 3, hour: 21, minutes: 25 }),
   /* 线下活动（2026-09-03 报名这条链接上之后才有这一屏）。
      少了这两条它停在错误态 —— 而错误态只剩一行字，一屏那一支照报
      「放得下」，实际那一页这一趟根本没量到版式（跟上面名册那条同一个坑）。
@@ -1687,15 +1691,36 @@ if (API) {
      而那正是设计册 10.7 说的那一条：**不做「本周还没开始」的占位页**。
      到点那一支要另起一个把时刻设成「现在」的实例，
      `bash scripts/verify-incense-night.sh` 一条命令跑完。 */
+  /* 【屏上那个时刻要跟后端那份排期对得上】（2026-09-05）。
+     几点点香在后端是配置（`UNMEI_INCENSE_WEEKDAY` / `HOUR`），
+     而屏上那四句话曾经写死是「周四晚九点」。这一支自己就撞见过：
+     它跑在一个把窗口挪到凌晨的实例上，屏上照旧写着「今晚九点已经开始了」，
+     断言却绿着 —— 因为它对的是自己那份一模一样写死的字。
+
+     这里只取【那一天】跟【那个钟点】两个词来对。整句照抄一遍等于把
+     同一份规则写第二遍，而两份规则会各自漂。 */
+  const 周几那一词 = (w) => ['周一', '周二', '周三', '周四', '周五', '周六', '周日'][w]
+  const 钟点那一词 = (h) =>
+    ['十二', '一', '两', '三', '四', '五', '六', '七', '八', '九', '十', '十一'][h % 12] + '点'
+  const 排期 = await p.evaluate(async (base) => {
+    const raw = localStorage.getItem('unmei:buwanren:token')
+    const r = await fetch(base + '/v1/incense/schedule',
+                          raw ? { headers: { authorization: 'Bearer ' + JSON.parse(raw) } } : {})
+    return await r.json()
+  }, API || '')
   const 今晚 = await p.evaluate(() => globalThis.__router.current().data.tonight)
   const 香屏2 = await text()
   if (今晚) {
     ok(香屏2.includes('一起点一支'), '今晚开着，那一槽是入口')
+    ok(香屏2.includes(钟点那一词(排期.hour)),
+       '那一槽说的钟点就是配置里那个', 香屏2.slice(0, 40))
 
     /* 到点那一档（`scripts/verify-incense-night.sh` 走的就是这里）。
        它验的是这一屏【真的能用】：点得进、能点上、一人一次不叠加、
        没香的人有出口。 */
-    await p.getByText('今晚九点已经开始了，一起点一支', { exact: true }).click()
+    /* 点它靠的是【它是那一槽】，不是它写着哪几个字 ——
+       那几个字现在按排期生成，写死在这儿等于又造一份会漂的规则。 */
+    await p.locator('.flexslot.slot-e1.slot-on').click()
     await p.waitForFunction(
       () => globalThis.__router.current().__route === 'pages/lighting/index',
       null, { timeout: 15000 },
@@ -1777,7 +1802,9 @@ if (API) {
     await open('pages/incense/index', { id: 'prod-suhe-incense' })
     await p.waitForTimeout(1500)
     const 长屏香 = await text()
-    ok(长屏香.includes('周四晚九点'), '不到点时那一槽只是一句话，不是入口')
+    ok(长屏香.includes(周几那一词(排期.weekday)) && 长屏香.includes(钟点那一词(排期.hour)),
+       '不到点时那一槽只是一句话，而且说的是配置里那个时刻',
+       长屏香.slice(0, 60))
     await p.setViewportSize({ width: 375, height: 667 })
     /* 直接闯进那一屏也不该看到「大家在点」—— 这一屏不到点就不存在。 */
     await open('pages/lighting/index')

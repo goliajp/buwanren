@@ -16,6 +16,7 @@ import { 脸 } from '../../utils/face'
 import { 唤醒, 扫一枚 } from '../../utils/omamori'
 import { 轻 } from '../../utils/feel'
 import { incenseApi } from '../../services/incense'
+import { 那一天那一刻, 今天那一刻 } from '../../utils/incense-when'
 import { storage } from '../../services/storage'
 import type { VillagerInVillage } from '../../types/village'
 import { 今天几号 } from '../../utils/day'
@@ -86,6 +87,11 @@ interface VillageData {
   today: string
   /** 今晚那一场开着没有（设计册 E1）。开着，槽里那一句才是入口 */
   tonight: boolean
+  /** 点香是几点。**按后端那份排期生成**，不写死 ——
+   *  几点点香在后端是配置，挪了时间之后写死的那句就成了假话。
+   *  取不到是空串，那一句整条不摆 */
+  当口: string
+  今口: string
   lived: number
   total: number
   /** 村子那份数据【取到过】吗。没取到时 `lived` 停在 0，
@@ -111,7 +117,7 @@ interface VillageData {
 }
 
 Page<VillageData, WechatMiniprogram.IAnyObject>({
-  data: { 手输开着: false, cssW: 0, cssH: 0, sub: '', greet: '', today: '', tonight: false, lived: 0, total: 40, err: '', 取到过: false, toScan: false, code: '', codeErr: '', codeBusy: false,
+  data: { 手输开着: false, cssW: 0, cssH: 0, sub: '', greet: '', today: '', tonight: false, 当口: '', 今口: '', lived: 0, total: 40, err: '', 取到过: false, toScan: false, code: '', codeErr: '', codeBusy: false,
     says: null },
 
   handle: null as { stop(): void } | null,
@@ -161,6 +167,11 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
     incenseApi.now().then(
       (n) => this.setData({ tonight: !!n }),
       () => this.setData({ tonight: false }),
+    )
+    incenseApi.schedule().then(
+      (s) => this.setData({ 当口: 那一天那一刻(s), 今口: 今天那一刻(s) }),
+      // 取不到就不说时刻。说错一个钟点比不说更伤 —— 有人会照着它来
+      () => this.setData({ 当口: '', 今口: '' }),
     )
   },
 
