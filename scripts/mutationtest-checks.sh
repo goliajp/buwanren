@@ -48,6 +48,8 @@ FILES=(
   backend/unmei-api/src/auth.rs
   webadmin/src/App.tsx
   webadmin/src/components/Layout.tsx
+  # 枚举标签表 —— 「库里的枚举都有中文说法」那一条要摘掉它的一行
+  webadmin/src/components/util.ts
   webadmin/src/pages/Dashboard.tsx
   # 标点那一支的变异对象（2026-09-03 从 Dashboard 换过来 ——
   # 原锚点「（本页是总览）」在重写看板时删掉了）
@@ -622,6 +624,12 @@ mutate "台账里那条忽然有人调了" check-dead-exports \
 # 运营台文案:未翻译的英文
 mutate "后台屏上留一句没翻译的英文" check-webadmin-cn \
   "edit('webadmin/src/pages/Login.tsx', '<span className=\"label text-ink-4 block mb-1\">邮箱</span>', '<span className=\"label text-ink-4 block mb-1\">email address</span>')"
+
+# 枚举没有中文说法:把「微信」那一条摘掉。
+# 订阅表里 1,179 条的 `source_channel` 就是裸的 `wechat`,
+# 摘掉之后那一列会原样印英文 —— 这一支要抓的正是这个形状。
+mutate "库里有的枚举值，标签表里没有" check-enum-labels \
+  "edit('webadmin/src/components/util.ts', \"    wechat:        '微信',\\n\", '')"
 
 # 查询失败不许说成零
 # 变异不编译，门禁只读文本 —— 所以这里只要把「失败被吃掉」那个形状种进去。
