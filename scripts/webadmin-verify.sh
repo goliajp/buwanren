@@ -75,6 +75,7 @@ if ! kill -0 "$VITE_PID" 2>/dev/null; then
 fi
 curl -sf "http://127.0.0.1:$PORT/" >/dev/null || { echo "✗ vite 没起来"; tail -20 /tmp/webadmin-vite.log; exit 1; }
 
+# `"$@"` 把 `--shots=…` 一路透传下去 —— 25 计划的后台逐页走靠它留图
 bun scripts/webadmin-verify.mjs --base="http://127.0.0.1:$PORT" "$@"
 
 # 通知条那一支也在这里跑 —— vite 就在上面起着，而它此前**只在本机门禁里**，

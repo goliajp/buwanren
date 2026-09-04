@@ -181,8 +181,14 @@ function RecentOrders() {
             <span className="text-xs font-mono text-ink-3 w-20 shrink-0 truncate">
               {briefId(o.id)}
             </span>
-            <span className={`${statusClass(o.status)} text-xs w-24 shrink-0`}>
-              {statusLabel(o.status)}
+            {/* 【定宽在外，底色在内】（2026-09-04 · 25 计划的后台逐页走）。
+                这两件事挂在同一个 span 上的时候，`st-debt` 那层底色
+                （全台唯一带底色的状态，见 index.css）会铺满整整 96px ——
+                「没付」两个字后面拖着一大条空的红，看着不像强调，
+                像哪儿渲坏了。列还是要对齐的，所以宽度留在外层，
+                底色跟着词走。 */}
+            <span className="text-xs w-24 shrink-0">
+              <span className={statusClass(o.status)}>{statusLabel(o.status)}</span>
             </span>
             <span className="n text-sm tabular-nums text-ink flex-1 text-right">
               {yuan(o.amount_total_minor, o.currency)}
