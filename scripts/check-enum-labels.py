@@ -36,6 +36,11 @@ util = (根 / 'webadmin' / 'src' / 'components' / 'util.ts').read_text(encoding=
     ('subscription',  'source_channel', 'channelLabel'),
     ('payment',       'channel', 'channelLabel'),
     ('shipment',      'carrier_code', 'carrierLabel'),
+    # 区名。真出现过的有 cn / hk / p25 / verify —— 后两个是这个仓库
+    # 自己造的区（校验商品、25 计划的验收商品），它们不进真目录，
+    # 更要在屏上一眼认得出来。
+    ('order_record',  'region', 'regionLabel'),
+    ('app_user',      'region', 'regionLabel'),
 ]
 
 # 显式豁免：这些值真出现过，而屏上【不该】给它中文

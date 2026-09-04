@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { commerce } from '../lib/api';
 import PageHeader from '../components/PageHeader';
-import { rel, ts, statusClass, statusLabel, shortId, thou, enumLabel } from '../components/util';
+import { rel, ts, statusClass, statusLabel, shortId, thou, enumLabel, regionLabel } from '../components/util';
 import { Globe2, Package, Repeat as RepeatI, Wallet, ShieldAlert, RefreshCw } from 'lucide-react';
 
 const TABS = [
@@ -102,7 +102,7 @@ export default function Master() {
             <table className="tbl">
               <thead><tr>
                 <th>编号</th><th>代号</th><th>名称</th><th>分类</th><th>类别</th>
-                <th>履约</th><th>状态</th><th>可见 region</th><th>更新</th>
+                <th>履约</th><th>状态</th><th>哪些区看得到</th><th>更新</th>
               </tr></thead>
               <tbody>{显示.map((p: any) => (
                 <tr key={p.id}>
@@ -114,8 +114,14 @@ export default function Master() {
                   <td className="text-ink-4">{enumLabel(p.fulfillment_kind)}</td>
                   <td><span className={statusClass(p.status)}>{statusLabel(p.status)}</span></td>
                   <td className="text-xs">
+                    {/* 【区名说中文】（2026-09-04 · 25 计划的后台逐页走）。
+                        这一格原先印的是裸的 `cn` / `verify`，而列头写着
+                        「可见 region」——一半中文一半英文。
+                        `regionLabel` 本来在 Users 页做私有函数，
+                        它的注释就写着「`cn` 对着屏幕的人不一定认得」,
+                        而这一页正是那句话说的情形。 */}
                     {(p.available_regions ?? []).map((r: string) => (
-                      <span key={r} className="text-ink-3 mr-1">{r}</span>
+                      <span key={r} className="text-ink-3 mr-1">{regionLabel(r)}</span>
                     ))}
                   </td>
                   <td title={ts(p.updated_at)}>{rel(p.updated_at)}</td>
