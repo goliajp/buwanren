@@ -37,6 +37,28 @@ preflight() {
   curl -sf -m 3 "$API/v1/health" >/dev/null || { say_bad "用户 API 不在（${API}）"; bad=1; }
   curl -sf -m 3 "$ADMIN/admin/health" >/dev/null || { say_bad "后台 API 不在（${ADMIN}）"; bad=1; }
   command -v jq >/dev/null || { say_bad "要 jq"; bad=1; }
+  # 【排盘服务也要在】（2026-09-04）。
+  # U2 那一格是「本命 + 七天签 + 说明书」——三样都要 mingli 算。
+  # 它不在的时候，这个脚本报的是「本命摘要　期望 200 实际 404」：
+  # 那句话读起来像本命那条接口坏了，而真因是【另一个服务没起】。
+  # 今天为这个查了一轮 —— 会话重启把三个服务全带走了，
+  # 而屏幕上写的是履约和排盘的毛病。
+  #
+  # 判据是「端口上有没有人应答」，不是某条路径给不给 200 ——
+  # `.claude/CLAUDE.md` 里记着：拿 `/health` 当探针在这个仓里
+  # 误判过两次，而 mingli 只认 `/api/*`，问 `/` 一样是 404。
+  # 今天我又用了一次那个坏判据，白等了它十分钟。
+  #
+  # 【shell 里没有块注释】。这一段头一版写成了 `/* … */` ——
+  # 而 `bash -n` 查不出来：它只验语法，`/*` 是一个合法的命令名
+  # （glob 展开成 /bin /etc …）。今天这是第二次，
+  # 上一次记在这个文件里「御守两条入口」那一段。
+  local mingli_port=${MINGLI_PORT:-6027}
+  if ! lsof -nP -iTCP:"${mingli_port}" -sTCP:LISTEN >/dev/null 2>&1; then
+    say_bad "排盘服务不在（:${mingli_port}）—— U2 的本命、七天签、说明书全要它"
+    echo "     起它：cd ../mingli && cargo run -p mingli-api"
+    bad=1
+  fi
   [ "$bad" = 0 ] || { echo; echo "先把它们起起来：bash scripts/dev-all.sh"; exit 2; }
 }
 
