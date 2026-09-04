@@ -197,6 +197,11 @@ const 枚举名: Record<string, string> = {
   // 商品:卖的是什么 / 怎么交付
   one_shot: '单次', subscription: '订阅', bundle: '套装',
   instant: '即时', shipping: '寄实物', residency: '入住',
+  // 【`async_compute` 也是一种交付】（2026-09-04 · 25 计划的后台逐页走）。
+  // 库里三条真商品是这么交付的（说明书要排完盘才出得来）,
+  // 而它没收录 —— 于是商品表「怎么交付」那一列里，
+  // 「入住」「寄实物」中间夹着一个 `async_compute`。
+  async_compute: '算好再给',
   report: '报告', charm: '符', omamori: '御守', divination: '问签',
   // 订阅
   end_of_period: '本期结束时', immediate: '立刻',

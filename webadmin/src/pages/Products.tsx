@@ -15,8 +15,16 @@ const KINDS = ['one_shot','subscription','digital_goods','service'];
 
 export default function Products() {
   const qc = useQueryClient();
-  const [filt, setFilt] = useState<Record<string, any>>({ size: 50, page: 0 });
-  const [draft, setDraft] = useState<Record<string, any>>({});
+  /* 【货架上先摆在卖的】（2026-09-04 · 25 计划的后台逐页走）。
+     上一版默认列全部、按更新倒序 —— 库里 13,686 条草稿、202 条下架、
+     【12 条在卖】，于是第一屏五十行全是草稿，运营打开这一页
+     一个在卖的商品都看不见。看板上写着「在卖的商品 12」,
+     点进来却找不到它们。
+
+     跟退款页、对账页同一条:默认落在要做的事上。要看草稿、看下架的，
+     把上面那个状态改一下就是了。 */
+  const [filt, setFilt] = useState<Record<string, any>>({ status: 'listed', size: 50, page: 0 });
+  const [draft, setDraft] = useState<Record<string, any>>({ status: 'listed' });
   const [detailId, setDetailId] = useState<string | null>(null);
 
   const list = useQuery({
@@ -44,13 +52,18 @@ export default function Products() {
         <FilterBar
           fields={[
             { kind: 'text', key: 'keyword', label: '找', placeholder: '名称或代号', width: 220 },
-            { kind: 'select', key: 'status', label: '状态', options: STATUSES.map(v => ({ v, label: v })) },
+            /* 【下拉里也说中文】（2026-09-04 · 25 计划的后台逐页走）。
+               这一行原本 `label: v` —— 直接把 `draft` / `listed` 摆上屏,
+               而紧挨着的下一行「怎么卖」用的是 `enumLabel(v)`。
+               同一个筛选条，一行翻了一行没翻;而表里那一列
+               自己写的是「在架」，跟下拉里的 `listed` 对不上。 */
+            { kind: 'select', key: 'status', label: '状态', options: STATUSES.map(v => ({ v, label: statusLabel(v) })) },
             { kind: 'select', key: 'kind', label: '怎么卖', options: KINDS.map(v => ({ v, label: enumLabel(v) })) },
           ]}
           values={draft}
           onChange={setDraft}
           onSearch={() => setFilt({ ...draft, size: 50, page: 0 })}
-          onReset={() => { setDraft({}); setFilt({ size: 50, page: 0 }); }}
+          onReset={() => { setDraft({ status: 'listed' }); setFilt({ status: 'listed', size: 50, page: 0 }); }}
           right={<button className="btn btn-soft" onClick={() => list.refetch()}><RefreshCw size={13}/> 刷新</button>}
         />
         <div className="panel">
