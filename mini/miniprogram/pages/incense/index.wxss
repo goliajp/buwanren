@@ -36,7 +36,14 @@
    `margin-bottom: auto` 让上下两段弹性平分那段富余：按钮不再钉死在
    视口底，而是跟着内容往下留一段。矮屏上富余是 0，行为不变。 */
 .acts { margin-top: auto; margin-bottom: auto; padding-top: 48rpx; text-align: center; }
-.slot-on { display: flex; align-items: center; color: var(--ink-mid); }
+/* 【能点的那一档要够 44px】（2026-09-05 · 点香开着时这一条才出现）。
+   不开的时候它只是一句话，多高都行;开着的时候它是【入口】——
+   而它算下来只有 28px（22rpx 字 + 18rpx 上内距）。
+   这一条只在 `slot-on` 上加，那一句不动。 */
+.slot-on {
+  display: flex; align-items: center; color: var(--ink-mid);
+  min-height: 88rpx; box-sizing: border-box; padding-bottom: 18rpx;
+}
 .slot-arrow { margin-left: auto; color: var(--stone-label); }
 
 
