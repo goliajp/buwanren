@@ -36,6 +36,29 @@ const 物流说法: Record<string, string> = {
   failed_delivery: '投递失败', unknown: '承运商没说清',
 }
 
+/* 是哪家寄的。屏上原先原样打库里那两个字母 —— 单号那一行读作
+   「sf · P25ADMIN0001」。后台早有同一张对照表
+   （webadmin/src/components/util.ts 的 `carrierLabel`），这一屏没有。
+
+   它躲过了三轮：U4 的订单页每一轮都照了相，而「sf」两个小字看着
+   像单号的一部分，不像一个没翻译的枚举。 */
+const 快递说法: Record<string, string> = {
+  // 中国大陆
+  sf: '顺丰', jd: '京东', zto: '中通', yto: '圆通', yunda: '韵达',
+  sto: '申通', ems: 'EMS',
+  // 日本 / 韩国 / 东南亚 / 港澳台 —— 这几个区一个都没有的时候，
+  // 那边的买家在单号那一行看到的是 `yamato`、`cj_logistics`
+  jp_post: '日本邮政', yamato: '黑猫宅急便', sagawa: '佐川急便',
+  cj_logistics: 'CJ 大韩通运', hanjin: '韩进', lotte: '乐天',
+  jnt: '极兔', ninja_van: 'Ninja Van', chunghwa_post: '中华邮政',
+  // 北美
+  usps: 'USPS', dhl: 'DHL', fedex: 'FedEx', ups: 'UPS',
+  /* `manual` 是后台的人手填了单号、没挑承运商。后台那张表把它写成
+     「人工录入」—— 那句是说给运营听的。对着这一屏的人不需要知道
+     单号是谁录进去的，所以这一档【不写承运商】，只留单号本身。 */
+  manual: '',
+}
+
 /* 这一单走到哪一步了。
 
    订单详情在最常见的情况下（买一件、还没付、没有物流）整屏只有标题、
@@ -181,7 +204,7 @@ Page({
     paying: false,
     note: '',
     /** 寄出去的那些。空数组 = 这单没有实物要寄，不是「还没查」 */
-    shipments: [] as Array<Shipment & { statusText: string }>,
+    shipments: [] as Array<Shipment & { statusText: string; 快递: string }>,
     /** 取物流失败时说一句 —— 空数组是「没有包裹」，不是「取不到」 */
     shipErr: '',
     /** 展开的那件包裹的轨迹 */
@@ -331,7 +354,12 @@ Page({
     commerceApi.shipments(this.data.id).then(
       (list) => this.setData({
         shipErr: '',
-        shipments: list.map((s) => ({ ...s, statusText: 物流说法[s.status] || s.status })),
+        shipments: list.map((s) => ({
+          ...s,
+          statusText: 物流说法[s.status] || s.status,
+          // 表里没有的代号原样留着 —— 编一个好听的名字比英文原值更难查
+          快递: s.carrier_code ? (快递说法[s.carrier_code] ?? s.carrier_code) : '',
+        })),
       }),
       (e: ApiError) => this.setData({ shipments: [], shipErr: 一句(e) }),
     )

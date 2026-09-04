@@ -30,15 +30,37 @@ import re, sys, pathlib
      # 轨迹里承运商推来的那几种不在枚举里，表里允许多出来
      {'departed', 'arrived_at_sort_facility', 'failed_delivery', 'unknown'}),
     ('OrderStatus', 'mini/miniprogram/utils/money.ts', '状态说法', set()),
+    # 订着的那一屏（2026-09-05）。七种状态原先一档中文都没有 ——
+    # 那一支从来没有一位真的订着的人走过，于是屏上打的是 `active`
+    ('SubscriptionStatus', 'mini/miniprogram/pages/subs/index.ts', '状态说法', set()),
+    # 承运商代号。它不是枚举 —— 按区列在 region.rs 的 `carriers:` 里
+    ('carriers@region', 'mini/miniprogram/pages/order/index.ts', '快递说法',
+     # 后台手填单号、没挑承运商的那一档，不属于任何一个区
+     {'manual'}),
 ]
 枚举源 = (根 / 'backend/unmei-domain/src/commerce/enums.rs').read_text(encoding='utf-8')
 
+
+def 后端真值(名: str) -> set:
+    """这一列的真值从哪儿来。
+
+    多数是 `enums.rs` 里的 `str_enum!`。承运商代号是例外:
+    它不是枚举，按区列在 `region.rs` 的 `carriers:` 里，六个区各一串。
+    """
+    if 名 == 'carriers@region':
+        src = (根 / 'backend/unmei-domain/src/commerce/region.rs').read_text(encoding='utf-8')
+        出 = set()
+        for 一串 in re.findall(r'carriers:\s*&\[(.*?)\]', src, re.S):
+            出 |= set(re.findall(r'"([\w.]+)"', 一串))
+        return 出
+    m = re.search(r'str_enum!\(' + 名 + r'\s*\{(.*?)\}\)', 枚举源, re.S)
+    return set(re.findall(r'=>\s*"([\w.]+)"', m.group(1))) if m else set()
+
 for 枚举名, 前端路径, 表名, 额外 in 对:
-    m = re.search(r'str_enum!\(' + 枚举名 + r'\s*\{(.*?)\}\)', 枚举源, re.S)
-    if not m:
-        print(f'✗ 读不出后端枚举 {枚举名} —— 这一支够不着要验的东西')
+    真值 = 后端真值(枚举名)
+    if not 真值:
+        print(f'✗ 读不出后端的 {枚举名} —— 这一支够不着要验的东西')
         sys.exit(1)
-    真值 = set(re.findall(r'=>\s*"([\w.]+)"', m.group(1)))
     f = 根 / 前端路径
     s = f.read_text(encoding='utf-8')
     m2 = re.search(表名 + r'[^=]*=\s*\{(.*?)\n\}', s, re.S)

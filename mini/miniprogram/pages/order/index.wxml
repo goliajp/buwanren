@@ -102,8 +102,10 @@
           <text class="pkg-status">{{item.statusText}}</text>
           <text class="pkg-arrow">{{traceOf === item.id ? '收起' : '看轨迹'}}</text>
         </view>
+        <!-- 承运商原先打的是库里那两个字母（`sf`）。翻译在 index.ts；
+             `manual`（后台手填、没挑承运商）那一档不写承运商，只留单号。 -->
         <view class="pkg-no" wx:if="{{item.tracking_no}}">
-          {{item.carrier_code}} · {{item.tracking_no}}
+          <text wx:if="{{item.快递}}">{{item.快递}} · </text>{{item.tracking_no}}
         </view>
         <view class="pkg-no" wx:else>还没有单号</view>
 

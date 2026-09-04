@@ -195,8 +195,15 @@ export function channelLabel(ch: string): string {
 
 /** carrier code → 中文 */
 export function carrierLabel(c: string): string {
+  /* 【各区的承运商都要收】（2026-09-05）。region.rs 按区列了二十个代号，
+     这里原先只有大陆那七个加四个西方的 —— 日本、韩国、东南亚、港澳台
+     一个都没有。那几个区一发货，这一列就开始印 `yamato` / `cj_logistics`。 */
   return { sf:'顺丰', jd:'京东', zto:'中通', yto:'圆通', yunda:'韵达',
-           sto:'申通', ems:'EMS', usps:'USPS', dhl:'DHL', fedex:'FedEx',
+           sto:'申通', ems:'EMS',
+           jp_post:'日本邮政', yamato:'黑猫宅急便', sagawa:'佐川急便',
+           cj_logistics:'CJ 大韩通运', hanjin:'韩进', lotte:'乐天',
+           jnt:'极兔', ninja_van:'Ninja Van', chunghwa_post:'中华邮政',
+           usps:'USPS', dhl:'DHL', fedex:'FedEx',
            ups:'UPS', manual:'人工录入' }[c] ?? c;
 }
 
