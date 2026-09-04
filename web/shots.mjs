@@ -82,12 +82,59 @@ const 去 = async (route, q) => {
    25 计划的五个人各是一种状态，带着他们的 token 各走一遍，
    两半就都在了。 */
 const TOKEN = arg('token', '')
+/** `--token` 那位是谁。带身份走时在这儿一次问清，后面几处都用它 */
+let 我 = null
 if (TOKEN) {
+  if (!API) throw new Error('--token 要配 --api —— 身份是问后端要的')
+  /* 【token 和 user 两样都要先摆好，而且要在页面脚本之前】
+     （2026-09-05 · 25 计划的用户逐屏走 · 第四处「工具改了被验的东西」）。
+
+     上一版只塞 token:先 `去()` 打开一页，再往 localStorage 里写 token。
+     那一趟打开的时候【两样都还没有】，于是 app.ts 的 onLaunch 里
+     `ensureLogin()` 走了「都没有」那一支 —— 真去后端匿名建了一个新人，
+     把 token 和 user 都写下来;紧接着第 2 行把 token 换成了这五个人的，
+     **而 user 留着那个新建的空壳**。之后每一趟导航,
+     `ensureLogin()` 看见「token 有、user 也有」就直接返回缓存的那个空壳。
+
+     后果不是「少了点什么」，是【屏上那句话是错的】:
+     `app.globalData.activeNatalId` 取自 `user.active_natal_id`，
+     空壳没有本命 —— 于是「算过命的」那位（库里明明有本命、
+     用例里刚断言过「他有本命 1」）在「今天」那一屏上看到的是
+       「现在转的是通用的一句 · 填了出生时间才是按你排的」
+     加一颗「填出生时间」的大按钮。
+     五个人的 home 因此**逐字节完全相同** —— 而这一份夹具的全部意义
+     就是「五个人各是一种状态」。
+
+     【为什么只坏了前三屏】:名单上第三屏是「我的」，那一页会
+     `mineApi.me()` 问一次服务端并 `storage.setUser(u)` —— 它顺手
+     把这个空壳修好了。所以第四屏往后一切正常，而 village / home
+     这两屏照的是别人。**一处坏了两屏、后面全对**，比全坏更难看出来:
+     翻一遍图，只有 home 那一屏说的话跟旁边对不上，
+     读起来像产品在那一屏上有个 bug。
+
+     改法:身份在 Node 这一侧问清（token 自己就换得出用户），
+     用 `addInitScript` 在**每一趟导航的页面脚本之前**把两样都摆好。
+     这样 `ensureLogin()` 每次都短路，不再凭空建人（顺带:上一版
+     每跑一轮往真库里写进去几个空壳用户）。 */
+  const 答 = await fetch(API + '/v1/user/me', { headers: { authorization: 'Bearer ' + TOKEN } })
+  if (!答.ok) throw new Error(`拿不到这个身份是谁（/v1/user/me 答 ${答.status}）—— 后面每一屏都会照着一个空身份渲`)
+  我 = await 答.json()
+  await p.addInitScript((a) => {
+    localStorage.setItem('unmei:buwanren:token', JSON.stringify(a.t))
+    localStorage.setItem('unmei:buwanren:user', JSON.stringify(a.u))
+  }, { t: TOKEN, u: 我 })
+  console.log(`· 用「${我.nickname || 我.id}」的身份走 —— 本命${我.active_natal_id ? '有' : '没有'}`)
+
+  /* 【落地之后要回头核一次】。上面那一段是「我以为摆好了」,
+     而这一支整整一轮都建在「我以为」上。判据在页面自己那一侧:
+     app 认下来的那个人，得就是我给它的那个人。 */
   await 去('pages/village/index')
-  await p.evaluate((t) => {
-    localStorage.setItem('unmei:buwanren:token', JSON.stringify(t))
-  }, TOKEN)
-  console.log('· 用给定的身份走（--token）')
+  const 它认的是谁 = await p.evaluate(() =>
+    (globalThis.getApp && globalThis.getApp().globalData.user || {}).id || null)
+  if (它认的是谁 !== 我.id) {
+    throw new Error(`页面认下来的是 ${它认的是谁}，而我给的是 ${我.id}`
+      + ' —— 身份没落地，后面每一屏都是别人的样子')
+  }
 }
 
 // 打真后端时先热一下、拿到 token，否则截出来全是「取不到」
@@ -188,22 +235,12 @@ let 册 = null
    于是他有册子也截不到，报告那一屏空着;
    而什么都没买的那位（U1「新来的」）本来就不该有,
    却被判成「种不出册子」。两种都报成同一句红。 */
-if (API && TOKEN) {
-  /* 【问后端要「我是谁」，不等前端写下来】。
-     `--token` 那一段只往 localStorage 里塞了 token，页面还没再走一趟,
-     所以 `buwanren:user` 这时候是【空的】——照着它查，
-     买过说明书的那位也会被判成「没有说明书」（头一版就是这样）。
-     token 自己就能换出用户，直接问 `/v1/user/me`。 */
-  const 我是谁 = await p.evaluate(async (a) => {
-    const r = await fetch(a.base + '/v1/user/me', { headers: { authorization: 'Bearer ' + a.t } })
-    return r.ok ? (await r.json()).id : null
-  }, { base: API, t: TOKEN })
-  if (我是谁) {
-    try {
-      册 = sql1(`SELECT id FROM report WHERE user_id='${我是谁}' AND status='ready'`
-                + ` ORDER BY ready_at DESC LIMIT 1`) || null
-    } catch { 册 = null }
-  }
+if (API && TOKEN && 我) {
+  // 「我是谁」上面已经问过一次了（`--token` 那一段），这儿直接用
+  try {
+    册 = sql1(`SELECT id FROM report WHERE user_id='${我.id}' AND status='ready'`
+              + ` ORDER BY ready_at DESC LIMIT 1`) || null
+  } catch { 册 = null }
 }
 if (API && 单子 && !TOKEN) {
   try {
@@ -234,6 +271,7 @@ const 屏 = [
   ['orders', 'pages/orders/index'],
   ['badges', 'pages/badges/index'],
   ['subs', 'pages/subs/index'],
+  ['activity', 'pages/activity/index'],
   ['incense', 'pages/incense/index'],
   ['settings', 'pages/settings/index'],
   ['plot', 'pages/plot/index', { id: '7' }],
@@ -282,6 +320,33 @@ const 屏 = [
   ['policy-terms', 'pages/policy/index', { kind: 'terms' }],
 ]
 
+/* 【名单本身也要被核】（2026-09-05 · 25 计划的用户逐屏走）。
+ *
+ * 下面那一支判的是「名单上的都截到了」——名单漏了一页，它一个字都不说。
+ * `pages/activity/index` 就这么漏了:线下活动那一页 2026-09-03 建起来，
+ * 从「我的」和徽章那一屏的「看看有什么活动 ›」都点得到，
+ * 而逐屏走从来没走过它 —— 五个人 ×32 屏，一张都没有。
+ *
+ * 这是这一天第三次撞见同一个形状:**门禁写着它防什么，判据够不到那儿**。
+ * 名单是人手写的，那就让 app.json 来对它 —— 页面是在那儿注册的，
+ * 漏一页就当场红，不必等谁想起来数一遍。 */
+const 条件屏 = [
+  // 这两屏【看这个人手里有什么】:没册子 / 没下过单就不展开（见下面那一段）
+  'pages/report/index',
+  'pages/order/index',
+]
+{
+  const app = JSON.parse(readFileSync(join(根, 'mini/miniprogram/app.json'), 'utf8'))
+  const 走到的 = new Set([...屏.map(([, 路]) => 路), ...条件屏])
+  const 没走的 = (app.pages || []).filter((x) => !走到的.has(x))
+  if (没走的.length) {
+    console.error('✗ app.json 里这几页，逐屏走一次都没走过：')
+    for (const x of 没走的) console.error('    ' + x)
+    console.error('  没截过的屏跟没做过的屏长得一模一样 —— 补进上面那张名单。')
+    process.exit(1)
+  }
+}
+
 /* 【少一屏要红，而不是少一屏】（2026-09-03 五路评审 · 门禁审计）。
  *
  * `report` 与 `order` 是两条【条件展开】—— 册子种不出来、单子下不成，
@@ -326,10 +391,23 @@ const 真id = (v) => {
   if (!id) throw new Error('库里没有在售的御守商品 —— 御守那两屏截不成')
   return id
 }
+/* 【截到的得就是这一屏】（2026-09-05 · 25 计划的用户逐屏走）。
+ *
+ * `lighting.png` 里是一整屏村子。点香那一页在不到点的时候【自己退出去】
+ * （设计册 10.7:不做「本周还没开始」的占位页），退到村子，
+ * 而截图照旧存下来、还叫 lighting —— 一张看着完全正常的图，
+ * 只是它拍的是另一页。
+ *
+ * 这跟六间房那处是同一个形状:那次是参数名写错、页面静默回落到白鹭家，
+ * 「真房间、真人名、真按钮，没有任何地方会红」。那次是逐屏对着图发现的,
+ * 这次让判据来看:开完之后问一句路由停在哪儿。 */
+const 走岔了 = []
 for (const [名, 路, q0] of 屏) {
   if (ONLY.length && !ONLY.includes(名)) continue
   const q = q0 && Object.fromEntries(Object.entries(q0).map(([k, v]) => [k, 真id(v)]))
   await 去(路, q)
+  const 停在 = await p.evaluate(() => (globalThis.__router.current() || {}).__route || null)
+  if (停在 !== 路) 走岔了.push(`${名} —— 要的是 ${路}，停在 ${停在 || '（不知道）'}`)
   await p.screenshot({ path: join(OUT, `${名}.png`) })
   /* 那一册有六页，一张截图只看得到第一页 —— 而用神与大运在后面。
      翻过去各截一张:看不到的地方等于没打磨过。 */
@@ -502,4 +580,16 @@ if (!ONLY.length) {
     console.error(`✗ 该截 ${该有几屏} 屏，只截到 ${n} 屏 —— 名单跟结果对不上`)
     process.exit(1)
   }
+}
+if (走岔了.length) {
+  console.error('✗ 这几屏开出来停在了别的页 —— 图存下来了，拍的却是另一屏：')
+  for (const e of 走岔了) console.error('    ' + e)
+  if (走岔了.some((x) => x.startsWith('lighting'))) {
+    console.error('  点香那一屏一周只有二十五分钟能碰上（周四 21:00 起烧 25 分钟）,')
+    console.error('  不到点它自己退回村里。想验它就把窗口挪到现在再起后端：')
+    console.error('    UNMEI_INCENSE_WEEKDAY=<0=周一…6=周日> UNMEI_INCENSE_HOUR=<0-23> \\')
+    console.error('    UNMEI_INCENSE_MINUTES=240 cargo run -p unmei-api')
+    console.error('  （routes/incense.rs 里写着:可配时刻是真功能，不是伪造时间的后门）')
+  }
+  process.exit(1)
 }
