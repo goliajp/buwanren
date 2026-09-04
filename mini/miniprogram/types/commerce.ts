@@ -78,6 +78,10 @@ export interface OrderCard {
   /** 这单几行。> 1 时显示「第一件 等 N 件」 */
   line_count: number
   status: string
+  /** 这一单那件包裹走到哪儿了。没有实物要寄的单子是 null。
+   *  列表上「备着」那一档要靠它换成「在路上」——
+   *  订单状态只说得出这笔钱走到哪儿。 */
+  ship_status?: string | null
   currency: string
   amount_total_minor: number
   amount_paid_minor: number

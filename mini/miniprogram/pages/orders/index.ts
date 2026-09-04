@@ -14,6 +14,7 @@ import { storage } from '../../services/storage'
 import type { ApiError } from '../../services/api'
 import type { OrderCard } from '../../types/commerce'
 import { money, 状态那一词, 该做什么 } from '../../utils/money'
+import { 物流那一词 } from '../../utils/ship'
 import { 一句 } from '../../utils/say'
 import { 台账那天 } from '../../utils/day'
 
@@ -86,7 +87,16 @@ Page<IData, WechatMiniprogram.IAnyObject>({
           title: o.title
             ? (o.line_count > 1 ? o.title + ' 等 ' + o.line_count + ' 件' : o.title)
             : '单 ' + o.id.slice(0, 8),
-          statusText: 状态那一词(o.status, o.cancel_reason),
+          /* 【在履约的那一笔，说包裹走到哪儿了】（2026-09-05 · 逐屏走）。
+             `fulfilling` 的中文是「备着」，而包裹可能早就在路上了 ——
+             这一列写着「备着」，点进去详情写着「在路上了」，同一单两个说法。
+             买家点开「我买过的」问的正是「我那件东西到哪儿了」，
+             而这一行给的是错的答案。
+             只在 `fulfilling` 这一档换 —— 其余几档（待付、完成、取消、
+             已退）说的是这笔【钱】走到哪儿，那不是包裹能替它回答的。 */
+          statusText: o.status === 'fulfilling' && o.ship_status
+            ? 物流那一词(o.ship_status)
+            : 状态那一词(o.status, o.cancel_reason),
           go: 该做什么(o.status),
           totalText: money(o.amount_total_minor, o.currency),
           whenText: 台账那天(String(o.created_at || '')),
