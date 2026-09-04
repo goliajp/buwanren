@@ -628,6 +628,33 @@ async function 量一屏(route, params) {
   return { ...m, 溢出: m.内容 - m.视口, 色 }
 }
 
+/* 【横着不许出界】（2026-09-04 · 25 计划的逐屏走量出来的）。
+   竖着的欠账有台账管着（上面那一段），横着的一条都没管过 ——
+   而横向溢出比纵向糟:竖着看不见的往下滑就有，
+   横着看不见的【多数人根本不知道能滑】。
+
+   25 计划把五个人各三十九屏的几何数据存下来之后，一次扫描
+   出来一处:说明书那一行页签在 375 宽的屏上是 376px，
+   最后一页「三宫」的「宫」被切掉一角。就一处，就 1px ——
+   正因为只有一处，把这条钉成【零】才有意义:
+   往后但凡多出一处，它就是新长出来的。
+
+   量的是「谁的右边越过了视口」，不是 `scrollWidth`：
+   后者被任何一个 `overflow:hidden` 的祖先吃掉，
+   而被吃掉的溢出照样是屏幕上看不全的字。 */
+const 横着出界的 = () => p.evaluate(() => {
+  const 宽 = document.documentElement.clientWidth
+  const 出 = []
+  for (const el of document.querySelectorAll('#app .page *')) {
+    const r = el.getBoundingClientRect()
+    if (r.width === 0 || r.height === 0) continue
+    if (r.right > 宽 + 0.5) {
+      出.push(`${(el.className || el.tagName).toString().split(' ')[0]}:${Math.round(r.right - 宽)}px「${(el.textContent || '').trim().slice(0, 10)}」`)
+    }
+  }
+  return 出.slice(0, 6)
+})
+
 /* 【集齐那一句】。40/40 是这个产品情感最高的一刻，而原先屏上说的是
    「还差 0 位就集齐了」—— 语法没错，意思荒谬。
    这一态靠真数据【永远走不到】（开发库里最多住着几位，而请回四十位
@@ -2998,6 +3025,11 @@ console.log('\n── 一屏放得下吗（iPhone SE · 内容区 597）──')
     const m = await 量一屏(r, 要参数[r])
     const 名 = r.replace('pages/', '').replace('/index', '')
     量到[名] = m.溢出
+    /* 横着出界的，一处都不许有 —— 见上面 `横着出界的` 那段。
+       这一条在 390 宽上量（`量一屏` 收尾时把视口设回 390）,
+       比 375 宽松一点;375 那一档由逐屏走的几何数据兜着。 */
+    const 出界 = await 横着出界的()
+    ok(出界.length === 0, `${名} 横着没出界`, 出界.join(' · '))
     /* 【每一屏的字都要读得出来】。判据 3.2:1 跟 `check-contrast.py` 同一条。
        这一支量的是【真实渲染】:底写在祖先上、写在渐变里、写在按钮上的，
        它一律问得到浏览器。2026-09-02 接线当天它抓到三处，
