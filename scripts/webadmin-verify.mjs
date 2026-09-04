@@ -18,9 +18,20 @@
  * 跨目录的验证脚本本来也都在这儿。
  */
 import { chromium } from 'playwright'
+import { mkdirSync, writeFileSync } from 'fs'
+import { join } from 'path'
 
 const arg = (k, d) => (process.argv.find((a) => a.startsWith(`--${k}=`)) || `=${d}`).split('=').slice(1).join('=')
 const BASE = arg('base', 'http://127.0.0.1:6030').replace(/\/$/, '')
+/* 【顺手把每一页截下来】（2026-09-04 · 25 计划）。
+   这一支验的是「接口给了 N 条、页面渲了几行」——机检管得着的那一半。
+   另一半机检管不着:十九个工作台【长什么样】。
+   用户那一侧有逐屏走留下的一百九十五张图，后台这一侧【一张都没有】,
+   而它是这个产品的另一半。
+
+   不给 `--shots=` 就照旧只跑断言，一张不写 —— 门禁里跑的就是那一档。 */
+const SHOTS = arg('shots', '')
+if (SHOTS) mkdirSync(SHOTS, { recursive: true })
 const EMAIL = process.env.ADMIN_EMAIL || 'admin@unmei.local'
 const PASSWORD = process.env.ADMIN_PASSWORD || 'admin123'
 
@@ -134,6 +145,13 @@ for (const r of ROUTES) {
   }
   ok(true, r, hasTable ? `${got} 条 → ${rows} 行` : '（这一页不是表格）')
 
+  /* 截【整页】，不只是视口那一屏 —— 运营台是往下长的，
+     只截第一屏等于把表格的大部分裁掉。 */
+  if (SHOTS) {
+    const 名 = (r === '/' ? 'dashboard' : r.replace(/^\//, '')).replace(/\//g, '-')
+    await page.screenshot({ path: join(SHOTS, `${名}.png`), fullPage: true })
+  }
+
   /* 接口给了、页面没渲 —— 字段对不上就长这样。
      反过来(渲得比拿到的多)不算错:有些页会把几个接口的结果并到一张表里。 */
   if (hasTable && got > 0 && rows === 0) 空表.push(`${r}（拿到 ${got} 条,一行都没渲）`)
@@ -141,6 +159,23 @@ for (const r of ROUTES) {
 
 console.log('\n── 接口给了数据，页面渲出来了吗 ──')
 ok(空表.length === 0, '没有「有数据却空着」的页', 空表.join(' · ') || '都对得上')
+
+/* 一页看完 —— 跟用户那一侧的逐屏走同一个形式。
+   十九张图分开看是十九次开关文件，连在一起才看得出
+   「这十九个台子像不像一套东西」。 */
+if (SHOTS) {
+  const 图 = ROUTES.map((r) => (r === '/' ? 'dashboard' : r.replace(/^\//, '')).replace(/\//g, '-'))
+  writeFileSync(join(SHOTS, 'index.html'),
+    '<meta charset="utf-8"><title>后台逐页走 · ' + EMAIL + '</title>' +
+    '<style>body{margin:0;background:#f4f1ea;font:14px/1.6 -apple-system,sans-serif}' +
+    'h1{font-size:15px;padding:14px 16px;margin:0;position:sticky;top:0;background:#f4f1ea}' +
+    'figure{margin:0 0 26px}figcaption{padding:6px 16px;color:#6b6459}' +
+    'img{width:100%;display:block;border-top:1px solid #ddd6c8}</style>' +
+    `<h1>后台逐页走 · ${EMAIL} · ${图.length} 页</h1>` +
+    图.map((n) => `<figure><figcaption>${n}</figcaption><img src="${n}.png"></figure>`).join(''),
+    'utf-8')
+  console.log(`\n图在 ${SHOTS}/ —— 一页看完：open ${join(SHOTS, 'index.html')}`)
+}
 
 console.log(`\n共验了 ${passed + failed} 条`)
 console.log(failed ? `✗ ${failed} 条不过` : '✓ 都通了')

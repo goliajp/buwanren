@@ -651,7 +651,7 @@ do_console() {
       root) email=admin@unmei.local ;;
       hk)   email=hk@unmei.local ;;
     esac
-    out=$(ADMIN_EMAIL="${email}" bash scripts/webadmin-verify.sh 2>&1)
+    out=$(ADMIN_EMAIL="${email}" bash scripts/webadmin-verify.sh --shots="${SHOTS}/admin-${who}" 2>&1)
     if printf '%s' "${out}" | grep -q '都通了'; then
       n_ok=$((n_ok+1))
       printf '  \033[32m✓\033[0m %-46s %s\n' "${email} 逐页走" "$(printf '%s' "${out}" | grep -c '✓')"
