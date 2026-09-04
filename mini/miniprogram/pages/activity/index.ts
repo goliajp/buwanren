@@ -25,7 +25,7 @@ interface 一场 extends Activity {
   什么时候: string
   报了没有: boolean
   满了没有: boolean
-  /** 「还差 12 个」/「满了」/「48 人报了」 */
+  /** 「还能来 60 位」/「只剩 3 位」/「满了」 */
   人数话: string
 }
 
@@ -92,7 +92,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
         wx.showToast({ title: '报上了', icon: 'none' })
       }
       /* 【重取，不在本地改数】。人数是服务端数出来的 ——
-         本地 +1 的话，别人同时报满了这一场，屏上仍然显示「还差 1 个」，
+         本地 +1 的话，别人同时报满了这一场，屏上仍然显示「只剩 1 位」，
          而下一次点会失败。这一屏只有三行，重取一次是便宜的。 */
       await this.load()
     } catch (err) {
@@ -115,17 +115,25 @@ Page<IData, WechatMiniprogram.IAnyObject>({
 
 function 摆一行(a: Activity, 我报的: string[]): 一场 {
   const 报了没有 = 我报的.includes(a.id)
-  const 还差 = a.max_participants - a.current_count
-  const 满了没有 = 还差 <= 0
+  const 还能来 = a.max_participants - a.current_count
+  const 满了没有 = 还能来 <= 0
   return {
     ...a,
     什么时候: 那天几点(a.start_at),
     报了没有,
     满了没有,
-    /* 【说还差几个，不说报了几个】。「48 人报了」是给办活动的人看的数；
+    /* 【说还剩几个位子，不说报了几个】。「48 人报了」是给办活动的人看的数；
        对着这一屏的人要判断的是「我还去得了吗」。
-       快满的时候这句话本身就是理由。 */
-    人数话: 满了没有 ? '满了' : `还差 ${还差} 个`,
+
+       【「还差」是反的】（2026-09-05 · 25 计划的用户逐屏走）。
+       屏上原先写「还差 60 个」—— 中文里「还差」是【短了多少】,
+       读起来像这一场要凑够 60 个人才办得成，而实际意思是【还空着 60 个位子】。
+       一场刚开放报名的活动，用这句话说出来像是没人要去。
+
+       快满的时候单独一句:「只剩 3 位」比「还能来 3 位」急，
+       而那份急正是这一行该给的信息。 */
+    人数话: 满了没有 ? '满了'
+          : (还能来 <= 5 ? `只剩 ${还能来} 位` : `还能来 ${还能来} 位`),
     category: 类别名[a.category] || a.category,
   }
 }

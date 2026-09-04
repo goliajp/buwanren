@@ -89,10 +89,16 @@ SELECT 1;
 -- `current_count` 这一列已删（20260903005）——「已报名多少人」现在
 -- 从 activity_registration 现算。种一个 48 在这儿，就是种一个
 -- 没有任何人在背后的数字。
+-- 【开场时刻要是整点】（2026-09-05 · 25 计划的用户逐屏走）。
+-- 上一版写的是 `NOW() + INTERVAL '10 days'` —— 它把【种库那一刻的分秒】
+-- 一起带进去了，于是屏上三场活动写着「9月13日 18:57」「9月23日 18:57」
+-- 「10月3日 18:57」:同一个分钟，还是个谁也不会挑的分钟。
+-- 那一列一眼就看得出是机器生成的东西，而这一屏是拿给人看的。
+-- `date_trunc('day', NOW())` 先削掉当天的时分秒，再加整点。
 INSERT INTO activity (id, title, sub_title, category, banner_url, location, city, start_at, end_at, max_participants, description) VALUES
-  ('a_gw','古物市集·夏至专场','匠心手作·古物古玩·香氛药香','market','https://images.pexels.com/photos/776653/pexels-photo-776653.jpeg?auto=compress&w=800','西溪湿地','杭州',NOW() + INTERVAL '10 days', NOW() + INTERVAL '10 days 8 hours',100,'汇集各地古物古玩，传承东方美学。'),
-  ('a_dy','道医问诊·义诊专场','名师坐诊·中医调理','market','https://images.pexels.com/photos/4226892/pexels-photo-4226892.jpeg?auto=compress&w=800','平江路','苏州',NOW() + INTERVAL '17 days', NOW() + INTERVAL '17 days 8 hours',60,'特邀道医传人坐诊，提供中医问诊、针灸调理、养生建议等服务。'),
-  ('a_xd','香道入门课','三日浸修·从识香到调香','course','https://images.pexels.com/photos/4226892/pexels-photo-4226892.jpeg?auto=compress&w=800','栖云堂','上海',NOW() + INTERVAL '35 days', NOW() + INTERVAL '37 days 8 hours',20,'三日课程，从识香、品香、用香到自调香方，系统入门。')
+  ('a_gw','古物市集·夏至专场','匠心手作·古物古玩·香氛药香','market','https://images.pexels.com/photos/776653/pexels-photo-776653.jpeg?auto=compress&w=800','西溪湿地','杭州',date_trunc('day', NOW()) + INTERVAL '10 days 10 hours', date_trunc('day', NOW()) + INTERVAL '10 days 18 hours',100,'汇集各地古物古玩，传承东方美学。'),
+  ('a_dy','道医问诊·义诊专场','名师坐诊·中医调理','market','https://images.pexels.com/photos/4226892/pexels-photo-4226892.jpeg?auto=compress&w=800','平江路','苏州',date_trunc('day', NOW()) + INTERVAL '17 days 10 hours', date_trunc('day', NOW()) + INTERVAL '17 days 18 hours',60,'特邀道医传人坐诊，提供中医问诊、针灸调理、养生建议等服务。'),
+  ('a_xd','香道入门课','三日浸修·从识香到调香','course','https://images.pexels.com/photos/4226892/pexels-photo-4226892.jpeg?auto=compress&w=800','栖云堂','上海',date_trunc('day', NOW()) + INTERVAL '35 days 9 hours', date_trunc('day', NOW()) + INTERVAL '37 days 17 hours',20,'三日课程，从识香、品香、用香到自调香方，系统入门。')
 ON CONFLICT (id) DO NOTHING;
 
 -- ─── badge · 6 徽章 ─────────────────────────────────────────────
