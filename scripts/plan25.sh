@@ -647,8 +647,15 @@ do_shots() {
   local who tok n
   for who in u1 u2 u3 u4 u5; do
     tok=$(jq -r ".${who}.token" "${STATE}")
-    if ! bun web/shots.mjs --out="${SHOTS}/${who}" --api="${API}" --token="${tok}" >/dev/null 2>&1; then
+    # 【它为什么没跑完，要说出来】（2026-09-05）。
+    # 上一版是 `>/dev/null 2>&1`，失败时屏上只剩一句「没跑完」——
+    # 而真因写在被丢掉的那几行里（那次是「这个人没有说明书」）。
+    # 留一份到文件，红的时候把最后几行贴出来。
+    if ! bun web/shots.mjs --out="${SHOTS}/${who}" --api="${API}" --token="${tok}" \
+         >"/tmp/plan25-shots-${who}.log" 2>&1; then
       say_bad "${who} 那一轮截屏没跑完"
+      sed 's/^/       /' "/tmp/plan25-shots-${who}.log" | tail -6
+      printf '       （整份输出：/tmp/plan25-shots-%s.log）\n' "${who}"
       n_bad=$((n_bad+1)); bad_list+=("${who} 截屏")
       continue
     fi
