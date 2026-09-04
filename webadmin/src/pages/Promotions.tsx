@@ -67,7 +67,7 @@ export default function Promotions() {
           <>
             <FilterBar
               fields={[
-                { kind: 'text', key: 'keyword', label: '找', placeholder: 'code / name' },
+                { kind: 'text', key: 'keyword', label: '找', placeholder: '代号或名称' },
                 { kind: 'select', key: 'status', label: '状态', options: STATUSES.map(v => ({ v, label: v })) },
               ]}
               values={draft}
