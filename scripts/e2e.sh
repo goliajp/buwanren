@@ -47,6 +47,29 @@ for i in {1..30}; do
     sleep 2
 done
 
+# 【排盘服务也要在】（2026-09-04）。
+# 第 2 条买的是 `sku-naji-deep`，它的交付方式是 `async_compute` ——
+# 说明书要 mingli 排完盘才算办完。它不在的时候，这个脚本在 2.5 步
+# 报的是「expected order.status=done, got fulfilling」：
+# 那句话读起来像履约坏了，而真因是【另一个服务没起】。
+# 今天为它查了一轮：会话重启把三个服务全带走了，
+# 而屏幕上写的是履约的毛病。
+#
+# 判据是「端口上有没有人应答」，不是某条路径给不给 200 ——
+# `.claude/CLAUDE.md` 记着拿 `/health` 当探针在这个仓里误判过两次，
+# 而 mingli 只认 `/api/*`，问 `/` 一样是 404（今天我又用了一次那个坏判据）。
+MINGLI_PORT="${MINGLI_PORT:-6027}"
+if ! lsof -nP -iTCP:"$MINGLI_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+    # 【`$VAR` 后面跟全角字符要加花括号】。`$MINGLI_PORT）` 里那个
+    # 全角右括号会被吞进变量名，`set -u` 当场报
+    # 「MINGLI_PORT）: unbound variable」—— 而那句话跟排盘服务毫无关系。
+    # `.claude/CLAUDE.md` 里记着同一件事（`$STATE）`）。
+    red "排盘服务不在（:${MINGLI_PORT}）—— 第 2 条要它把说明书算出来，不然订单停在 fulfilling"
+    yellow "  起它：cd ../mingli && cargo run -p mingli-api"
+    exit 1
+fi
+green "  ✓ 排盘服务在 :$MINGLI_PORT"
+
 step "1. /v1/products 公开商品列表（无需登录）"
 products=$(curl -fsS "$API_BASE/v1/products?region=cn&platform=web")
 n_products=$(echo "$products" | jq 'length')
