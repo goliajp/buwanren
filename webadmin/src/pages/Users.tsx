@@ -7,19 +7,13 @@ import { api } from '../lib/api';
 import PageHeader from '../components/PageHeader';
 import Pagination from '../components/Pagination';
 import TableError from '../components/TableError';
-import { rel, ts, shortId, platformLabel, thou } from '../components/util';
+import { rel, ts, shortId, platformLabel, thou, regionLabel } from '../components/util';
 import { Search } from 'lucide-react';
 
 interface UserRow {
   id: string; nickname: string; platform: string; region: string; locale: string;
   is_anonymous: boolean; created_at: string; last_active_at: string;
   is_banned?: boolean;
-}
-
-/** 区域代号 → 中文。`cn` 对着屏幕的人不一定认得 */
-function 区域名(r?: string | null): string {
-  return { cn: '中国大陆', hk: '香港', tw: '台湾', jp: '日本',
-           us: '美国', eu: '欧洲' }[r ?? ''] ?? (r ?? '—');
 }
 
 export default function Users() {
@@ -115,7 +109,7 @@ export default function Users() {
                     <td className="font-mono text-ink-3" title={r.id}>{shortId(r.id, 6, 6)}</td>
                     <td className="text-ink font-medium">{r.nickname}</td>
                     <td className="text-ink-2">{platformLabel(r.platform)}</td>
-                    <td className="label text-ink-3">{区域名(r.region)}</td>
+                    <td className="label text-ink-3">{regionLabel(r.region)}</td>
                     <td className="font-mono text-xs text-ink-4">{r.locale}</td>
                     <td className="c">
                       {r.is_anonymous
