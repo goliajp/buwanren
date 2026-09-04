@@ -133,9 +133,17 @@
 }
 /* 七页之后一行挤不下 —— 让它横向滚，别把每一格压成两个字。
    `flex: none` + 内边距:页签宽度按名字走，长的那几个（「说在前面」）不被压扁。 */
+/* 【横内距 22 → 20rpx：让七个页签在最窄的机型上刚好放得下】
+   （2026-09-04 · 25 计划的逐屏走量出来的）。
+   22rpx 时七个加起来是 376px，而 375 宽的屏上最后那个「三宫」
+   的「宫」被切掉一角。这一行本来就 `overflow-x: auto`,
+   切一点算是「还能往右滑」的暗示 —— 可 1px 太少了,
+   看着不像可滑，只像没排整齐。
+   收 2rpx 之后是 362px，留出 13px 余量;
+   页名再长一个字也还放得下。 */
 .tab {
   flex: none; text-align: center; font-size: 22rpx;
-  color: var(--stone-label); padding: 27rpx 22rpx; margin: -19rpx 0;
+  color: var(--stone-label); padding: 27rpx 20rpx; margin: -19rpx 0;
   position: relative;
 }
 /* 【下划线改成绝对定位，页签本体改成 `<view>`】。
@@ -150,7 +158,7 @@
    横着扩是免费的:这一行本来就 `overflow-x: auto`。 */
 .tab-on { color: var(--ink); }
 .tab-on::after {
-  content: ''; position: absolute; left: 22rpx; right: 22rpx; bottom: 17rpx;
+  content: ''; position: absolute; left: 20rpx; right: 20rpx; bottom: 17rpx;
   height: 2rpx; background: var(--ink);
 }
 
