@@ -46,4 +46,8 @@
 .act-left.full { color: var(--stone-label); }
 /* 按钮不铺满 —— 一屏三颗铺满的按钮会读成三个页面。
    44px 那条线由 padding 保证（门禁 check-tap-size 在量）。 */
-.act-foot .btn { min-width: 200rpx; padding: 20rpx 36rpx; }
+/* 【内距不能从 22 减到 20】（2026-09-05 · 这一屏头一回进逐屏走）。
+   `button.btn` 全局算下来是 45px（30rpx 字 ×1.4 + 22rpx 上下 + 2rpx 边框）,
+   这里为了让三颗按钮窄一点把上下也一起减了，落到 43px —— 差 1px 过不了
+   44 那条线。窄要的是左右，上下照旧。 */
+.act-foot .btn { min-width: 200rpx; padding: 22rpx 36rpx; }
