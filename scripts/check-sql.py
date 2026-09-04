@@ -25,6 +25,10 @@ import re
 import subprocess
 import sys
 
+# `scripts/` 不一定在 sys.path 上 —— 显式加
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from _walk import 全找
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 BE = ROOT / 'backend'
 DB_URL = os.environ.get('DATABASE_URL', '')
@@ -75,7 +79,9 @@ def psql(script):
 
 
 queries, dynamic_total = [], 0
-for f in sorted(BE.rglob('*.rs')):
+# 【不要走进构建产物】(scripts/_walk.py)。BE 是 `backend/`,
+# 底下挂着 23 GB 的 target —— 这一支上一轮为此跑了七分钟。
+for f in 全找(BE, '*.rs'):
     if '/target/' in str(f):
         continue
     qs, dyn = literals(f.read_text(encoding='utf-8'))

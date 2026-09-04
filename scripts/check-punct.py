@@ -26,6 +26,11 @@ import pathlib
 import re
 import sys
 
+# `scripts/` 不一定在 sys.path 上（直接 `python3 scripts/x.py` 时在，
+# 被 runpy / 别处 import 时不在）—— 显式加，免得换个跑法就 ModuleNotFound。
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from _walk import 走
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 BASELINE = ROOT / 'scripts/punct-baseline.json'
 
@@ -66,7 +71,10 @@ def scan():
     out = {}
     seen = set()
     for g in GLOBS:
-        for f in ROOT.glob(g):
+        # 【不要走进构建产物】(scripts/_walk.py 里写了为什么)。
+        # SKIP 那一行仍然留着:它挡的是「走到了但不该算」的那几个,
+        # 而 `走` 挡的是「根本不该走进去」。
+        for f in 走(ROOT, g):
             r = str(f.relative_to(ROOT))
             if r in seen or any(s in '/' + r for s in SKIP):
                 continue

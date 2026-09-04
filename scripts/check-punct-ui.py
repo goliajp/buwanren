@@ -27,6 +27,10 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+# `scripts/` 不一定在 sys.path 上 —— 显式加
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from _walk import 全找
+
 UI = ROOT / 'mini/miniprogram'
 # 后台也是【界面文案】。它是内部工具,但看的仍然是人,规则一样
 ADMIN = ROOT / 'webadmin/src'
@@ -281,7 +285,10 @@ def sql_strings(src):
     # 判据跟种子那一片一样:只看单引号里的字面量，SQL 语法不碰。
     ('迁移 sql', lambda: list(MIGRATIONS.glob('*.sql')), 30),
     ('房间 js', lambda: list(ROOMSRC.rglob('*.js')), 3),
-    ('后端 rs', lambda: [f for f in BACKEND.rglob('*.rs') if 'target/' not in str(f)], 30),
+    # 【不要走进构建产物】(scripts/_walk.py)。原先是 `BACKEND.rglob('*.rs')`
+    # 加一句 `if 'target/' not in str(f)` —— 过滤写在结果上，走路那一步照旧
+    # 把整棵 23 GB 的 target 扫一遍。这一支于是从一秒变成好几分钟。
+    ('后端 rs', lambda: list(全找(BACKEND, '*.rs')), 30),
     ('工具脚本', lambda: [f for d in TOOLS for ext in ('*.sh', '*.py', '*.mjs')
                           for f in d.glob(ext)
                           if 'node_modules' not in str(f) and f.name not in SKIP_FILES], 50),
