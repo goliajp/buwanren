@@ -44,7 +44,19 @@ function 结案({ 案子, 结完 }: { 案子: any; 结完: () => void }) {
 
 export default function Risk() {
   const qc = useQueryClient();
-  const [tab, setTab] = useState<'rules' | 'events' | 'cases'>('rules');
+  /* 【看板说「2 个案子没结」，点过去要落在案子上】
+     （2026-09-04 · 25 计划的后台逐页走）。
+     这一页三个 tab，默认是「规则」——两百来条。而看板那条待办
+     写的是 `/risk`，于是点「去看」落到两百条规则里，
+     那两个真要处理的案子在第三个 tab，得自己找。
+
+     跟 `lib/urlfilter.ts` 里记的那件事是同一种:界面看着通了，路是断的。
+     订单、物流那几条待办后来都带上了筛选参数，风控这条没有 ——
+     因为它要切的不是筛选，是 tab，而这一页当时不认网址。 */
+  const [tab, setTab] = useState<'rules' | 'events' | 'cases'>(() => {
+    const t = new URLSearchParams(window.location.search).get('tab');
+    return t === 'events' || t === 'cases' ? t : 'rules';
+  });
   const [page, setPage] = useState(0);
 
   const rules = useQuery({ queryKey: ['risk-rules'], queryFn: () => commerce.listRiskRules(), enabled: tab === 'rules' });

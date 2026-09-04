@@ -29,7 +29,15 @@ function 退款原因(v?: string | null): string {
 }
 
 function 走到哪(r: any): string {
-  if (r.status === 'requested') return '等着批';
+  /* 【还没批的，这一列没有可说的】（2026-09-04 · 25 计划的后台逐页走）。
+     上一版这里返回「等着批」—— 跟状态列一个字不差，
+     而这一页【默认就筛 requested】,于是默认视图下两列永远完全相同,
+     其中一列白占着表宽。截图上四百三十行，每行都重复一次。
+
+     这一列问的是「办完花了多久」，那件事对还没批的还没发生 ——
+     用 `—`，跟下面「没有终点时间」那一支同一个说法。
+     想看它有值，把状态筛成已完成。 */
+  if (r.status === 'requested') return '—';
   const 终 = r.completed_at ?? r.approved_at;
   if (!终) return '—';
   const 隔 = (new Date(终).getTime() - new Date(r.created_at).getTime()) / 1000;
