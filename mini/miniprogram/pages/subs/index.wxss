@@ -62,3 +62,7 @@
 /* 能订的那一条右边:价在动作前面 —— 决定按不按的是它。 */
 .item-meta { display: flex; align-items: baseline; gap: 12rpx; }
 .item-price { font-size: 28rpx; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* 扣不成的那两种（past_due / grace）。灰色的一行读起来跟「订着」一样平，
+   而这两种是【他现在就得动手】的 —— 不显眼等于没说。 */
+.item-meta.meta-hot { color: var(--peach-text); }

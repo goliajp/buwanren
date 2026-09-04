@@ -715,7 +715,13 @@ async fn my_subscriptions(
                   s.current_period_start, s.current_period_end, s.cancel_at_period_end,
                   s.created_at
            FROM subscription s LEFT JOIN plan p ON p.id = s.plan_id
-           WHERE s.user_id=$1 ORDER BY s.created_at DESC"#,
+           WHERE s.user_id=$1
+           /* 【还在续的排前面】（2026-09-05 · 25 计划）。只按 created_at 排的话，
+              一年前退掉的那一份会因为记录建得晚而顶在第一行 —— 而这一屏叫
+              「订着的」，人点进来找的是他现在还订着什么。
+              退了、到期了的仍然要列出来（那是他的台账），只是排在后面。 */
+           ORDER BY (s.status IN ('trialing','active','past_due','grace','paused')) DESC,
+                    s.current_period_end DESC NULLS LAST"#,
     ).bind(&c.sub).fetch_all(&st.db).await.map_err(map_db)?;
     Ok(Json(map_rows(rows)))
 }
