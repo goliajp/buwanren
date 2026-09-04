@@ -108,9 +108,9 @@ ON CONFLICT (id) DO NOTHING;
 -- ─── feature_flag · 4 个 ────────────────────────────────────────
 INSERT INTO feature_flag (code, default_on, by_platform, by_region, description) VALUES
   ('show_ai_explanation_full',TRUE,'{"mini":false}'::jsonb,'{}'::jsonb,'「AI 详细释义」全文版；mini 平台限简版'),
-  ('show_product_iap',TRUE,'{}'::jsonb,'{"cn":false,"us":true,"eu":true}'::jsonb,'iOS IAP 商品入口（国内 OFF，海外 ON）'),
+  ('show_product_iap',TRUE,'{}'::jsonb,'{"cn":false,"us":true,"eu":true}'::jsonb,'iOS IAP 商品入口（国内关，海外开）'),
   ('sensitive_terms_strict',FALSE,'{"mini":true}'::jsonb,'{}'::jsonb,'敏感词严格模式（mini 必开）'),
-  ('show_dayun_in_summary',FALSE,'{}'::jsonb,'{}'::jsonb,'本命简介是否露出大运（默认 OFF，保持极轻）')
+  ('show_dayun_in_summary',FALSE,'{}'::jsonb,'{}'::jsonb,'本命简介是否露出大运（默认关，保持极轻）')
 -- 【文案要覆盖，开关状态不能覆盖】。description 是这份文件说了算的；
 -- 而 default_on / by_platform / by_region 是运营在后台改的运行时数据，
 -- 重新 seed 一次不许把人家的设置冲掉。
