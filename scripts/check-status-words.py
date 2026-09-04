@@ -26,7 +26,7 @@ import re, sys, pathlib
 # 并说「查了 1 张表」——「1」这个数没人会去对
 # （2026-09-01 五路评审 · 工程审计）。
 对 = [
-    ('ShipmentStatus', 'mini/miniprogram/pages/order/index.ts', '物流说法',
+    ('ShipmentStatus', 'mini/miniprogram/utils/ship.ts', '物流说法',
      # 轨迹里承运商推来的那几种不在枚举里，表里允许多出来
      {'departed', 'arrived_at_sort_facility', 'failed_delivery', 'unknown'}),
     ('OrderStatus', 'mini/miniprogram/utils/money.ts', '状态说法', set()),

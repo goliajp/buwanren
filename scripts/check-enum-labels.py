@@ -56,7 +56,8 @@ util = (根 / 'webadmin' / 'src' / 'components' / 'util.ts').read_text(encoding=
 # 小程序没有一张总表（各页自己写一张），所以这里点名到页。
 要核的小程序 = [
     ('shipment',     'carrier_code', 'pages/order/index.ts', '快递说法'),
-    ('shipment',     'status',       'pages/order/index.ts', '物流说法'),
+    # 这张表 2026-09-05 从订单详情页提到了 utils —— 列表页也要用它
+    ('shipment',     'status',       'utils/ship.ts',        '物流说法'),
     ('subscription', 'status',       'pages/subs/index.ts',  '状态说法'),
     ('activity',     'category',     'pages/activity/index.ts', '类别名'),
     # 设置页那一行「平台 · 区域 · 语言」——出了问题它是念给客服听的

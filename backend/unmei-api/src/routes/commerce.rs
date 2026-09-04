@@ -383,7 +383,7 @@ async fn my_orders(
                      详情那一条走 `SELECT *`，本来就带着它;
                      两处共用同一个前端类型，少给一个键就是声明落空。 */
                   o.cancel_reason,
-                  l.title, l.line_count
+                  l.title, l.line_count, sh.status AS ship_status
            FROM order_record o
            LEFT JOIN LATERAL (
              /* 【护身符那一笔要说出是谁】（2026-09-02 第三轮评审 · 转化路）。
@@ -411,6 +411,16 @@ async fn my_orders(
              LEFT JOIN villager v ON v.id = k.villager_id
              WHERE ol.order_id = o.id
            ) l ON TRUE
+           /* 【包裹走到哪儿了，列表上也要说得出】（2026-09-05 · 25 计划）。
+              `fulfilling` 在屏上是「备着」，而包裹可能早就在路上 ——
+              点进去详情写的是「在路上了」，同一单两屏两个说法。
+              一单多件包裹时取最近建的那一件:一单一包是常态，
+              多包的那一档这一列本来也说不全，详情页才说得清。 */
+           LEFT JOIN LATERAL (
+             SELECT sp.status FROM shipment sp
+              WHERE sp.order_id = o.id
+              ORDER BY sp.created_at DESC LIMIT 1
+           ) sh ON TRUE
            WHERE o.user_id=$1 AND ($2::text IS NULL OR o.status=$2)
            ORDER BY o.created_at DESC OFFSET $3 LIMIT $4"#,
     ).bind(&c.sub).bind(&q.status).bind(off).bind(lim)
