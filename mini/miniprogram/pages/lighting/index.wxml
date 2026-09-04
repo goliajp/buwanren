@@ -28,11 +28,13 @@
     <view class="t2">「不说话也行，坐着就好」</view>
 
     <!-- 人数取不到就不显示那一行，香照点（设计册 10.7）。
-         显示「0 个人在点」比不显示更糟：那是句假话。
+         显示「0 个人在点」比不显示更糟：那是句假话 ——
+         而上一版的判据是 `count !== null`，够不到 0（见 index.ts 的
+         `人数怎么说`）。这一行现在整句在那儿算好。
          两条分行 —— 一条是「有多少人」，一条是「烧到哪儿了」,
          挤一行读起来是「还有 12 个人在点已烧 03:15」。 -->
     <view class="meta">
-      <view wx:if="{{count !== null}}" class="meta-n">还有 {{count}} 个人在点</view>
+      <view wx:if="{{人数话}}" class="meta-n">{{人数话}}</view>
       <view class="meta-t">已烧 {{burned}} / 约 {{total}}</view>
     </view>
   </view>
