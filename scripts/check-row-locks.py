@@ -26,8 +26,14 @@ import re
 import sys
 import pathlib
 
+# `scripts/` 不一定在 sys.path 上 —— 显式加
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from _walk import 全找
+
 根 = pathlib.Path(__file__).resolve().parent.parent
-源 = sorted((根 / 'backend').rglob('*.rs'))
+# 【不要走进构建产物】(scripts/_walk.py)。原先连结果过滤都没有 ——
+# `backend/` 底下挂着 23 GB 的 target，这一支为此跑了四分钟。
+源 = list(全找(根 / 'backend', '*.rs'))
 if len(源) < 20:
     print(f'✗ 只扫到 {len(源)} 个 .rs —— 目录搬过家而这一支没跟上')
     sys.exit(1)
