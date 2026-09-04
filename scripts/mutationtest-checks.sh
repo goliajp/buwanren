@@ -631,6 +631,12 @@ mutate "后台屏上留一句没翻译的英文" check-webadmin-cn \
 mutate "库里有的枚举值，标签表里没有" check-enum-labels \
   "edit('webadmin/src/components/util.ts', \"    wechat:        '微信',\\n\", '')"
 
+# 客人那一侧同一个形状:把顺丰摘掉。库里 721 件运单的 `carrier_code`
+# 就是 `sf`，摘掉之后订单页的单号那一行会读作「sf · P25ADMIN0001」——
+# 那正是 2026-09-05 在照过三轮相的屏上抓到的原样。
+mutate "客人那一屏的枚举没有中文说法" check-enum-labels \
+  "edit('mini/miniprogram/pages/order/index.ts', \"  sf: '顺丰', \", '  ')"
+
 # 查询失败不许说成零
 # 变异不编译，门禁只读文本 —— 所以这里只要把「失败被吃掉」那个形状种进去。
 mutate "查询失败被当成零" check-silent-zero \
