@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApiMutation } from '../lib/feedback';
 import { api } from '../lib/api';
 import PageHeader from '../components/PageHeader';
+import Pagination from '../components/Pagination';
 import TableError from '../components/TableError';
 import { ts, statusClass, statusLabel, thou } from '../components/util';
 
@@ -109,15 +110,12 @@ export default function Quotes() {
               </tbody>
             </table>
           </div>
+          {/* 用共用的分页 —— 手写那一版印的是「1–30 of 26,631」,
+              而别的页是「1-50 / 19,153」。同一件事两种说法，
+              其中一种还是英文（2026-09-04 · 25 计划的后台逐页走）。
+              共用组件的 `page` 从 0 起，这一页从 1 起，差值在这儿转。 */}
           {data && data.total > size && (
-            <div className="border-t border-rule px-4 py-2.5 flex items-center justify-between text-xs text-ink-4">
-              <span className="num">{(page - 1) * size + 1}–{Math.min(page * size, data.total)} of {thou(data.total)}</span>
-              <div className="flex items-center gap-1">
-                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="btn btn-soft disabled:opacity-40">上一页</button>
-                <span className="num px-2">{page} / {Math.ceil(data.total / size)}</span>
-                <button onClick={() => setPage(p => p + 1)} disabled={page * size >= data.total} className="btn btn-soft disabled:opacity-40">下一页</button>
-              </div>
-            </div>
+            <Pagination page={page - 1} size={size} total={data.total} onPage={(p) => setPage(p + 1)} />
           )}
         </div>
       </div>
