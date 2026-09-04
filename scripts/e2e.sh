@@ -55,20 +55,23 @@ done
 # 今天为它查了一轮：会话重启把三个服务全带走了，
 # 而屏幕上写的是履约的毛病。
 #
-# 判据是「端口上有没有人应答」，不是某条路径给不给 200 ——
-# `.claude/CLAUDE.md` 记着拿 `/health` 当探针在这个仓里误判过两次，
-# 而 mingli 只认 `/api/*`，问 `/` 一样是 404（今天我又用了一次那个坏判据）。
-MINGLI_PORT="${MINGLI_PORT:-6027}"
-if ! lsof -nP -iTCP:"$MINGLI_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+# 【问它自己】。`/api/health` 是 mingli 真正的健康路径，
+# 它回的是「service: mingli-api, status: ok」加二十一个算子的清单。
+# 「端口上有人听」不够:那只说明有个进程绑着口。
+# 后台那一页（运营台 › 排盘服务）早就是这么探的;
+# 而我今天自己造了个 `curl /` 的坏判据 —— mingli 只认 `/api/*`,
+# 问 `/` 一律 404，于是它明明起着，我等了它十分钟。
+MINGLI_BASE="${MINGLI_BASE:-http://127.0.0.1:6027}"
+if ! curl -sf -m 3 "$MINGLI_BASE/api/health" >/dev/null 2>&1; then
     # 【`$VAR` 后面跟全角字符要加花括号】。`$MINGLI_PORT）` 里那个
     # 全角右括号会被吞进变量名，`set -u` 当场报
     # 「MINGLI_PORT）: unbound variable」—— 而那句话跟排盘服务毫无关系。
     # `.claude/CLAUDE.md` 里记着同一件事（`$STATE）`）。
-    red "排盘服务不在（:${MINGLI_PORT}）—— 第 2 条要它把说明书算出来，不然订单停在 fulfilling"
+    red "排盘服务答不上话（${MINGLI_BASE}/api/health）—— 第 2 条要它把说明书算出来，不然订单停在 fulfilling"
     yellow "  起它：cd ../mingli && cargo run -p mingli-api"
     exit 1
 fi
-green "  ✓ 排盘服务在 :$MINGLI_PORT"
+green "  ✓ 排盘服务答得上话 ${MINGLI_BASE}"
 
 step "1. /v1/products 公开商品列表（无需登录）"
 products=$(curl -fsS "$API_BASE/v1/products?region=cn&platform=web")
