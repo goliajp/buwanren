@@ -416,6 +416,31 @@ async function 扫不出来那一下() {
     console.log('    · 跳过「新用户扫失败」：这一趟这个用户手上有待扫的单子（不计入通过）')
     return
   }
+  /* 【村子这一块，对什么都没有的人也得画上】（2026-09-04 · 25 计划）。
+     底下那条「村子真的画上去了」跑在动线后段 —— 那时人已经买过御守、
+     村里住着人了。而**村子被画上去，靠的正是那件事**：`reload` 里
+     「开场白 → 说话卡」让 `变了` 为真，顺带把画布重挂了一次。
+     新用户没有那一跳，他的每个字段都不变，画布就停在 `setData`
+     换上来的那块空节点上，像素退回默认 300×150、一个像素都没画。
+
+     屏幕上他读到的是「四十间屋子，还都空着」，底下一间屋子也没有。
+     那不是空态 —— 空态是四十间空屋子，这是坏了，
+     而两者在截图之外没有任何东西分得开。
+
+     25 计划的逐屏走把它量了出来:同一屏、同样的 CSS 尺寸 292×398，
+     空村那位的画布是 300×150／0 个像素，住了两位的是 704×960／全画。 */
+  const 空村画布 = await p.evaluate(() => {
+    const cv = document.querySelector('canvas')
+    if (!cv) return { 有画布: false }
+    const g = cv.getContext('2d')
+    const d = g.getImageData(0, 0, cv.width, Math.min(400, cv.height)).data
+    let ink = 0
+    for (let i = 3; i < d.length; i += 4) if (d[i]) ink++
+    return { 有画布: true, ink, 像素: cv.width + 'x' + cv.height }
+  })
+  ok(空村画布.有画布 && 空村画布.ink > 100000,
+     '一个人都没有的时候，村子也画在那儿　—— 四十间空屋子，不是一片空白',
+     空村画布.有画布 ? `${空村画布.ink} 个不透明像素 · 像素 ${空村画布.像素}` : '连画布都没有')
   await p.evaluate(() => {
     globalThis.__wxStub('scanCode', () => Promise.resolve({ result: 'NOT-A-REAL-CODE-XYZ' }))
   })
