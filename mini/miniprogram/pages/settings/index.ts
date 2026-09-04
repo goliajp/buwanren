@@ -24,8 +24,26 @@ interface IData {
 function 念得出口(u: UserPublic | null): string {
   if (!u) return ''
   const 端: Record<string, string> = { mini: '小程序', web: '网页', ios: 'iOS', android: '安卓' }
-  const 区: Record<string, string> = { cn: '中国大陆', jp: '日本', kr: '韩国', sea: '东南亚', na: '北美' }
-  const 语: Record<string, string> = { 'zh-CN': '简体中文', 'zh-TW': '繁体中文', 'en-US': '英文', 'ja-JP': '日文' }
+  /* 【表里的键要跟库里的真值对得上】（2026-09-05 · 25 计划的用户逐屏走）。
+     上一版这张表照着 `unmei-domain` 的 Region 枚举抄:cn / jp / kr / sea / na。
+     而 `app_user.region` 里真出现过的是 cn / jp / **hk** / **zz** ——
+     香港那位的这一行念出来是「网页 · hk · 简体中文」。
+     缺的那两个恰好是真有人的那两个，写着的那三个一个人也没有。
+
+     跟订单页物流那一处（`preparing` 缺、`pending` 多）是同一个形状:
+     写死的键跟真值差一个词，`||` 兜底，错的跟对的看着一样。
+     现在这两张表由 `scripts/check-enum-labels.py` 对着库核。 */
+  const 区: Record<string, string> = {
+    cn: '中国大陆', jp: '日本', kr: '韩国', sea: '东南亚', na: '北美',
+    zh_hant: '港澳台', hk: '香港', tw: '台湾',
+    // 建号那一刻没判出是哪个区。念给客服听时，这句比一个 `zz` 有用
+    zz: '没记下来',
+  }
+  const 语: Record<string, string> = {
+    'zh-CN': '简体中文', 'zh-TW': '繁体中文', 'en-US': '英文', 'ja-JP': '日文',
+    // 浏览器只报个大类的时候就是这个。库里真有两位
+    'en': '英文',
+  }
   return [端[u.platform] || u.platform, 区[u.region] || u.region, 语[u.locale] || u.locale]
     .filter(Boolean).join(' · ')
 }
