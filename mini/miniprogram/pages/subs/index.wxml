@@ -17,9 +17,12 @@
 
   <block wx:else>
     <view class="list" wx:if="{{subs.length > 0}}">
+      <!-- 名、状态、日子三样原先都是库里那个字段的原文：
+           `plan-mg-month` / `active` / `2026-10-05T04:12:33.123456+08:00`。
+           算成人话在 index.ts（wxml 里调不了函数）。 -->
       <view wx:for="{{subs}}" wx:key="id" class="item">
-        <view class="item-name">{{item.plan_id || item.id}}</view>
-        <view class="item-meta">{{item.status}}<text wx:if="{{item.current_period_end}}"> · 到 {{item.current_period_end}}</text></view>
+        <view class="item-name">{{item.名}}</view>
+        <view class="item-meta {{item.要紧 ? 'meta-hot' : ''}}">{{item.说}}</view>
       </view>
     </view>
 

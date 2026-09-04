@@ -22,6 +22,9 @@ export interface Badge {
 export interface Subscription {
   id: string
   plan_id?: string | null
+  /** 套餐名。后端 `SELECT p.name AS plan_name` 一直在给，
+   *  只是这个类型没声明它，于是屏上打的是 `plan-mg-month`。 */
+  plan_name?: string | null
   status: string
   current_period_end?: string | null
   cancel_at_period_end?: boolean | null

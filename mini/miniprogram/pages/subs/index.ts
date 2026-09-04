@@ -14,11 +14,54 @@ import type { ProductCard } from '../../types/commerce'
 import type { Subscription } from '../../types/mine'
 import { 一句 } from '../../utils/say'
 import { money } from '../../utils/money'
+import { 那一天 } from '../../utils/day'
+
+/* 屏上那一条订着的怎么说。
+ *
+ * 原先三样都是把库里的字段原样打出来：名字是 `plan-mg-month`、
+ * 状态是 `active`、日子是 `2026-10-05T04:12:33.123456+08:00`。
+ * 后端其实早就把套餐名 join 出来了（commerce.rs `p.name AS plan_name`），
+ * 这一屏没读它。
+ *
+ * 之所以一直没人发现：**这一屏从来没有一位真的订着的人来过**。
+ * 五个验收用户没有一个有订阅，`subs.length > 0` 那一支于是从没渲染过，
+ * 空状态那一支反倒被打磨了三轮。红着的分支不会自己喊。
+ *
+ * `cancel_at_period_end` 更要紧：它为 true 的时候状态仍然是 `active`，
+ * 而这一屏只打状态 —— 一位已经点了「到期不续」的人，看到的是「active」，
+ * 跟没退的人一个字不差。
+ */
+const 状态说法: Record<string, string> = {
+  trialing: '试用中',
+  active: '订着',
+  past_due: '这期没扣成',
+  grace: '没扣成',
+  paused: '先停着',
+  cancelled: '已经退了',
+  expired: '已经到期',
+}
+
+/* 日子那半句。同一个 `current_period_end`，在七种状态下说的是七件事：
+   还在续的是「续到」，退了的是「还能用到」，扣不成的是「再不补就断」。
+   都写成「到 X」就把这三件事说成了一件。 */
+function 日子那句(x: Subscription): string {
+  if (!x.current_period_end) return ''
+  const 到 = 那一天(x.current_period_end)
+  if (!到) return ''
+  if (x.status === 'past_due' || x.status === 'grace') return `${到} 之前扣不成就断了`
+  if (x.status === 'cancelled' || x.status === 'expired' || x.status === 'paused') {
+    return new Date(x.current_period_end).getTime() > Date.now() ? `还能用到 ${到}` : `${到} 结束的`
+  }
+  // 点过「到期不续」的人，状态还是 active —— 这一句是屏上唯一说得出这件事的地方
+  if (x.cancel_at_period_end) return `用到 ${到} 为止 —— 到期不再续`
+  return `续到 ${到}`
+}
 
 interface IData {
   loading: boolean
   err: string
-  subs: Subscription[]
+  /** `名 / 说 / 要紧` 是屏上那三样 —— wxml 里调不了函数，在这儿算好 */
+  subs: Array<Subscription & { 名: string; 说: string; 要紧: boolean }>
   /** 空的时候摆出来的出口：村里现在有什么可以订 */
   /** 还能订什么。`价` 是本页算出来的显示串 —— 取不到就是空串，屏上不写价 */
   offers: Array<ProductCard & { 价: string }>
@@ -44,7 +87,17 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     this.setData({ loading: true, err: '' })
     try {
       const list = await mineApi.subscriptions()
-      this.setData({ loading: false, subs: list })
+      this.setData({
+        loading: false,
+        subs: list.map((x) => ({
+          ...x,
+          // 取不到名就退回 id —— 不编一个好看的名字盖住「这条数据不全」
+          名: x.plan_name || x.plan_id || x.id,
+          说: [状态说法[x.status] || x.status, 日子那句(x)].filter(Boolean).join(' · '),
+          // 扣不成的那两种要显眼:它们是【他现在就得动手】的，其余六种不是
+          要紧: x.status === 'past_due' || x.status === 'grace',
+        })),
+      })
       /* 【订过的人也要看得见还能订什么】。原先是 `if (!list.length)` ——
          也就是「已经订了就不再显示能订的」，跟「我的」那一行的门闩
          正好互为反面:两个条件合起来，卖订阅那一半永远到不了
@@ -59,7 +112,18 @@ Page<IData, WechatMiniprogram.IAnyObject>({
   /* 出口那一半单独取。它失败不该让整页失败 ——
      「你订着两个」这件事跟「还能订什么」不互为前提。 */
   loadOffers() {
-    commerceApi.products('service').then(
+    /* 【问的是 subscription，不是 service】（2026-09-05 · 25 计划的用户逐屏走）。
+       `ProductKind` 里两个都有（one_shot / subscription / digital_goods / service），
+       所以写 'service' 语法上、类型上都对 —— 而【全库一件 service 都没有】:
+       唯一能订的那件是 `prod-membership-gold`（黄金会员），kind 是 subscription。
+
+       于是这一页的空状态永远走「村里现在没有可以订的东西」那一支。
+       而这一页的注释头一行写着「空状态是这一页的主设计:空不是问题，
+       说不清哪儿能有才是」—— 说不清哪儿能有，正是它自己的下场。
+
+       跟盘上那个「南 vs 南方」、物流那个「preparing vs pending」同一个形状:
+       写死的键跟真值差一个词，两边都是合法值，错的跟对的看着一样。 */
+    commerceApi.products('subscription').then(
       /* 列表接口带着 `from_price_minor`（这件商品最便宜那一档现价）——
          订阅那一条点下去就是掏钱，屏上得有价。取不到就留空，不编。 */
       (list) => this.setData({
