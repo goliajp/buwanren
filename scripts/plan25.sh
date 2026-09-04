@@ -284,6 +284,33 @@ mock_carrier_exception()  { mock_ship "$1" exception  "$2"; }
 # mock：承运商推来「已签收」
 mock_carrier_delivered()  { mock_ship "$1" delivered; }
 
+# mock：他订上了。
+#
+# 【为什么是 mock 而不是走接口】：全仓没有一处建订阅的代码。
+# `plan` 表只有后台在读，`INSERT INTO subscription` 只出现在三个测试文件里 ——
+# 也就是说续费、催缴、账单、后台那一整页订阅，底下没有一条用户走得到的路。
+# 这是先决条件，记在 docs/ACCEPTANCE-25.md，不在这儿现造一个下单即签约的接口。
+#
+# 而它必须被 mock 出来，因为「订着的」那一屏有两支：一支是空态，
+# 三轮评审都在打磨它；另一支是【真的订着】，一次也没渲染过 ——
+# 五个验收用户没有一个有订阅，于是那一支里三样字段原样打库里的值
+# （`plan-mg-month` / `active` / `2026-10-05T04:12:33.123456+08:00`）
+# 一直没人看见。红着的分支不会自己喊。
+mock_subscribe() {  # mock_subscribe <单号> <用户号> <套餐号> <状态> <起> <止> <到期不续>
+  local sid=$1 uid=$2 pid=$3 st=$4 from=$5 to=$6 cancel=$7 got
+  psql1 "INSERT INTO subscription(id, user_id, plan_id, status, source_channel,
+           current_period_start, current_period_end, next_billing_attempt_at,
+           cancel_at_period_end, region)
+         VALUES('$sid','$uid','$pid','$st','wechat_jsapi',
+           NOW() - INTERVAL '$from', NOW() + INTERVAL '$to',
+           CASE WHEN '$st'='past_due' THEN NOW() + INTERVAL '1 day' END,
+           $cancel,'cn')" >/dev/null
+  got=$(psql1 "SELECT status FROM subscription WHERE id='$sid'")
+  [ "$got" = "$st" ] && return 0
+  say_bad "mock 订阅 $sid 写不进去（回读是 ${got:-空}）"
+  return 1
+}
+
 # 下一单，把单号打出来。下不成就【当场喊】，不往下走。
 #
 # 【下单失败不许静默】（2026-09-04）。头一版写的是
@@ -418,7 +445,12 @@ do_seed() {
   read -r T1 I1 <<<"$(make_user u1 cn)"
   say_dim "U1 新来的 $I1 —— 什么都不做，他撑着每一屏的空态"
 
-  # ── U2 算过命的：本命 → 七天签 → 买说明书 → 领券 → 报名 ────
+  # ── U2 算过命的：本命 → 七天签 → 买说明书 → 报名一场 ──────
+  #
+  # 【标题写的就是下面真做的】。上一版这一行写着「…… → 领券 → 报名」,
+  # 而底下【两件都没有】:券是阿超那一天发给 U1 的，跟 U2 无关;
+  # 报名一直没写。U4 那一格同一天犯了同一处（标题写着「+ 订阅」而没有）。
+  # 标题跟身体对不上，是这一份夹具里最便宜的一种谎。
   read -r T2 I2 <<<"$(make_user u2 cn)"
   local n2
   n2=$(call POST "$T2" /v1/user/natals \
@@ -436,7 +468,19 @@ do_seed() {
   o2=$(must_order "$T2" "{\"lines\":[{\"sku_id\":\"sku-naji-deep\",\"qty\":1}],\"region\":\"cn\"}" "U2 的那册说明书") || return 1
   call POST "$T2" "/v1/orders/$o2/pay" '{"channel":"wechat_jsapi","openid":"p25_u2"}' >/dev/null
   wait_paid "$o2" || return 1
-  say_dim "U2 算过命的 $I2 —— 本命 + 七天签 + 说明书一册"
+  # 报一场线下活动 —— 这一段是这一格的标题里写着、而body里一直没做的那一件。
+  #
+  # 它撑的是「去得了的」那一屏的【报过名】那一支:那一颗按钮上写「不去了」
+  # （报过名的人要撤销），而没报过的人看到的是「我要去」。
+  # 库里三场都是 open、cn 区、免费，U2 就是 cn 的人 —— 走真接口，不 mock。
+  # 变量名一律 ASCII —— bash 不收中文标识符（这个仓里栽过四次）
+  local reg
+  reg=$(call POST "$T2" /v1/activity/a_dy/register | jq -r '.registration_id // empty')
+  if [ -z "$reg" ]; then
+    say_bad "U2 报不上那一场（/v1/activity/a_dy/register）—— 「去得了的」那一屏只剩一半"
+    return 1
+  fi
+  say_dim "U2 算过命的 $I2 —— 本命 + 七天签 + 说明书一册 + 报了一场"
 
   # ── U3 请了人的：买御守 → 发货 → 扫开 → 进屋追问 ────────────
   read -r T3 I3 <<<"$(make_user u3 cn)"
@@ -496,7 +540,17 @@ do_seed() {
   call POST "$T4" "/v1/orders/$o4c/pay" '{"channel":"wechat_jsapi","openid":"p25_u4"}' >/dev/null
   wait_paid "$o4c" || return 1
   call POST "$T4" "/v1/orders/$o4c/refund" '{"reason_code":"user_request","reason_text":"不想要了"}' >/dev/null
-  say_dim "U4 钱在飞的 $I4 —— 待付 / 在途 / 等着批的退款"
+  # ④ 三份订阅 —— 「订着的」那一屏的列表支要有东西才看得见。
+  #    这一格叫「钱在飞」，而每月自动扣的那笔正是飞得最久的一笔。
+  #    三份各是一种状态，因为屏上那一行对七种状态说七件事：
+  #      年卡 · 还订着，但他点过「到期不续」—— 状态仍是 active，
+  #             屏上唯一说得出这件事的是 cancel_at_period_end 那一句
+  #      月卡 · 这期没扣成 —— 他现在就得动手，那一行是要显眼的
+  #      月卡 · 早就到期的那一份 —— 台账里留着，不该跟前两种一个说法
+  mock_subscribe "p25-sub-${I4}-y" "$I4" plan-mg-year  active   '300 days' '65 days'  true  || return 1
+  mock_subscribe "p25-sub-${I4}-m" "$I4" plan-mg-month past_due '25 days'  '5 days'   false || return 1
+  mock_subscribe "p25-sub-${I4}-o" "$I4" plan-mg-month expired  '420 days' '-390 days' false || return 1
+  say_dim "U4 钱在飞的 $I4 —— 待付 / 在途 / 等着批的退款 / 三份订阅"
 
   # ── U5 香港那位：贵的一单（触发风控）+ 包裹出状况 ────────────
   read -r T5 I5 <<<"$(make_user u5 hk)"
@@ -614,6 +668,20 @@ do_admin_day() {  # do_admin_day <阿超的 token> <U1..U5 的 id>
     '{code:$c, benefit_json:{pct_off_bps:1000}, expires_at:"2027-01-01T00:00:00Z", owner_user_id:$u}')
   want "发一张券" 200 "$(admin_call POST "$A" '/admin/commerce/coupons' "$body")"
   want_some "他手里真的多了一张" "$(psql1 "SELECT count(*) FROM coupon WHERE code='$code' AND owner_user_id='$I1'")"
+  # 【这一段的规矩写在标题上:「每一件都要在用户那一侧看得见」】,
+  # 而上面那一条问的是库 —— 六件里只有券这一件是这么问的。
+  #
+  # 因为券是唯一一件用户【看不见】的:全仓没有「我的券」这个接口
+  # （`/v1/coupons` 不存在，见 docs/ACCEPTANCE-25.md 先决条件六），
+  # 确认页上那个格子只收码，不列他手里有什么。
+  # 退一步问「他用得上吗」:券是绑人的，别人拿这个码算不出折扣 ——
+  # 算得出，就说明这一张真的落到了他名下，而且他这一侧真能使。
+  local u1tok pv
+  u1tok=$(jq -r .u1.token "${STATE}")
+  pv=$(call POST "$u1tok" /v1/orders/preview \
+       "{\"lines\":[{\"sku_id\":\"sku-naji-deep\",\"qty\":1}],\"region\":\"cn\",\"coupon_codes\":[\"${code}\"]}")
+  want_some "他自己算价时这张券真能用" \
+    "$(printf '%s' "$pv" | jq '[.amount_discount_minor // 0]|map(select(.>0))|length')"
 
   # ⑥ 给 U4 的单加一条备注 —— 留痕里要查得到
   local oid
@@ -787,6 +855,7 @@ do_check() {
   want_some "问过的签有历史"    "$(call GET "$T2" /v1/naji/history | jq '.items|length')"
   want_some "买过的说明书出得来" "$(call GET "$T2" /v1/orders | jq '[.items[]|select(.status=="done" or .status=="fulfilling")]|length')"
   want_some "得到过徽章"        "$(call GET "$T2" /v1/user/me/badges | jq '[.[]|select(.earned)]|length')"
+  want "报了一场线下活动"     1 "$(call GET "$T2" /v1/activity/mine | jq '.activity_ids|length')"
 
   echo
   echo "══ U3 请了人的 · 村子那一半 ══"
@@ -801,6 +870,12 @@ do_check() {
   want_some "有一张待付的"     "$(psql1 "SELECT count(*) FROM order_record WHERE user_id='$I4' AND status='unpaid'")"
   want_some "有一件包裹在途"   "$(psql1 "SELECT count(*) FROM shipment s JOIN order_record o ON o.id=s.order_id WHERE o.user_id='$I4' AND s.status='in_transit'")"
   want_some "有一笔退款等着批" "$(psql1 "SELECT count(*) FROM refund r JOIN order_record o ON o.id=r.order_id WHERE o.user_id='$I4' AND r.status='requested'")"
+  want "订着的有三份"         3 "$(call GET "$T4" /v1/subscriptions | jq 'length')"
+  want "其中一份这期没扣成"   1 "$(call GET "$T4" /v1/subscriptions | jq '[.[]|select(.status=="past_due")]|length')"
+  want "其中一份到期不再续"   1 "$(call GET "$T4" /v1/subscriptions | jq '[.[]|select(.cancel_at_period_end)]|length')"
+  # 【接口得把套餐名带出来】。它一直在带（commerce.rs `p.name AS plan_name`），
+  # 是屏那一头没读 —— 而没有这一条，屏上打回 `plan-mg-month` 也没人拦得住。
+  want "每一份都带着套餐名"   3 "$(call GET "$T4" /v1/subscriptions | jq '[.[]|select(.plan_name!=null and .plan_name!="")]|length')"
 
   echo
   echo "══ U5 香港那位 · 别的区 ══"
