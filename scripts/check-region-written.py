@@ -22,6 +22,10 @@ import re
 import subprocess
 import sys
 
+# `scripts/` 不一定在 sys.path 上 —— 显式加
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from _walk import 全找
+
 根 = pathlib.Path(__file__).resolve().parent.parent
 
 # 这几张表插行时不要求写 region，各自的理由:
@@ -57,7 +61,8 @@ if len(带region) < 10:
     print(f'✗ 只查到 {len(带region)} 张带 region 的表 —— 库多半连错了，这一支在空转')
     sys.exit(1)
 
-源 = [f for f in (根 / 'backend').rglob('*.rs') if 'target' not in f.parts]
+# 【不要走进构建产物】(scripts/_walk.py)。过滤原先写在结果上。
+源 = list(全找(根 / 'backend', '*.rs'))
 if len(源) < 20:
     print(f'✗ 只扫到 {len(源)} 个 .rs —— 目录搬过家而这一支没跟上')
     sys.exit(1)

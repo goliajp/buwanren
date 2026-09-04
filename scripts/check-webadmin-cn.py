@@ -13,6 +13,12 @@
 """
 import pathlib, re, sys
 
+import sys
+# `scripts/` 不一定在 sys.path 上（直接 `python3 scripts/x.py` 时在，
+# 被 runpy / 别处 import 时不在）—— 显式加，免得换个跑法就 ModuleNotFound。
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from _walk import 全找
+
 根 = pathlib.Path(__file__).resolve().parent.parent / 'webadmin' / 'src'
 
 # 显式豁免：这些就是英文的东西，不是没翻译
@@ -50,7 +56,9 @@ import pathlib, re, sys
 
 坏 = []
 文件数, 看过 = 0, 0
-for f in sorted(根.rglob('*.tsx')):
+# 【不要走进构建产物】(scripts/_walk.py)。原先是 `根.rglob('*.tsx')`,
+# 一个过滤都没有 —— node_modules 与 target 整棵都在里面。
+for f in 全找(根, '*.tsx'):
     文件数 += 1
     源 = f.read_text(encoding='utf-8')
     for i, 行 in enumerate(源.splitlines(), 1):

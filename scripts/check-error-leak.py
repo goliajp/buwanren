@@ -18,12 +18,18 @@ import pathlib
 import re
 import sys
 
+# `scripts/` 不一定在 sys.path 上 —— 显式加
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from _walk import 全找
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 FOREIGN = ('sqlx::Error', 'reqwest::Error', 'serde_json::Error')
 
 
 def main() -> int:
-    files = [f for f in (ROOT / 'backend').rglob('*.rs') if 'target' not in f.parts]
+    # 【不要走进构建产物】(scripts/_walk.py)。原先过滤写在结果上,
+    # 走路那一步照旧把整棵 23 GB 的 target 扫一遍。
+    files = list(全找(ROOT / 'backend', '*.rs'))
     if not files:
         print('✗ 一个 .rs 都没扫到 —— 查不到东西的核对必须失败', file=sys.stderr)
         return 2

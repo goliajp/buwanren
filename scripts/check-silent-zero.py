@@ -18,6 +18,12 @@
 """
 import pathlib, re, sys
 
+import sys
+# `scripts/` 不一定在 sys.path 上（直接 `python3 scripts/x.py` 时在，
+# 被 runpy / 别处 import 时不在）—— 显式加，免得换个跑法就 ModuleNotFound。
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from _walk import 全找
+
 根 = pathlib.Path(__file__).resolve().parent.parent / 'backend'
 
 # 显式豁免。每一条都要说清「这里的默认值为什么是对的」。
@@ -31,9 +37,13 @@ import pathlib, re, sys
 
 坏 = []
 查过 = 0
-for f in sorted(根.rglob('*.rs')):
+# 【不要走进构建产物】(scripts/_walk.py)。原先是 `根.rglob('*.rs')`,
+# 而它的过滤写的是 `rel.startswith('target')` —— 真路径是
+# `backend/target/…`，那一条【一次都没匹配上】,
+# 于是这一支一直在读 23 GB 构建产物里的 .rs。
+for f in 全找(根, '*.rs'):
     rel = str(f.relative_to(根))
-    if '/tests/' in rel or rel.startswith('target'):
+    if '/tests/' in rel:
         continue
     源 = f.read_text(encoding='utf-8')
     if '.await' not in 源:
