@@ -55,6 +55,17 @@ const ok = (cond, name, detail = '') => {
    症状很难认：门禁连着报红，而失败账是空的（一条断言都没红），
    于是「跑不完」跟「动线断了」在总账上长得一模一样。
    验证工具本来就不该押在用户那份浏览器上 —— 自带的这份就是为可复现装的。 */
+/* 【占位行不是数据行】（2026-09-04 · 25 计划的后台逐页走）。
+   `tbody tr` 会把「加载中…」「本期无分录」「取不到」这些跨列的占位
+   一起数进去 —— 而订单页那一行就写在 `Orders.tsx:129`。
+   于是:
+     · 等待循环第一次就看见 1 行，立刻返回，截图截在「加载中」上
+     · `rows` 是 1 而不是 0，**这一支最核心的那条判据被架空**——
+       它要抓的正是「接口给了 N 条、页面一行都没渲」,
+       而占位行让 `rows === 0` 永远不成立。
+   判据:数据行不会跨列。`colspan` 的那些一律不算。 */
+const 数据行数 = () => page.locator('tbody tr:not(:has(td[colspan]))').count()
+
 const browser = await chromium.launch()
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
 
@@ -126,7 +137,7 @@ for (const r of ROUTES) {
   {
     const 起 = Date.now()
     for (;;) {
-      const 行 = await page.locator('tbody tr').count()
+      const 行 = await 数据行数()
       if (行 > 0) break
       const 拿到 = seen.reduce((a, x) => a + x.n, 0)
       if (拿到 === 0 && Date.now() - 起 > 1200) break
@@ -135,7 +146,7 @@ for (const r of ROUTES) {
     }
   }
 
-  const rows = await page.locator('tbody tr').count()
+  const rows = await 数据行数()
   const hasTable = (await page.locator('tbody').count()) > 0
   const got = seen.reduce((a, s) => a + s.n, 0)
 
