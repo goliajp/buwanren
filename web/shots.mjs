@@ -139,17 +139,30 @@ const 挑一张已有的单 = async () => {
   return null
 }
 
+/* 【带身份走时，没有就是没有 —— 不替他下一单】（2026-09-05 · 25 计划）。
+   下面那一段是给匿名新人造一张单用的:他一张都没有，不造就截不到订单屏。
+   而 `--token` 进来的五个人各是一种状态，其中「新来的」那位
+   【什么都没买过】—— 那是他存在的全部理由，他撑着每一屏的空态。
+
+   上一版在他没有单子时回退去新下一单，于是他的「我的」那一屏
+   写着「我买过的 1 笔」，底下还挂着一张待付的卡片:
+   **验收工具把被验的那个人改掉了**，而空态那一半正是要看的东西。
+   顺带每跑一轮还往真库里多写一笔。
+
+   跟报告那一屏同一个处置:他有就截，没有就说他没有。 */
 const 单子 = API
-  ? (TOKEN && await 挑一张已有的单()) || await p.evaluate(async (base) => {
-      const t = JSON.parse(localStorage.getItem('unmei:buwanren:token') || 'null')
-      if (!t) return null
-      const r = await fetch(base + '/v1/orders', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', authorization: 'Bearer ' + t, 'idempotency-key': 'shot-' + Math.random() },
-        body: JSON.stringify({ lines: [{ sku_id: 'sku-naji-deep', qty: 1 }], region: 'cn' }),
-      })
-      return r.ok ? (await r.json()).order_id : null
-    }, API)
+  ? TOKEN
+    ? await 挑一张已有的单()
+    : await p.evaluate(async (base) => {
+        const t = JSON.parse(localStorage.getItem('unmei:buwanren:token') || 'null')
+        if (!t) return null
+        const r = await fetch(base + '/v1/orders', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: 'Bearer ' + t, 'idempotency-key': 'shot-' + Math.random() },
+          body: JSON.stringify({ lines: [{ sku_id: 'sku-naji-deep', qty: 1 }], region: 'cn' }),
+        })
+        return r.ok ? (await r.json()).order_id : null
+      }, API)
   : null
 
 /* 那一册要有真内容才看得出好坏 —— 六页盘面是这一屏的全部。
