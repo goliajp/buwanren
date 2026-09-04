@@ -44,18 +44,24 @@ preflight() {
   # 今天为这个查了一轮 —— 会话重启把三个服务全带走了，
   # 而屏幕上写的是履约和排盘的毛病。
   #
-  # 判据是「端口上有没有人应答」，不是某条路径给不给 200 ——
-  # `.claude/CLAUDE.md` 里记着：拿 `/health` 当探针在这个仓里
-  # 误判过两次，而 mingli 只认 `/api/*`，问 `/` 一样是 404。
-  # 今天我又用了一次那个坏判据，白等了它十分钟。
+  # 【问它自己】。`/api/health` 是 mingli 真正的健康路径，
+  # 它回的是「service: mingli-api, status: ok」加二十一个算子的清单。
+  # 判据不该是「端口上有人听」——那只说明有个进程绑着口,
+  # 说不了它是不是这个服务、算不算得动。
+  # 后台那一页（运营台 › 排盘服务）早就是这么探的
+  # （`unmei-admin-api/src/routes/mingli.rs`）,而我今天自己造了
+  # 一个 `curl /` 的坏判据 —— mingli 只认 `/api/*`，问 `/` 一律 404,
+  # 于是它明明起着，我等了它十分钟。
+  # `.claude/CLAUDE.md` 里记着「拿 `/health` 当探针在这个仓里
+  # 误判过两次」——这是第三次，而正确的那条判据一直在代码里。
   #
   # 【shell 里没有块注释】。这一段头一版写成了 `/* … */` ——
   # 而 `bash -n` 查不出来：它只验语法，`/*` 是一个合法的命令名
   # （glob 展开成 /bin /etc …）。今天这是第二次，
   # 上一次记在这个文件里「御守两条入口」那一段。
-  local mingli_port=${MINGLI_PORT:-6027}
-  if ! lsof -nP -iTCP:"${mingli_port}" -sTCP:LISTEN >/dev/null 2>&1; then
-    say_bad "排盘服务不在（:${mingli_port}）—— U2 的本命、七天签、说明书全要它"
+  local mingli_base=${MINGLI_BASE:-http://127.0.0.1:6027}
+  if ! curl -sf -m 3 "${mingli_base}/api/health" >/dev/null 2>&1; then
+    say_bad "排盘服务答不上话（${mingli_base}/api/health）—— U2 的本命、七天签、说明书全要它"
     echo "     起它：cd ../mingli && cargo run -p mingli-api"
     bad=1
   fi
