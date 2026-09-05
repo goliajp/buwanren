@@ -109,23 +109,32 @@
 /* 【几档就摆几档】（2026-09-06）。跟苏合那一屏同一套牌面 ——
    两屏卖的是同一件东西，长得不一样的话人会以为是两件。 */
 .picks { display: flex; gap: 12rpx; margin-top: 20rpx; }
+/* 【边界靠卡片影，不靠一圈细线】（2026-09-06 门禁 `check-ui-outline` 报的）。
+   上一版用 `1rpx solid var(--stone-line)`（#E4DACA）—— 在纸底上只有 1.35:1,
+   而这圈线是它唯一的边界，可点的东西那条线要 3.0。
+   苏合那一屏的同一套牌子本来就没有边框:白底 + 卡片影。
+   照抄它 —— 两屏卖的是同一件东西，长得不一样人会以为是两件。 */
 .pick {
   flex: 1;
+  min-width: 0;
   min-height: 88rpx;
   padding: 16rpx 12rpx;
-  border: 1rpx solid var(--stone-line);
   border-radius: var(--r-card);
   background: var(--paper-panel);
+  box-shadow: var(--sh-card);
   text-align: center;
+  transition: transform .12s cubic-bezier(.34,1.56,.64,1);
 }
 .pick-hover { transform: translateY(3rpx) scale(.98); }
 .pick-n { font-size: 24rpx; color: var(--ink-mid); line-height: 1.4; }
 .pick-p { margin-top: 8rpx; font-size: 30rpx; font-weight: 700; color: var(--ink);
           font-variant-numeric: tabular-nums; }
-/* 挑中的那一档:边加深 + 价上主色。**不靠底色** ——
+/* 挑中的那一档:描一圈墨色 + 价上主色。**不靠底色** ——
    底色一填，三张牌里那一张就比另外两张重得多，读起来像「推荐这个」，
-   而这一排是让人选，不是让人跟着走 */
-.pick-on { border-color: var(--ink); }
+   而这一排是让人选，不是让人跟着走。
+   这圈线是【选中态】不是边界（没选中的那两张靠卡片影划界），
+   而且用的是 `--ink`，对比度远在 3.0 之上。 */
+.pick-on { box-shadow: 0 0 0 2rpx var(--ink), var(--sh-card); }
 .pick-on .pick-p { color: var(--peach-text); }
 
 /* 标价旁边那一行:这是哪一档 */

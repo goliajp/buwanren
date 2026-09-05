@@ -37,10 +37,16 @@ function withTz(path: string): string {
  * 于是它带着一个空 region 去问，而后端的规矩是「scope 有多个区、
  * 请求又不带 region → 当场拒」：**一位管两个区的运营打开用户页
  * 只看得到一句 forbidden**（docs/ACCEPTANCE-25.md 先决条件四）。
+ * 【`/naji` 是 2026-09-06 加的】。那一条当天才按区过滤 —— 它此前对
+ * 任何管理员都给全库的问签记录（用户问的私事，不是台账）。
+ * 后端一守，前端不带区去问就 403 —— 阿双（管两格）那一轮逐页走当场红。
+ * **后端加守卫的同一批里必须把这张名单一起改**:两处各改一半的样子，
+ * 就是「安全修好了，而那一页对某个人打不开了」。
+ *
  * 名单在这儿而不是「所有 GET 都加」：加到一条不按区过滤的接口上，
  * 那个参数会被 serde 静静丢掉，读代码的人却以为它起了作用。
  */
-const 按区过滤的 = ['/commerce', '/users'];
+const 按区过滤的 = ['/commerce', '/users', '/naji'];
 
 function withActiveRegion(path: string, method: string): string {
   if (method !== 'GET') return path;
