@@ -13,6 +13,7 @@ import { storage } from '../../services/storage'
 import type { ApiError } from '../../services/api'
 import type { ProductDetail, Sku } from '../../types/commerce'
 import { 一句 } from '../../utils/say'
+import { 轻 } from '../../utils/feel'
 /* 价格用【共用的那支】。这一屏原先自己抄了一份 `money()`，
    于是同一个 9900 在商品屏上是「¥99.00」、在确认屏上是「¥99」——
    改了 utils 那一份只动了后者，两屏当场说两种话。
@@ -51,6 +52,10 @@ Page({
     脸样: '',
     tags: [] as string[],
     skus: [] as Sku[],
+    /** 有多档时摆出来的那几张牌。只有一档就是空数组，屏上不摆 */
+    档: [] as Array<{ id: string; name: string; priceText: string }>,
+    /** 现在挑中的那一档叫什么。只有一档时是空串 */
+    档名: '',
     /** 能买的那个 sku（有价的第一个）。没有价就买不了，如实显示 */
     skuId: '',
     buying: false,
@@ -84,8 +89,25 @@ Page({
     this.setData({ loading: true, err: '' })
     commerceApi.product(this.data.id).then(
       (d: ProductDetail) => {
-        const sku = d.skus.find((s) => s.current_price_minor !== null && s.current_price_minor !== undefined)
+        const 有价 = d.skus.filter(
+          (s) => s.current_price_minor !== null && s.current_price_minor !== undefined)
+        const sku = 有价[0]
         this.setData({
+          /* 【一件东西有几档就摆几档】（2026-09-06 · 五路体验走查）。
+             这一屏原先只挑「第一个有价的」，`onBuy` 跳确认屏又不带 sku,
+             确认屏再挑一次「第一个有价的」—— 于是香那一件屏上永远是 ¥29,
+             而正文写着「一支烧二三十分钟，十支约够一个月」。
+             **¥29 买到的是三支**，而「试香 · 三支」这五个字两屏一次都没出现过
+             （两屏显示的都是 `product.name`）。
+             三档只有从苏合屋里进去才看得见 —— 同一件商品，
+             从商品列表进和从人物屋里进，看到的是两个不同的东西。 */
+          档: 有价.length > 1
+            ? 有价.map((s) => ({
+                id: s.id,
+                name: s.name,
+                priceText: money(s.current_price_minor, s.current_currency),
+              }))
+            : [],
           loading: false,
           err: '',
           name: d.product.name,
@@ -94,6 +116,8 @@ Page({
           desc: d.product.description_md || '',
           price: sku ? money(sku.current_price_minor, sku.current_currency) : '',
           skuId: sku ? sku.id : '',
+          /* 多档时标价那一行说清是哪一档的价 —— 光一个 ¥29 会被读成整件东西的价 */
+          档名: 有价.length > 1 && sku ? sku.name : '',
           fulfillment: d.product.fulfillment_kind,
           /* 主按钮说什么，看卖的是什么。
              「请回家」是【御守】的话 —— 御守里封着一个人。
@@ -134,9 +158,23 @@ Page({
   /* 「买」不再直接建单，先去确认那一屏（docs/REDESIGN.md R5 · P2）。
      一步到位省的不是一次点击 —— 是【几件、寄到哪、要不要留句话】
      这三件事根本没地方问。建单挪到那一屏上。 */
+  /* 挑一档。价钱与「买法」跟着变 —— 挑了 ¥88 那一档而按钮下面写着 ¥29,
+     是这一屏最不该出的错。 */
+  挑一档(e: WechatMiniprogram.BaseEvent) {
+    const id = String((e.currentTarget.dataset as { id?: string }).id || '')
+    const 它 = this.data.档.find((x) => x.id === id)
+    if (!它) return
+    轻()
+    this.setData({ skuId: 它.id, price: 它.priceText, 档名: 它.name })
+  },
+
   onBuy() {
     if (!this.data.id) return
-    wx.navigateTo({ url: '/pages/confirm/index?id=' + this.data.id })
+    /* 【挑了哪一档就带哪一档过去】。原先不带 sku —— 确认屏于是自己
+       再挑一次「第一个有价的」，人挑的那一档在跳转的那一下丢了。
+       确认屏本来就收这个参数（`wantSku`），只是没人发过。 */
+    const 带 = this.data.skuId ? '&sku=' + this.data.skuId : ''
+    wx.navigateTo({ url: '/pages/confirm/index?id=' + this.data.id + 带 })
   },
 
   onBack() {

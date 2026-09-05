@@ -448,11 +448,11 @@ async function 扫不出来那一下() {
   await p.evaluate(() => {
     globalThis.__wxStub('scanCode', () => Promise.resolve({ result: 'NOT-A-REAL-CODE-XYZ' }))
   })
-  await p.getByText('扫护身符', { exact: true }).click()
+  await p.getByText('扫御守', { exact: true }).click()
   await p.waitForFunction(() => !!globalThis.__router.current().data.codeErr,
                           null, { timeout: 15000 }).catch(() => {})
   const 屏 = await text()
-  ok(屏.includes('对不上任何一枚护身符'),
+  ok(屏.includes('对不上任何一枚御守'),
      '没有待扫单子的人扫失败，屏上也说得出是哪一种情况',
      屏.slice(0, 60))
   ok(屏.includes('扫不出来'),
@@ -471,7 +471,7 @@ async function moveIn(who) {
   await p.evaluate((c) => {
     globalThis.__wxStub('scanCode', () => Promise.resolve({ result: c }))
   }, cred)
-  await p.getByText('扫护身符').click()
+  await p.getByText('扫御守').click()
   /* 等它真的跳过去，不数毫秒。1200ms 在负载高的机器上不够 ——
      报出来的是「没开那一屏」，而实际只是还没到。
      固定等待在这个文件里已经撒过四次谎了。 */
@@ -854,7 +854,7 @@ if (API) {
     + " SELECT s.id FROM sku s JOIN product p ON p.id = s.product_id"
     + "  WHERE s.status='active' AND p.status='listed'"
     + "    AND ('cn' = ANY(p.available_regions) OR 'global' = ANY(p.available_regions))"
-    + "    AND p.fulfillment_kind <> 'residency'"   // 护身符要挑没住过的人，另一套判据
+    + "    AND p.fulfillment_kind <> 'residency'"   // 御守要挑没住过的人，另一套判据
     + "  ORDER BY p.sort_weight DESC, s.id LIMIT 6) t").split(',').filter(Boolean)
   ok(六件.length >= 1, '夹具：货架上挑得出在售商品来建单', `挑到 ${六件.length} 件`)
   const 单们 = await p.evaluate(async ([base, 六件]) => {
@@ -1217,13 +1217,13 @@ if (API) {
       await p.waitForFunction(() => !!globalThis.__router.current().data.codeErr,
                               null, { timeout: 15000 }).catch(() => {})
       const 错话 = await p.evaluate(() => globalThis.__router.current().data.codeErr)
-      ok(/对不上任何一枚护身符/.test(错话 || ''), '认不出那串字时说得清是哪一种情况', String(错话))
+      ok(/对不上任何一枚御守/.test(错话 || ''), '认不出那串字时说得清是哪一种情况', String(错话))
       /* 【说出来了不等于看得见】（2026-09-02 第三轮评审 · 第一次打开的人）。
          上面这一条读的是 `data.codeErr` —— 而屏上唯一渲染它的地方
          曾经挂在 `wx:if="{{toScan}}"` 里，新用户为 false:
          话生成了、一个字都没上屏，点第一屏第一个按钮什么都不发生。
          所以这一条看【屏上的字】，不看 data。 */
-      ok((await text()).includes('对不上任何一枚护身符'),
+      ok((await text()).includes('对不上任何一枚御守'),
          '而且那句话真的在屏上 —— 不是只在 data 里',
          (await text()).slice(0, 40))
 
@@ -2137,7 +2137,7 @@ if (API) {
       return { 文: b ? b.innerText : '（没找到那颗按钮）', 灰: b ? b.disabled : false }
     })
     ok(桃.文.includes('还没做出来') && 桃.灰,
-       '没有护身符在卖的那位，按钮上直说「还没做出来」并且按不动　—— 不让人白点一趟',
+       '没有御守在卖的那位，按钮上直说「还没做出来」并且按不动　—— 不让人白点一趟',
        `${桃.文} · disabled=${桃.灰}`)
   }
 } else {
@@ -2771,7 +2771,7 @@ if (API) {
      `wx:if="{{result.recommend}}"` 永远不成立。
 
      后果是 ¥199 的「你的说明书」【全 app 没有一条路走得到】:
-     另外三个入口指向护身符与订阅，而订阅那屏说「村里现在没有可以订的东西」。
+     另外三个入口指向御守与订阅，而订阅那屏说「村里现在没有可以订的东西」。
 
      所以这一条不看接口，看【屏上渲出来没有】—— 那才是它当初漏掉的地方。 */
   const 荐 = await p.evaluate(() => {
@@ -3996,6 +3996,76 @@ if (!API) {
        await p.evaluate(() => globalThis.__router.current().__route))
   }
 
+  /* ── 收钱那一屏不许瞒着自动续费（2026-09-06）───────────────
+     一味香按月送的 `fulfillment_kind` 是 `shipping`（迁移注释写着
+     「这样确认屏问地址那一路一个字都不用改」），而确认屏**从不读 `kind`**
+     （实测 grep 计数 0）—— 于是它把每月扣一次的东西画成了买一盒香：
+     合计写「一共 ¥78」没有「/ 月」、底下是一次性买卖的话术、
+     还摆着一个数量加减器（订阅填 2 是什么意思？屏上答不了）。
+
+     一个怕被套牢的人在那一屏上找不到一个字告诉他这是自动续费。 */
+  {
+    await open('pages/confirm/index', { id: 'prod-incense-monthly' })
+    await p.waitForTimeout(1600)
+    const 订文 = await text()
+    ok(await p.evaluate(() => globalThis.__router.current().data.订阅) === true,
+       '确认屏认得出这是一件订阅', String(await p.evaluate(() => globalThis.__router.current().data.订阅)))
+    ok(/一共\s*¥?\d+(\.\d+)?\s*\/\s*月/.test(订文),
+       '合计带着「/ 月」—— 少了这两个字，那个数看起来就是这一单的全部代价',
+       (订文.match(/一共[^·]{0,14}/) || [''])[0])
+    ok(/每月扣一次/.test(订文), '底下说的是「每月扣一次」，不是一次性买卖那套话',
+       (订文.match(/每月[^·]{0,30}/) || [''])[0])
+    /* 【订阅不摆数量】。填 2 是每月两盒还是订两份 —— 这个问题屏上答不了，
+       而后端 `renew_due` 每期就发一件。 */
+    ok(await p.locator('.stepper').count() === 0,
+       '订阅那一档不摆数量加减器', String(await p.locator('.stepper').count()))
+    /* 【「随时能停」得说准】。`plan.cancel_policy` 是 `end_of_period` ——
+       真实语义是「按得下不再续，但这一期照走完」。 */
+    await open('pages/incense/index')
+    await p.waitForTimeout(1400)
+    const 香文 = await text()
+    ok(!/随时能停(?!，)/.test(香文.replace('到期前随时能停，这一期照走完', '')),
+       '卖它的那一屏不写光秃秃的「随时能停」', (香文.match(/[^·]{0,10}随时能停[^·]{0,10}/) || [''])[0])
+    ok(/这一期照走完/.test(香文),
+       '把退订那一屏那句准的话搬到了决定要不要订的这一屏',
+       (香文.match(/每月扣一次[^·]{0,24}/) || [''])[0])
+  }
+
+  /* ── 一件东西有几档就摆几档（2026-09-06）───────────────────
+     香有三档（试香三支 ¥29 / 一盒十支 ¥88 / 单配 ¥268）。商品页原先只挑
+     「第一个有价的」、`onBuy` 跳确认屏又不带 sku，确认屏再挑一次 ——
+     于是屏上永远是 ¥29，而正文写着「一支烧二三十分钟，十支约够一个月」。
+     **¥29 买到的是三支**，而「试香 · 三支」这五个字整条掏钱的路上
+     一次都没出现过（两屏显示的都是 `product.name`）。 */
+  {
+    const 档数 = Number(sql1(
+      `SELECT count(*) FROM sku s JOIN price_book pb ON pb.sku_id=s.id`
+      + ` AND pb.status='active' AND pb.region='cn'`
+      + ` WHERE s.product_id='prod-suhe-incense'`))
+    await open('pages/product/index', { id: 'prod-suhe-incense' })
+    await p.waitForTimeout(1500)
+    ok(await p.locator('.pick').count() === 档数,
+       '几档就摆几档', `屏上 ${await p.locator('.pick').count()} 张 · 库里 ${档数} 档`)
+    const 头一档 = await p.evaluate(() => globalThis.__router.current().data.档名)
+    ok(!!头一档, '标价旁边说清这是哪一档', 头一档 || '（空的）')
+    /* 【挑了哪一档就带哪一档过去】。原先不带 sku —— 人挑的那一档
+       在跳转的那一下丢了，确认屏自己又挑回「第一个有价的」。 */
+    const 第二档 = await p.evaluate(() => (globalThis.__router.current().data.档 || [])[1])
+    if (第二档) {
+      await p.locator('.pick').nth(1).click()
+      await p.waitForTimeout(500)
+      ok(await p.evaluate(() => globalThis.__router.current().data.skuId) === 第二档.id,
+         '挑第二档，标价跟着变', await p.evaluate(() => globalThis.__router.current().data.price))
+      await p.getByText('就要这个', { exact: true }).click()
+      await p.waitForTimeout(1600)
+      ok(await p.evaluate(() => globalThis.__router.current().data.skuId) === 第二档.id,
+         '跳到确认屏，挑的还是那一档 —— 不是又挑回第一个有价的',
+         await p.evaluate(() => globalThis.__router.current().data.档名))
+      ok((await text()).includes(第二档.name),
+         '明细写的是这一档的名字，不是商品名', 第二档.name)
+    }
+  }
+
   /* ── 要去一场活动的人（2026-09-06）─────────────────────────
      【这一屏此前一条断言都没有】。它在 `app.json` 里、在截屏名单里、
      一屏放得下那一支也量过它 —— 而这一趟从没打开过它，
@@ -5110,6 +5180,8 @@ if (!(CAL > 0)) {
 // 三档的数都是【实测】的，不是从另一档减出来的：
 // 2026-09-03 同一台机器上分别跑了三趟 —— 假 130 / 真 358 / 真带排盘 384。
 // 建本命那一段是 26 条，不是当初以为的 17 条。
+/* 「真带排盘」这一档 2026-09-06 第七次改，485 → 496（实跑）——
+   「收钱那一屏不许瞒着自动续费」5 条、「一件东西有几档就摆几档」6 条。 */
 /* 「真带排盘」这一档 2026-09-06 第六次改，476 → 485（实跑）——
    「要去一场活动的人」（整屏此前一条断言都没有）加 6 条，
    「不再续了」那颗按钮真按一次加 3 条。 */
@@ -5129,7 +5201,7 @@ if (!(CAL > 0)) {
    凭空少掉八十条仍然报「全通」。
    另外两档没有在这一轮实测过，不动 —— 改一个没量过的数，
    等于把「下限」变成「我猜的数」。 */
-const 基准 = { 假: 132, 真: 360, 真带排盘: 485 }
+const 基准 = { 假: 132, 真: 360, 真带排盘: 496 }
 // 名字不叫 `档`：978 行有个同名的局部变量（村民稀有度），
 // 两个都在这个文件里，读起来会以为是同一个东西
 const 这一档 = !API ? '假' : (MINGLI ? '真带排盘' : '真')

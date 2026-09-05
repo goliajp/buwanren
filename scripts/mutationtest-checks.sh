@@ -65,6 +65,7 @@ FILES=(
   # 筛选框那一支的变异对象（后端那一侧与屏那一侧各一条）
   backend/unmei-admin-api/src/routes/commerce.rs
   webadmin/src/pages/Refunds.tsx
+
   mini/miniprogram/types/natal.ts
   backend/unmei-admin-api/src/routes/users.rs
   webadmin/src/lib/api.ts
@@ -734,8 +735,10 @@ mutate "后台某一页读失败又不说话了" check-console-read-error \
 # 【要种在真的屏上文字里】—— 头一版种到了村民屏的一段注释里，
 # 而门禁把注释剥掉了（那是对的），于是它报「没抓到」，
 # 看着像门禁退化，实际是这条变异挑错了位置。
+# 【方向 2026-09-06 反过来了】：定名从「护身符」翻成「御守」，
+# 所以这条变异也跟着翻 —— 往屏上塞回旧名字，那一支必须红。
 mutate "同一件东西又冒出第二个名字" check-one-name \
-  "edit('mini/miniprogram/pages/confirm/index.wxml', '<view class=\"card-name\">{{p.villager.name}}的护身符</view>', '<view class=\"card-name\">{{p.villager.name}}的御守</view>')"
+  "edit('mini/miniprogram/pages/confirm/index.wxml', '<view class=\"card-name\">{{p.villager.name}}的御守</view>', '<view class=\"card-name\">{{p.villager.name}}的护身符</view>')"
 
 # 前端的状态说法要跟后端枚举对得上：删掉一档
 mutate "前端的状态说法漏了后端有的一档" check-status-words \
