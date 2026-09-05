@@ -3996,6 +3996,52 @@ if (!API) {
        await p.evaluate(() => globalThis.__router.current().__route))
   }
 
+  /* ── 要退款的人（2026-09-05）───────────────────────────────
+     用户协议上写着：「任何一单都能在「我的 › 我买过的」里申请，我们逐单看」。
+     那颗按钮在订单屏上（`status` 是 paid / fulfilling / done 时才摆），
+     **而它从来没有被按过一次** —— 这一趟末尾那份处理器清单里，
+     `order·onRefund` 一直在「没碰过的」那一行上，理由写着
+     「要一笔真的成功支付」。
+
+     那个理由对【走 UI 付款】成立（浏览器里没有微信收银台，垫片如实抛），
+     对这一段不成立:上面几段已经种过两张真的已付单（`ord-m3-*` / `ord-inc-*`,
+     订单、支付两张表都齐）。拿其中一张按那颗真按钮就是了。
+
+     退款这条是【钱往回走】的路 —— 全 app 最不该只有接口有人验的地方。
+     申请完把那一行删掉，下一轮跟这一轮看到的库是同一个。 */
+  {
+    const 我 = await p.evaluate(() => JSON.parse(localStorage.getItem('unmei:buwanren:user') || '{}').id)
+    const 已付的 = 我 ? sql1(
+      `SELECT id FROM order_record WHERE user_id='${我}' AND status='paid'`
+      + ` AND amount_paid_minor > 0 ORDER BY created_at DESC LIMIT 1`) : ''
+    if (已付的) {
+      await open('pages/order/index', { id: 已付的 })
+      await p.waitForTimeout(1200)
+      ok((await text()).includes('申请退款'),
+         '已付的那一单上摆得出「申请退款」', (await text()).slice(0, 60))
+      await p.getByText('申请退款', { exact: true }).click()
+      let 说 = ''
+      for (let i = 0; i < 20; i++) {
+        说 = await p.evaluate(() => globalThis.__router.current().data.note || '')
+        if (说) break
+        await p.waitForTimeout(400)
+      }
+      /* 【说的是「等审核」，不是「已退款」】。协议上写的是「我们逐单看」——
+         按完就说「已退款」的话，人会去银行卡上等一笔今天不会到的钱。 */
+      ok(/等审核/.test(说), '按完说的是「已申请，等审核」，不是「已退款」', 说)
+      const 落了 = sql1(`SELECT status FROM refund WHERE order_id='${已付的}' ORDER BY created_at DESC LIMIT 1`)
+      ok(落了 === 'requested', '库里真多了一张待审的退款单', 落了 || '（一条都没有）')
+      /* 【再按一次不许再建一张】。幂等键由客户端生成并在重试时复用
+         （`newIdemKey`），而这一屏那颗按钮按两下是很常见的事 ——
+         后台多出两张永远批不下去的单子，没有人知道它们为什么批不动。 */
+      await p.getByText('申请退款', { exact: true }).click().catch(() => {})
+      await p.waitForTimeout(2500)
+      const 几张 = sql1(`SELECT count(*) FROM refund WHERE order_id='${已付的}'`)
+      ok(几张 === '1', '按两下只建一张退款单', 几张 + ' 张')
+      run(`DELETE FROM refund WHERE order_id='${已付的}'`)
+    }
+  }
+
   /* ── 买过很多东西的人（2026-09-05）─────────────────────────
      「我买过的」那一屏原先是【取一次，本地切片】：`commerceApi.orders()`
      不带参数，后端默认给 20 条，而这一屏把拿到的东西按每页五笔切成四页,
@@ -4978,6 +5024,8 @@ if (!(CAL > 0)) {
 // 三档的数都是【实测】的，不是从另一档减出来的：
 // 2026-09-03 同一台机器上分别跑了三趟 —— 假 130 / 真 358 / 真带排盘 384。
 // 建本命那一段是 26 条，不是当初以为的 17 条。
+/* 「真带排盘」这一档 2026-09-06 第五次改，472 → 476（实跑）——
+   「要退款的人」那一段加了 4 条（那颗按钮此前一次都没被按过）。 */
 /* 「真带排盘」这一档 2026-09-05 第四次改，468 → 472（实跑）——
    「买过很多东西的人」那一段加了 4 条（翻页翻不翻得到第五页）。 */
 /* 「真带排盘」这一档 2026-09-05 第三次改，454 → 468（实跑）——
@@ -4992,7 +5040,7 @@ if (!(CAL > 0)) {
    凭空少掉八十条仍然报「全通」。
    另外两档没有在这一轮实测过，不动 —— 改一个没量过的数，
    等于把「下限」变成「我猜的数」。 */
-const 基准 = { 假: 132, 真: 360, 真带排盘: 472 }
+const 基准 = { 假: 132, 真: 360, 真带排盘: 476 }
 // 名字不叫 `档`：978 行有个同名的局部变量（村民稀有度），
 // 两个都在这个文件里，读起来会以为是同一个东西
 const 这一档 = !API ? '假' : (MINGLI ? '真带排盘' : '真')
