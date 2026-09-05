@@ -1,6 +1,12 @@
 <view class="page">
   <view class="hd">
     <view class="title title-lg">订着的</view>
+    <!-- 排序是后端定的（还在续的排前面），而屏上原先不说。
+         「我买过的」那一屏写着「3 笔 · 按时间倒着排」——
+         同一组的两屏，一屏说得出自己怎么排，一屏不说 -->
+    <view class="sub" wx:if="{{!loading && !err}}">
+      {{subs.length ? subs.length + ' 份 · 还在续的排前面' : '还没有'}}
+    </view>
     <view class="hr"></view>
   </view>
 
@@ -20,7 +26,8 @@
       <!-- 名、状态、日子三样原先都是库里那个字段的原文：
            `plan-mg-month` / `active` / `2026-10-05T04:12:33.123456+08:00`。
            算成人话在 index.ts（wxml 里调不了函数）。 -->
-      <view wx:for="{{subs}}" wx:key="id" class="item">
+      <view wx:for="{{subs}}" wx:key="id" class="item enter"
+            style="animation-delay:{{index * 40}}ms">
         <view class="item-name">{{item.名}}</view>
         <view class="item-meta {{item.要紧 ? 'meta-hot' : ''}}">{{item.说}}</view>
       </view>
@@ -42,23 +49,40 @@
         <view class="empty-sub" wx:elif="{{!offersErr}}">村里现在没有可以订的东西 · 等有了会摆在这儿</view>
       </view>
 
-      <view class="offers" wx:if="{{offers.length > 0}}">
-        <view class="offers-k">村里现在有这些可以订</view>
-        <view wx:for="{{offers}}" wx:key="id" class="item"
-              data-id="{{item.id}}" bindtap="onTap"
-              hover-class="press-card" hover-stay-time="100">
-          <view class="item-name">{{item.name}}</view>
-          <view class="item-sub" wx:if="{{item.sub_title}}">{{item.sub_title}}</view>
-          <!-- 价写在这儿:点一条直奔商品页，那是掏钱那一路。
-               取不到价就不写，不编（2026-09-01）。 -->
-          <view class="item-meta">
-            <text class="item-price" wx:if="{{item.价}}">{{item.价}}</text>
-            <text>看看 ›</text>
-          </view>
+    </block>
+
+    <!-- 【订着的人也要看得见还能订什么】（2026-09-05）。
+         `loadOffers()` 那一道门闩 2026-09-01 就拆了 —— 注释还在上面写着
+         「两个条件合起来，卖订阅那一半永远到不了」。**而 wxml 这一道没拆**:
+         这一块原先长在 `wx:else`（一个都没订）里面，于是数据取回来了、
+         屏上没有它。一位三份订阅全到期的人，看到的是三条读不动的记录
+         加一颗「回去」—— 想再订回来，这一屏一条路都不给。
+         同一个门闩拆一半，比没拆更难发现:代码读着是通的。 -->
+    <view class="offers" wx:if="{{offers.length > 0}}">
+      <view class="offers-k">村里现在有这些可以订</view>
+      <view wx:for="{{offers}}" wx:key="id" class="item enter"
+            style="animation-delay:{{index * 40}}ms"
+            data-id="{{item.id}}" bindtap="onTap"
+            hover-class="press-card" hover-stay-time="100">
+        <view class="item-name">{{item.name}}</view>
+        <view class="item-sub" wx:if="{{item.sub_title}}">{{item.sub_title}}</view>
+        <!-- 价写在这儿:点一条直奔商品页，那是掏钱那一路。
+             取不到价就不写，不编（2026-09-01）。 -->
+        <view class="item-meta">
+          <text class="item-price" wx:if="{{item.价}}">{{item.价}}</text>
+          <text>看看 ›</text>
         </view>
       </view>
-      <view class="offers-err" wx:elif="{{offersErr}}">{{offersErr}}</view>
-    </block>
+    </view>
+    <!-- 【一份都不在续了，而村里也没有能订的】。这时候得说一句 ——
+         否则这一屏是几张过期的卡片加一颗「回去」，一条路都没有。
+         空状态那一支早就说了这句话，而「有记录但全到期」这一态没人管过:
+         它长得像「有东西」，其实跟空的一样。 -->
+    <view class="offers-err" wx:elif="{{subs.length > 0 && !还订着}}">
+      {{offersErr || '村里现在没有可以订的东西 · 等有了会摆在这儿'}}
+    </view>
+    <!-- 取不到能订的，在【一个都没订】时也要说出来 —— 那时它是这一屏唯一的出口 -->
+    <view class="offers-err" wx:elif="{{offersErr}}">{{offersErr}}</view>
   </block>
 
   <!-- 「回去」。`onBack` 一直在，只是没有一颗按钮按得到它 ——

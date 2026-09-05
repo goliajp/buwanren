@@ -4015,6 +4015,50 @@ if (!API) {
     await open('pages/subs/index')
   }
 
+  /* ── 真的订着的时候，这一屏长什么样（2026-09-05）────────────────
+     上面那几条验的全是【一个都没订】那一支 —— 而这一趟走的是一个
+     刚建的匿名用户，他永远一份都没有。也就是说 `subs.length > 0`
+     那一支在这支门禁里**从来没有渲染过**，页面注释里也是这么写的：
+     「这一屏从来没有一位真的订着的人来过」。
+
+     它藏住过三样：套餐名打的是 `plan-mg-month`、状态打的是 `active`、
+     日子打的是带微秒的时间戳。这三样是这一轮才修的，而修完之后
+     仍然没有任何东西盯着它们 —— 所以这里自己造两份订阅。
+
+     两份都是【死的】（到期 / 退了），为的是同时验第二件事：
+     一份都不在续的时候，这一屏不能是几张读不动的卡片加一颗「回去」。
+     造完就删，后面那一段照旧走在「一个都没订」上。 */
+  {
+    const uid = await p.evaluate(() => JSON.parse(localStorage.getItem('unmei:buwanren:user') || '{}').id)
+    if (uid) {
+      const 两份 = ['vsub-dead-y', 'vsub-dead-m']
+      run(`INSERT INTO subscription(id, user_id, plan_id, status, source_channel,
+             current_period_start, current_period_end, cancel_at_period_end, region)
+           VALUES('${两份[0]}','${uid}','plan-mg-year','expired','wechat_jsapi',
+                  NOW() - INTERVAL '400 days', NOW() - INTERVAL '35 days', false, 'cn'),
+                 ('${两份[1]}','${uid}','plan-mg-month','cancelled','wechat_jsapi',
+                  NOW() - INTERVAL '60 days', NOW() - INTERVAL '30 days', true, 'cn')
+           ON CONFLICT (id) DO NOTHING`)
+      await open('pages/subs/index')
+      await p.waitForTimeout(1400)
+      const 订文 = await text()
+      ok(await p.evaluate(() => (globalThis.__router.current().data.subs || []).length) === 2,
+         '订着的那一屏这次真渲了列表那一支', 订文.slice(0, 40))
+      /* 【库里那个字段的原文一个都不许上屏】。名、状态、日子三样
+         原先打的就是 `plan-mg-year` / `expired` / 带微秒的时间戳。 */
+      ok(!/plan-mg-|expired|cancelled/.test(订文),
+         '套餐名与状态都是人话，不是库里那个字段', (订文.match(/plan-mg-\S+|expired|cancelled/) || [''])[0])
+      ok(订文.includes('已经到期') && 订文.includes('已经退了'),
+         '两份的状况各说各的', 订文.slice(0, 80))
+      /* 【一份都不在续，这一屏不能是死路】。它长得像「有东西」，
+         其实跟空的一样 —— 而空状态早就说清了去处，这一态没人管过。 */
+      const 有出路 = 订文.includes('可以订') || 订文.includes('等有了会摆在这儿')
+        || await p.evaluate(() => (globalThis.__router.current().data.offers || []).length > 0)
+      ok(有出路, '一份都不在续的时候，它说得出下一步去哪儿', 订文.slice(-60))
+      run(`DELETE FROM subscription WHERE id IN ('${两份[0]}','${两份[1]}')`)
+    }
+  }
+
   /* 「我」→「单」：花过的钱要能找回来。这是订单这个资源的常设入口 ——
      刚才那条是「刚下完单顺着走」，这条是「过一阵回来找」。 */
   await open('pages/me/index')
@@ -4600,7 +4644,13 @@ if (!(CAL > 0)) {
 // 三档的数都是【实测】的，不是从另一档减出来的：
 // 2026-09-03 同一台机器上分别跑了三趟 —— 假 130 / 真 358 / 真带排盘 384。
 // 建本命那一段是 26 条，不是当初以为的 17 条。
-const 基准 = { 假: 132, 真: 360, 真带排盘: 386 }
+/* 「真带排盘」这一档 2026-09-05 从 386 改成 429（实跑）。
+   下限是 `该有 × 0.9`，所以账落后的时候下限跟着失效 ——
+   386 那个账对应的下限是 347，而这一档真实规模已经是 429:
+   凭空少掉八十条仍然报「全通」。
+   另外两档没有在这一轮实测过，不动 —— 改一个没量过的数，
+   等于把「下限」变成「我猜的数」。 */
+const 基准 = { 假: 132, 真: 360, 真带排盘: 429 }
 // 名字不叫 `档`：978 行有个同名的局部变量（村民稀有度），
 // 两个都在这个文件里，读起来会以为是同一个东西
 const 这一档 = !API ? '假' : (MINGLI ? '真带排盘' : '真')
