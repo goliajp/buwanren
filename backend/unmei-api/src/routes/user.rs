@@ -1,4 +1,5 @@
-use axum::{routing::get, Router, Json, extract::State};
+use axum::{routing::{get, post}, Router, Json, extract::State};
+use serde_json::{json, Value as J};
 use serde::Deserialize;
 use unmei_domain::UserPublic;
 use crate::state::AppState;
@@ -11,6 +12,11 @@ pub fn router() -> Router<AppState> {
         // (平台硬限制,method 只有 GET/POST/PUT/DELETE/OPTIONS/HEAD/TRACE/CONNECT),
         // 只挂 PATCH 的话 mini 端永远改不了昵称头像。
         .route("/v1/user/me", get(me).patch(patch_me).post(patch_me))
+        /* 注销。**不挂 DELETE，挂 POST** —— 微信小程序的 `wx.request` 支持
+           DELETE，但这一下在客户端要走一个二次确认的表单式流程，
+           而这个仓里所有「按下去会发生一件不可逆的事」的动作都是 POST
+           （取消订单、退款、退订）。同一类动作用同一种方法。 */
+        .route("/v1/user/me/delete", post(delete_me))
 }
 
 async fn me(
@@ -69,4 +75,28 @@ async fn patch_me(
     .execute(&st.db)
     .await?;
     me(State(st), AuthedUser(claims)).await
+}
+
+
+/// 注销账号。
+///
+/// 【隐私政策上写了两遍，而在这之前一处都做不到】——「设置」上那颗
+/// 按钮是本机的 `logout()`，清掉这台手机上的 token，服务端一行不动。
+/// 绑了微信的人下次登录回来东西全在；匿名的人只是再也够不着自己那个号。
+///
+/// 删什么、留什么，逐条对着政策那句话来，写在 `unmei_app::account`。
+/// 这一层只负责：认得出是谁、把结果记一句日志。
+///
+/// 【幂等】：已经注销过的再调一次照旧 200 —— 手抖点两下不该报错，
+/// 而报错会让人以为没注销成功。
+async fn delete_me(
+    State(st): State<AppState>,
+    AuthedUser(claims): AuthedUser,
+) -> Result<Json<J>, ApiError> {
+    let 账 = unmei_app::account::delete(&st.db, &claims.sub).await?;
+    /* 【留一句日志】。这是这个产品里唯一一个「用户自己把数据删掉」的动作,
+       而它没有后台留痕表（`audit_log` 记的是管理员）。真出了事要查
+       「这个人是什么时候自己走的、带走了什么」,只有这一行。 */
+    tracing::info!(user = %claims.sub, ?账, "用户注销了账号");
+    Ok(Json(json!({ "ok": true })))
 }

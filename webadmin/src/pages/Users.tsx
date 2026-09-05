@@ -16,6 +16,8 @@ interface UserRow {
   id: string; nickname: string; platform: string; region: string; locale: string;
   is_anonymous: boolean; created_at: string; last_active_at: string;
   is_banned?: boolean;
+  /** 注销过的人。有值就是他自己走了 —— 数据删了，单子按法律留着 */
+  deleted_at?: string | null;
 }
 
 export default function Users() {
@@ -127,9 +129,14 @@ export default function Users() {
                     <td className="label text-ink-3">{regionLabel(r.region)}</td>
                     <td className="font-mono text-xs text-ink-4">{r.locale}</td>
                     <td className="c">
-                      {r.is_anonymous
-                        ? <span className="text-ink-3">游客</span>
-                        : <span className="text-settled">已登录</span>}
+                      {/* 【注销过的人先说这件事】。他既不是游客也不是已登录 ——
+                          那个号已经没有主人了，而客服最需要先知道的正是这个:
+                          联系不上，也不必再对他做什么 */}
+                      {r.deleted_at
+                        ? <span className="text-debt">已注销</span>
+                        : r.is_anonymous
+                          ? <span className="text-ink-3">游客</span>
+                          : <span className="text-settled">已登录</span>}
                     </td>
                     <td className="r font-mono text-xs text-ink-3">{ts(r.created_at)}</td>
                     <td className="r text-ink-3">{rel(r.last_active_at)}</td>
@@ -137,7 +144,11 @@ export default function Users() {
                         后台看着能封、封完那个人照常下单。现在两头都通了。
                         这一格挡住行点击，不然点「封」会顺带跳到订单页。 */}
                     <td className="r" onClick={(e) => e.stopPropagation()}>
-                      <封禁 用户={r} 变了={() => refetch()} />
+                      {/* 注销过的号封不封没有意义 —— 它已经进不来了。
+                          摆一颗按得动的「封」等于给运营一个假动作 */}
+                      {r.deleted_at
+                        ? <span className="label text-ink-4">已经进不来了</span>
+                        : <封禁 用户={r} 变了={() => refetch()} />}
                     </td>
                   </tr>
                 ))}

@@ -3996,6 +3996,89 @@ if (!API) {
        await p.evaluate(() => globalThis.__router.current().__route))
   }
 
+  /* ── 注销账号（2026-09-05）───────────────────────────────────
+     隐私政策上写了两遍「在「设置」里退出并删除账号」：
+
+       「存多久：账号在，数据就在。你退出并删除账号，出生时间与盘会一起
+         删掉；订单与支付记录按法律要求保留，那部分只留金额与时间」
+
+     而「设置」上此前只有一颗「退出」—— 它是本机的 `logout()`，
+     清掉这台手机上的 token，服务端一行数据都不动。绑了微信的人下次
+     登录回来东西全在；匿名的人只是再也够不着自己那个号。
+     **屏上那两句话对谁都不成立。**
+
+     这一段验两件事：那一屏说得清楚（先看清楚再按），以及那一下
+     真的删得掉（拿一个【用完就丢的身份】走，不能拿这一趟的主用户）。 */
+  {
+    await open('pages/settings/index')
+    await p.waitForTimeout(600)
+    ok((await text()).includes('注销账号'), '设置那一屏上找得到「注销账号」',
+       (await text()).slice(-90))
+    await p.getByText('注销账号', { exact: true }).click()
+    await p.waitForTimeout(1000)
+    ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/leave/index',
+       '点得进注销那一屏', await p.evaluate(() => globalThis.__router.current().__route))
+    const 注销文 = await text()
+    /* 【删什么、留什么、之后怎样 —— 三样都要说】。少说一样，
+       人是在信息不全的情况下按下一个不可逆的按钮。 */
+    ok(注销文.includes('会删掉') && 注销文.includes('会留下') && 注销文.includes('之后'),
+       '那一屏说清了删什么、留什么、之后怎样', 注销文.slice(0, 80))
+    ok(注销文.includes('出生时间') && 注销文.includes('再也进不来'),
+       '删的那一条跟隐私政策上写的是同一句', 注销文.slice(0, 120))
+    ok(注销文.includes('金额与时间'),
+       '留下的那一半也照政策说清 —— 不是含糊一句「部分数据保留」',
+       (注销文.match(/[^·]{0,20}金额与时间[^·]{0,10}/) || [''])[0])
+    await shot('leave')
+    /* 【这一屏不许自己就把人注销了】。垫片的 `showModal` 走浏览器
+       confirm，Playwright 默认 dismiss —— 也就是说这一下【等于点了「先不」】。
+       它仍然是有意义的一条:按下去之后如果什么都没发生，说明那道
+       二次确认真的挡在前面（挡不住的话这一趟的主用户当场就没了）。 */
+    await p.getByText('注销这个账号', { exact: true }).click()
+    await p.waitForTimeout(1200)
+    ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/leave/index',
+       '不确认就什么都不发生 —— 二次确认真的挡在前面',
+       await p.evaluate(() => globalThis.__router.current().__route))
+
+    /* 那一下真做起来是什么样 —— 用一个【用完就丢】的身份走。
+       不能拿这一趟的主用户:他后面还有一百多条断言要跑。 */
+    if (API) {
+      const 结果 = await p.evaluate(async (base) => {
+        const 登 = await fetch(base + '/v1/auth/anonymous', {
+          method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}',
+        })
+        if (!登.ok) return { 步: '登录', 码: 登.status }
+        const { token } = await 登.json()
+        const 头 = { authorization: 'Bearer ' + token, 'content-type': 'application/json' }
+        const 我 = await (await fetch(base + '/v1/user/me', { headers: 头 })).json()
+        const 删 = await fetch(base + '/v1/user/me/delete', { method: 'POST', headers: 头, body: '{}' })
+        const 再问 = await fetch(base + '/v1/user/me', { headers: 头 })
+        // 幂等:手抖点两下不该报错
+        const 再删 = await fetch(base + '/v1/user/me/delete', { method: 'POST', headers: 头, body: '{}' })
+        return { id: 我.id, 删: 删.status, 再问: 再问.status, 再删: 再删.status }
+      }, API)
+      ok(结果.删 === 200, '注销那一下真的成了', JSON.stringify(结果))
+      /* 【401 不是 403】。403 是「你不能做这件事」，而注销之后这个号
+         已经不存在 —— 而且客户端对 401 的处置是清掉 token 重新匿名登录，
+         那正是一个刚注销完的人该落到的地方。 */
+      ok(结果.再问 === 401, '注销之后旧 token 一律 401 —— 这个号真的进不来了',
+         JSON.stringify(结果))
+      /* 【这一条挡住过一次真缺口】。守卫按 `deleted_at` 把注销过的 token
+         一律打成 401，于是应用层那份幂等（再调一次各项都是 0）
+         **在 HTTP 上一次都到不了** —— 网络超时之后人再点一次，
+         那一下其实已经成了，屏上却报「没登录」。现在注销那一条自己放行。 */
+      ok(结果.再删 === 200, '再点一次不报错 —— 报错会让人以为头一次没成',
+         JSON.stringify(结果))
+      if (结果.id) {
+        ok(sql1(`SELECT count(*) FROM app_user WHERE id='${结果.id}' AND deleted_at IS NOT NULL`) === '1',
+           '库里那一行落了注销时间',
+           sql1(`SELECT nickname, deleted_at FROM app_user WHERE id='${结果.id}'`))
+        ok(sql1(`SELECT nickname FROM app_user WHERE id='${结果.id}'`) === '已注销',
+           '名字换成「已注销」—— 后台那张表上一个空名字读起来像数据坏了',
+           sql1(`SELECT nickname FROM app_user WHERE id='${结果.id}'`))
+      }
+    }
+  }
+
   await open('pages/me/index')
 
   /* 【有货那天，那一行自己回来】（2026-09-05 · 一味香按月送上架）。
@@ -4842,6 +4925,8 @@ if (!(CAL > 0)) {
 // 三档的数都是【实测】的，不是从另一档减出来的：
 // 2026-09-03 同一台机器上分别跑了三趟 —— 假 130 / 真 358 / 真带排盘 384。
 // 建本命那一段是 26 条，不是当初以为的 17 条。
+/* 「真带排盘」这一档 2026-09-05 第三次改，454 → 468（实跑）——
+   注销账号那一屏与它那一段 API 走查加了 14 条。 */
 /* 「真带排盘」这一档 2026-09-05 再从 429 改成 454（实跑）——
    「手里的券」那一屏与结账页那格券条加了 25 条断言，
    上一版记的 429 是加它们之前那一趟量的。
@@ -4852,7 +4937,7 @@ if (!(CAL > 0)) {
    凭空少掉八十条仍然报「全通」。
    另外两档没有在这一轮实测过，不动 —— 改一个没量过的数，
    等于把「下限」变成「我猜的数」。 */
-const 基准 = { 假: 132, 真: 360, 真带排盘: 454 }
+const 基准 = { 假: 132, 真: 360, 真带排盘: 468 }
 // 名字不叫 `档`：978 行有个同名的局部变量（村民稀有度），
 // 两个都在这个文件里，读起来会以为是同一个东西
 const 这一档 = !API ? '假' : (MINGLI ? '真带排盘' : '真')

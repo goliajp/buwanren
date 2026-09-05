@@ -21,6 +21,7 @@
     "pages/activity/index",
     "pages/name/index",
     "pages/settings/index",
+    "pages/leave/index",
     "pages/bind/index",
     "pages/incense/index",
     "pages/lighting/index",

@@ -72,7 +72,7 @@ async fn list(
 
     let rows = sqlx::query(
         r#"SELECT id, nickname, platform, region, locale, is_anonymous, is_banned,
-                  created_at, last_active_at
+                  deleted_at, created_at, last_active_at
              FROM app_user
             WHERE ($1 = '' OR id ILIKE $2 OR nickname ILIKE $2)
               AND ($3 = '' OR platform = $3)
@@ -101,6 +101,15 @@ async fn list(
             "region": r.get::<String, _>("region"),
             "locale": r.get::<String, _>("locale"),
             "is_anonymous": r.get::<bool, _>("is_anonymous"),
+            /* 【`is_banned` 一直在 SELECT 里，而从来没发出来】（2026-09-05）。
+               后台那张表读的就是 `r.is_banned` —— 拿到的永远是 undefined，
+               于是**封了的人在列表上跟没封的一个样，那颗按钮也永远写着
+               「封掉」**:一个已经被封的人放不出来，而屏上没有一处说得出
+               他被封着。接口早就查了这一列，只是没往外发。 */
+            "is_banned": r.get::<bool, _>("is_banned"),
+            /* 注销过的人。后台看到「已注销」才不会去联系他，
+               也不会对着一个已经没有数据的号做封禁这种没有意义的动作。 */
+            "deleted_at": r.get::<Option<DateTime<Utc>>, _>("deleted_at"),
             "created_at": r.get::<DateTime<Utc>, _>("created_at"),
             "last_active_at": r.get::<DateTime<Utc>, _>("last_active_at"),
         })
