@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApiMutation } from '../lib/feedback';
 import { commerce } from '../lib/api';
+import { useMyRegions } from '../lib/regions';
+import { activeRegionAtom } from '../store/auth';
+import { useAtom } from 'jotai';
 import { 从网址读筛选 } from '../lib/urlfilter';
 import PageHeader from '../components/PageHeader';
 import TableError from '../components/TableError';
@@ -223,6 +226,15 @@ function KvGrid({ kv }: { kv: [string, React.ReactNode][] }) {
  */
 function 发券框({ 关闭 }: { 关闭: () => void }) {
   const qc = useQueryClient();
+  /* 【一张券必须落在某个区】（2026-09-05）。后端原先在没说区的时候
+     默认 cn —— 于是一位 super 在顶栏切到日本、发一张券，券落在大陆:
+     他手上的界面从头到尾说的是日本，而这张券只有大陆的人用得上，
+     两边都不报错，要到有人拿它下单才炸（`券 X 不能在 jp 用`）。
+     现在区跟着顶栏那个镜头走，而「全部区域」这一档发不出券:
+     那时候没有任何一个区可以落，得先挑一个。 */
+  const [当前区] = useAtom(activeRegionAtom);
+  const 我的区 = useMyRegions();
+  const 发到哪个区 = 我的区.find((r) => r.code === 当前区) ?? null;
   const [码, 设码] = useState('');
   const [折, 设折] = useState('20');
   const [封顶, 设封顶] = useState('');
@@ -270,7 +282,8 @@ function 发券框({ 关闭 }: { 关闭: () => void }) {
   const 能发 = 码.trim().length >= (成批 ? 1 : 4)
     && Number(折) > 0 && Number(折) <= 100 && Number(天数) > 0
     && (!成批 || (n >= 1 && n <= 5000))
-    && (!成批 || !归属.trim());   // 成批发的券没有归属，谁拿到谁用
+    && (!成批 || !归属.trim())    // 成批发的券没有归属，谁拿到谁用
+    && !!发到哪个区;              // 「全部区域」发不出券 —— 见下
 
   return (
     <div className="panel p-4 mb-3 max-w-2xl">
@@ -316,8 +329,14 @@ function 发券框({ 关闭 }: { 关闭: () => void }) {
       {/* 【把这张券实际长什么样说出来】。「减两成、最多减 100 元」
           比 `{"pct_off_bps":2000,"max_off_minor":10000}` 好核对，
           而发错一张券是真花钱的事。 */}
+      {!发到哪个区 && (
+        <p className="label mt-3 text-debt">
+          顶栏现在看的是「全部区域」—— 一张券只能落在一个区，先挑一个再发
+        </p>
+      )}
       <p className="label mt-3">
-        发出去的是：{成批 ? `${n} 张，码是「${码.trim() || '前缀'}」加十位随机` : '一张'}
+        发出去的是：{发到哪个区 ? `${发到哪个区.name}的` : ''}
+        {成批 ? `${n} 张，码是「${码.trim() || '前缀'}」加十位随机` : '一张'}
         ，{Number(折) > 0 ? `减 ${折} 成` : '（折扣还没填）'}
         {封顶.trim() ? `，最多减 ${封顶} 元` : '，不封顶'}
         ，{天数} 天后过期

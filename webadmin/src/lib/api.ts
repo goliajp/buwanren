@@ -28,13 +28,23 @@ function withTz(path: string): string {
 }
 
 /**
- * 给 commerce.* 的 GET 自动 append `region=<active>`(已带 region 的不覆盖)。
+ * 给按区过滤的 GET 自动 append `region=<active>`(已带 region 的不覆盖)。
  * 切到 global → 不加 region param,后端 normalize 后看全部。
  * webadmin 切区域 → 所有 list / dashboard / outbox 自动跟动。
+ *
+ * 【`/users` 也在里面】（2026-09-05）。这一行原先只认 `/commerce` 开头，
+ * 而 `GET /admin/users` 后端同样过 `normalize_region_scoped` ——
+ * 于是它带着一个空 region 去问，而后端的规矩是「scope 有多个区、
+ * 请求又不带 region → 当场拒」：**一位管两个区的运营打开用户页
+ * 只看得到一句 forbidden**（docs/ACCEPTANCE-25.md 先决条件四）。
+ * 名单在这儿而不是「所有 GET 都加」：加到一条不按区过滤的接口上，
+ * 那个参数会被 serde 静静丢掉，读代码的人却以为它起了作用。
  */
+const 按区过滤的 = ['/commerce', '/users'];
+
 function withActiveRegion(path: string, method: string): string {
   if (method !== 'GET') return path;
-  if (!path.startsWith('/commerce')) return path;
+  if (!按区过滤的.some((p) => path.startsWith(p))) return path;
   if (path.includes('region=')) return path;
   const region = getActiveRegion();
   const sep = path.includes('?') ? '&' : '?';
@@ -115,8 +125,23 @@ export const commerce = {
   updatePromotionState: (id: string, status: string) =>
     api.post(`/commerce/promotions/${id}/state`, { status }),
   listCoupons: (p: any) => api.get<PageRes<any>>('/commerce/coupons' + qs(p)),
-  issueCoupon: (b: any) => api.post('/commerce/coupons', b),
-  issueCouponBatch: (b: any) => api.post('/commerce/coupons/batch', b),
+  /* 【发券得说清是哪个区】（2026-09-05）。这两条原先什么区都不带，
+     后端就 `.unwrap_or("cn")` —— 于是一位 super 在顶栏切到日本、
+     发一张券，券落在大陆：他手上的界面从头到尾说的是日本，
+     而这张券只有大陆的人用得上，两边都不报错。
+     区是全局镜头，掏钱的动作跟着它走。 */
+  /* 【字段一个个写出来，不用 `...b`】。`check-bodies` 那一支读的是
+     这里的对象字面量 —— 展开之后它读到的字段名是 `...b`，报「后端不认」。
+     写全了还多一层好处:这两条路由此前【压根没被那支门禁比对过】
+     （只传一个 `b`，看不出发的是什么）。 */
+  issueCoupon: (b: any) => api.post('/commerce/coupons', {
+    region: getActiveRegion(), code: b.code, benefit_json: b.benefit_json,
+    expires_at: b.expires_at, owner_user_id: b.owner_user_id, promotion_id: b.promotion_id,
+  }),
+  issueCouponBatch: (b: any) => api.post('/commerce/coupons/batch', {
+    region: getActiveRegion(), count: b.count, prefix: b.prefix,
+    benefit_json: b.benefit_json, expires_at: b.expires_at, promotion_id: b.promotion_id,
+  }),
 
   listPlans: () => api.get<any[]>('/commerce/plans'),
   listSubscriptions: (p: any) => api.get<PageRes<any>>('/commerce/subscriptions' + qs(p)),

@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import PageHeader from '../components/PageHeader';
 import TableError from '../components/TableError';
 import { ts } from '../components/util';
+import { useRegions } from '../lib/regions';
 
 interface FlagRow {
   code: string;
@@ -15,10 +16,19 @@ interface FlagRow {
 }
 
 const PLATFORMS = ['mini','ios','android','web'];
-const REGIONS   = ['cn','hk','tw','jp','us','eu'];
+/* 【区从名册来，不在这儿写死】（2026-09-05）。这一行原先是
+   `['cn','hk','tw','jp','us','eu']` —— 而名册（`region_registry`）里的
+   六格是 cn / jp / kr / sea / na / zh_hant。两边只有 cn 与 jp 对得上:
+   按 `tw` 关掉一个功能，**永远关不到人**，而那一列在屏上跟别的列
+   长得一模一样（`by_region.tw = false` 落进库，谁也不读它）。 */
 
 export default function FeatureFlags() {
   const qc = useQueryClient();
+  /* 【这一页看的是【全部】区，不按 scope 收窄】——灰度矩阵是一张
+     全景表，一位分区管理员也该看得见别的格现在开着没有:
+     他关掉自己那一格之前，得知道这个功能在别处是什么状态。
+     能不能改由后端那道守卫说了算，不靠这儿藏起来。 */
+  const REGIONS = useRegions().map((r) => r.code);
   const { data, isLoading, isError } = useQuery({
     queryKey: ['feature_flags'],
     queryFn: () => api.get<{ items: FlagRow[] }>('/feature_flags'),
@@ -60,7 +70,7 @@ export default function FeatureFlags() {
                   <th>说明</th>
                   <th className="c w-20">默认</th>
                   <th colSpan={4} className="c border-l border-rule">平台</th>
-                  <th colSpan={6} className="c border-l border-rule">区域</th>
+                  <th colSpan={REGIONS.length} className="c border-l border-rule">区域</th>
                   <th className="r w-32 border-l border-rule">更新</th>
                 </tr>
                 <tr>
@@ -73,8 +83,10 @@ export default function FeatureFlags() {
                 </tr>
               </thead>
               <tbody>
-                {isLoading && <tr><td colSpan={13} className="text-center py-8 text-ink-4">正在取…</td></tr>}
-                <TableError 出错={isError} 列数={13} />
+                {/* 列数跟着区数走 —— 写死 13 的话，名册多一格就少盖一列，
+                    占位行短一截、表格错开（代号/说明/默认 3 + 平台 4 + 区 N + 更新 1） */}
+                {isLoading && <tr><td colSpan={8 + REGIONS.length} className="text-center py-8 text-ink-4">正在取…</td></tr>}
+                <TableError 出错={isError} 列数={8 + REGIONS.length} />
                 {data?.items.map(f => (
                   <tr key={f.code}>
                     <td className="font-mono text-xs text-ink">{f.code}</td>

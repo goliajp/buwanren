@@ -17,8 +17,13 @@ import json, os, subprocess, sys, urllib.error, urllib.request
 BASE = os.environ.get('ADMIN_BASE', 'http://127.0.0.1:6029')
 URL = os.environ.get('DATABASE_URL',
                      'postgres://unmei:unmei_dev_pwd@localhost:6032/unmei')
-# 这个区必须【不是】下面那些对象所在的区
-外人区 = 'hk'
+# 这个区必须【不是】下面那些对象所在的区。
+# 【名字要出自名册】（2026-09-05）：这里原先写 `hk`，而 `region_registry`
+# 里的六格是 cn / jp / kr / sea / na / zh_hant —— hk 不是其中之一。
+# 拿一个不存在的区当「外人」，这一支照样跑得过（越权判的是 scope 对不对得上），
+# 但它顺手教会了别处「hk 是个区」，而后台顶栏那个下拉框按名册过滤，
+# 对一位 scope={hk} 的管理员【一条都不剩】。
+外人区 = 'jp'
 
 
 def http(path, method='GET', body=None, token=None):
