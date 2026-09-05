@@ -301,6 +301,7 @@ const 屏 = [
   ['activity', 'pages/activity/index'],
   ['incense', 'pages/incense/index'],
   ['settings', 'pages/settings/index'],
+  ['leave', 'pages/leave/index'],
   ['plot', 'pages/plot/index', { id: '7' }],
   ['villager', 'pages/villager/index', { id: 'popo' }],
   /* 【2026-09-01】还没请回来的那一位单独截一张。

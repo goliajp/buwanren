@@ -103,6 +103,16 @@
     </view>
   </view>
 
+  <!-- 【注销账号】（2026-09-05）。隐私政策上写了两遍「在「设置」里退出
+       并删除账号」，而这一屏上此前只有「退出」—— 那颗按钮清的是本机那份
+       token，服务端一行数据都不动。也就是说那两句话对谁都不成立。
+
+       摆在最底下、压成一行安静的文字，不给它按钮的分量:
+       它比退出重得多，但一屏上最重的东西不该是「离开」。 -->
+  <view class="leave" bindtap="goLeave" hover-class="press-text" hover-stay-time="80">
+    注销账号
+  </view>
+
   <view class="foot-hint">
     不完人 v{{version}} · 仅供研究与娱乐 · 不构成人生建议
   </view>

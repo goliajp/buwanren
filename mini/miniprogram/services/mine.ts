@@ -26,6 +26,13 @@ export const mineApi = {
   /** 服务端说的我是谁。本地缓存的那份是登录那一刻的快照，会旧 */
   me: (): Promise<UserPublic> => api.get<UserPublic>('/v1/user/me'),
 
+  /* 【注销账号】（2026-09-05）。隐私政策上写了两遍「在「设置」里退出并
+     删除账号」，而在这之前客户端唯一跟「删」有关的东西是本机那个
+     `logout()` —— 它清 token，服务端一行数据都不动。
+     删什么留什么见 `unmei_app::account`。 */
+  deleteMe: (): Promise<{ ok: true }> =>
+    api.post<{ ok: true }>('/v1/user/me/delete', {}),
+
   /* 改名 / 换头像。`/v1/user/me` 的 PATCH 一直在，而客户端从来没调过 ——
      也就是绑定微信那一刻定下的昵称，此后再也改不了（docs/FLOW.md 的判据：
      一个资源只有入口没有出口）。
