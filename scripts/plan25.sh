@@ -581,8 +581,19 @@ do_seed() {
     call POST "$T4" "/v1/subscriptions/$sub4/pay" '{}' >/dev/null
     want "补上这一期之后它回到订着" active "$(psql1 "SELECT status FROM subscription WHERE id='$sub4'")"
     # 数的是【续期那一单】开出来的包裹 —— 数「这个人一共几只包裹」会把
-    # 他别的单子也算进去，那个数一改别的用例就得跟着改
-    want "而且又发了一盒" 1 "$(psql1 "SELECT count(*) FROM shipment sp JOIN order_record o ON o.id=sp.order_id WHERE o.user_id='$I4' AND o.source_kind='subscription_renew'")"
+    # 他别的单子也算进去，那个数一改别的用例就得跟着改。
+    #
+    # 【要等】。补款那一下是同步的（接口回来时钱已经收了、周期已经推了），
+    # 而发货不是:它由 outbox worker 接 `OrderPaid` 之后才做。
+    # 头一版这里紧接着就数，数到 0 —— 报出来是「续期不发货」,
+    # 而实际是我数得太早。上面那两条本来就是轮询的，这一条漏了。
+    local shp4b
+    for k in $(seq 1 30); do
+      shp4b=$(psql1 "SELECT count(*) FROM shipment sp JOIN order_record o ON o.id=sp.order_id WHERE o.user_id='$I4' AND o.source_kind='subscription_renew'")
+      [ "$shp4b" = 1 ] && break
+      sleep 1
+    done
+    want "而且又发了一盒" 1 "${shp4b}"
     # 【别人退不掉我的订阅】。订阅号是可猜的，不问归属就等于谁都能退别人的
     want "别人退不掉这一份" 403 "$(curl -s -o /dev/null -w '%{http_code}' -X POST "${API}/v1/subscriptions/$sub4/cancel" -H "authorization: Bearer ${T3}")"
     call POST "$T4" "/v1/subscriptions/$sub4/cancel" '{}' >/dev/null
@@ -590,9 +601,17 @@ do_seed() {
     want "而这一期还活着 —— 到期不续不是立刻停" active "$(psql1 "SELECT status FROM subscription WHERE id='$sub4'")"
   fi
 
-  # 下面两份是【历史】，只能 mock:真买造不出「去年退掉的那一份」
-  mock_subscribe "p25-sub-${I4}-y" "$I4" plan-mg-year  cancelled '300 days' '65 days'  true  || return 1
-  mock_subscribe "p25-sub-${I4}-o" "$I4" plan-mg-month expired   '420 days' '-390 days' false || return 1
+  # 【这三份要凑齐三种状况】。屏上那一列按状态分三支说话,
+  # 三支都要有人走 ——「订着 / 这期没扣成 / 已经到期」。
+  #
+  # 真买的那一份走完上面那一段之后是【订着 + 到期不再续】(cancel 那一下),
+  # 所以剩下两种只能 mock:真买造不出「上个月扣不成的那一份」,
+  # 也造不出「去年就到期的那一份」——它们要的是过去的时间。
+  #
+  # `cancel_at_period_end` 两份都给 false:那一态由真的那一份承担,
+  # 多给一份就变成两份，而屏上那句「到期不再续」是按份数数的。
+  mock_subscribe "p25-sub-${I4}-y" "$I4" plan-mg-year  past_due '300 days' '5 days'   false || return 1
+  mock_subscribe "p25-sub-${I4}-o" "$I4" plan-mg-month expired  '420 days' '-390 days' false || return 1
   say_dim "U4 钱在飞的 $I4 —— 待付 / 在途 / 等着批的退款 / 一份真订着的 + 两份历史"
 
   # ── U5 香港那位：贵的一单（触发风控）+ 包裹出状况 ────────────

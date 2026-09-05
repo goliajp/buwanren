@@ -105,22 +105,33 @@ for k in sorted(认识的 - 用着的):
 # 判据看的是【履约里有没有一支会开通订阅】。有了再放行,
 # 而不是等哪天有人上架会员卡、买家付完钱才发现。
 #
-# 两个条件都要:履约里有那一支,且用例层真有开通这个动作。
-# 只看前者的话,一个空分支就骗得过它（实测过 —— 塞一句
-# `"subscription" => { unreachable!() }` 它就放行了）。
+# 【判据改成问事实，不问代码长什么样】（2026-09-05）。
+# 原先它问两件事:履约里有没有 `"subscription" =>` 这一支,
+# 以及 `unmei_app::subscription` 里有没有 `pub async fn create`。
+# 两个问的都是【代码摆成什么样子】,而要守的事是
+# **付完钱之后 subscription 表会不会多一行**。
 #
-# 判据的限度写在这儿:它拦得住「压根没做」,拦不住「做了个空壳」。
-# 后者要靠 unmei-app 的集成测试 —— 而那正是开通做出来时该一起写的。
-有分支 = '"subscription" =>' in FULFILLMENT_RS.read_text(encoding='utf-8')
-有开通 = bool(re.search(r'pub async fn create\b', SUBSCRIPTION_RS.read_text(encoding='utf-8')))
-开得通 = 有分支 and 有开通
+# 一味香按月送把开通挂在了寄东西那一支上（`"shipping" =>`）——
+# 因为付完钱真实发生的事就是「一盒香寄给你」,订阅只是
+# 「下个月还会再寄一盒」的记法。开通是真做出来了,而旧判据
+# 两条都够不着:它照旧报「没有 create，要么下架它」。
+#
+# 换成问 `INSERT INTO subscription(` 在不在履约里。它不在乎那一支叫什么、
+# 挂在哪个 kind 底下,只问「履约会不会真往那张表插一行」。
+# 带括号是为了不把 `subscription_invoice` 数进来 —— 那是另一张表。
+#
+# 判据的限度照旧写在这儿:它拦得住「压根没做」,拦不住「做了个空壳」
+# （插了一行但字段是错的）。后者要靠真链走一遍 ——
+# `scripts/plan25.sh` 的 U4 现在就是这么走的:真买一份、回库里看开没开、
+# 补一期、看有没有再发一盒。
+开得通 = 'INSERT INTO subscription(' in FULFILLMENT_RS.read_text(encoding='utf-8')
 订阅在售 = psql("SELECT id FROM product WHERE kind='subscription' AND status='listed'")
 if not 开得通:
     for pid in 订阅在售:
         print(f'✗ {pid} 是订阅商品且在售，而履约里没有开通订阅那一支')
         print(f'   买家付完钱订单会翻 done，而 subscription 表一条不多。')
-        print(f'   要么把开通做出来（unmei_app::subscription 现在只有 cancel /')
-        print(f'   renew_due / record_renewal_failure，没有 create），要么下架它')
+        print(f'   要么把开通做出来（履约里要有一句 INSERT INTO subscription），')
+        print(f'   要么下架它')
         bad += 1
 elif not 订阅在售:
     print('  · 履约开得通订阅，但没有在售的订阅商品')
