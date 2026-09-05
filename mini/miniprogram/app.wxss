@@ -323,7 +323,14 @@ button.btn.ghost.btn-hover:not([disabled]) {
 .entry {
   display: flex;
   align-items: center;
-  min-height: 96rpx;
+  /* 【96rpx → 88rpx】（2026-09-05）。88rpx = 44px 就是上面那句话里的数,
+     也是 iOS 设置那一类分组列表一行的高度;96rpx 是在它之上多给的 4px。
+     「我的」那一屏的入口是【跟着数据长的】——「订着的」「去得了的」
+     「手里的券」三行各有各的条件，一个投入的人身上会同时成立，
+     于是那一屏从设计册写的五行长到了八行。八行 × 48px 把它顶出了
+     一屏（697 > 667），而这个仓里除了政策那两份文件，没有一屏是滚的。
+     多给的那 4px 在这里的代价是「往下还有」而屏上没有任何提示。 */
+  min-height: 88rpx;
   padding: 0 26rpx;
   border-bottom: 1rpx solid var(--stone-line-x);
 }

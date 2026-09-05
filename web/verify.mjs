@@ -4118,6 +4118,145 @@ if (!API) {
     }
   }
 
+  /* ── 发到手的券，他自己看得见吗（2026-09-05）───────────────────
+     `docs/ACCEPTANCE-25.md` 第六条：后台发得出绑人的券，库里
+     `coupon.owner_user_id` 从建库起就是为「这一张是谁的」留的 ——
+     而用户那一侧【没有一个「我的券」】。客户端唯一跟券有关的东西是
+     确认页上那个「有券码就填这儿」的格子，也就是**他得先知道那串码**。
+     运营给一位用户补一张，用户打开 app 什么都看不到。
+
+     跟上面订阅那一段同一个手法：造三张（能用 / 过期 / 用过），
+     验完就删，后面几段照旧走在「手里一张都没有」上。 */
+  {
+    const uid = await p.evaluate(() => JSON.parse(localStorage.getItem('unmei:buwanren:user') || '{}').id)
+    if (uid) {
+      const 码 = 'VCPN' + String(Date.now()).slice(-6)
+      /* 四张:两张能用（先到期的排前面）、一张过期、一张用过。
+         两张能用是为了让「换一张」那一支【真的渲染出来】——
+         这个仓栽过一次同样的事:「订着的」那一屏 `subs.length > 0`
+         那一支从来没有一位真订着的人来过，于是它把库里的字段原文
+         打了三样上屏而没人发现。红着的分支不会自己喊。 */
+      run(`INSERT INTO coupon(id, code, owner_user_id, benefit_json, state,
+             issued_at, expires_at, audit_note, region)
+           VALUES('vcpn-ok','${码}','${uid}','{"pct_off_bps":2000,"max_off_minor":10000}'::jsonb,
+                  'issued', NOW(), NOW() + INTERVAL '10 days', '镜像验证', 'cn'),
+                 ('vcpn-ok2','${码}Z','${uid}','{"amount_off_minor":1000}'::jsonb,
+                  'issued', NOW(), NOW() + INTERVAL '30 days', '镜像验证', 'cn'),
+                 ('vcpn-old','${码}X','${uid}','{"amount_off_minor":2000}'::jsonb,
+                  'issued', NOW() - INTERVAL '9 days', NOW() - INTERVAL '1 day', '镜像验证', 'cn'),
+                 ('vcpn-used','${码}Y','${uid}','{"pct_off_bps":1000}'::jsonb,
+                  'redeemed', NOW() - INTERVAL '9 days', NOW() + INTERVAL '9 days', '镜像验证', 'cn')
+           ON CONFLICT (id) DO NOTHING`)
+
+      await open('pages/coupons/index')
+      await p.waitForTimeout(1400)
+      const 券文 = await text()
+      ok(await p.evaluate(() => (globalThis.__router.current().data.券 || []).length) === 4,
+         '手里的券那一屏渲得出列表', 券文.slice(0, 50))
+      /* 【库里那几个字段的原文一个都不许上屏】。券面在库里是
+         `{"pct_off_bps":2000}`，状态是 `issued` / `redeemed` ——
+         照打的话这一屏是四行读不懂的 JSON。 */
+      ok(!/pct_off_bps|amount_off_minor|issued|redeemed/.test(券文),
+         '券面与状态都是人话，不是库里那个字段',
+         (券文.match(/pct_off_bps|amount_off_minor|issued|redeemed/) || [''])[0])
+      ok(券文.includes('八折') && 券文.includes('最多减 ¥100'),
+         '券面说的是「八折 · 最多减 ¥100」', 券文.slice(0, 60))
+      /* 【能不能用是后端算的，屏上要照实说】。过期那张与用过那张
+         都得说出自己为什么用不了 —— 不说的话它们跟能用的长得一样。 */
+      ok(券文.includes('已经过期') && 券文.includes('用过了'),
+         '用不了的两张各说各的理由', 券文.slice(0, 90))
+      ok(券文.includes('4 张') && 券文.includes('2 张能用'),
+         '副标题分得清「有几张」与「能用几张」',
+         (券文.match(/\d+ 张[^·]{0,12}/) || [''])[0])
+      /* 【能用的排前面，先到期的又排在前】。人点进来找的是
+         「我现在有什么能花」，而该先花掉的是快过期那张。 */
+      ok(await p.evaluate(() => (globalThis.__router.current().data.券 || [])
+           .slice(0, 2).map((x) => x.id).join(',')) === 'vcpn-ok,vcpn-ok2',
+         '能用的排前面，先到期的又排在最前',
+         await p.evaluate(() => (globalThis.__router.current().data.券 || []).map((x) => x.id).join(',')))
+      /* 【一张卡上只给一个动作】——跟「订着的」同一条规矩。
+         能用的指向哪儿能花掉它;过期、用过的什么都不给（确实无事可做）。 */
+      ok(await p.locator('.item-do').count() === 2,
+         '两张能用的各给一个动作，用不了的不给', String(await p.locator('.item-do').count()))
+      await shot('coupons')
+
+      /* 【「我的」上那一行要摆出来】。它挂着 `wx:if="{{hasCoupons}}"`，
+         跟「订着的」「去得了的」同一条规矩：一行要么通向一件真事，要么不在。 */
+      await open('pages/me/index')
+      await p.waitForTimeout(1400)
+      ok((await text()).includes('手里的券'), '手里有券的时候，「我的」上那一行摆出来',
+         (await text()).slice(0, 120))
+      await p.getByText('手里的券', { exact: true }).click()
+      await p.waitForTimeout(1200)
+      ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/coupons/index',
+         '从「我的」点得进「手里的券」',
+         await p.evaluate(() => globalThis.__router.current().__route))
+
+      /* 【结账那一格得让他点得到自己的券】。这一格原先只收码 ——
+         而运营发的券绑在他账号上，系统一直知道有哪几张，只是从没说过。
+         这一条验的是那半截缺口：不只「看得见」，还要「用得上」。
+
+         【券条占的是输入框那个位子，不另起一块】。这一屏的纵向是满的:
+         实测内容 633px、一屏 667px，用上券之后那一行「这张券减」
+         就已经把它顶出去 11px（那 11px 这一轮一并修了:下留白
+         220rpx → 196rpx）。另起一块要 69px，一块都放不下。 */
+      if (要参数['pages/confirm/index']) {
+        await open('pages/confirm/index', 要参数['pages/confirm/index'])
+        await p.waitForTimeout(1400)
+        ok(await p.locator('.coupon-pick').count() === 1,
+           '结账那一格摆的是他手里那张券，不是一个空输入框',
+           String(await p.locator('.coupon-pick').count()))
+        ok((await text()).includes('八折'), '摆出来的是先到期那张的券面',
+           (await text()).slice(0, 80))
+        await p.locator('.coupon-pick').first().click()
+        const 等减 = async () => {
+          for (let i = 0; i < 20; i++) {
+            const v = await p.evaluate(() => globalThis.__router.current().data.减了)
+            if (v > 0) return v
+            await p.waitForTimeout(500)
+          }
+          return 0
+        }
+        const 头一张减 = await 等减()
+        ok(头一张减 > 0, '点一下就当场算出减了多少 —— 不用他再按一次「试试」',
+           String(头一张减) + ' · ' + (await text()).slice(0, 60))
+        /* 【不止一张时换得动，而且换完那个数跟着变】。换一张而屏上
+           那个数不动的话，人不知道换过去到底是多少，还得再按一次。 */
+        await p.getByText('换一张').click()
+        await p.waitForTimeout(300)
+        let 第二张减 = 0
+        for (let i = 0; i < 20; i++) {
+          第二张减 = await p.evaluate(() => globalThis.__router.current().data.减了)
+          if (第二张减 > 0 && 第二张减 !== 头一张减) break
+          await p.waitForTimeout(500)
+        }
+        ok(第二张减 > 0 && 第二张减 !== 头一张减,
+           '「换一张」换过去之后，减的那个数跟着变',
+           `头一张 ${头一张减} → 第二张 ${第二张减}`)
+        /* 【别处拿到的码还得填得进来】。券条占了输入框那个位子，
+           所以必须留一条切回去的路;切过去【不切回来】—— 切回来会把
+           他打了一半的字吃掉。 */
+        await p.getByText('填码').click()
+        await p.waitForTimeout(600)
+        ok(await p.locator('.coupon-in').count() === 1,
+           '点「填码」换回那个输入框 —— 别处拿到的码还填得进来',
+           String(await p.locator('.coupon-in').count()))
+        ok(await p.evaluate(() => globalThis.__router.current().data.减了) === 0,
+           '换回输入框时把上一张的折扣一起撤掉 —— 屏上不留一个算不出来的数',
+           String(await p.evaluate(() => globalThis.__router.current().data.减了)))
+        /* 【手里只剩一张时不摆「换一张」】—— 一颗按下去什么都不变的按钮，
+           比没有更糟。删掉一张再开一次，验的是这条判断真跟着数据走。 */
+        run(`DELETE FROM coupon WHERE id='vcpn-ok2'`)
+        await open('pages/confirm/index', 要参数['pages/confirm/index'])
+        await p.waitForTimeout(1400)
+        ok(await p.getByText('换一张').count() === 0,
+           '只剩一张的时候不摆「换一张」', String(await p.getByText('换一张').count()))
+      }
+
+      run(`DELETE FROM coupon WHERE id IN ('vcpn-ok','vcpn-ok2','vcpn-old','vcpn-used')`)
+    }
+  }
+
   /* 「我」→「单」：花过的钱要能找回来。这是订单这个资源的常设入口 ——
      刚才那条是「刚下完单顺着走」，这条是「过一阵回来找」。 */
   await open('pages/me/index')
@@ -4703,13 +4842,17 @@ if (!(CAL > 0)) {
 // 三档的数都是【实测】的，不是从另一档减出来的：
 // 2026-09-03 同一台机器上分别跑了三趟 —— 假 130 / 真 358 / 真带排盘 384。
 // 建本命那一段是 26 条，不是当初以为的 17 条。
+/* 「真带排盘」这一档 2026-09-05 再从 429 改成 454（实跑）——
+   「手里的券」那一屏与结账页那格券条加了 25 条断言，
+   上一版记的 429 是加它们之前那一趟量的。
+   下面这段讲的是 386 → 429 那一次，道理一样。 */
 /* 「真带排盘」这一档 2026-09-05 从 386 改成 429（实跑）。
    下限是 `该有 × 0.9`，所以账落后的时候下限跟着失效 ——
    386 那个账对应的下限是 347，而这一档真实规模已经是 429:
    凭空少掉八十条仍然报「全通」。
    另外两档没有在这一轮实测过，不动 —— 改一个没量过的数，
    等于把「下限」变成「我猜的数」。 */
-const 基准 = { 假: 132, 真: 360, 真带排盘: 429 }
+const 基准 = { 假: 132, 真: 360, 真带排盘: 454 }
 // 名字不叫 `档`：978 行有个同名的局部变量（村民稀有度），
 // 两个都在这个文件里，读起来会以为是同一个东西
 const 这一档 = !API ? '假' : (MINGLI ? '真带排盘' : '真')

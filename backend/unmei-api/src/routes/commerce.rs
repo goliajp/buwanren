@@ -43,6 +43,8 @@ pub fn router() -> Router<AppState> {
         // 物流
         .route("/v1/orders/:id/shipments",                get(my_shipments))
         .route("/v1/orders/:id/shipments/:sid/trace",     get(my_shipment_trace))
+        // 券 · 他名下的那些
+        .route("/v1/coupons",                             get(my_coupons))
         // 订阅
         .route("/v1/subscriptions",                       get(my_subscriptions))
         .route("/v1/subscriptions/:id/cancel",            post(cancel_my_subscription))
@@ -809,6 +811,25 @@ async fn my_subscriptions(
                     s.current_period_end DESC NULLS LAST"#,
     ).bind(&c.sub).fetch_all(&st.db).await.map_err(map_db)?;
     Ok(Json(map_rows(rows)))
+}
+
+// ─── 券 ────────────────────────────────────────────────────────
+#[derive(Deserialize)]
+struct CouponsQ {
+    #[serde(default = "default_region")] region: String,
+}
+
+/// 我手里有哪些券。
+///
+/// 【在这之前用户那一侧看不见任何一张券】。后台发得出绑人的券
+/// （`POST /admin/commerce/coupons` 收 `owner_user_id`），库里那一列
+/// 也一直存着，而客户端唯一跟券有关的东西是确认页上那个
+/// 「有券码就填这儿」的格子 —— 也就是**他得先知道那串码**。
+/// 运营补一张券，用户打开 app 什么都看不到。
+async fn my_coupons(
+    State(st): State<AppState>, AuthedUser(c): AuthedUser, Query(q): Query<CouponsQ>,
+) -> Result<Json<Vec<app_coupon::MyCoupon>>, ApiError> {
+    Ok(Json(app_coupon::mine(&st.db, &c.sub, &q.region).await?))
 }
 
 // ─── Webhooks ──────────────────────────────────────────────────

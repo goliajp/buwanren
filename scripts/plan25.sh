@@ -730,16 +730,22 @@ do_admin_day() {  # do_admin_day <阿超的 token> <U1..U5 的 id>
     '{code:$c, benefit_json:{pct_off_bps:1000}, expires_at:"2027-01-01T00:00:00Z", owner_user_id:$u}')
   want "发一张券" 200 "$(admin_call POST "$A" '/admin/commerce/coupons' "$body")"
   want_some "他手里真的多了一张" "$(psql1 "SELECT count(*) FROM coupon WHERE code='$code' AND owner_user_id='$I1'")"
-  # 【这一段的规矩写在标题上:「每一件都要在用户那一侧看得见」】,
-  # 而上面那一条问的是库 —— 六件里只有券这一件是这么问的。
+  # 【这一段的规矩写在标题上:「每一件都要在用户那一侧看得见」】。
+  # 上面那一条问的是库 —— 六件里曾经只有券这一件是这么问的，
+  # 因为券是唯一一件用户【看不见】的:全仓没有「我的券」这个接口。
   #
-  # 因为券是唯一一件用户【看不见】的:全仓没有「我的券」这个接口
-  # （`/v1/coupons` 不存在，见 docs/ACCEPTANCE-25.md 先决条件六），
-  # 确认页上那个格子只收码，不列他手里有什么。
-  # 退一步问「他用得上吗」:券是绑人的，别人拿这个码算不出折扣 ——
-  # 算得出，就说明这一张真的落到了他名下，而且他这一侧真能使。
-  local u1tok pv
+  # 2026-09-05 补上了（`GET /v1/coupons` + `pages/coupons`），
+  # 所以这一条现在真去他那一侧看:他自己问一次，那张码要在里面，
+  # 而且后端得说它现在能用。
+  local u1tok mine pv
   u1tok=$(jq -r .u1.token "${STATE}")
+  mine=$(call GET "$u1tok" "/v1/coupons?region=cn" '')
+  want_some "他自己看得见这张券" \
+    "$(printf '%s' "$mine" | jq --arg c "$code" '[.[]|select(.code==$c)]|length')"
+  want_some "而且屏上会说它现在能用" \
+    "$(printf '%s' "$mine" | jq --arg c "$code" '[.[]|select(.code==$c and .usable==true)]|length')"
+  # 看得见还不够 —— 还得用得上。券是绑人的，别人拿这个码算不出折扣，
+  # 算得出就说明这一张真落到了他名下，而且他这一侧真能使。
   pv=$(call POST "$u1tok" /v1/orders/preview \
        "{\"lines\":[{\"sku_id\":\"sku-naji-deep\",\"qty\":1}],\"region\":\"cn\",\"coupon_codes\":[\"${code}\"]}")
   want_some "他自己算价时这张券真能用" \

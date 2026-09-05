@@ -48,6 +48,15 @@
       <text class="entry-v">{{subText}}</text>
       <text class="entry-arrow">›</text>
     </view>
+    <!-- 【手里真有券才摆这一行】——跟上下两行同一条规矩。
+         券这条链 2026-09-05 才接到用户这一侧:后台一直发得出绑人的券，
+         而客户端唯一跟券有关的东西是确认页上那个「有券码就填这儿」的格子，
+         也就是他得先知道那串码。运营补一张券，用户打开什么都看不到。 -->
+    <view class="entry" wx:if="{{hasCoupons}}" bindtap="goCoupons" hover-class="entry-hover" hover-stay-time="100">
+      <text class="entry-k">手里的券</text>
+      <text class="entry-v">{{couponText}}</text>
+      <text class="entry-arrow">›</text>
+    </view>
     <!-- 【真有场次才摆这一行】——跟上面「订着的」同一条规矩。
          线下活动这条链 2026-09-03 才接上（在那之前有表、有种子、
          后台在算报名率，而没有任何人能报上名）。 -->

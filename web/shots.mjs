@@ -261,6 +261,32 @@ if (API && 单子 && !TOKEN) {
   } catch (e) { console.log('  · 种不出册子：', String(e).slice(0, 60)) }
 }
 
+/* 【券那一屏得有一张券】（2026-09-05）。空的时候它是一段空状态 ——
+   空状态该截，但那样一来卡片、券面那句话、「去挑点什么」那个动作
+   一次都没被画过，触达面也就一个都没量到（`check-tap-size.py` 量的是
+   真渲出来的矩形）。结账页上那排「手里有 N 张能用」的券条同理。
+
+   跟种册子同一个路子:种进库，页面照样走真的 `/v1/coupons`。
+   【带身份走时不种】——那五个人各是一种状态，替他们加一张券，
+   截出来的就不是他们了（上一版替「新来的」下过单，把空态那一半盖掉了）。
+
+   `cpn-shot-` 这一批每轮先删后种，不会越积越多。 */
+if (API && !TOKEN) {
+  try {
+    const uid = await p.evaluate(() => JSON.parse(localStorage.getItem('unmei:buwanren:user') || '{}').id)
+    if (uid) {
+      sql1(`DELETE FROM coupon WHERE id LIKE 'cpn-shot-%'`)
+      sql1(`INSERT INTO coupon(id, code, owner_user_id, benefit_json, state,
+              issued_at, expires_at, audit_note, region)
+            VALUES('cpn-shot-ok','SHOT20OFF','${uid}',
+                   '{"pct_off_bps":2000,"max_off_minor":10000}'::jsonb,
+                   'issued', NOW(), NOW() + INTERVAL '30 days', '截屏夹具', 'cn'),
+                  ('cpn-shot-old','SHOTOLD','${uid}','{"amount_off_minor":2000}'::jsonb,
+                   'issued', NOW() - INTERVAL '9 days', NOW() - INTERVAL '1 day', '截屏夹具', 'cn')`)
+    }
+  } catch (e) { console.log('  · 种不出券：', String(e).slice(0, 60)) }
+}
+
 const 屏 = [
   ['village', 'pages/village/index'],
   ['home', 'pages/home/index'],
@@ -271,6 +297,7 @@ const 屏 = [
   ['orders', 'pages/orders/index'],
   ['badges', 'pages/badges/index'],
   ['subs', 'pages/subs/index'],
+  ['coupons', 'pages/coupons/index'],
   ['activity', 'pages/activity/index'],
   ['incense', 'pages/incense/index'],
   ['settings', 'pages/settings/index'],

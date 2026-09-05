@@ -38,6 +38,9 @@ interface IData {
   subText: string
   /** 「三场可去」/ 空串。空串时那一行不摆 —— 见下面 `hasActs` 的理由 */
   actText: string
+  /** 「2 张能用」/「3 张 · 都用不了了」。手里一张都没有时那一行不摆 */
+  couponText: string
+  hasCoupons: boolean
   /** 真订着东西没有。没有就不摆那一行 —— 空的那一屏只会说产品没做完 */
   hasSubs: boolean
   hasActs: boolean
@@ -59,6 +62,8 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     badgeText: '',
     subText: '',
     actText: '',
+    couponText: '',
+    hasCoupons: false,
     hasSubs: false,
     hasActs: false,
     recent: null,
@@ -102,6 +107,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
   goBadges() { wx.navigateTo({ url: '/pages/badges/index' }) },
   goSubs() { wx.navigateTo({ url: '/pages/subs/index' }) },
   goActivity() { wx.navigateTo({ url: '/pages/activity/index' }) },
+  goCoupons() { wx.navigateTo({ url: '/pages/coupons/index' }) },
   goSettings() { wx.navigateTo({ url: '/pages/settings/index' }) },
   goVillage() { wx.switchTab({ url: '/pages/village/index' }) },
 
@@ -149,6 +155,22 @@ Page<IData, WechatMiniprogram.IAnyObject>({
         hasActs: 场次.length > 0,
       }),
       () => this.setData({ actText: '', hasActs: false }),
+    )
+
+    /* 【手里真有券才摆那一行】——跟「订着的」「去得了的」同一条规矩:
+       一行要么通向一件真事，要么不在。
+       用不了的券也算「有」:过期的、用掉的仍然是他的台账，
+       而藏起来的话，运营说「给你发了」而他屏上什么都没有 ——
+       那正是这一整条链要修的那件事。 */
+    commerceApi.coupons().then(
+      (券) => {
+        const 能用 = 券.filter((x) => x.usable).length
+        this.setData({
+          couponText: 券.length ? (能用 ? 能用 + ' 张能用' : 券.length + ' 张 · 都用不了了') : '',
+          hasCoupons: 券.length > 0,
+        })
+      },
+      () => this.setData({ couponText: '', hasCoupons: false }),
     )
 
     Promise.all([

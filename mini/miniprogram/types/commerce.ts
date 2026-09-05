@@ -160,6 +160,31 @@ export interface PayStarted {
   outcome: { kind: string; params?: Record<string, unknown>; url?: string; code_url?: string }
 }
 
+// ─── 券 ──────────────────────────────────────────────────────
+/** 我名下的一张券。对应后端 `GET /v1/coupons`（`unmei-app::coupon::MyCoupon`）。
+ *
+ *  `usable` / `why` 是**后端算的**，不在这一侧另算一遍：
+ *  能不能用要问券的状态、活动的有效期与预算，而屏上写着「能用」
+ *  下单却被拒，比不显示更糟 —— 人是看到「能用」之后才按的付款。 */
+export interface MyCoupon {
+  id: string
+  /** 系统派发的券可以没有码。没有码就用不了，`why` 会说 */
+  code: string | null
+  /** 挂的活动叫什么。没挂活动就没有名字，那时卡片自己说「减多少」 */
+  title: string | null
+  state: string
+  region: string
+  currency: string
+  pct_off_bps: number
+  amount_off_minor: number | null
+  max_off_minor: number | null
+  expires_at: string
+  usable: boolean
+  /** 用不了的话，为什么。能用时是空串 */
+  why: string
+  used_on_order_id: string | null
+}
+
 // ─── 物流与退款 ──────────────────────────────────────────────
 export interface Shipment {
   id: string

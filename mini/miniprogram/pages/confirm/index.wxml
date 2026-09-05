@@ -94,20 +94,42 @@
          那一行说的是这些东西本身值多少，两件事分开读。 -->
     <view class="row row-coupon">
       <text class="row-k">优惠券</text>
-      <input
-        class="coupon-in"
-        placeholder="有券码就填这儿"
-        value="{{券码}}"
-        bindinput="券码输入"
-        confirm-type="done"
-        bindconfirm="试券" />
-      <!-- 【这颗一直在】。上一版加了 `wx:if="{{券码}}"` —— 输入框空着时
-           它不存在，于是人先看到一个孤零零的输入框，输完字才冒出一颗按钮，
-           那一下的跳动比省下来的那点干净更贵。
-           空着时它自己什么都不做（`试券` 里第一句就返回）。 -->
-      <text class="coupon-try" hover-class="press-btn" bindtap="试券">
-        {{券状态 === '在算' ? '在算…' : '试试'}}
-      </text>
+      <!-- 【他手里有的，摆出来让他点】（2026-09-05）。这一格原先只收码 ——
+           也就是【他得先知道那串码】。而运营发的券绑在他账号上，
+           系统一直知道有哪几张，只是从没说过。
+
+           摆在【这一行里面】，不另起一块:这一屏放东西的地方是满的
+           （实测内容 633px，一屏 667px，用上券之后那一行「这张券减」
+           就已经把它顶出去 11px 了）。另起一块要 69px，一块都放不下。
+           所以券条占的是输入框那个位子 —— 要手打别处的码，点「填码」换回来。
+
+           先到期的那张排在最前（后端 `GET /v1/coupons` 那边排的），
+           这一格默认摆的就是它:该先花掉的正是它。 -->
+      <block wx:if="{{我的券.length > 0 && !手填}}">
+        <view class="coupon-pick {{券状态 === '用上了' ? 'pick-on' : ''}}"
+              bindtap="用这张" hover-class="press-btn" hover-stay-time="80">
+          {{券状态 === '在算' ? '在算…' : 当前券面}}
+        </view>
+        <text class="coupon-try" wx:if="{{我的券.length > 1}}"
+              hover-class="press-btn" bindtap="换一张">换一张</text>
+        <text class="coupon-try" hover-class="press-btn" bindtap="要手填">填码</text>
+      </block>
+      <block wx:else>
+        <input
+          class="coupon-in"
+          placeholder="有券码就填这儿"
+          value="{{券码}}"
+          bindinput="券码输入"
+          confirm-type="done"
+          bindconfirm="试券" />
+        <!-- 【这颗一直在】。上一版加了 `wx:if="{{券码}}"` —— 输入框空着时
+             它不存在，于是人先看到一个孤零零的输入框，输完字才冒出一颗按钮，
+             那一下的跳动比省下来的那点干净更贵。
+             空着时它自己什么都不做（`试券` 里第一句就返回）。 -->
+        <text class="coupon-try" hover-class="press-btn" bindtap="试券">
+          {{券状态 === '在算' ? '在算…' : '试试'}}
+        </text>
+      </block>
     </view>
     <view class="row row-off" wx:if="{{券状态 === '用上了'}}">
       <text class="row-k">这张券减</text>

@@ -21,6 +21,8 @@ use chrono::Utc;
 use serde::Serialize;
 use sqlx::{PgPool, Postgres, Row, Transaction};
 use unmei_domain::commerce::enums::CouponState;
+use unmei_domain::commerce::region::Region;
+use std::str::FromStr;
 use unmei_domain::commerce::state_machine::StateTransition;
 use unmei_domain::DomainError;
 
@@ -96,6 +98,109 @@ impl Benefit {
     }
 }
 
+/// 一张券此刻过不去的那一关。
+///
+/// 【三处必须问同一遍】——下单锁券（[`lock_for_order`]）、试算（[`preview`]）、
+/// 以及「我手里这张还能不能用」（[`mine`]）。分三份抄的话，屏上写着「能用」
+/// 而下单被拒（或者反过来），**而用户是在看到「能用」之后才按的付款**。
+/// 这个模块开头那段话说的就是这件事，只是先前只覆盖了前两处，
+/// 而那两处的说法已经漂了一点（同一个状态，一处说「现在是「redeemed」」，
+/// 另一处说「用过了」）。
+///
+/// 【只做「减多少」之前的那些关】。预算兜不兜得住这一张，要等算完 `off`
+/// 才知道，那一关留在调用方；这里把 `budget - used` 交出去。
+fn 过不去的关(
+    row: &sqlx::postgres::PgRow,
+    user_id: &str,
+    region: &str,
+    now: chrono::DateTime<Utc>,
+) -> Result<Option<i64>, 挡下> {
+    let state_s: String = row.get("state");
+    let state = CouponState::from_str_lax(&state_s)
+        .ok_or_else(|| 挡下::说明白(format!("的状态 {state_s} 不认识")))?;
+    /* 【能不能锁由状态机说，怎么说由这儿说】。
+       这两句先前是反过来的:`assert_transition` 在前，于是它那句
+       `illegal state transition: redeemed → locked` 抢先返回，
+       而下面这段人话【一行都执行不到】—— 用过的券在结账屏上
+       报的就是那句英文（确认页照原文显示后端这几句，见 `照原文`）。
+       抓到它的是「手里的券」那一屏:同一段判断换个地方读，
+       屏上直接摆出一个 `redeemed`。 */
+    if state.assert_transition(CouponState::Locked).is_err() || state != CouponState::Issued {
+        return Err(挡下::说明白(
+            match state_s.as_str() {
+                "locked" => "已经挂在另一张单上",
+                "redeemed" => "用过了",
+                "expired" => "过期了",
+                "revoked" => "被收回了",
+                其他 => 其他,
+            }
+            .to_string(),
+        ));
+    }
+
+    let owner: Option<String> = row.get("owner_user_id");
+    if let Some(o) = &owner {
+        if o != user_id {
+            return Err(挡下::装作不存在);
+        }
+    }
+
+    let 券区: String = row.get("region");
+    if 券区 != region {
+        return Err(挡下::说明白(format!("不能在 {region} 用")));
+    }
+
+    let expires: chrono::DateTime<Utc> = row.get("expires_at");
+    if expires <= now {
+        return Err(挡下::说明白("已经过期".into()));
+    }
+
+    // 挂着活动的券，活动本身也要在有效期内、且没停
+    let Some(st): Option<String> = row.get("promo_status") else {
+        return Ok(None);
+    };
+    if st != "active" {
+        return Err(挡下::说明白(format!("挂的活动现在是「{st}」，用不了")));
+    }
+    let from: chrono::DateTime<Utc> = row.get("effective_from");
+    let to: Option<chrono::DateTime<Utc>> = row.get("effective_to");
+    if now < from || to.is_some_and(|t| now > t) {
+        return Err(挡下::说明白("挂的活动不在有效期内".into()));
+    }
+    /* 【预算要在减之前问「兜得住吗」】（2026-09-03 五路评审 · 资金审计）。
+       `used >= budget` 只拦「已经花超了」，拦不住「这一张就会花超」——
+       预算 1000 已用 999 时，一张减 500 的券照样能用，
+       活动实际支出 1499，超预算 49.9%。预算越紧，超得越狠:
+       只剩 1 分钱额度的活动能被一张大额券撑破。
+
+       所以把判断挪到算完 `off` 之后 —— 那时才知道这一张要减多少。 */
+    let budget: Option<i64> = row.get("budget_minor");
+    let used: i64 = row.get("used_minor");
+    match budget {
+        Some(b) if used >= b => Err(挡下::说明白("挂的活动预算用完了".into())),
+        Some(b) => Ok(Some(b - used)),
+        None => Ok(None),
+    }
+}
+
+/// 被 [`过不去的关`] 挡下时，该怎么说。
+enum 挡下 {
+    /// 【当成不存在】。「这张券不是你的」等于确认这个码真实存在 ——
+    /// 对外要跟「没有这张券」是同一句话。
+    装作不存在,
+    /// 照实说。**这句话里不带券码** —— 下单与试算把它拼成
+    /// 「券 XXX 已经过期」，而券卡上码就在旁边，再念一遍是废话。
+    说明白(String),
+}
+
+/// 把 [`挡下`] 拼成下单 / 试算那两处要的那一句。
+fn 那一句(挡: 挡下, code: &str) -> DomainError {
+    DomainError::Validation(match 挡 {
+        挡下::装作不存在 => format!("没有这张券：{code}"),
+        挡下::说明白(话) => format!("券 {code} {话}"),
+    })
+}
+
 /// 下单时锁定这些券，返回每张抵了多少。
 ///
 /// 跑在**下单那个事务里**（所以收的是 `&mut Transaction`）——
@@ -146,68 +251,9 @@ pub async fn lock_for_order(
         .ok_or_else(|| DomainError::Validation(format!("没有这张券：{code}")))?;
 
         let coupon_id: String = row.get("id");
-        let state_s: String = row.get("state");
-        let state = CouponState::from_str_lax(&state_s).ok_or_else(|| {
-            DomainError::Validation(format!("券 {code} 的状态 {state_s} 不认识"))
-        })?;
-        // 状态机说了算，不在这儿手抄一份白名单
-        state.assert_transition(CouponState::Locked)?;
-        if state != CouponState::Issued {
-            return Err(DomainError::Validation(format!(
-                "券 {code} 现在是「{state_s}」，用不了"
-            )));
-        }
-
-        let owner: Option<String> = row.get("owner_user_id");
-        if let Some(o) = &owner {
-            if o != user_id {
-                // 【不说「这张券不是你的」】——那等于告诉人家这个码真实存在。
-                // 对外一律「没有这张券」，跟不存在同一句话。
-                return Err(DomainError::Validation(format!("没有这张券：{code}")));
-            }
-        }
-
-        let 券区: String = row.get("region");
-        if 券区 != region {
-            return Err(DomainError::Validation(format!("券 {code} 不能在 {region} 用")));
-        }
-
-        let now = Utc::now();
-        let expires: chrono::DateTime<Utc> = row.get("expires_at");
-        if expires <= now {
-            return Err(DomainError::Validation(format!("券 {code} 已经过期")));
-        }
-
-        // 挂着活动的券，活动本身也要在有效期内、且没停
-        let mut 预算还剩: Option<i64> = None;
-        let promo_status: Option<String> = row.get("promo_status");
-        if let Some(st) = promo_status {
-            if st != "active" {
-                return Err(DomainError::Validation(format!(
-                    "券 {code} 挂的活动现在是「{st}」，用不了"
-                )));
-            }
-            let from: chrono::DateTime<Utc> = row.get("effective_from");
-            let to: Option<chrono::DateTime<Utc>> = row.get("effective_to");
-            if now < from || to.is_some_and(|t| now > t) {
-                return Err(DomainError::Validation(format!("券 {code} 挂的活动不在有效期内")));
-            }
-            /* 【预算要在减之前问「兜得住吗」】（2026-09-03 五路评审 · 资金审计）。
-               `used >= budget` 只拦「已经花超了」，拦不住「这一张就会花超」——
-               预算 1000 已用 999 时，一张减 500 的券照样能用，
-               活动实际支出 1499，超预算 49.9%。预算越紧，超得越狠:
-               只剩 1 分钱额度的活动能被一张大额券撑破。
-
-               所以把判断挪到算完 `off` 之后 —— 那时才知道这一张要减多少。 */
-            let budget: Option<i64> = row.get("budget_minor");
-            let used: i64 = row.get("used_minor");
-            if let Some(b) = budget {
-                if used >= b {
-                    return Err(DomainError::Validation(format!("券 {code} 挂的活动预算用完了")));
-                }
-                预算还剩 = Some(b - used);
-            }
-        }
+        // 门禁只有一处 —— 见 `过不去的关`
+        let 预算还剩 = 过不去的关(&row, user_id, region, Utc::now())
+            .map_err(|挡| 那一句(挡, code))?;
 
         let benefit_json: serde_json::Value = row.get("benefit_json");
         let benefit = Benefit::parse(&benefit_json, code)?;
@@ -453,60 +499,9 @@ pub async fn preview(
         .ok_or_else(|| DomainError::Validation(format!("没有这张券：{code}")))?;
 
         let coupon_id: String = row.get("id");
-        let state_s: String = row.get("state");
-        if state_s != "issued" {
-            let 名 = match state_s.as_str() {
-                "locked" => "已经挂在另一张单上",
-                "redeemed" => "用过了",
-                "expired" => "过期了",
-                "revoked" => "被收回了",
-                其他 => 其他,
-            };
-            return Err(DomainError::Validation(format!("券 {code} {名}，用不了")));
-        }
-        let owner: Option<String> = row.get("owner_user_id");
-        if let Some(o) = &owner {
-            if o != user_id {
-                // 跟 lock_for_order 一样：不说「不是你的」，那等于确认它存在
-                return Err(DomainError::Validation(format!("没有这张券：{code}")));
-            }
-        }
-        let 券区: String = row.get("region");
-        if 券区 != region {
-            return Err(DomainError::Validation(format!("券 {code} 不能在 {region} 用")));
-        }
-        let now = Utc::now();
-        let expires: chrono::DateTime<Utc> = row.get("expires_at");
-        if expires <= now {
-            return Err(DomainError::Validation(format!("券 {code} 已经过期")));
-        }
-        let mut 预算还剩: Option<i64> = None;
-        let promo_status: Option<String> = row.get("promo_status");
-        if let Some(st) = promo_status {
-            if st != "active" {
-                return Err(DomainError::Validation(format!("券 {code} 挂的活动现在用不了")));
-            }
-            let from: chrono::DateTime<Utc> = row.get("effective_from");
-            let to: Option<chrono::DateTime<Utc>> = row.get("effective_to");
-            if now < from || to.is_some_and(|t| now > t) {
-                return Err(DomainError::Validation(format!("券 {code} 挂的活动不在有效期内")));
-            }
-            /* 【预算要在减之前问「兜得住吗」】（2026-09-03 五路评审 · 资金审计）。
-               `used >= budget` 只拦「已经花超了」，拦不住「这一张就会花超」——
-               预算 1000 已用 999 时，一张减 500 的券照样能用，
-               活动实际支出 1499，超预算 49.9%。预算越紧，超得越狠:
-               只剩 1 分钱额度的活动能被一张大额券撑破。
-
-               所以把判断挪到算完 `off` 之后 —— 那时才知道这一张要减多少。 */
-            let budget: Option<i64> = row.get("budget_minor");
-            let used: i64 = row.get("used_minor");
-            if let Some(b) = budget {
-                if used >= b {
-                    return Err(DomainError::Validation(format!("券 {code} 挂的活动预算用完了")));
-                }
-                预算还剩 = Some(b - used);
-            }
-        }
+        // 【跟下单同一段门禁】——试算说得通、下单却被拒，同样是欺骗
+        let 预算还剩 = 过不去的关(&row, user_id, region, Utc::now())
+            .map_err(|挡| 那一句(挡, code))?;
 
         let benefit_json: serde_json::Value = row.get("benefit_json");
         let benefit = Benefit::parse(&benefit_json, code)?;
@@ -526,6 +521,129 @@ pub async fn preview(
         });
     }
     Ok((applied, 已减))
+}
+
+/// 「我手里这张券」—— 券面、还能不能用、用不了的话为什么。
+///
+/// 【这一列本来就在库里，只是没人发出来】。`coupon.owner_user_id`
+/// 从建库起就是为「这一张是谁的」留的，后台也一直发得出绑人的券 ——
+/// 而用户那一侧没有一个「我的券」。运营给一位用户补一张，
+/// 用户打开只有确认页上那个「有券码就填这儿」的格子，也就是
+/// **他得先知道那串码**：券要另外找一条路送到他眼前（短信 / 客服 /
+/// 二维码），那条路一断，这张券就等于没发。
+#[derive(Debug, Clone, Serialize)]
+pub struct MyCoupon {
+    pub id: String,
+    /// 券码。系统派发的券可以没有码（`coupon.code` 可空）——
+    /// 那种券现在没有下单入口，卡片会说清，不编一个码出来
+    pub code: Option<String>,
+    /// 挂的活动叫什么。没挂活动就没有名字，那时卡片自己说「减多少」
+    pub title: Option<String>,
+    pub state: String,
+    pub region: String,
+    /// 由 region 定（`Region::meta().primary_currency`），不在页面里写死
+    pub currency: String,
+    pub pct_off_bps: i64,
+    pub amount_off_minor: Option<i64>,
+    pub max_off_minor: Option<i64>,
+    pub expires_at: chrono::DateTime<Utc>,
+    /// 现在拿去下单能用
+    pub usable: bool,
+    /// 用不了的话，为什么。能用时是空串
+    pub why: String,
+    /// 用掉了的话，用在哪张单上 —— 台账要能顺着点回去
+    pub used_on_order_id: Option<String>,
+}
+
+/// 他名下的券，能用的排前面。
+///
+/// 【只取这一格的】。别的区发的券在这一格里点不动，摆出来只是一行
+/// 「不能在 cn 用」；那是发券那一侧的错，不该由用户在这一屏承担。
+pub async fn mine(
+    pool: &PgPool,
+    user_id: &str,
+    region: &str,
+) -> Result<Vec<MyCoupon>, DomainError> {
+    let currency = Region::from_str(region)
+        .map_err(|_| DomainError::Validation(format!("没有 {region} 这一格")))?
+        .meta()
+        .primary_currency
+        .to_string();
+
+    let rows = sqlx::query(
+        r#"SELECT c.id, c.code, c.state, c.owner_user_id, c.expires_at, c.benefit_json,
+                  c.region, c.promotion_id,
+                  p.name AS promo_name,
+                  p.status AS promo_status, p.effective_from, p.effective_to,
+                  p.budget_minor, p.used_minor,
+                  r.order_id AS used_on_order_id
+           FROM coupon c
+                LEFT JOIN promotion p ON p.id = c.promotion_id
+                LEFT JOIN coupon_redemption r ON r.coupon_id = c.id
+           WHERE c.owner_user_id = $1 AND c.region = $2"#,
+    )
+    .bind(user_id)
+    .bind(region)
+    .fetch_all(pool)
+    .await
+    .db()?;
+
+    let now = Utc::now();
+    let mut out: Vec<MyCoupon> = Vec::with_capacity(rows.len());
+    for row in &rows {
+        let id: String = row.get("id");
+        let code: Option<String> = row.get("code");
+        let benefit_json: serde_json::Value = row.get("benefit_json");
+
+        /* 【能不能用，问的是下单那一段判断】—— 见 `过不去的关`。
+           在这儿另抄一份的话，这一屏写着「能用」而下单被拒。 */
+        let mut why = match 过不去的关(row, user_id, region, now) {
+            Ok(_) => String::new(),
+            /* SQL 就是按 owner 取的，正常撞不上这一支；真撞上说明这一行
+               的 owner 刚被改过，照实说，不当成能用 */
+            Err(挡下::装作不存在) => "这张券已经不在你名下".to_string(),
+            Err(挡下::说明白(话)) => 话,
+        };
+
+        /* 券面读不懂的券也要摆出来。藏起来的话，运营说「给你发了」而
+           用户屏上什么都没有 —— 那正是这个接口要修的那件事 */
+        let benefit = Benefit::parse(&benefit_json, code.as_deref().unwrap_or(&id));
+        if why.is_empty() && benefit.is_err() {
+            why = "这张券的内容有问题 —— 找客服换一张".to_string();
+        }
+        /* 没有码的券现在【没有下单入口】：确认页收的是券码。
+           说它「能用」而他找不到地方用，是这一屏最不该犯的错 */
+        if why.is_empty() && code.is_none() {
+            why = "这张券还没有码 —— 找客服".to_string();
+        }
+
+        out.push(MyCoupon {
+            id,
+            code,
+            title: row.get("promo_name"),
+            state: row.get("state"),
+            region: row.get("region"),
+            currency: currency.clone(),
+            pct_off_bps: benefit.as_ref().map(|b| b.pct_off_bps).unwrap_or(0),
+            amount_off_minor: benefit.as_ref().ok().and_then(|b| b.amount_off_minor),
+            max_off_minor: benefit.as_ref().ok().and_then(|b| b.max_off_minor),
+            expires_at: row.get("expires_at"),
+            usable: why.is_empty(),
+            why,
+            used_on_order_id: row.get("used_on_order_id"),
+        });
+    }
+
+    /* 能用的排前面，同样能用的先过期的在前 —— 这一屏人点进来是找
+       「我现在有什么能用」，不是翻台账。用掉的、过期的仍然列着（那是他的
+       台账），只是排在后面。排序放在这儿不放 SQL：「能不能用」要问活动
+       的状态与预算，那不是一句 ORDER BY 说得清的。 */
+    out.sort_by(|a, b| {
+        b.usable
+            .cmp(&a.usable)
+            .then(a.expires_at.cmp(&b.expires_at))
+    });
+    Ok(out)
 }
 
 /// 一次发一批。
