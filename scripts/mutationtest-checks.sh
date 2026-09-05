@@ -59,6 +59,9 @@ FILES=(
   # 区名那一支的变异对象:名册与枚举、以及后台页面里写死的那种名单
   backend/unmei-domain/src/commerce/region.rs
   webadmin/src/pages/Users.tsx
+  # 浏览器版本那一支的变异对象
+  package.json
+  rooms/package.json
   mini/miniprogram/types/natal.ts
   backend/unmei-admin-api/src/routes/users.rs
   webadmin/src/lib/api.ts
@@ -376,6 +379,15 @@ mutate "枚举跟名册走散了" check-region-vocab \
 # 而注释里正需要把「hk / tw 不是区」这件事写清楚 —— 报它就等于逼人删掉说明
 keep "注释里提到区名不算" check-region-vocab \
   "edit('webadmin/src/pages/Users.tsx', 'const size = 30;', \"const size = 30;\\n  // 旧的那一版写死过 ['cn','hk','tw','jp','us']\")"
+
+echo
+echo "── check-browser-pin（跑门禁的浏览器版本）──"
+# 把确切版本改成范围 —— 明天 bun 就可能换一个浏览器回来
+mutate "版本写成了范围" check-browser-pin \
+  "edit('package.json', '\"playwright\": \"1.62.1\"', '\"playwright\": \"^1.62.1\"')"
+# 两处走散 —— 根跑的脚本用一个版本，rooms 的工具用另一个
+mutate "两处钉的版本走散了" check-browser-pin \
+  "edit('rooms/package.json', '\"playwright\": \"1.62.1\"', '\"playwright\": \"1.61.1\"')"
 
 echo
 echo "── check-bodies（写操作的请求体）──"

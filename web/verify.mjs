@@ -3996,6 +3996,59 @@ if (!API) {
        await p.evaluate(() => globalThis.__router.current().__route))
   }
 
+  /* ── 买过很多东西的人（2026-09-05）─────────────────────────
+     「我买过的」那一屏原先是【取一次，本地切片】：`commerceApi.orders()`
+     不带参数，后端默认给 20 条，而这一屏把拿到的东西按每页五笔切成四页,
+     `pageCount` 也是按【拿到几条】算的。
+
+     于是买过 30 单的人看到标题写着「30 笔」，翻到第四页就到头了 ——
+     剩下十笔他一辈子也够不着，而屏上没有一处说得出为什么。
+     四页翻得干干净净、内部完全自洽:**这种缺口不会自己喊**。
+     库里单子最多的人只有十单，所以谁也没撞上过。
+
+     这一段自己造够二十笔，把那条边界走过去。造完就删。 */
+  {
+    const uid = await p.evaluate(() => JSON.parse(localStorage.getItem('unmei:buwanren:user') || '{}').id)
+    if (uid) {
+      const 有几单 = Number(sql1(`SELECT count(*) FROM order_record WHERE user_id='${uid}'`))
+      // 凑到二十五单 —— 后端一页默认二十，这个数必须真的越过它
+      const 还差 = Math.max(0, 25 - 有几单)
+      for (let i = 0; i < 还差; i++) {
+        run(`INSERT INTO order_record(id, user_id, channel_origin, currency,
+               amount_subtotal_minor, amount_total_minor, status, region, created_at)
+             VALUES('vord-${i}','${uid}','web','CNY',100,100,'done','cn',
+                    NOW() - INTERVAL '${i + 1} hours')
+             ON CONFLICT (id) DO NOTHING`)
+      }
+      await open('pages/orders/index')
+      await p.waitForTimeout(1600)
+      const 账 = await p.evaluate(() => {
+        const d = globalThis.__router.current().data
+        return { total: d.total, pageCount: d.pageCount, 本页: d.page.length }
+      })
+      ok(账.total >= 25, '造够了二十五单', JSON.stringify(账))
+      /* 【翻得到的页数要按「一共几笔」算】。按「这一次拿到几条」算的话，
+         它永远是四页 —— 而标题上写的是二十五笔。 */
+      ok(账.pageCount === Math.ceil(账.total / 5),
+         '页数按「一共几笔」算，不是按「这一次拿到几条」', JSON.stringify(账))
+      /* 【最后一页真的翻得到，而且上面有东西】。这是那条缺口的判据本身:
+         第五页在旧代码里根本不存在。 */
+      const 头一页 = await p.evaluate(() => globalThis.__router.current().data.page.map((r) => r.id).join(','))
+      for (let i = 0; i < 4; i++) {
+        await p.getByText('下一页 ›', { exact: true }).click().catch(() => {})
+        await p.waitForTimeout(700)
+      }
+      const 末页 = await p.evaluate(() => {
+        const d = globalThis.__router.current().data
+        return { pageNo: d.pageNo, 本页: d.page.length, ids: d.page.map((r) => r.id).join(',') }
+      })
+      ok(末页.pageNo === 4 && 末页.本页 > 0,
+         '第五页翻得到，而且上面真的有单子', JSON.stringify(末页))
+      ok(末页.ids !== 头一页, '第五页上的不是第一页那几笔', 末页.ids.slice(0, 40))
+      run(`DELETE FROM order_record WHERE id LIKE 'vord-%'`)
+    }
+  }
+
   /* ── 注销账号（2026-09-05）───────────────────────────────────
      隐私政策上写了两遍「在「设置」里退出并删除账号」：
 
@@ -4925,6 +4978,8 @@ if (!(CAL > 0)) {
 // 三档的数都是【实测】的，不是从另一档减出来的：
 // 2026-09-03 同一台机器上分别跑了三趟 —— 假 130 / 真 358 / 真带排盘 384。
 // 建本命那一段是 26 条，不是当初以为的 17 条。
+/* 「真带排盘」这一档 2026-09-05 第四次改，468 → 472（实跑）——
+   「买过很多东西的人」那一段加了 4 条（翻页翻不翻得到第五页）。 */
 /* 「真带排盘」这一档 2026-09-05 第三次改，454 → 468（实跑）——
    注销账号那一屏与它那一段 API 走查加了 14 条。 */
 /* 「真带排盘」这一档 2026-09-05 再从 429 改成 454（实跑）——
@@ -4937,7 +4992,7 @@ if (!(CAL > 0)) {
    凭空少掉八十条仍然报「全通」。
    另外两档没有在这一轮实测过，不动 —— 改一个没量过的数，
    等于把「下限」变成「我猜的数」。 */
-const 基准 = { 假: 132, 真: 360, 真带排盘: 468 }
+const 基准 = { 假: 132, 真: 360, 真带排盘: 472 }
 // 名字不叫 `档`：978 行有个同名的局部变量（村民稀有度），
 // 两个都在这个文件里，读起来会以为是同一个东西
 const 这一档 = !API ? '假' : (MINGLI ? '真带排盘' : '真')
