@@ -13,6 +13,7 @@ import { mineApi } from '../../services/mine'
 import type { ProductCard } from '../../types/commerce'
 import type { Subscription } from '../../types/mine'
 import { 一句 } from '../../utils/say'
+import { 轻 } from '../../utils/feel'
 import { money } from '../../utils/money'
 import { 那一天 } from '../../utils/day'
 
@@ -52,9 +53,24 @@ function 日子那句(x: Subscription): string {
   if (x.status === 'cancelled' || x.status === 'expired' || x.status === 'paused') {
     return new Date(x.current_period_end).getTime() > Date.now() ? `还能用到 ${到}` : `${到} 结束的`
   }
-  // 点过「到期不续」的人，状态还是 active —— 这一句是屏上唯一说得出这件事的地方
-  if (x.cancel_at_period_end) return `用到 ${到} 为止 —— 到期不再续`
-  return `续到 ${到}`
+  /* 【会寄东西的那一档，说的是东西】（2026-09-05 · 一味香按月送）。
+     「续到 10月4日」说的是合同，「下一盒 10月4日 发」说的是那天会发生什么 ——
+     而后者才是订着的人真正在等的。哪一档会寄东西由后端给（`ships`），
+     不在这儿按 plan_id 写死。 */
+  if (x.cancel_at_period_end) {
+    return x.ships ? `最后一盒 ${到} 发 —— 之后不再续` : `用到 ${到} 为止 —— 到期不再续`
+  }
+  return x.ships ? `下一盒 ${到} 发` : `续到 ${到}`
+}
+
+/* 这一份还能动吗 —— 决定卡片上给哪一个动作。
+   三种状态三件事，不是一个通用的「管理」按钮：
+   扣不成的要补、还在续的可以停、已经停了的什么都不给（也确实无事可做）。 */
+type 动作 = '' | '补' | '停'
+function 给什么动作(x: Subscription): 动作 {
+  if (x.status === 'past_due' || x.status === 'grace') return '补'
+  if ((x.status === 'active' || x.status === 'trialing') && !x.cancel_at_period_end) return '停'
+  return ''
 }
 
 /* 还在续的那几种。跟后端排序用的是同一批（commerce.rs `my_subscriptions`
@@ -69,7 +85,10 @@ interface IData {
    *  三份全到期的人，这一屏原先是三张读不动的卡片加一颗「回去」 */
   还订着: boolean
   /** `名 / 说 / 要紧` 是屏上那三样 —— wxml 里调不了函数，在这儿算好 */
-  subs: Array<Subscription & { 名: string; 说: string; 要紧: boolean }>
+  subs: Array<Subscription & { 名: string; 说: string; 要紧: boolean; 动: '' | '补' | '停' }>
+  /** 正在办的那一份的 id。按下去到答复回来之间，按钮换个字 ——
+   *  不换的话人会以为没反应，再按一次（而第二次是真的又发一笔） */
+  忙: string
   /** 空的时候摆出来的出口：村里现在有什么可以订 */
   /** 还能订什么。`价` 是本页算出来的显示串 —— 取不到就是空串，屏上不写价 */
   offers: Array<ProductCard & { 价: string }>
@@ -77,7 +96,7 @@ interface IData {
 }
 
 Page<IData, WechatMiniprogram.IAnyObject>({
-  data: { loading: true, err: '', subs: [], 还订着: false, offers: [], offersErr: '' },
+  data: { loading: true, err: '', subs: [], 还订着: false, offers: [], offersErr: '', 忙: '' },
 
   /* 无条件取，不拿 token 当守卫 —— 跟村主屏一致。
      带守卫的写法在【还没登录】时什么都不做，页面就一直停在「取着……」，
@@ -105,6 +124,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
           说: [状态说法[x.status] || x.status, 日子那句(x)].filter(Boolean).join(' · '),
           // 扣不成的那两种要显眼:它们是【他现在就得动手】的，其余六种不是
           要紧: x.status === 'past_due' || x.status === 'grace',
+          动: 给什么动作(x),
         })),
       })
       /* 【订过的人也要看得见还能订什么】。原先是 `if (!list.length)` ——
@@ -131,12 +151,21 @@ Page<IData, WechatMiniprogram.IAnyObject>({
        说不清哪儿能有才是」—— 说不清哪儿能有，正是它自己的下场。
 
        跟盘上那个「南 vs 南方」、物流那个「preparing vs pending」同一个形状:
-       写死的键跟真值差一个词，两边都是合法值，错的跟对的看着一样。 */
-    commerceApi.products('subscription').then(
+       写死的键跟真值差一个词，两边都是合法值，错的跟对的看着一样。
+
+       【那一次只改对了一半】（2026-09-05 稍后）。值改了，参数名没改 ——
+       `products()` 把它发在 `category` 上，而 subscription 是 `kind` 的值。
+       于是这一屏照旧问一个没有货的分类，空状态照旧是唯一走得到的那一支。
+       现在走 `subscribable()`，那支的名字里就说清它问的是什么。 */
+    commerceApi.subscribable().then(
       /* 列表接口带着 `from_price_minor`（这件商品最便宜那一档现价）——
          订阅那一条点下去就是掏钱，屏上得有价。取不到就留空，不编。 */
+      /* 【已经订着的那件不再摆】。这一块是「还能订什么」，
+         而把用户此刻正订着的那一件摆进去，等于给他一条通向他已有之物的路。
+         判据用商品号，不用「有没有活着的订阅」那种一刀切 ——
+         哪天有第二件可订的，一刀切会把它也一起藏掉。 */
       (list) => this.setData({
-        offers: list.map((x) => ({
+        offers: list.filter((x) => !this.订着哪些商品().includes(x.id)).map((x) => ({
           ...x,
           // 格式化只有一支（utils/money.ts）—— 自己抄一份会在非 CNY 上出错
           价: typeof x.from_price_minor === 'number'
@@ -147,6 +176,61 @@ Page<IData, WechatMiniprogram.IAnyObject>({
       }),
       () => this.setData({ offers: [], offersErr: '一时取不到能订的' }),
     )
+  },
+
+  /* 【补上这一期】。屏上写着「再不补就断了」，而在这之前一个按得动的东西都没有 ——
+     说了要紧的事却不给做那件事的办法，比不说更差。
+     后端走的是续期那一条路（`renew_due` 复用还开着的那张发票），
+     所以「补一期」跟「续一期」本来就是同一件事。 */
+  onPay(e: WechatMiniprogram.BaseEvent) {
+    const id = String((e.currentTarget.dataset as { id?: string }).id || '')
+    if (!id || this.data.忙) return
+    轻()
+    this.setData({ 忙: id })
+    mineApi.paySubscription(id).then(
+      (r) => {
+        this.setData({ 忙: '' })
+        // 【没收成也要说】—— 静默地什么都不变，人只会再按一次
+        wx.showToast({ title: r.paid ? '补上了' : (r.why || '这一期不用补'), icon: 'none' })
+        this.load()
+      },
+      (e2) => {
+        this.setData({ 忙: '' })
+        wx.showToast({ title: 一句(e2 as { status?: number; message?: string }), icon: 'none' })
+      },
+    )
+  },
+
+  /* 【不再续了】。先问一句 —— 这一下花钱的反面，按错了要等一个月才发现。
+     问的时候把「这一期照旧」说出来:不说的话，人会以为按下去香就断了。 */
+  onStop(e: WechatMiniprogram.BaseEvent) {
+    const id = String((e.currentTarget.dataset as { id?: string }).id || '')
+    if (!id || this.data.忙) return
+    const 那一份 = this.data.subs.find((x) => x.id === id)
+    wx.showModal({
+      title: '不再续了？',
+      content: `这一期照旧${那一份 && 那一份.ships ? '，最后一盒还会发' : ''} —— 到期之后就不再扣钱了`,
+      confirmText: '不再续',
+      cancelText: '再想想',
+      success: (res) => {
+        if (!res.confirm) return
+        this.setData({ 忙: id })
+        mineApi.cancelSubscription(id).then(
+          () => { this.setData({ 忙: '' }); this.load() },
+          (e2) => {
+            this.setData({ 忙: '' })
+            wx.showToast({ title: 一句(e2 as { status?: number; message?: string }), icon: 'none' })
+          },
+        )
+      },
+    })
+  },
+
+  /** 此刻还活着的那几份订的是哪几件商品 */
+  订着哪些商品(): string[] {
+    return this.data.subs
+      .filter((x) => 还在续的.indexOf(x.status) >= 0 && x.product_id)
+      .map((x) => x.product_id as string)
   },
 
   onTap(e: WechatMiniprogram.BaseEvent) {

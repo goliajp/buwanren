@@ -45,6 +45,8 @@ pub fn router() -> Router<AppState> {
         .route("/v1/orders/:id/shipments/:sid/trace",     get(my_shipment_trace))
         // 订阅
         .route("/v1/subscriptions",                       get(my_subscriptions))
+        .route("/v1/subscriptions/:id/cancel",            post(cancel_my_subscription))
+        .route("/v1/subscriptions/:id/pay",               post(pay_my_subscription))
         // Webhook
         .route("/v1/webhooks/wechat",                     post(wx_webhook))
         .route("/v1/webhooks/carrier/:provider",          post(carrier_webhook))
@@ -667,6 +669,67 @@ async fn refund_my_order_inner(
     Ok(Json(json!({ "refund_id": refund_id, "status": "requested" })))
 }
 
+/// 这份订阅是不是他的。**每一条订阅接口都要先问这一句** ——
+/// 订阅 id 是可猜的（`p25-sub-…`），不问就等于谁都能退别人的订。
+async fn 是他的订阅(st: &AppState, sub_id: &str, user: &str) -> Result<(), ApiError> {
+    let 主人: Option<String> =
+        sqlx::query_scalar("SELECT user_id FROM subscription WHERE id=$1")
+            .bind(sub_id)
+            .fetch_optional(&st.db)
+            .await
+            .map_err(map_db)?;
+    match 主人 {
+        None => Err(ApiError::not_found("subscription")),
+        Some(u) if u != user => Err(ApiError(AppError::Forbidden)),
+        Some(_) => Ok(()),
+    }
+}
+
+/// 不再续了。
+///
+/// **到期不续，不是立刻停** —— 这一期的钱已经付过，香也该照发。
+/// 后端 `subscription::cancel(immediate=false)` 一直在，只是从来没有入口:
+/// 屏上那句「用到 X 为止 —— 到期不再续」说得出这个状态，
+/// 而用户没有任何办法把自己变成这个状态。
+async fn cancel_my_subscription(
+    State(st): State<AppState>, AuthedUser(c): AuthedUser, Path(id): Path<String>,
+) -> Result<Json<J>, ApiError> {
+    是他的订阅(&st, &id, &c.sub).await?;
+    unmei_app::subscription::cancel(
+        &st.db, &id, false, Some("用户自己在小程序里停的"),
+        &unmei_app::Actor::user(&c.sub),
+    ).await?;
+    Ok(Json(json!({ "ok": true, "cancel_at_period_end": true })))
+}
+
+/// 补上这一期。
+///
+/// 扣不成的那两种（past_due / grace）屏上写着「再不补就断了」，
+/// 而在这之前**屏上没有任何一个按得动的东西** —— 说了要紧的事，
+/// 却不给做那件事的办法，比不说更差。
+///
+/// 它走的就是续期那一条路（`renew_due`）:那支复用「还开着的那张发票」,
+/// 收上钱之后把周期推下去、状态推回 active，并给这一期开一张包裹。
+/// 换句话说「补一期」跟「续一期」本来就是同一件事，只是谁触发的不同。
+///
+/// **收款仍是 mock**（跟 worker 那一侧一样，直接建一条 success 的 payment）——
+/// 真机上的微信收银台在浏览器里根本不存在，这一步只有真机验得到。
+async fn pay_my_subscription(
+    State(st): State<AppState>, AuthedUser(c): AuthedUser, Path(id): Path<String>,
+) -> Result<Json<J>, ApiError> {
+    是他的订阅(&st, &id, &c.sub).await?;
+    let 结果 = unmei_app::subscription::renew_due(&st.db, &id).await?;
+    Ok(Json(match 结果 {
+        unmei_app::subscription::RenewOutcome::Renewed { period_end, .. } =>
+            json!({ "ok": true, "paid": true, "current_period_end": period_end }),
+        // 还没到期就来补，那是没事可补 —— 说清楚，不假装收了钱
+        unmei_app::subscription::RenewOutcome::NotDue =>
+            json!({ "ok": true, "paid": false, "why": "还没到期，这一期不用补" }),
+        其他 =>
+            json!({ "ok": false, "paid": false, "why": format!("{其他:?}") }),
+    }))
+}
+
 // ─── Payment query ──────────────────────────────────────────────
 async fn get_my_payment(
     State(st): State<AppState>, AuthedUser(c): AuthedUser, Path(id): Path<String>,
@@ -723,8 +786,20 @@ async fn my_subscriptions(
     let rows = sqlx::query(
         r#"SELECT s.id, s.plan_id, p.name AS plan_name, s.status, s.source_channel,
                   s.current_period_start, s.current_period_end, s.cancel_at_period_end,
-                  s.created_at
-           FROM subscription s LEFT JOIN plan p ON p.id = s.plan_id
+                  s.created_at,
+                  /* 【这一档每期发什么】（2026-09-05）。屏上原先一律说「续到 X」——
+                     而一味香按月送每期真的会寄一盒香，那句话该是「下一盒 X 发」。
+                     取自 `plan.entitlements_json`,不在页面里按 plan_id 写死:
+                     写死的话，加一档就得再改一次前端。 */
+                  p.entitlements_json->>'ships' AS ships,
+                  /* 【它是哪件商品】。「订着的」那一屏底下摆着「还能订什么」,
+                     而没有这一列的话，它会把用户此刻正订着的那一件也摆出来 ——
+                     一张写着「看看 ›」的卡，点进去是他已经有的东西。
+                     plan → sku → product 这条链库里本来就有，只是没发出来。 */
+                  sk.product_id AS product_id
+           FROM subscription s
+                LEFT JOIN plan p  ON p.id = s.plan_id
+                LEFT JOIN sku sk  ON sk.id = p.sku_id
            WHERE s.user_id=$1
            /* 【还在续的排前面】（2026-09-05 · 25 计划）。只按 created_at 排的话，
               一年前退掉的那一份会因为记录建得晚而顶在第一行 —— 而这一屏叫

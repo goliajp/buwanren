@@ -36,6 +36,22 @@ export const commerceApi = {
         + (villagerId ? '&villager_id=' + villagerId : ''),
     ),
 
+  /* 【能订的东西，问的是 `kind` 不是 `category`】（2026-09-05）。
+     两处都栽在同一个地方:「我的」问 `products('service')`,
+     「订着的」问 `products('subscription')` —— 而上面那个 `products()`
+     把参数发在 `category` 上。
+
+     `category` 是货架分类（charm / report / omamori / service…），
+     `kind` 才是「它是不是一件订阅」（one_shot / subscription /
+     digital_goods / service）。**两边都有 `service` 这个值**,
+     所以写错了也不报错、也不是空 —— 它只是永远问一个没有货的分类。
+
+     2026-09-05 早些时候修过一次「问的是 subscription，不是 service」:
+     那次改对了值，没改参数名，于是问题原样留着。
+     现在单开一支，名字里就说清它问的是什么。 */
+  subscribable: (): Promise<ProductCard[]> =>
+    api.get<ProductCard[]>('/v1/products?' + scope() + '&kind=subscription'),
+
   /** 商品详情，价格在 `skus[].current_price_minor` 上 */
   product: (id: string): Promise<ProductDetail> =>
     api.get<ProductDetail>('/v1/products/' + id + '?' + scope()),

@@ -325,6 +325,32 @@ pub async fn renew_due(pool: &PgPool, subscription_id: &str) -> Result<RenewOutc
     .execute(&mut *tx)
     .await.db()?;
 
+    /* 【续费订单要有行，否则这一期什么都不发】（2026-09-05 · 一味香按月送）。
+       这里原先只建 `order_record`,**一行 order_line 都不插** ——
+       于是每期扣了钱，履约那一侧无事可做:`apply_order_paid` 取的正是
+       `order_line`,取到空数组就直接去结算订单。
+       黄金会员「买了什么也不发生」的机械原因有两层，这是第二层
+       （第一层是压根没有开通，见 fulfillment.rs 那一段）。
+
+       发的就是套餐自己那个 sku —— 它的商品是 shipping，所以履约那一支
+       会给这一期开一张包裹。也正因为走的是同一个 sku，那边才需要
+       「已经订着就不再开一份」那道守卫。 */
+    let sku_id: String = row.get("sku_id");
+    sqlx::query(
+        r#"INSERT INTO order_line(id, order_id, line_no, sku_id, sku_snapshot_json,
+                                  unit_price_minor, qty, line_subtotal_minor)
+           SELECT $1, $2, 1, $3,
+                  jsonb_build_object('sku_name', s.name, 'renewal', true),
+                  $4, 1, $4
+             FROM sku s WHERE s.id = $3"#,
+    )
+    .bind(new_id("oli-renew"))
+    .bind(&order_id)
+    .bind(&sku_id)
+    .bind(amount_minor)
+    .execute(&mut *tx)
+    .await.db()?;
+
     let payment_id = new_id("pay-renew");
     sqlx::query(
         // region 从订单取 —— 见 payment.rs 那段注释
@@ -362,6 +388,20 @@ pub async fn renew_due(pool: &PgPool, subscription_id: &str) -> Result<RenewOutc
     .bind(subscription_id)
     .execute(&mut *tx)
     .await.db()?;
+
+    /* 【收了钱就要说一声】。`OrderPaid` 是履约那一侧唯一的触发器
+       （`workers/outbox.rs` 接的就是它）—— 不发，上面那行订单行就永远
+       停在 pending，这一期的香也就永远发不出去。
+       原先不发也没露馅，正是因为那时根本没有行。 */
+    outbox::write(
+        &mut *tx,
+        &DomainEvent::OrderPaid {
+            order_id: order_id.clone(),
+            payment_id: payment_id.clone(),
+            occurred_at: Utc::now(),
+        },
+    )
+    .await?;
 
     // 旧实现完全不发事件,续费对 dispatcher / 财务是隐形的
     outbox::write(

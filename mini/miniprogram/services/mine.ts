@@ -15,6 +15,14 @@ export const mineApi = {
 
   subscriptions: (): Promise<Subscription[]> => api.get<Subscription[]>('/v1/subscriptions'),
 
+  /** 不再续了。**到期不续，不是立刻停** —— 这一期的钱付过了，东西照发 */
+  cancelSubscription: (id: string): Promise<{ ok: boolean }> =>
+    api.post<{ ok: boolean }>(`/v1/subscriptions/${id}/cancel`, {}),
+
+  /** 补上这一期。扣不成的那两种（past_due / grace）才用得着 */
+  paySubscription: (id: string): Promise<{ ok: boolean; paid: boolean; why?: string }> =>
+    api.post<{ ok: boolean; paid: boolean; why?: string }>(`/v1/subscriptions/${id}/pay`, {}),
+
   /** 服务端说的我是谁。本地缓存的那份是登录那一刻的快照，会旧 */
   me: (): Promise<UserPublic> => api.get<UserPublic>('/v1/user/me'),
 

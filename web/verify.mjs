@@ -1682,6 +1682,32 @@ if (API) {
   await p.waitForTimeout(1200)
   await shot('10-一味香')
 
+  /* 【按月送】（2026-09-05）。这一屏上三档都是买一次，而香是会烧完的 ——
+     那句注脚「十支约够一个月」本来就在说这件事，只是从前没有一条路
+     通向「每月一盒」。
+     它取不到价就整块不摆（不编一个价出来），所以这里先问它在不在。 */
+  const 按月 = await p.evaluate(() => globalThis.__router.current().data.按月)
+  ok(!!按月 && !!按月.priceText, '一味香那一屏有「按月送」这一条', JSON.stringify(按月))
+  if (按月) {
+    const 香屏 = await text()
+    ok(/按月送/.test(香屏) && /随时能停/.test(香屏),
+       '它说得出这是每月一盒、而且停得掉', (香屏.match(/按月送[^·]*·[^›]*/) || [''])[0].slice(0, 40))
+    await p.locator('.monthly').click()
+    await p.waitForTimeout(1200)
+    ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/confirm/index',
+       '点它去的是确认那一屏 —— 掏钱那一路',
+       await p.evaluate(() => globalThis.__router.current().__route))
+    /* 【它是实物，所以要问地址】。确认屏认的是 `fulfillment_kind === 'shipping'`,
+       而按月送正是走这一支开通的（见 fulfillment.rs）——
+       要是哪天它被改成 instant，这一条当场红:那时订阅照旧开得起来,
+       而每月那一盒**没有地址可寄**。 */
+    ok(await p.evaluate(() => globalThis.__router.current().data.要寄) === true,
+       '确认那一屏知道它要寄东西 —— 会问地址',
+       String(await p.evaluate(() => globalThis.__router.current().data.要寄)))
+    await open('pages/incense/index', { id: 'prod-suhe-incense' })
+    await p.waitForTimeout(900)
+  }
+
   /* ── 同步点香（设计册 E1）─────────────────────────────────────
      这一屏一周只有二十五分钟能碰上，所以后端把「几点点香」做成了可配的
      （UNMEI_INCENSE_WEEKDAY / HOUR / MINUTES）—— 那不是测试后门，
@@ -3972,20 +3998,32 @@ if (!API) {
 
   await open('pages/me/index')
 
-  /* 【一个都没订的时候，那一行不摆出来】。村里现在没有可订的东西，
-     点进去只会说「等有了会摆在这儿」—— 它唯一传达的信息是产品没做完，
-     而它跟另外四行并排挂着，会把那四行的可信度一起拉低。
-     有货那天 `hasSubs` 自己就把它带回来。 */
+  /* 【有货那天，那一行自己回来】（2026-09-05 · 一味香按月送上架）。
+     这一条原先反着写:「一个都没订就不摆那一行」—— 那时村里一件可订的
+     东西都没有，点进去只会说「等有了会摆在这儿」，一句「产品没做完」
+     挂在另外四行旁边，会把那四行的可信度一起拉低。
+     而那段注释自己写着「有货那天 `hasSubs` 自己就把它带回来」——
+     今天就是那天，所以断言跟着翻面。
+
+     判据仍然是一句话:**这一行只在它通向某个东西的时候才摆**。
+     变的不是规矩，是货架上有没有东西。 */
   const 我屏文 = await text()
   const 有订 = await p.evaluate(() => globalThis.__router.current().data.hasSubs)
-  ok(有订 === false && !我屏文.includes('订着的'),
-     '一个都没订的时候，「我的」上不摆那一行', `hasSubs=${有订}`)
+  ok(有订 === true && 我屏文.includes('订着的'),
+     '有可订的东西了，「我的」上那一行就摆出来', `hasSubs=${有订}`)
 
-  // 那一页本身照旧走得通（有货那天入口回来，链路不能是断的）
-  await open('pages/subs/index')
-  await p.waitForTimeout(1200)
+  /* 【从入口走进去，不直接开那一页】。这一段原先是 `open('pages/subs/index')` ——
+     那时入口是收起来的，只能绕过它。现在入口在了，就该走它:
+     「那一页打得开」跟「从我的点得进那一页」是两件事，
+     而后者才是人真的会做的动作。 */
+  await p.getByText('订着的', { exact: true }).click()
+  await p.waitForFunction(
+    () => globalThis.__router.current().__route === 'pages/subs/index',
+    null, { timeout: 15000 },
+  ).catch(() => {})
   ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/subs/index',
-     '「订」那一页本身还在，只是入口先收起来了', await p.evaluate(() => globalThis.__router.current().__route))
+     '从「我的」点得进「订着的」', await p.evaluate(() => globalThis.__router.current().__route))
+  await p.waitForTimeout(1200)
   /* 出口那一条没变，只是搬进了那一页里面：空的时候要说清哪儿能有。 */
   await p.waitForTimeout(900)
   const 空文 = await text()
@@ -4055,7 +4093,28 @@ if (!API) {
       const 有出路 = 订文.includes('可以订') || 订文.includes('等有了会摆在这儿')
         || await p.evaluate(() => (globalThis.__router.current().data.offers || []).length > 0)
       ok(有出路, '一份都不在续的时候，它说得出下一步去哪儿', 订文.slice(-60))
-      run(`DELETE FROM subscription WHERE id IN ('${两份[0]}','${两份[1]}')`)
+      /* 【还在续的那一份，卡上要有一个按得动的东西】（2026-09-05）。
+         上面两份是死的，死的不给动作是对的;而活着的那一份从前也一样
+         什么都不给 —— 后端 `cancel` 一直在，用户没有任何办法用到它。
+         这里只验「屏上给不给得出」;那颗按钮真按下去会发生什么，
+         由 25 计划打真接口验（`scripts/plan25.sh` 的 U4）。 */
+      run(`INSERT INTO subscription(id, user_id, plan_id, status, source_channel,
+             current_period_start, current_period_end, cancel_at_period_end, region)
+           VALUES('vsub-alive','${uid}','plan-incense-monthly','active','wechat_mp',
+                  NOW() - INTERVAL '2 days', NOW() + INTERVAL '28 days', false, 'cn')
+           ON CONFLICT (id) DO NOTHING`)
+      await open('pages/subs/index')
+      await p.waitForTimeout(1400)
+      const 活文 = await text()
+      ok(活文.includes('不再续了'), '还在续的那一份给得出「不再续了」', 活文.slice(0, 70))
+      ok(await p.locator('.item-do').count() === 1,
+         '一张卡上只给一个动作 —— 死的那两份不给',
+         String(await p.locator('.item-do').count()))
+      /* 【会寄东西的那一档说的是东西】。`plan.entitlements_json` 里写着
+         每期发什么;有它的时候屏上该是「下一盒 X 发」，不是「续到 X」。 */
+      ok(/下一盒 .* 发/.test(活文), '它说的是「下一盒几号发」，不是「续到几号」',
+         (活文.match(/下一盒[^·]{0,16}/) || [''])[0])
+      run(`DELETE FROM subscription WHERE id IN ('${两份[0]}','${两份[1]}','vsub-alive')`)
     }
   }
 
