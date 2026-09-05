@@ -87,6 +87,17 @@
       <view class="sum-row"><text class="sum-k">已付</text><text class="sum-v">{{paidText}}</text></view>
     </view>
 
+    <!-- 【申请完这一屏要看得见】（2026-09-06 · 五路体验走查）。
+         按完「申请退款」，这一屏此前一个字都不变:提示被随后的 `load()`
+         清掉，而订单详情接口那时不返退款单。于是屏上没有「审核中」这一态、
+         没有单号可以念给客服 —— 人只会再按一次，而第二次撞上后端的在途检查。 -->
+    <view class="sum" wx:if="{{退款.length > 0}}">
+      <view class="sum-row" wx:for="{{退款}}" wx:key="id">
+        <text class="sum-k">退款 · {{item.说}}</text>
+        <text class="sum-v">{{item.钱}} · 单号 {{item.短号}}</text>
+      </view>
+    </view>
+
     <view class="ship" wx:if="{{shipErr}}">
       <view class="ship-k">寄出</view>
       <view class="pkg-no">{{shipErr}}</view>
@@ -170,10 +181,17 @@
            旁边那颗无害的按钮:降成一行文字链，并且点下去有二次确认
            （order/index.ts 的 onCancel）。 -->
       <view wx:if="{{status === 'unpaid'}}" class="cta-drop" bindtap="onCancel" hover-class="press-text" hover-stay-time="80">不要这一单了</view>
-      <button wx:if="{{status === 'paid' || status === 'fulfilling' || status === 'done'}}"
-              class="btn ghost" bindtap="onRefund" disabled="{{refunding}}">
+      <!-- 【说一套做一套的那颗按钮】（2026-09-06 · 五路体验走查）。
+           条件原先是 `paid || fulfilling || done` —— **不看买的是什么**。
+           而用户协议写着「数字内容一经交付（住进来了、说明书出好了）
+           不支持退款」:御守付完那一刻就 move_in，按协议 100% 退不了，
+           屏上照样给一颗按钮，后端也照样受理，建一张永远批不下去的单。
+           买家的体验是:按了 → 屏上什么都没变 → 若干天后被拒。
+           不是「不能退」的问题，是【不说不能退、按钮照给、结果照拒】。 -->
+      <button wx:if="{{能退}}" class="btn ghost" bindtap="onRefund" disabled="{{refunding}}">
         {{refunding ? '申请中……' : '申请退款'}}
       </button>
+      <view wx:elif="{{退不了}}" class="cta-note">{{退不了}}</view>
       <button class="btn ghost" bindtap="onBack">回去</button>
     </view>
 

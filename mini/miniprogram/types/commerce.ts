@@ -136,6 +136,16 @@ export interface OrderDetail {
   /** 这一单里买的册子。御守的完成态是住进村里，报告的完成态是**你读到了**。
    *  `awaiting_natal` 的也在里面 —— 那一屏要说得出「还差你的生辰」。 */
   reports: Array<{ id: string; status: string; order_line_id: string }>
+  /** 这一单上的退款单。**申请完屏上要看得见** —— 没有它的时候，
+   *  按完「申请退款」这一屏一个字都不变，人只会再按一次。 */
+  refunds: Array<{
+    id: string
+    amount_minor: number
+    currency: string
+    status: string
+    reason_code: string
+    created_at: string
+  }>
 }
 
 /** 下单前试算的结果。折扣由服务端算 —— 见 `previewOrder` 那段注释 */

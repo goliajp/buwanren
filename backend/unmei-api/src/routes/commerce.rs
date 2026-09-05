@@ -493,6 +493,18 @@ async fn get_my_order(
            WHERE ol.order_id = $1 AND r.user_id = $2
            ORDER BY ol.line_no"#,
     ).bind(&id).bind(&c.sub).fetch_all(&st.db).await.map_err(map_db)?;
+    /* 【申请完退款，这一屏此前什么都不变】（2026-09-06 · 五路体验走查）。
+       客户端按完只 `setData({ note: '退款已申请，等审核' })`，
+       而紧接着的 `load()` 把 note 清掉 —— 那句话在屏上活不过一秒。
+       而这个接口从前只返一个 `amount_refunded_minor`（审批之后才增加），
+       所以屏上没有「审核中」这一态、没有退款单号可以念给客服。
+
+       人这时只会做一件事:**再按一次**。 */
+    let refunds = sqlx::query(
+        r#"SELECT id, amount_minor, currency, status, reason_code,
+                  approved_at, completed_at, created_at
+           FROM refund WHERE order_id=$1 ORDER BY created_at DESC"#,
+    ).bind(&id).fetch_all(&st.db).await.map_err(map_db)?;
 
     Ok(Json(json!({
         "order": map_rows(vec![o]).into_iter().next().unwrap_or(J::Null),
@@ -539,6 +551,7 @@ async fn get_my_order(
         "shipments": map_rows(shipments),
         "to_scan": to_scan,
         "reports": map_rows(reports),
+        "refunds": map_rows(refunds),
     })))
 }
 

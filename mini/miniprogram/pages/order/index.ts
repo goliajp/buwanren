@@ -13,8 +13,8 @@ import { 脸 } from '../../utils/face'
 import { storage } from '../../services/storage'
 import type { ApiError } from '../../services/api'
 import type { OrderDetail, Shipment, TraceEvent } from '../../types/commerce'
-import { money, 状态那一词 } from '../../utils/money'
-import { 一句 } from '../../utils/say'
+import { money, 状态那一词, 退款那一词 } from '../../utils/money'
+import { 一句, 照原文 } from '../../utils/say'
 import { 台账那天 } from '../../utils/day'
 import { 物流那一词 } from '../../utils/ship'
 
@@ -134,6 +134,42 @@ function 还有多久(status: string, d: OrderDetail): string {
   return `还有约 ${剩} 分钟 —— 到时候还没付，这一单会自己取消`
 }
 
+/* 这一单还能不能申请退款。
+ *
+ * 【屏上不说不能退、按钮照给、结果照拒】（2026-09-06 · 五路体验走查）。
+ * 用户协议写着「数字内容一经交付（住进来了、说明书出好了）不支持退款」,
+ * 而那颗按钮的条件是 `status === 'paid' || 'fulfilling' || 'done'`
+ * —— **不看买的是什么**。御守付完那一刻就 move_in（已交付），
+ * 按协议 100% 退不了，屏上照样给一颗按钮，后端也照样受理，
+ * 建一张永远批不下去的单。
+ *
+ * 买家的实际体验是:按了 → 屏上什么都没变 → 若干天后被拒。
+ * 这不是「不能退」的问题（数字内容不退是合理的），
+ * 是【说一套做一套】的问题。已交付的那两类换成一句说明。
+ */
+function 退不退得了(d: OrderDetail): { 能退: boolean; 退不了: string } {
+  const 单 = d.order || ({} as Record<string, unknown>)
+  const status = String(单.status || '')
+  if (status !== 'paid' && status !== 'fulfilling' && status !== 'done') {
+    return { 能退: false, 退不了: '' }   // 还没付的单子谈不上退款，那时给的是「不要这一单了」
+  }
+  /* 已经在退的那一笔还没有结果时，不给第二颗按钮 ——
+     后端的在途检查会拒，而屏上此刻已经写着「审核中」 */
+  const 在途 = (d.refunds || []).some(
+    (r) => ['requested', 'approved', 'processing'].indexOf(r.status) >= 0)
+  if (在途) return { 能退: false, 退不了: '' }
+
+  const 住 = (d.lines || []).some((l) => l.becomes_resident)
+  if (住 && !d.to_scan) {
+    return { 能退: false, 退不了: '已经住进来了 · 这一单不退' }
+  }
+  const 册 = (d.reports || [])[0]
+  if (册 && 册.status === 'ready') {
+    return { 能退: false, 退不了: '册子已经出了 · 这一单不退' }
+  }
+  return { 能退: true, 退不了: '' }
+}
+
 function 下一步等什么(status: string, d: OrderDetail): string {
   /* 【超时取消要说是超时】。都写「已取消」的话，买家会以为是自己点的。
      判据是后端给的 `cancel_reason`，不猜。 */
@@ -200,6 +236,13 @@ Page({
     trace: [] as Array<{ 时间: string; 说: string; 在: string }>,
     refunding: false,
     refundKey: '',
+    /** 这一单上的退款单。**申请完屏上要看得见** ——
+     *  没有它的时候，按完这一屏一个字都不变，人只会再按一次 */
+    退款: [] as Array<{ id: string; 说: string; 钱: string; 短号: string }>,
+    /** 这一单还能不能申请退款。数字内容交付之后不能 —— 见 `退不了的理由` */
+    能退: false,
+    /** 不能退时说清为什么。空串 = 能退（那时摆按钮） */
+    退不了: '',
     /** 这一单里还有没有没扫开的御守（设计册 M3）。
      *  有 → 这一屏的主按钮是「收到了，去扫开它」。 */
     who: null as null | { name: string; face: string; direction: string; id: string; 脸样: string },
@@ -299,6 +342,19 @@ Page({
              还没出的那些（还差生辰）也给出来：它是这一单真实的状态，
              不给的话这一屏会显示成「已完成」而买家手上什么都没有。 */
           report: (d.reports || [])[0] || null,
+          /* 【申请完这一屏要看得见】。没有这一块的时候，按完「申请退款」
+             屏上一个字都不变（提示被这一次 `load()` 清掉），
+             人只会再按一次 —— 而第二次撞上后端的在途检查。 */
+          退款: (d.refunds || []).map((r) => ({
+            id: r.id,
+            说: 退款那一词(r.status),
+            钱: money(r.amount_minor, r.currency),
+            /* 单号只露前八位 —— 跟这一屏的订单号同一个规矩:
+               整串四十个字符摆出来读起来像开发者的东西漏了，
+               而八位够客服定位到唯一一笔 */
+            短号: (r.id.replace(/^rfd-/, '').replace(/-/g, '') || r.id).slice(0, 8),
+          })),
+          ...退不退得了(d),
           /* 标题用【下单那一刻的快照名】，跟「我买过的」那一列同一个来源 ——
              两处叫法不一样的话，点进来会以为点错了。 */
           /* 御守说得出是谁 —— 「丹增的御守」而不是「御守 · 单枚」。
@@ -377,7 +433,14 @@ Page({
     this.setData({ refunding: true, note: '' })
     commerceApi.refund(this.data.id, 'user_request', this.data.refundKey).then(
       () => { this.setData({ refunding: false, note: '退款已申请，等审核' }); this.load() },
-      (e: ApiError) => this.setData({ refunding: false, note: 一句(e) }),
+      /* 【后端那几句是给人看的，照原文上屏】（2026-09-06）。
+         这里原先走 `一句(e)` —— 它按错误码映射，`validation` 一律翻成
+         「有个地方填得不对 —— 回上一步看看」。
+         而后端为这一路准备的是「这一单的 9900 分已经在退款审核里了，
+         等它有结果再说」:一句写得很用心、正好回答人此刻的疑问的话，
+         被翻成了一句毫不相干的。
+         同一屏的券那一格用的就是 `照原文`，退款这一路选错了那一套。 */
+      (e: ApiError) => this.setData({ refunding: false, note: 照原文(e) }),
     )
   },
 
