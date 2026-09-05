@@ -54,6 +54,9 @@
 
     <view class="price-row">
       <text class="price" wx:if="{{price}}">{{price}}</text>
+      <!-- 【多档时说清这是哪一档的价】。光一个 ¥29 会被当成整件东西的价，
+           而它是「试香 · 三支」—— 正文那句「十支约够一个月」说的是另一档 -->
+      <text class="price-sku" wx:if="{{档名}}">{{档名}}</text>
       <text class="price-none" wx:else>这个区暂时没有定价</text>
     </view>
 
@@ -115,6 +118,21 @@
     <view class="ship" wx:elif="{{fulfillment === 'async_compute'}}">下单后算，算完在这里看</view>
 
     <view class="note" wx:if="{{note}}">{{note}}</view>
+
+    <!-- 【几档就摆几档】（2026-09-06 · 五路体验走查）。这一屏原先只摆一个价 ——
+         香那一件于是永远显示 ¥29，而正文写着「十支约够一个月」，
+         ¥29 买到的是三支。三档此前只有从苏合屋里进去才看得见:
+         同一件商品，两条路进来看到的是两个不同的东西。
+         跟苏合那一屏同一套牌面（`.picks` / `.pick`），只有一档时不摆。 -->
+    <view class="picks" wx:if="{{档.length > 1}}">
+      <view wx:for="{{档}}" wx:key="id"
+            class="pick {{skuId === item.id ? 'pick-on' : ''}}"
+            data-id="{{item.id}}" bindtap="挑一档"
+            hover-class="pick-hover" hover-stay-time="80">
+        <view class="pick-n">{{item.name}}</view>
+        <view class="pick-p">{{item.priceText}}</view>
+      </view>
+    </view>
 
     <view class="cta">
       <!-- 「买」不再是下单，是去确认那一屏（R5 · P2）—— 文案跟着改，

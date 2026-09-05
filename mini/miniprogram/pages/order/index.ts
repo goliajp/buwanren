@@ -258,7 +258,7 @@ Page({
             // 香也挂着苏合，写成「苏合的御守」的话，同一屏上明细叫一个名字、
             // 底下总计那行叫另一个，看着像买了两样东西。
             name: (l.becomes_resident && l.villager_name)
-              ? l.villager_name + '的护身符'
+              ? l.villager_name + '的御守'
               : (l.sku_name || l.sku_id),
             qty: l.qty,
             sub: money(l.line_subtotal_minor, o.currency),
@@ -283,7 +283,7 @@ Page({
           /* 【住下了没】。这一屏原先摆的是「收到了，去扫一下」——
              而买御守从来不会寄出任何东西、也不会发凭据（后端付款那一刻
              直接 move_in），那颗按钮在这一屏按下去只会扫无可扫。
-             扫护身符那条路仍在村子主屏上，那是线下拿到实体的人走的。
+             扫御守那条路仍在村子主屏上，那是线下拿到实体的人走的。
              这里换成真实的完成态:他住进来了，去他屋里。
              判据跟进度条同源（`这一单走到哪儿`），不各写一套。 */
           住下了: !!(d.lines || []).some((l) => l.becomes_resident) &&
@@ -305,7 +305,7 @@ Page({
              从商品页那一屏的「丹增 · 下山的武僧」走过来，人不该在结账时消失。 */
           headline: d.lines.length
             ? (((d.lines[0].becomes_resident && d.lines[0].villager_name)
-                 ? d.lines[0].villager_name + '的护身符'
+                 ? d.lines[0].villager_name + '的御守'
                  : (d.lines[0].sku_name || d.lines[0].sku_id))
                + (d.lines.length > 1 ? ' 等 ' + d.lines.length + ' 件' : ''))
             : '单 ' + this.data.id.slice(0, 8),
@@ -320,7 +320,7 @@ Page({
   /* 这一单真正的完成态:他住进来了，去他屋里坐坐。
      原先这个位置是「收到了，去扫一下」+ 一个手输编号的输入框 ——
      两样都够不着任何东西:买御守不寄实物、不发凭据。
-     扫护身符仍在村子主屏（连手输那条路一起），那是线下拿到实体的人走的。 */
+     扫御守仍在村子主屏（连手输那条路一起），那是线下拿到实体的人走的。 */
   onVisit() {
     const w = this.data.who
     if (!w || !w.id) return

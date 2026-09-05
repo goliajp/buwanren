@@ -11,13 +11,15 @@
       <text class="greet-hi">{{greet}}</text>
       <text class="greet-day">{{today}}</text>
     </view>
-    <!-- 【2026-09-01】写「扫护身符」不写「扫御守」。
-         这是第一次打开的人第一眼看见的按钮，而「御守」在全 app
-         出现九处以上、没有一处解释过 —— 他不知道要扫什么、
-         扫哪儿、自己手上有没有（五路评审 · 第一次打开的人）。
-         「护身符」是中文里现成的词，不用学。
-         其余各屏仍然叫御守 —— 那时他手上已经有一枚，名字才立得住。 -->
-    <view class="scan" bindtap="onScan" hover-class="press-btn" hover-stay-time="80">扫护身符</view>
+    <!-- 【2026-09-06 统一成「御守」】（用户拍板）。
+         2026-09-01 这里特意写过「扫护身符」，理由记在那一版的注释里:
+         「御守」全 app 出现九处以上、没有一处解释过，
+         而这是第一次打开的人第一眼看见的按钮 —— 他不知道要扫什么。
+         那个理由现在仍然成立，所以**不是把注释删掉了事**:
+         词统一到御守，同时在按钮底下给它一句自我解释。
+         一个词要么处处一样、要么第一次出现时自己说清自己 ——
+         同一样东西两个名字，是这两者里最差的第三种。 -->
+    <view class="scan" bindtap="onScan" hover-class="press-btn" hover-stay-time="80">扫御守</view>
   </view>
 
   <!-- 「该扫了」（设计册 E2）。**只在「有单已签收、还没扫」时出现** ——
@@ -181,7 +183,7 @@
        而这一条不满足:扫码失败之后，屏上再没有第二条路。
        它本来就只在「该扫了」的时候出现，不常驻，不占地方。 -->
   <!-- 【扫失败那句话要看得见】（2026-09-02 第三轮评审 · 第一次打开的人）。
-       `onScan` 确实生成了「这串字对不上任何一枚护身符 —— 再看一眼背面，
+       `onScan` 确实生成了「这串字对不上任何一枚御守 —— 再看一眼背面，
        别漏字母」，但屏上唯一渲染 `codeErr` 的地方在下面那一块里，
        而那一块挂着 `wx:if="{{toScan}}"` —— 新用户为 false。
        于是:点第一屏第一个按钮，扫一个不认识的码，
@@ -201,7 +203,7 @@
       扫不出来？在这儿手输编号 <text class="manual-caret">{{手输开着 ? '⌃' : '⌄'}}</text>
     </view>
     <view class="manual-row" wx:if="{{手输开着}}">
-      <input class="manual-input" placeholder="护身符背面那串字"
+      <input class="manual-input" placeholder="御守背面那串字"
              value="{{code}}" maxlength="40" bindinput="onCodeInput"/>
       <view class="manual-go" bindtap="onCodeSubmit" hover-class="manual-go-hover" hover-stay-time="100">
         {{codeBusy ? '找着…' : '请出来'}}

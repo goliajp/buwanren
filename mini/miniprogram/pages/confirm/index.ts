@@ -68,6 +68,14 @@ interface IData {
   contact: Contact | null
   /** 选地址失败时那一行字。真机独有的能力，在网页上会抛 */
   addrNote: string
+  /** 【这是一件订阅】（2026-09-06）。`product.kind` 这个字段一直在
+   *  `types/commerce.ts` 里，而这一屏**一处都没读过** —— 于是每月扣一次的
+   *  东西跟买一盒香长得一模一样：合计写「一共 ¥78」没有「/ 月」、
+   *  底下是一次性买卖的话术、还摆着一个数量加减器。
+   *  一个怕被套牢的人在这一屏上找不到一个字告诉他这是自动续费。 */
+  订阅: boolean
+  /** 挑中的那一档叫什么。一件东西只有一档时是空串 —— 那时明细写商品名 */
+  档名: string
   /** 寄到哪填了没 —— 「去付」长什么样看它。
    *  这是【实物】：没有地址的订单寄不出去，而订单那一屏也没有补填的地方。 */
   有地址: boolean
@@ -90,7 +98,13 @@ interface IData {
    改成说【他要自己去哪儿看】。等一个不会来的通知，比一开始就知道
    要去哪儿看更让人焦躁 —— 而后者是这个 app 现在真做得到的事。
    哪天订阅消息接上了，这几句再改回来，那时它是真的。 */
-function 付完会怎样(kind: string): string {
+function 付完会怎样(kind: string, 订阅: boolean): string {
+  /* 【订阅先说，因为它说的是「以后还会扣钱」】（2026-09-06 · 五路体验走查）。
+     一味香按月送的 `fulfillment_kind` 是 `shipping`（迁移注释写着
+     「这样确认屏问地址那一路一个字都不用改」）—— 于是这一屏此前
+     把它当成一盒香，底下写着「付完之后就等它到」。
+     那是一次性买卖的话术，而这是每月扣一次的东西。 */
+  if (订阅) return '每月扣一次 · 下一盒约三十天后发 · 到期前随时能停，这一期照走完'
   if (kind === 'residency') return '付完就搬进村里那一格 —— 马上就能去屋里坐坐'
   if (kind === 'async_compute') return '付完就开始算 —— 在「我的 · 我买过的」里看进度'
   if (kind === 'shipping') return '付完之后就等它到 —— 物流在「我的 · 我买过的」里'
@@ -106,7 +120,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     券码: '', 券状态: '' as '' | '在算' | '用上了' | '不行',
     券说: '', 减了: 0, 减了文本: '', 实付文本: '',
     我的券: [], 第几张: 0, 当前券面: '', 手填: false,
-    要寄: false, 付完呢: '',
+    要寄: false, 付完呢: '', 订阅: false, 档名: '',
     qty: 1, message: '',
     contact: null, addrNote: '', buying: false, note: '', buyKey: '',
     /* 寄到哪填了没 —— 「去付」长什么样看它。
@@ -161,6 +175,9 @@ Page<IData, WechatMiniprogram.IAnyObject>({
         const sku = 想要 || p.skus.find(有价)
         const unit = sku ? (sku.current_price_minor || 0) : 0
         const cur = (sku && sku.current_currency) || 'CNY'
+        /* 判据用 `kind`，不用 `fulfillment_kind` —— 后者说的是「怎么交付」
+           （按月送的香跟买一盒香都是 shipping），前者才说「是不是订阅」 */
+        const 订阅了 = !!(p.product && p.product.kind === 'subscription')
         this.setData({
           loading: false, p,
           skuId: sku ? sku.id : '',
@@ -181,8 +198,13 @@ Page<IData, WechatMiniprogram.IAnyObject>({
              （2026-09-01 第二轮评审 · 转化路）。
              判据用后端给的 fulfillment_kind，不在这里按品类猜。 */
           要寄: p.product ? p.product.fulfillment_kind === 'shipping' : false,
-          付完呢: 付完会怎样(p.product ? p.product.fulfillment_kind : ''),
-          totalText: sku ? money(unit * this.data.qty, cur) : '',
+          订阅: 订阅了,
+          /* 有几档就说清是哪一档 —— 判据跟商品页同一个:有价的多于一档 */
+          档名: (sku && p.skus.filter(有价).length > 1) ? sku.name : '',
+          付完呢: 付完会怎样(p.product ? p.product.fulfillment_kind : '', 订阅了),
+          /* 【订阅的合计要带上「/ 月」】。少了这两个字，
+             屏上那个数看起来就是这一单的全部代价。 */
+          totalText: sku ? money(unit * this.data.qty, cur) + (订阅了 ? ' / 月' : '') : '',
         })
       },
       (e) => this.setData({ loading: false, err: '取不到：' + (一句(e)) }),
@@ -191,7 +213,12 @@ Page<IData, WechatMiniprogram.IAnyObject>({
 
   setQty(n: number) {
     const qty = Math.min(99, Math.max(1, n))
-    this.setData({ qty, totalText: this.data.skuId ? money(this.data.unit * qty, this.data.cur) : '' })
+    this.setData({
+      qty,
+      totalText: this.data.skuId
+        ? money(this.data.unit * qty, this.data.cur) + (this.data.订阅 ? ' / 月' : '')
+        : '',
+    })
     // 数量变了，折扣要重算 —— 按比例减的券，减多少跟买多少有关
     if (this.data.券状态 === '用上了') this.试券()
   },

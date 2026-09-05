@@ -17,7 +17,7 @@
     <view class="card card-who" wx:if="{{p.villager && 住进来}}">
       <view class="who-face face-{{p.villager.direction}} {{脸样 ? 'face-art' : ''}}" style="{{脸样}}"><text wx:if="{{!脸样}}">{{face}}</text></view>
       <view class="who-body">
-        <view class="card-name">{{p.villager.name}}的护身符</view>
+        <view class="card-name">{{p.villager.name}}的御守</view>
         <view class="card-sub">{{p.villager.title}}<text wx:if="{{p.villager.art}}"> · {{p.villager.art}}</text></view>
         <view class="card-price">{{unitText}}</view>
       </view>
@@ -55,7 +55,11 @@
          数量填 2 等于请两个婆婆，而村里只有一个婆婆、一格屋子。
          摆一个填了没意义的字段，比不摆更让人犹豫:人会停下来想
          「填 2 会怎样」，而那个问题没有答案。香和别的实物照旧摆。 -->
-    <view class="row" wx:if="{{!住进来}}">
+    <!-- 【订阅也不摆数量】（2026-09-06 · 五路体验走查）。
+         按月送的香填 2 是什么意思？每月寄两盒、还是订两份？——
+         这个问题屏上答不了，而后端 `renew_due` 每期就发一件。
+         摆一个填了没意义的字段，比不摆更让人犹豫。 -->
+    <view class="row" wx:if="{{!住进来 && !订阅}}">
       <text class="row-k">数量</text>
       <view class="stepper">
         <text class="step {{qty <= 1 ? 'step-off' : ''}}" bindtap="minus" hover-class="press-btn" hover-stay-time="80">−</text>
@@ -77,7 +81,12 @@
          说的是同一件（2026-09-01 第二轮评审 · 转化路）。
          判据跟卡片同一个（`p.villager && 住进来`），不另起一套。 -->
     <view class="row">
-      <text class="row-k" wx:if="{{p.villager && 住进来}}">{{p.villager.name}}的护身符 × {{qty}}</text>
+      <text class="row-k" wx:if="{{p.villager && 住进来}}">{{p.villager.name}}的御守 × {{qty}}</text>
+      <!-- 【多档的那几件要写清是哪一档】（2026-09-06 · 五路体验走查）。
+           香有三档（三支 ¥29 / 十支 ¥88 / 单配 ¥268），而这一行原先写的是
+           商品名「苏合配的那一味 × 1　¥29」—— 「试香 · 三支」这五个字
+           在整条掏钱的路上一次都没出现过，而正文写着「十支约够一个月」。 -->
+      <text class="row-k" wx:elif="{{档名}}">{{档名}} × {{qty}}</text>
       <text class="row-k" wx:else>{{p.product.name}} × {{qty}}</text>
       <text class="row-v">{{totalText}}</text>
     </view>

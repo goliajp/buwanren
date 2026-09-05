@@ -357,12 +357,12 @@ make_omamori_product() {
   psql "$DB" -q <<'SQL'
 INSERT INTO product (id, code, name, sub_title, category, kind, status,
                      fulfillment_kind, tags, sort_weight, available_regions)
-VALUES ('p25-oma-ayun', 'p25_oma_ayun', '阿云的护身符', '请她回村 · 住进你的村子',
+VALUES ('p25-oma-ayun', 'p25_oma_ayun', '阿云的御守', '请她回村 · 住进你的村子',
         'omamori', 'one_shot', 'listed', 'residency', ARRAY['御守','村民'], 95,
         ARRAY['cn','zh_hant'])
 ON CONFLICT (id) DO UPDATE SET status='listed';
 INSERT INTO sku (id, product_id, code, name, stock_kind, default_currency, status, villager_id)
-VALUES ('p25-sku-oma-ayun', 'p25-oma-ayun', 'p25_sku_oma_ayun', '阿云的护身符',
+VALUES ('p25-sku-oma-ayun', 'p25-oma-ayun', 'p25_sku_oma_ayun', '阿云的御守',
         'unlimited', 'CNY', 'active', 'ayun')
 ON CONFLICT (id) DO UPDATE SET status='active';
 

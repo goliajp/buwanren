@@ -121,13 +121,13 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     commerceApi.products('omamori', id).then(
       (all) => {
         if (this.data.id !== id) return          // 翻页翻快了，别把上一位的价贴上来
-        /* 【挂着人 ≠ 是护身符】。香也挂着苏合（`sku.villager_id`），
+        /* 【挂着人 ≠ 是御守】。香也挂着苏合（`sku.villager_id`），
            但买香是寄一盒香给你，不是请她搬进来。判据是会不会有人住进村里
            —— `fulfillment_kind === 'residency'`，不是分类叫 omamori。 */
         const list = all.filter((x) => x.fulfillment_kind === 'residency')
         if (!list.length) {
           /* 按钮上只写【为什么按不动】那半句，名字不写进去 ——
-             「桃桃的护身符还没做出来」放在一颗全宽按钮上要折行，
+             「桃桃的御守还没做出来」放在一颗全宽按钮上要折行，
              而这一屏从头到尾都在说这一位是谁，名字在按钮上是重复的。 */
           this.setData({ 请不来: '这一枚还没做出来' })
           return
