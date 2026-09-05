@@ -451,6 +451,11 @@ gate "区名只有名册说了算" . python3 scripts/check-region-vocab.py
 # 补上清单之后又撞到反面:清单一旦存在，bun 就只认清单里写的 ——
 # `pngjs` 从前靠它顺手装，当场变成 `Cannot find package`。
 gate "门禁脚本要的包都钉住了吗" . python3 scripts/check-script-deps.py
+# 【屏上摆着、点得动、而它不起作用】。2026-09-06 一天撞到两次:
+# 退款页按订单号搜不到（后端收下 `keyword` 而 SQL 不用），
+# 商品页的「类型」下拉框从建起来就没生效过（`Pg` 根本没有 `kind`）。
+# 两边都不报错 —— serde 静静丢掉，屏上只表现为「我筛了，条数没变」。
+gate "屏上的筛选框后端真用上了吗" . python3 scripts/check-query-params-used.py
 if [ -d webadmin/node_modules ]; then
   gate "webadmin build · 类型+打包" webadmin npm run build
 else

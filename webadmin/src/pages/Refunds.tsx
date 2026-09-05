@@ -97,6 +97,12 @@ export default function Refunds() {
       <div className="p-4">
         <FilterBar
           fields={[
+            /* 【按单号找】（2026-09-06 · 五路体验走查）。这一栏此前不存在,
+               而客服在这一页最常做的一件事就是「他说的是哪一单」——
+               四百多条待批只能靠日期缩窄再肉眼翻。
+               后端其实一直收着 `keyword`（`Pg` 结构体里就有），
+               只是 SQL 里一次没用 —— 实测带不带它都返回 2,538 条。 */
+            { kind: 'text', key: 'keyword', label: '找', placeholder: '订单号 / 退款号 / 支付号', width: 220 },
             { kind: 'select', key: 'status', label: '状态', options: REFUND_STATUSES.map(v => ({ v, label: statusLabel(v) })) },
             { kind: 'date', key: 'from', label: '从' },
             { kind: 'date', key: 'to', label: '到' },

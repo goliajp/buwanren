@@ -62,6 +62,9 @@ FILES=(
   # 浏览器版本那一支的变异对象
   package.json
   rooms/package.json
+  # 筛选框那一支的变异对象（后端那一侧与屏那一侧各一条）
+  backend/unmei-admin-api/src/routes/commerce.rs
+  webadmin/src/pages/Refunds.tsx
   mini/miniprogram/types/natal.ts
   backend/unmei-admin-api/src/routes/users.rs
   webadmin/src/lib/api.ts
@@ -391,6 +394,15 @@ mutate "两处钉的版本走散了" check-script-deps \
 # 清单里少一个 —— 它会以 `Cannot find package` 的样子红在别的门禁上
 mutate "要的包漏在清单外" check-script-deps \
   "edit('package.json', '    \"pngjs\": \"7.0.0\"\\n', '')"
+
+echo
+echo "── check-query-params-used（屏上的筛选框后端用没用）──"
+# 后端把某个筛选字段从 SQL 里拿掉 —— 屏上那个框从此是摆设，而两边都不报错
+mutate "后端不再用屏上那个筛选框" check-query-params-used \
+  "edit('backend/unmei-admin-api/src/routes/commerce.rs', 'let kind = q.kind.clone();', 'let kind: Option<String> = None;')"
+# 屏上多摆一个后端根本不认的框 —— 人筛了，条数一点不变
+mutate "屏上多摆一个后端不认的框" check-query-params-used \
+  "edit('webadmin/src/pages/Refunds.tsx', \"{ kind: 'select', key: 'status', label: '状态'\", \"{ kind: 'text', key: 'nosuchfield', label: '瞎筛' },\\n            { kind: 'select', key: 'status', label: '状态'\")"
 
 echo
 echo "── check-bodies（写操作的请求体）──"

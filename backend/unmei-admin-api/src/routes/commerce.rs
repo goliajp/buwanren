@@ -515,15 +515,36 @@ fn pg_value_to_json(r: &sqlx::postgres::PgRow, i: usize) -> J {
 
 // ═══════════════════════════ Catalog ═══════════════════════════
 
+/// 商品列表的筛选。
+///
+/// 【为什么不复用 `Pg`】（2026-09-06 · 五路体验走查）。后台商品页的筛选栏上
+/// 摆着一个「类型」下拉框（one_shot / subscription / digital_goods / service），
+/// 而 `Pg` **没有 `kind` 字段** —— serde 把它静静丢掉，
+/// 实测 `kind=subscription` 与不带它一样返回 13,901 条：
+/// **那个下拉框从建起来就没生效过，而屏上看不出任何区别**。
+///
+/// 订单 / 支付 / 运单三页早就各有自己的 filter 结构体，商品这一页是漏的。
+/// `scripts/check-query-params-used.py` 从此盯着这一类。
+#[derive(Debug, Deserialize, Default)]
+struct ProductFilter {
+    #[serde(default)] page: i64,
+    #[serde(default = "default_size")] size: i64,
+    keyword: Option<String>,
+    status: Option<String>,
+    kind: Option<String>,
+    region: Option<String>,
+}
+
 async fn list_products(
-    State(st): State<AppState>, admin: Admin, Query(q): Query<Pg>,
+    State(st): State<AppState>, admin: Admin, Query(q): Query<ProductFilter>,
 ) -> Result<Json<Page<J>>, ApiError> {
     let kw = q.keyword.clone().unwrap_or_default();
     let kw_like = format!("%{kw}%");
     let status = q.status.clone();
+    let kind = q.kind.clone();
     let region = normalize_region_scoped(&q.region, &admin)?;
-    let off = q.off();
-    let lim = q.lim();
+    let off = q.page * q.size;
+    let lim = q.size.clamp(1, 200);
     // product 是全局 SPU,按 available_regions 数组判可见性
     let rows = sqlx::query(
         r#"SELECT id, code, name, sub_title, category, kind, status, fulfillment_kind,
@@ -532,17 +553,19 @@ async fn list_products(
            WHERE ($1='' OR name ILIKE $2 OR code ILIKE $2)
              AND ($3::text IS NULL OR status = $3)
              AND ($4::text IS NULL OR $4 = ANY(available_regions))
+             AND ($7::text IS NULL OR kind = $7)
            ORDER BY sort_weight DESC, created_at DESC
            OFFSET $5 LIMIT $6"#,
     )
-    .bind(&kw).bind(&kw_like).bind(&status).bind(&region).bind(off).bind(lim)
+    .bind(&kw).bind(&kw_like).bind(&status).bind(&region).bind(off).bind(lim).bind(&kind)
     .fetch_all(&st.db).await.map_err(map_db)?;
     let total: i64 = sqlx::query_scalar(
         r#"SELECT COUNT(*) FROM product
            WHERE ($1='' OR name ILIKE $2 OR code ILIKE $2)
              AND ($3::text IS NULL OR status = $3)
-             AND ($4::text IS NULL OR $4 = ANY(available_regions))"#,
-    ).bind(&kw).bind(&kw_like).bind(&status).bind(&region)
+             AND ($4::text IS NULL OR $4 = ANY(available_regions))
+             AND ($5::text IS NULL OR kind = $5)"#,
+    ).bind(&kw).bind(&kw_like).bind(&status).bind(&region).bind(&kind)
      .fetch_one(&st.db).await.map_err(map_db)?;
     Ok(Json(Page { items: map_rows(rows), total, page: q.page, size: q.size }))
 }
@@ -1153,6 +1176,15 @@ async fn list_refunds(
     State(st): State<AppState>, admin: Admin, Query(q): Query<Pg>,
 ) -> Result<Json<Page<J>>, ApiError> {
     let region = normalize_region_scoped(&q.region, &admin)?;
+    /* 【`keyword` 收下了，而 SQL 里一次都没用】（2026-09-06 · 五路体验走查）。
+       `Pg` 有这个字段，前端 FilterBar 也发得出来 —— 实测带不带它，
+       返回都是 2,538 条。而 serde 对不认识的字段是静静丢掉，
+       所以两边都不报错，只是那个搜索框永远不生效。
+
+       后果落在客服身上:退款页四百多条待批，**按订单号搜不到**,
+       只能靠日期缩窄再肉眼翻。这是这一页最常做的一件事。 */
+    let kw = q.keyword.clone().unwrap_or_default();
+    let kw_like = format!("%{kw}%");
     let rows = sqlx::query(
         r#"SELECT id, order_id, payment_id, amount_minor, currency, reason_code, reason_text,
                   actor_kind, status, approved_at, completed_at, failure_code, created_at, region
@@ -1161,15 +1193,18 @@ async fn list_refunds(
              AND ($2::timestamptz IS NULL OR created_at >= $2)
              AND ($3::timestamptz IS NULL OR created_at <= $3)
              AND ($4::text IS NULL OR region=$4)
+             AND ($7='' OR id ILIKE $8 OR order_id ILIKE $8 OR payment_id ILIKE $8)
            ORDER BY created_at DESC OFFSET $5 LIMIT $6"#,
     ).bind(&q.status).bind(q.from).bind(q.to).bind(&region).bind(q.off()).bind(q.lim())
+     .bind(&kw).bind(&kw_like)
      .fetch_all(&st.db).await.map_err(map_db)?;
     let total: i64 = sqlx::query_scalar(
         r#"SELECT COUNT(*) FROM refund WHERE ($1::text IS NULL OR status=$1)
            AND ($2::timestamptz IS NULL OR created_at >= $2)
            AND ($3::timestamptz IS NULL OR created_at <= $3)
-           AND ($4::text IS NULL OR region=$4)"#,
-    ).bind(&q.status).bind(q.from).bind(q.to).bind(&region)
+           AND ($4::text IS NULL OR region=$4)
+           AND ($5='' OR id ILIKE $6 OR order_id ILIKE $6 OR payment_id ILIKE $6)"#,
+    ).bind(&q.status).bind(q.from).bind(q.to).bind(&region).bind(&kw).bind(&kw_like)
      .fetch_one(&st.db).await.map_err(map_db)?;
     Ok(Json(Page { items: map_rows(rows), total, page: q.page, size: q.size }))
 }
@@ -1655,9 +1690,28 @@ async fn monthly_report(
 /// 【`audit_log` 一直是空的，也没有地方看】——十八个写操作各自往业务表的
 /// `audit_note` 里拼一句话，那能回答「这条记录被谁动过」，
 /// 回答不了「今天这个人做了什么」。
+/// 【它对分区管理员是敞开的】（2026-09-06 · 五路体验走查）。签名是 `_: Admin`，
+/// SQL 里没有 region —— 实测 `region_scope={zh_hant}` 的管理员拿到的
+/// **1,056 条与超级管理员逐字相同**，第一条就是「超级管理员 批了退款 rfd-8e1e…」,
+/// 一笔大陆的退款。
+///
+/// 【为什么不按区过滤，而是整页只给不限区的人看】：
+/// `audit_log` **没有 region 列**（id / admin_id / action / target_type /
+/// target_id / diff / ip / created_at）。按 `target_id` 反查十六张业务表
+/// 去凑一个区出来，是把简单问题做复杂，而且漏一张表就是漏一个口子。
+/// 一页看不到，比一页看到别人的东西好。
+///
+/// 开第二格那天要做的是给 `audit_log` 加一列 region，
+/// 由 `audit.rs` 中间件写入时从 `这个对象归他管吗` 已经查出来的那一行里取 ——
+/// 那时这一页才真的能按区看。
 async fn list_audit(
-    State(st): State<AppState>, _: Admin, Query(q): Query<Pg>,
+    State(st): State<AppState>, admin: Admin, Query(q): Query<Pg>,
 ) -> Result<Json<Page<J>>, ApiError> {
+    let scope = &admin.0.region_scope;
+    let 不限 = scope.is_empty() || scope.iter().any(|s| s == "global");
+    if !不限 {
+        return Err(ApiError(AppError::Forbidden));
+    }
     let kw = q.keyword.clone().unwrap_or_default();
     let kw_like = format!("%{kw}%");
     let rows = sqlx::query(
