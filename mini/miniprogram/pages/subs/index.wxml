@@ -30,6 +30,20 @@
             style="animation-delay:{{index * 40}}ms">
         <view class="item-name">{{item.名}}</view>
         <view class="item-meta {{item.要紧 ? 'meta-hot' : ''}}">{{item.说}}</view>
+        <!-- 【一张卡上只给一个动作】。扣不成的要补、还在续的可以停，
+             两者互斥;已经停了的什么都不给 —— 那时也确实无事可做。
+             按下去到答复回来之间换个字:不换的话人会以为没反应，
+             再按一次，而第二次是真的又发一笔。 -->
+        <view class="item-do" wx:if="{{item.动 === '补'}}"
+              data-id="{{item.id}}" bindtap="onPay"
+              hover-class="press-btn" hover-stay-time="80">
+          {{忙 === item.id ? '正在补……' : '补上这一期 ›'}}
+        </view>
+        <view class="item-do do-quiet" wx:elif="{{item.动 === '停'}}"
+              data-id="{{item.id}}" bindtap="onStop"
+              hover-class="press-text" hover-stay-time="80">
+          {{忙 === item.id ? '正在停……' : '不再续了'}}
+        </view>
       </view>
     </view>
 

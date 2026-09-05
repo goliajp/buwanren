@@ -77,3 +77,19 @@
 /* 扣不成的那两种（past_due / grace）。灰色的一行读起来跟「订着」一样平，
    而这两种是【他现在就得动手】的 —— 不显眼等于没说。 */
 .item-meta.meta-hot { color: var(--peach-text); }
+
+/* 卡上那一个动作。
+   「补上这一期」是这一屏唯一花钱的动作，给它主色;
+   「不再续了」是退出的动作，压成灰的一行 —— 两个一样重的话，
+   眼睛就分不出哪个是这张卡在等他做的事。
+   两个都撑到 44px 高（`check-tap-size.py` 那条线）。 */
+.item-do {
+  margin-top: 18rpx;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--peach-text);
+}
+.item-do.do-quiet { font-weight: 400; color: var(--ink-faint); }

@@ -28,4 +28,10 @@ export interface Subscription {
   status: string
   current_period_end?: string | null
   cancel_at_period_end?: boolean | null
+  /** 这一份订的是哪件商品。「还能订什么」那一块靠它把重复的那件摘掉 */
+  product_id?: string | null
+  /** 这一档每期发什么（`plan.entitlements_json` 的 `ships`）。
+   *  一味香按月送是「十支一盒」—— 有它的时候屏上说的是「下一盒 X 发」，
+   *  没有的时候只能说「续到 X」。**不在页面里按 plan_id 写死** */
+  ships?: string | null
 }

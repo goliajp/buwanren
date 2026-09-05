@@ -128,3 +128,23 @@
   font-size: 19rpx; font-weight: 600; letter-spacing: .02em;
 }
 .pick { position: relative; }
+
+/* 【按月送】。它跟上面三张牌不是同一种东西 —— 三张牌是买一次，
+   这一条是每月收到一盒。所以形状也不同:不做成第四张牌，
+   做成一条横跨整宽的卡，摆在那句注脚底下。
+   底色比纸略深一档，不用主色 —— 这一屏的主动作仍然是那三张牌里的「买」，
+   按月是给已经在烧的人看的第二条路，不该抢在第一次来的人眼前。 */
+.monthly {
+  margin-top: 24rpx;
+  padding: 24rpx 26rpx;
+  background: var(--paper-panel);
+  border-radius: var(--r-card);
+  box-shadow: var(--sh-card);
+  transition: transform .12s cubic-bezier(.34,1.56,.64,1);
+}
+.m-top { display: flex; align-items: baseline; }
+.m-k { flex: 1; font-size: 30rpx; font-weight: 600; color: var(--ink); }
+.m-p { flex: none; font-size: 28rpx; font-weight: 700; color: var(--ink);
+       font-variant-numeric: tabular-nums; }
+.m-sub { margin-top: 10rpx; font-size: 24rpx; color: var(--ink-faint); }
+.m-go { margin-left: 10rpx; color: var(--stone-label); }

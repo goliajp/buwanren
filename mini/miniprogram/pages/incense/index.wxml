@@ -66,6 +66,20 @@
 
   <view class="note">一支烧二三十分钟 · 十支约够一个月</view>
 
+  <!-- 【按月送】就摆在那句注脚底下 —— 那句话本身就是它的论据:
+       「十支约够一个月」。上面三张牌是买一次，这一条是每月收到一盒，
+       两种形状不同，所以它不做成第四张牌。
+       「随时能停」写在第一屏:这一档唯一会让人犹豫的就是「停不停得掉」。
+       取不到价就整块不摆（见 index.ts 的 `load按月`）。 -->
+  <view wx:if="{{按月}}" class="monthly" bindtap="onPick按月"
+        hover-class="press-card" hover-stay-time="100">
+    <view class="m-top">
+      <text class="m-k">按月送 · 每月十支</text>
+      <text class="m-p">{{按月.priceText}} / 月</text>
+    </view>
+    <view class="m-sub">烧完了下一盒也就到了 · 随时能停<text class="m-go">›</text></view>
+  </view>
+
   <!-- 弹性槽 · 矮屏收起。**到点了才是入口** —— 不到点它只是一句话。
        一条常年可点、点进去说「还没开始」的链接，等于把设计册明说不要做的
        那张占位页换个地方摆出来。 -->

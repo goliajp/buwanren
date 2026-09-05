@@ -19,6 +19,7 @@
 
 use chrono::Utc;
 use sqlx::{PgPool, Row};
+use unmei_domain::commerce::enums::BillingPeriod;
 use unmei_domain::commerce::events::DomainEvent;
 use unmei_domain::DomainError;
 
@@ -63,7 +64,8 @@ pub async fn apply_order_paid(pool: &PgPool, order_id: &str) -> Result<Fulfillme
     // user_id 与 villager_id 一起取回来:御守行要靠它们写入住。
     // 分两次查的话,中间那段时间足够订单被改掉。
     let lines = sqlx::query(
-        r#"SELECT ol.id, p.fulfillment_kind, p.report_kind, s.villager_id, o.user_id
+        r#"SELECT ol.id, ol.sku_id, p.fulfillment_kind, p.report_kind,
+                  s.villager_id, o.user_id, o.source_kind, o.region
            FROM order_line ol
            JOIN sku s          ON s.id = ol.sku_id
            JOIN product p      ON p.id = s.product_id
@@ -150,6 +152,87 @@ pub async fn apply_order_paid(pool: &PgPool, order_id: &str) -> Result<Fulfillme
                     .bind(&line_id)
                     .execute(&mut *tx)
                     .await.db()?;
+
+                /* 【这个 sku 背后挂着套餐吗】——挂着就顺手把订阅开起来。
+                   （2026-09-05 · 一味香按月送）
+
+                   订阅这一块此前**没有 create**:`unmei_app::subscription` 只有
+                   cancel / renew_due / record_renewal_failure。黄金会员因此
+                   「买了什么也不发生」，最后被下架
+                   （`20260828003_delist_membership.sql`）。
+
+                   开通不另开一条履约分支，就挂在寄东西这一支上 ——
+                   因为付完钱**真实发生的事就是「一盒香寄给你」**。
+                   订阅只是「下个月还会再寄一盒」这件事的记法。
+                   这样确认屏问地址那一路也一个字都不用改:它认的正是 shipping。
+
+                   判据是 `plan.sku_id`，不是商品 kind:kind 说的是「它是订阅」,
+                   而这里要问的是「哪一份套餐」——后者只有 plan 表答得出。
+
+                   【已经订着就不再开一份】。续期订单走的是同一个 sku
+                   （见 subscription.rs `renew_due` 补的那一行），所以每续一期
+                   都会再走到这里;没有这道守卫，续一次就多一份订阅。
+                   它同时挡住「同一件按月的东西买两次」。 */
+                let sku_id: String = l.get("sku_id");
+                let user_id: String = l.get("user_id");
+                let 区: String = l.get("region");
+                let 套餐: Option<(String, String, i32)> = sqlx::query_as(
+                    "SELECT id, billing_period, trial_days FROM plan
+                      WHERE sku_id=$1 AND status='active' LIMIT 1",
+                )
+                .bind(&sku_id)
+                .fetch_optional(&mut *tx)
+                .await.db()?;
+                if let Some((plan_id, billing_period, trial_days)) = 套餐 {
+                    let 已经订着: Option<String> = sqlx::query_scalar(
+                        "SELECT id FROM subscription
+                          WHERE user_id=$1 AND plan_id=$2
+                            AND status IN ('trialing','active','past_due','grace','paused')
+                          LIMIT 1",
+                    )
+                    .bind(&user_id)
+                    .bind(&plan_id)
+                    .fetch_optional(&mut *tx)
+                    .await.db()?;
+                    if 已经订着.is_none() {
+                        /* 周期长度跟 `renew_due` 用同一张表 —— 两处各写一份必然走散,
+                           而走散的样子是「屏上说下一盒 10 月 5 日，实际 11 月才扣」。 */
+                        let 天 = match BillingPeriod::from_str_lax(&billing_period) {
+                            Some(BillingPeriod::Month) => 30,
+                            Some(BillingPeriod::Quarter) => 90,
+                            Some(BillingPeriod::Year) => 365,
+                            Some(BillingPeriod::Lifetime) => 365 * 100,
+                            /* 认不出就不开 —— 猜一个周期等于替用户决定多久扣一次钱。
+                               `plan.billing_period` 有 CHECK，所以这条路今天够不到。 */
+                            None => {
+                                tracing::error!(plan_id, billing_period,
+                                    "套餐的周期认不出，这一单不开通订阅");
+                                continue;
+                            }
+                        };
+                        // 试用天数照 plan 走。一味香那一档是 0（实物试用等于白送一盒）,
+                        // 留着这条是因为别的套餐可能要
+                        let 起 = chrono::Utc::now();
+                        let 止 = 起 + chrono::Duration::days(天 + i64::from(trial_days));
+                        sqlx::query(
+                            r#"INSERT INTO subscription(
+                                 id, user_id, plan_id, status, source_channel,
+                                 current_period_start, current_period_end,
+                                 next_billing_attempt_at, cancel_at_period_end, region)
+                               VALUES ($1, $2, $3, $4, 'wechat_mp', $5, $6, $6, false, $7)"#,
+                        )
+                        .bind(new_id("sub"))
+                        .bind(&user_id)
+                        .bind(&plan_id)
+                        .bind(if trial_days > 0 { "trialing" } else { "active" })
+                        .bind(起)
+                        .bind(止)
+                        .bind(&区)
+                        .execute(&mut *tx)
+                        .await.db()?;
+                        tracing::info!(order_id, plan_id, "订阅已开通");
+                    }
+                }
             }
             // 御守:付了钱,这位不完人就住进你的村子。走同一条履约管线,不另开一条。
             "residency" => {

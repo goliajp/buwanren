@@ -46,6 +46,9 @@ interface IData {
   /** 她那一句。没有本命时是空 —— **不编一句**，改说不知道并给出口 */
   line: string
   skus: Array<{ id: string; name: string; priceText: string; 荐: boolean }>
+  /** 按月送那一档。取不到就是空 —— 那时整块不摆，不编一个价出来。
+   *  它跟上面三档不是同一种东西:三档是买一次，这一档是每月收到一盒。 */
+  按月: { skuId: string; priceText: string } | null
 }
 
 /* 三档要分出主次。
@@ -66,7 +69,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     /* 这一屏就是苏合的 —— 头像也就写死她。
        上一轮接四十张脸时扫的是 `face-{{…}}` 那种模式，
        这里的类名是写死的 `face-near`，于是漏掉了。 */
-    脸样: 脸('suhe'), productId: 'prod-suhe-incense', loading: true, err: '', line: '', skus: [], tonight: false, 当口: '', 今口: '' },
+    脸样: 脸('suhe'), productId: 'prod-suhe-incense', loading: true, err: '', line: '', skus: [], tonight: false, 当口: '', 今口: '', 按月: null },
 
   onLoad(q: Record<string, string | undefined>) {
     if (q.id) this.setData({ productId: q.id })
@@ -98,6 +101,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
       (e: ApiError) => this.setData({ loading: false, err: 一句(e) }),
     )
     this.loadLine()
+    this.load按月()
     /* 今晚开着没有。取不到就当没开 —— 猜「开着」的话，
        这一槽会把人送进一屏说「还没开始」的东西。 */
     incenseApi.now().then(
@@ -109,6 +113,36 @@ Page<IData, WechatMiniprogram.IAnyObject>({
       // 取不到就不说时刻。说错一个钟点比不说更伤 —— 有人会照着它来
       () => this.setData({ 当口: '', 今口: '' }),
     )
+  },
+
+  /* 【按月送那一档】。
+     商品号写死在这儿，跟这一屏的头像写死苏合是同一个理由:
+     **这一屏就是她的**（设计册 10.8「东西长在卖它的人身上」）。
+     第二个按月卖东西的人来时，各配一张表 —— 那时再拆。
+
+     取不到就不摆这一块。摆一个没有价的入口，点进去才发现买不了,
+     比不摆更糟 —— 跟上面三档挑价那一段同一条判据。 */
+  load按月() {
+    commerceApi.product('prod-incense-monthly').then(
+      (d) => {
+        const 有价 = d.skus.filter((s) => s.current_price_minor != null && s.current_currency)
+        this.setData({
+          按月: 有价.length
+            ? {
+                skuId: 有价[0].id,
+                priceText: money(有价[0].current_price_minor as number,
+                                 有价[0].current_currency as string),
+              }
+            : null,
+        })
+      },
+      () => this.setData({ 按月: null }),
+    )
+  },
+
+  onPick按月() {
+    const s = this.data.按月
+    if (s) wx.navigateTo({ url: '/pages/confirm/index?id=prod-incense-monthly&sku=' + s.skuId })
   },
 
   /** 她那一句要按【你缺什么】来。取不到本命就不说 —— 见 wxml 里那一段。 */

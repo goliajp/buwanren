@@ -153,7 +153,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
 
     Promise.all([
       mineApi.subscriptions().catch(() => null),
-      commerceApi.products('service').catch(() => []),
+      commerceApi.subscribable().catch(() => []),
     ]).then(([list, 能订的]) => {
       if (!list) { this.setData({ subText: '看不到' }); return }
       this.setData({

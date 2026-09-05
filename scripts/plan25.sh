@@ -547,10 +547,53 @@ do_seed() {
   #             屏上唯一说得出这件事的是 cancel_at_period_end 那一句
   #      月卡 · 这期没扣成 —— 他现在就得动手，那一行是要显眼的
   #      月卡 · 早就到期的那一份 —— 台账里留着，不该跟前两种一个说法
-  mock_subscribe "p25-sub-${I4}-y" "$I4" plan-mg-year  active   '300 days' '65 days'  true  || return 1
-  mock_subscribe "p25-sub-${I4}-m" "$I4" plan-mg-month past_due '25 days'  '5 days'   false || return 1
-  mock_subscribe "p25-sub-${I4}-o" "$I4" plan-mg-month expired  '420 days' '-390 days' false || return 1
-  say_dim "U4 钱在飞的 $I4 —— 待付 / 在途 / 等着批的退款 / 三份订阅"
+  # ── 订着的那一份【真买】（2026-09-05）────────────────────────
+  # 这三行以前全是 `mock_subscribe`，因为当时**买不了**:
+  # 订阅这一块没有 create，唯一能订的黄金会员又是下架的。
+  # 一味香按月送接上之后，「订一份」是走得通的真事 —— 真事就不该再 mock。
+  #
+  # 留着下面那两行 mock 的是【历史】:一份退了的、一份到期的。
+  # 那两种要有过去的时间，而真买只造得出「现在开始的这一份」。
+  local o4s
+  o4s=$(must_order "$T4" '{"lines":[{"sku_id":"sku-incense-monthly","qty":1}],"region":"cn","contact":{"name":"P25·钱在飞的","phone":"13800000004"},"shipping_address":{"province":"上海","city":"上海","district":"静安","detail":"某处 4 号","name":"P25","phone":"13800000004"}}' "U4 订一份一味香按月") || return 1
+  call POST "$T4" "/v1/orders/$o4s/pay" '{"channel":"wechat_mp","openid":"p25_u4"}' >/dev/null
+  wait_paid "$o4s" || return 1
+  # 【开通与发货都要真的发生】。订阅这一块此前的病就是「买了什么也不发生」,
+  # 而那件事**订单是 paid、屏上一切正常**——只有去库里看才看得见。
+  local sub4 shp4 k
+  for k in $(seq 1 30); do
+    sub4=$(psql1 "SELECT id FROM subscription WHERE user_id='$I4' AND plan_id='plan-incense-monthly'")
+    [ -n "$sub4" ] && break
+    sleep 1
+  done
+  want "买了按月送，订阅真的开通了" ok "$([ -n "$sub4" ] && echo ok || echo 没开通)"
+  for k in $(seq 1 30); do
+    shp4=$(psql1 "SELECT id FROM shipment WHERE order_id='$o4s'")
+    [ -n "$shp4" ] && break
+    sleep 1
+  done
+  want "而且这一期的那一盒真的发了" ok "$([ -n "$shp4" ] && echo ok || echo 没发)"
+
+  # 【补上这一期 = 续一期】。把周期推到已经过去，再走用户那颗按钮那条路。
+  # 收款仍是 mock（跟 worker 那一侧一样），发货是真的。
+  if [ -n "$sub4" ]; then
+    psql1 "UPDATE subscription SET current_period_end=NOW()-INTERVAL '1 day', status='past_due' WHERE id='$sub4'" >/dev/null
+    call POST "$T4" "/v1/subscriptions/$sub4/pay" '{}' >/dev/null
+    want "补上这一期之后它回到订着" active "$(psql1 "SELECT status FROM subscription WHERE id='$sub4'")"
+    # 数的是【续期那一单】开出来的包裹 —— 数「这个人一共几只包裹」会把
+    # 他别的单子也算进去，那个数一改别的用例就得跟着改
+    want "而且又发了一盒" 1 "$(psql1 "SELECT count(*) FROM shipment sp JOIN order_record o ON o.id=sp.order_id WHERE o.user_id='$I4' AND o.source_kind='subscription_renew'")"
+    # 【别人退不掉我的订阅】。订阅号是可猜的，不问归属就等于谁都能退别人的
+    want "别人退不掉这一份" 403 "$(curl -s -o /dev/null -w '%{http_code}' -X POST "${API}/v1/subscriptions/$sub4/cancel" -H "authorization: Bearer ${T3}")"
+    call POST "$T4" "/v1/subscriptions/$sub4/cancel" '{}' >/dev/null
+    want "自己点不再续，标记打上了" t "$(psql1 "SELECT cancel_at_period_end FROM subscription WHERE id='$sub4'")"
+    want "而这一期还活着 —— 到期不续不是立刻停" active "$(psql1 "SELECT status FROM subscription WHERE id='$sub4'")"
+  fi
+
+  # 下面两份是【历史】，只能 mock:真买造不出「去年退掉的那一份」
+  mock_subscribe "p25-sub-${I4}-y" "$I4" plan-mg-year  cancelled '300 days' '65 days'  true  || return 1
+  mock_subscribe "p25-sub-${I4}-o" "$I4" plan-mg-month expired   '420 days' '-390 days' false || return 1
+  say_dim "U4 钱在飞的 $I4 —— 待付 / 在途 / 等着批的退款 / 一份真订着的 + 两份历史"
 
   # ── U5 香港那位：贵的一单（触发风控）+ 包裹出状况 ────────────
   read -r T5 I5 <<<"$(make_user u5 hk)"
