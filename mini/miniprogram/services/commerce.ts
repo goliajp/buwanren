@@ -109,7 +109,15 @@ export const commerceApi = {
       idem(idemKey),
     ),
 
-  orders: (): Promise<OrderPage> => api.get<OrderPage>('/v1/orders'),
+  /* 【翻页要真翻到服务端去】（2026-09-05）。这一行原先不带任何参数，
+     后端默认一页 20 条 —— 而「我买过的」那一屏把拿到的东西按每页五笔
+     切开、并且把服务端给的 `total` 印在标题上。
+     买过 30 单的人于是看到「30 笔」，翻到第四页就没有了，
+     **而屏上没有一处说得出剩下十笔在哪儿**。
+     那一屏一页五笔是设计定的（10.3:一屏放得下五笔，多了左右翻），
+     所以这里也按五笔要 —— 翻一页打一次接口，跟后台那些列表一样。 */
+  orders: (page = 0, size = 20): Promise<OrderPage> =>
+    api.get<OrderPage>('/v1/orders?page=' + page + '&size=' + size),
 
   order: (id: string): Promise<OrderDetail> => api.get<OrderDetail>('/v1/orders/' + id),
 

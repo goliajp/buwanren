@@ -1,0 +1,8 @@
+{
+  "name": "buwanren",
+  "private": true,
+  "_为什么有这个文件": "仓库根本来没有 package.json —— 而 web/*.mjs 与 scripts/*.mjs 都 `import { chromium } from 'playwright'`，bun 在没有清单的时候会自己装一个最新的。2026-09-05 它从 1.62.1 漂到 1.63.0，那一版要的 chromium 本机没有，于是浏览器那一整面门禁（动线 / 截屏 / 触达面 / 对比度 / 三个管理员逐页走，共十支）一起红，报的是「Executable doesn't exist」—— 而这句话看着像产品坏了。钉在这里，跟 rooms/package.json 同一个版本；`scripts/check-browser-pin.py` 守着两处不许走散。",
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}

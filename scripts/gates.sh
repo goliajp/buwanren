@@ -443,6 +443,12 @@ gate "运营台 · 取不到时说得出来" . python3 scripts/check-console-rea
 # cn/hk/tw/jp/us/eu，而两边只有 cn 与 jp 对得上。挑 tw 发出去的价
 # 落进一个谁也查不到的 region，按 tw 关一个功能永远关不到人。
 gate "区名只有名册说了算" . python3 scripts/check-region-vocab.py
+# 【浏览器版本漂一次，红十支】。仓库根原先没有 package.json，
+# 而 web/ 与 scripts/ 下六个脚本都 import playwright —— bun 自己装最新的。
+# 2026-09-05 它从 1.62.1 漂到 1.63.0，新版要的浏览器本机没有，
+# 动线 / 截屏 / 触达面 / 对比度 / 三个管理员逐页走一起红，
+# 而那十句错都在浏览器那一层，看着像产品坏了。
+gate "跑门禁的浏览器版本钉住了吗" . python3 scripts/check-browser-pin.py
 if [ -d webadmin/node_modules ]; then
   gate "webadmin build · 类型+打包" webadmin npm run build
 else
