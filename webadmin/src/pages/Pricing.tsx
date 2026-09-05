@@ -2,17 +2,27 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApiMutation } from '../lib/feedback';
 import { commerce } from '../lib/api';
+import { useMyRegions } from '../lib/regions';
+import { activeRegionAtom } from '../store/auth';
+import { useAtom } from 'jotai';
 import PageHeader from '../components/PageHeader';
 import TableError from '../components/TableError';
 import { rel, ts, yuan, shortId, statusClass, statusLabel, thou } from '../components/util';
 import { Plus, XCircle, RefreshCw, Tag } from 'lucide-react';
 
-const CURRENCIES = ['CNY','USD','HKD','JPY','EUR'];
-const REGIONS = ['cn','hk','tw','jp','us','eu','global'];
+/* 【区与币都从名册来，不在这儿写死】（2026-09-05）。
+   这两行原先是 `['cn','hk','tw','jp','us','eu','global']` 与
+   `['CNY','USD','HKD','JPY','EUR']` —— 而名册（`region_registry`）里的
+   六格是 cn / jp / kr / sea / na / zh_hant，币里有 TWD、KRW、SGD。
+   两边只有 cn 与 jp 对得上:挑 `tw` 发出去的价落进一个谁也查不到的
+   region，而给 zh_hant 定 TWD 的价【这一版根本发不出去】——
+   校验那一行不认这个币。 */
 const PLATFORMS = ['all','wx_mp','wx_h5','ios','android','web'];
 
 export default function Pricing() {
   const qc = useQueryClient();
+  const 我的区 = useMyRegions();
+  const [当前区] = useAtom(activeRegionAtom);
   const prods = useQuery({
     queryKey: ['products', { size: 200, page: 0 }],
     queryFn: () => commerce.listProducts({ size: 200, page: 0 }),
@@ -100,16 +110,25 @@ export default function Pricing() {
               </button>
               <button className="btn btn-prim" disabled={!skuId}
                 onClick={() => {
-                  const cur = prompt('货币 (CNY/USD/HKD/JPY/EUR)', currentSku?.default_currency ?? 'CNY')?.toUpperCase();
-                  if (!cur || !CURRENCIES.includes(cur)) return alert('无效货币');
-                  const yuanIn = prompt(`价格（${cur === 'JPY' || cur === 'TWD' ? '元' : '元'}，不带符号）`);
+                  /* 【发的是哪个区的价，跟顶栏那个「看的是」同一个】。
+                     原先是手打一个 region，默认值的提示写着
+                     `cn/hk/global/...` —— 那三个里有两个不是区。
+                     区是全局镜头，定价这一下没有理由另开一套。 */
+                  const 区 = 我的区.find((r) => r.code === 当前区);
+                  if (!区) return alert('先在顶栏挑一个区 —— 价是按区落的，「全部区域」发不出价');
+                  const 认得的币 = 区.supported_currencies?.length
+                    ? 区.supported_currencies : [区.primary_currency];
+                  const cur = prompt(`货币（${区.name} 用 ${认得的币.join(' / ')}）`, 区.primary_currency)?.toUpperCase();
+                  if (!cur || !认得的币.includes(cur)) return alert(`${区.name} 不收 ${cur}`);
+                  const yuanIn = prompt(`价格（元，不带符号）`);
                   if (!yuanIn) return;
-                  const minor = cur === 'JPY' || cur === 'TWD' ? Number(yuanIn) : Math.round(Number(yuanIn) * 100);
+                  /* 无小数位的币（日元、韩元）报的就是最小单位本身 */
+                  const 无分 = cur === 'JPY' || cur === 'KRW';
+                  const minor = 无分 ? Number(yuanIn) : Math.round(Number(yuanIn) * 100);
                   if (!Number.isFinite(minor) || minor <= 0) return alert('无效价格');
-                  const region = prompt('region (cn/hk/global/...)', 'cn') ?? 'cn';
                   const platform = prompt('platform (all/wx_mp/ios/...)', 'all') ?? 'all';
                   const note = prompt('audit_note 备注', '') ?? '';
-                  publish.mutate({ currency: cur, price_minor: minor, region, platform, audit_note: note });
+                  publish.mutate({ currency: cur, price_minor: minor, region: 区.code, platform, audit_note: note });
                 }}>
                 <Plus size={13}/> 发新价
               </button>

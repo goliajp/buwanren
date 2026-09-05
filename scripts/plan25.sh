@@ -74,7 +74,7 @@ preflight() {
 # 五个人的 nickname 一律 `P25·xxx`，造出来的商品前缀 `p25-`。
 # 顺着 app_user 摸下去，一层层删干净。
 #
-# **不动两个管理员**（他们是种子里的），**不动别人的数据**。
+# **不动那三个管理员**（种子建阿超，这个脚本建阿港与阿双），**不动别人的数据**。
 do_reset() {
   local n_users
   n_users=$(psql1 "SELECT count(*) FROM app_user WHERE nickname LIKE 'P25·%'")
@@ -146,7 +146,7 @@ DELETE FROM order_record  WHERE id       IN (SELECT order_id FROM p25_stray);
 
 DELETE FROM omamori_credential WHERE omamori_id LIKE 'p25-%';
 DELETE FROM omamori            WHERE id LIKE 'p25-%';
-DELETE FROM price_book         WHERE id LIKE 'p25-%';   -- 含补给 hk 的那条
+DELETE FROM price_book         WHERE id LIKE 'p25-%';   -- 含补给繁中那一格的那条
 DELETE FROM sku                WHERE id LIKE 'p25-%';
 DELETE FROM product            WHERE id LIKE 'p25-%';
 COMMIT;
@@ -188,6 +188,9 @@ p25_name() {
     u3) echo 请了人的 ;;
     u4) echo 钱在飞的 ;;
     u5) echo 香港那位 ;;
+    root)   echo 阿超 ;;
+    hk)     echo 阿港 ;;
+    shuang) echo 阿双 ;;
     *)  echo "$1" ;;
   esac
 }
@@ -356,7 +359,7 @@ INSERT INTO product (id, code, name, sub_title, category, kind, status,
                      fulfillment_kind, tags, sort_weight, available_regions)
 VALUES ('p25-oma-ayun', 'p25_oma_ayun', '阿云的护身符', '请她回村 · 住进你的村子',
         'omamori', 'one_shot', 'listed', 'residency', ARRAY['御守','村民'], 95,
-        ARRAY['cn','hk'])
+        ARRAY['cn','zh_hant'])
 ON CONFLICT (id) DO UPDATE SET status='listed';
 INSERT INTO sku (id, product_id, code, name, stock_kind, default_currency, status, villager_id)
 VALUES ('p25-sku-oma-ayun', 'p25-oma-ayun', 'p25_sku_oma_ayun', '阿云的护身符',
@@ -374,7 +377,7 @@ ON CONFLICT (id) DO UPDATE SET status='active';
 -- 改造一件自己的「会寄的东西」，两个区都上 —— 这样「香港用户买一件实物、
 -- 包裹出状况、阿港去处理」这条链才验得到。
 -- 【验收用的东西不许混进真目录】（2026-09-04，两条门禁同时报出来）。
--- 头一版把它挂在 cn+hk 上架，于是：
+-- 头一版把它挂在 cn+zh_hant 上架，于是：
 --   · 「在售的东西给得出吗」报它没有商品图 —— 那条门禁是对的，
 --     在架的实物买家要看得见它长什么样
 --   · 镜像动线从目录里挑「在售的东西」建单，挑中了它 ——
@@ -382,7 +385,7 @@ ON CONFLICT (id) DO UPDATE SET status='active';
 --     而 sku 被它的 order_line 引着，删不掉
 --
 -- 跟 `verify-semantics.sh` 那件校验商品同一个办法：给它一个只属于验收的区。
--- 真目录（cn/hk/…）里看不见它，而 U5 用 region=p25 下单照样买得到。
+-- 真目录（cn/zh_hant/…）里看不见它，而 U5 用 region=p25 下单照样买得到。
 -- 【在架的实物必须有图】——「在售的东西给得出吗」那一支不看区，
 -- 它是对的:在架就该有图，买家要看得见自己买的东西长什么样。
 -- 这一只借用玉坠那张:它不面向买家（只在验收区），不值得单画一张，
@@ -404,7 +407,7 @@ ON CONFLICT (id) DO UPDATE SET status='active';
 -- 「is not present in table sku」，而那条报错混在一堆输出里很容易被读成噪音。
 INSERT INTO price_book (id, sku_id, currency, price_minor, region, platform, status, effective_from)
 VALUES ('p25-pb-oma-cn', 'p25-sku-oma-ayun', 'CNY', 9900, 'cn', 'all', 'active', NOW()),
-       ('p25-pb-oma-hk', 'p25-sku-oma-ayun', 'CNY', 9900, 'hk', 'all', 'active', NOW()),
+       ('p25-pb-oma-zh-hant', 'p25-sku-oma-ayun', 'TWD', 990, 'zh_hant', 'all', 'active', NOW()),
        -- 定得贵，为的是让种子里那条风控规则真命中
        -- （`amount > 100000 AND user.age_days < 7`）——
        -- 观察模式要看的就是「它会拦下什么」，而不命中的话那一整块验不到。
@@ -413,20 +416,8 @@ ON CONFLICT (id) DO UPDATE SET status='active';
 
 -- 【super 的 scope 是 global，不是某一个区】。种子给阿超的是 {cn} ——
 -- 于是验收区里的单他在后台一条都读不到，「给包裹填运单号」当场 403。
---
--- 头一版想的是给他加一格写成 {cn,p25}。那条路把另一件事炸了出来：
--- `normalize_region_scoped` 的规矩是「scope 有多个区、请求又不带 region
--- 参数 → 当场拒」（注释写着「跨区聚合要另设一个明确的接口」）。
--- 于是阿超一管两个区，`/admin/users`、发券这些不带 region 的端点
--- 【全部 403】—— 后台大半个页面对他空着。
--- 那条规矩本身是对的（悄悄换区比报错糟得多），代价却从来没人付过：
--- 种子里【一个多区管理员都没有】，所以这条路径一次都没被走过。
--- 记在 docs/ACCEPTANCE-25.md 的先决条件里 —— 要不要给跨区聚合开一个
--- 明确的接口，那是产品决定，不是这个脚本该拍的。
---
 -- 这里走的是代码本来就留好的那一条：`不限 = scope 为空 || 含 global`。
--- super 本来就该不限区，{cn} 是种子的遗漏。阿港不动（仍只有 hk），
--- 「分区管理员越不越得了区」验的是他。
+-- super 本来就该不限区，{cn} 是种子的遗漏。
 --
 -- 另一条走不通的路：把这只盒子也挂到 cn 上架，U4 就能在 cn 区买它 ——
 -- 上架就进目录，镜像的动线会从目录里挑东西建单，挑中它的话那张单
@@ -434,6 +425,42 @@ ON CONFLICT (id) DO UPDATE SET status='active';
 -- 【验收用的东西不许混进真目录】优先于「让 U4 的单落在 cn」。
 UPDATE admin_user SET region_scope = ARRAY['global']
  WHERE email = 'admin@unmei.local' AND NOT ('global' = ANY(region_scope));
+
+-- 【另外两个管理员，这个脚本自己建】（2026-09-05）。
+--
+-- 阿港此前【全仓没有一处建得出他】—— 库里那一行是某次手敲留下的，
+-- 而 `do_console` 拿他走一轮、下面四条断言也全靠他。
+-- 换一台机器、换一个干净的库，这半边当场从「登不进去」开始红,
+-- 而红出来的样子像后台坏了。夹具必须写在文件里。
+--
+-- 口令跟种子那个一样，直接抄它的 hash —— 这里不该另存一份密码学。
+--
+-- 【阿双是管两个区的那一位】。`normalize_region_scoped` 的规矩是
+-- 「scope 有多个区、请求又不带 region 参数 → 当场拒」，
+-- 而在他之前【种子里一个多区管理员都没有】，这条路径一次都没被走过 ——
+-- 后台每一页都得显式带上区，这件事没有任何东西盯着
+-- （`/admin/users` 就一直没带，见 docs/ACCEPTANCE-25.md 先决条件四）。
+-- 那条规矩本身是对的:悄悄把大陆的数换成繁中的，比报错糟得多。
+--
+-- 【区名一律出自名册】（`region_registry`:cn / jp / kr / sea / na / zh_hant）。
+-- 阿港此前的 scope 是 `{hk}` —— 而 hk 不是这个系统里的一格，
+-- 于是后台顶栏那个「看的是」对他【是空的】(下拉框按名册过滤,一条都不剩)。
+-- 香港属于繁体中文圈那一格，所以他管的是 `zh_hant`;人还是阿港。
+INSERT INTO admin_user (id, email, password_hash, name, roles, region_scope)
+SELECT 'admin_zh_hant', 'hk@unmei.local', password_hash, '阿港',
+       '["operator","finance"]'::jsonb, ARRAY['zh_hant']
+  FROM admin_user WHERE id = 'admin_root'
+ON CONFLICT (email) DO UPDATE SET region_scope = ARRAY['zh_hant'];
+
+INSERT INTO admin_user (id, email, password_hash, name, roles, region_scope)
+SELECT 'admin_two_cells', 'shuang@unmei.local', password_hash, '阿双',
+       '["operator","finance","support","content"]'::jsonb, ARRAY['cn','zh_hant']
+  FROM admin_user WHERE id = 'admin_root'
+ON CONFLICT (email) DO UPDATE SET region_scope = ARRAY['cn','zh_hant'];
+
+-- 认的是【邮箱】不是 id:某台机器上手敲出来的那一行 id 叫 `admin_hk`,
+-- 邮箱同一个，于是上面那条 ON CONFLICT 把它的 scope 改过来就够了。
+-- 干净的库上建出来的 id 是 `admin_zh_hant`。两边的行为一样。
 SQL
 }
 
@@ -615,9 +642,9 @@ do_seed() {
   say_dim "U4 钱在飞的 $I4 —— 待付 / 在途 / 等着批的退款 / 一份真订着的 + 两份历史"
 
   # ── U5 香港那位：贵的一单（触发风控）+ 包裹出状况 ────────────
-  read -r T5 I5 <<<"$(make_user u5 hk)"
+  read -r T5 I5 <<<"$(make_user u5 zh_hant)"
   local o5
-  o5=$(must_order "$T5" '{"lines":[{"sku_id":"p25-sku-oma-ayun","qty":1}],"region":"hk","contact":{"name":"P25·香港那位","phone":"85200000005"},"shipping_address":{"province":"香港","city":"香港","district":"中西区","detail":"某处 5 号","name":"P25","phone":"85200000005"}}' "U5 请阿云回村的那一单") || return 1
+  o5=$(must_order "$T5" '{"lines":[{"sku_id":"p25-sku-oma-ayun","qty":1}],"region":"zh_hant","contact":{"name":"P25·香港那位","phone":"85200000005"},"shipping_address":{"province":"香港","city":"香港","district":"中西区","detail":"某处 5 号","name":"P25","phone":"85200000005"}}' "U5 请阿云回村的那一单") || return 1
   call POST "$T5" "/v1/orders/$o5/pay" '{"channel":"wechat_jsapi","openid":"p25_u5"}' >/dev/null
   wait_paid "$o5" || return 1
   # 御守不寄东西（付款即入住），所以包裹那一条另买一件真会寄的
@@ -628,7 +655,7 @@ do_seed() {
   wait_paid "$o5b" || return 1
   wait_shipment "$o5b" || return 1
   mock_carrier_exception "$o5b" P25TRACK0005
-  say_dim "U5 香港那位 $I5 —— hk 区、包裹出了状况"
+  say_dim "U5 香港那位 $I5 —— zh_hant 那一格、包裹出了状况"
 
   roster=$(jq -n --arg u1 "$I1" --arg u2 "$I2" --arg u3 "$I3" --arg u4 "$I4" --arg u5 "$I5" \
         --arg t1 "$T1" --arg t2 "$T2" --arg t3 "$T3" --arg t4 "$T4" --arg t5 "$T5" \
@@ -651,7 +678,7 @@ want_some() { # 判非空 <说明> <实际>
 # ── 管理员的一天 ───────────────────────────────────────────
 #
 # 【验收不是「看得见」，是「办得了」】。上面那些用例查的是数据在不在，
-# 而这一段是两个管理员真把这五个人的活儿办一遍 ——
+# 而这一段是管理员真把这五个人的活儿办一遍 ——
 # 每一件都要在【用户那一侧】看得见结果，不然「后台点了一下」什么都不说明。
 #
 # 每一件都是真接口，没有 mock:后台本来就是给人点的，不需要替代谁。
@@ -726,8 +753,13 @@ do_admin_day() {  # do_admin_day <阿超的 token> <U1..U5 的 id>
   # 而 422 读起来像「后端不收这个字段」，跟「我拼错了」完全是两件事。
   local code body
   code="P25$(date +%s)$RANDOM"
+  # 【要说清这张券落在哪个区】（2026-09-05）。这里原先不带 region,
+  # 后端就 `.unwrap_or("cn")` —— 而阿超管的是全部区域，
+  # 「默认大陆」是替他做的决定:他在顶栏切到别处发一张券，券照旧落在大陆，
+  # 两边都不报错，要到有人拿它下单才炸。现在不说就拒。
+  # U1 是 cn 的人，所以这张券落在 cn。
   body=$(jq -n --arg c "$code" --arg u "$I1" \
-    '{code:$c, benefit_json:{pct_off_bps:1000}, expires_at:"2027-01-01T00:00:00Z", owner_user_id:$u}')
+    '{code:$c, benefit_json:{pct_off_bps:1000}, expires_at:"2027-01-01T00:00:00Z", owner_user_id:$u, region:"cn"}')
   want "发一张券" 200 "$(admin_call POST "$A" '/admin/commerce/coupons' "$body")"
   want_some "他手里真的多了一张" "$(psql1 "SELECT count(*) FROM coupon WHERE code='$code' AND owner_user_id='$I1'")"
   # 【这一段的规矩写在标题上:「每一件都要在用户那一侧看得见」】。
@@ -801,7 +833,7 @@ do_shots() {
   say_dim "图在 ${SHOTS}/ —— 一页看完：open ${SHOTS}/u3/index.html"
 }
 
-# ── 后台逐页走 · 两个管理员各一轮 ───────────────────────────
+# ── 后台逐页走 · 三个管理员各一轮 ───────────────────────────
 #
 # 【一个管理员走不出分区那一面】。已有的 `webadmin-verify` 拿阿超走 ——
 # 他管全部，每一页都是满的，于是「分区管理员看到的那一屏长什么样」
@@ -817,10 +849,14 @@ do_console() {
     return 0
   fi
   local who email out
-  for who in root hk; do
+  # 【三个人各走一轮】。阿超管全部、阿港管一格、阿双管两格 ——
+  # 第三位是 2026-09-05 加的:管两个区的人此前一个都没有，
+  # 而后台对他【大半个页面是空的】（每一页都得显式带区，而用户页没带）。
+  for who in root hk shuang; do
     case "${who}" in
-      root) email=admin@unmei.local ;;
-      hk)   email=hk@unmei.local ;;
+      root)   email=admin@unmei.local ;;
+      hk)     email=hk@unmei.local ;;
+      shuang) email=shuang@unmei.local ;;
     esac
     out=$(ADMIN_EMAIL="${email}" bash scripts/webadmin-verify.sh --shots="${SHOTS}/admin-${who}" 2>&1)
     if printf '%s' "${out}" | grep -q '都通了'; then
@@ -948,30 +984,72 @@ do_check() {
 
   echo
   echo "══ U5 香港那位 · 别的区 ══"
-  want "他在 hk"            hk "$(psql1 "SELECT region FROM app_user WHERE id='$I5'")"
-  # 【要说清是哪一单】。U5 有两单:御守记在 hk、验收那只盒子记在 p25 区
+  want "他在繁中那一格"      zh_hant "$(psql1 "SELECT region FROM app_user WHERE id='$I5'")"
+  # 【要说清是哪一单】。U5 有两单:御守记在 zh_hant、验收那只盒子记在 p25 区
   # （验收用的东西不混进真目录）。`LIMIT 1` 取到哪一张全看行序。
-  want "他买御守那一单记在 hk" hk "$(psql1 "SELECT o.region FROM order_record o JOIN order_line ol ON ol.order_id=o.id WHERE o.user_id='$I5' AND ol.sku_id='p25-sku-oma-ayun' LIMIT 1")"
+  want "他买御守那一单记在繁中那一格" zh_hant "$(psql1 "SELECT o.region FROM order_record o JOIN order_line ol ON ol.order_id=o.id WHERE o.user_id='$I5' AND ol.sku_id='p25-sku-oma-ayun' LIMIT 1")"
   want "他买盒子那一单记在验收区" p25 "$(psql1 "SELECT o.region FROM order_record o JOIN order_line ol ON ol.order_id=o.id WHERE o.user_id='$I5' AND ol.sku_id='p25-sku-box' LIMIT 1")"
   want_some "他的包裹出了状况" "$(psql1 "SELECT count(*) FROM shipment s JOIN order_record o ON o.id=s.order_id WHERE o.user_id='$I5' AND s.status='exception'")"
 
   echo
-  echo "══ 两个管理员 · 分区与角色 ══"
-  local A_root A_hk
+  echo "══ 三个管理员 · 分区与角色 ══"
+  local A_root A_hk A_two
   A_root=$(curl -s "$ADMIN/admin/auth/login" -H 'content-type: application/json' -d '{"email":"admin@unmei.local","password":"admin123"}' | jq -r .token)
   A_hk=$(curl -s "$ADMIN/admin/auth/login" -H 'content-type: application/json' -d '{"email":"hk@unmei.local","password":"admin123"}' | jq -r .token)
   want_some "阿超登得进来" "${A_root:0:12}"
   want_some "阿港登得进来" "${A_hk:0:12}"
-  # 阿港只管 hk：他看得见 U5，看不见 U1–U4
+  # 阿港只管繁中那一格：他看得见 U5，看不见 U1–U4
   local hk_sees
   hk_sees=$(curl -s "$ADMIN/admin/users?size=200" -H "authorization: Bearer $A_hk" | jq -r '[.items[].region]|unique|join(",")')
-  want "阿港只看得见 hk 的人" hk "$hk_sees"
+  want "阿港只看得见繁中那一格的人" zh_hant "$hk_sees"
   local hk_gets_cn
   hk_gets_cn=$(curl -s -o /dev/null -w '%{http_code}' "$ADMIN/admin/commerce/orders/$(psql1 "SELECT id FROM order_record WHERE user_id='$I4' LIMIT 1")" -H "authorization: Bearer $A_hk")
   want "阿港按 id 也读不到 cn 的单" 404 "$hk_gets_cn"
   local root_sees
   root_sees=$(curl -s "$ADMIN/admin/users?size=200&q=P25" -H "authorization: Bearer $A_root" | jq -r '.total')
   want_some "阿超看得见 P25 的人" "$root_sees"
+
+  # ── 阿双：管两个区的那一位（2026-09-05 新加）──────────────────
+  #
+  # 在他之前【种子里一个多区管理员都没有】，于是
+  # `normalize_region_scoped` 那条「多个区又不带 region 参数就拒」
+  # 的规矩一次都没被走过 —— 而后台每一页都得显式带上区这件事，
+  # 也就没有任何东西盯着（`/admin/users` 一直没带）。
+  #
+  # 下面四条把那条规矩钉死:规矩不变（不带就拒），变的是【后台得带】。
+  A_two=$(curl -s "$ADMIN/admin/auth/login" -H 'content-type: application/json' -d '{"email":"shuang@unmei.local","password":"admin123"}' | jq -r .token)
+  want_some "阿双登得进来" "${A_two:0:12}"
+  local two_no_region two_cn two_zh two_jp
+  two_no_region=$(curl -s -o /dev/null -w '%{http_code}' "$ADMIN/admin/users?size=5" -H "authorization: Bearer $A_two")
+  want "不说是哪个区，照旧拒 —— 悄悄换区比报错糟得多" 403 "$two_no_region"
+  two_cn=$(curl -s "$ADMIN/admin/users?size=200&region=cn" -H "authorization: Bearer $A_two" | jq -r '[.items[].region]|unique|join(",")')
+  want "说了 cn 就只给 cn 的人" cn "$two_cn"
+  two_zh=$(curl -s "$ADMIN/admin/users?size=200&region=zh_hant" -H "authorization: Bearer $A_two" | jq -r '[.items[].region]|unique|join(",")')
+  want "说了繁中那一格就只给那一格的人" zh_hant "$two_zh"
+  two_jp=$(curl -s -o /dev/null -w '%{http_code}' "$ADMIN/admin/users?size=5&region=jp" -H "authorization: Bearer $A_two")
+  want "他管不着日本，说了也不给" 403 "$two_jp"
+
+  # 【发券得说清落在哪个区】。他管两个区，不说的话没有一个能默认 ——
+  # 而这里原先是后端 `.unwrap_or("cn")`：一位管全部区域的运营
+  # 在顶栏切到日本发一张券，券落在大陆，两边都不报错。
+  local two_coupon
+  two_coupon=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$ADMIN/admin/commerce/coupons" \
+      -H "authorization: Bearer $A_two" -H 'content-type: application/json' \
+      -d "{\"code\":\"P25NOREGION$RANDOM\",\"benefit_json\":{\"pct_off_bps\":1000},\"expires_at\":\"2027-01-01T00:00:00Z\"}")
+  want "发券不说区，拒" 403 "$two_coupon"
+  local root_coupon
+  root_coupon=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$ADMIN/admin/commerce/coupons" \
+      -H "authorization: Bearer $A_root" -H 'content-type: application/json' \
+      -d "{\"code\":\"P25NOREG2$RANDOM\",\"benefit_json\":{\"pct_off_bps\":1000},\"expires_at\":\"2027-01-01T00:00:00Z\"}")
+  want "管全部区域的人也一样，得说清是哪个区" 400 "$root_coupon"
+
+  # 【定价也要看区】。上面那道守卫只问了「这个 sku 归不归他管」——
+  # 而价是按区落的:阿双给一个 cn 的 sku 发一条 jp 的价，此前一路放行。
+  local two_price
+  two_price=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$ADMIN/admin/commerce/pricing/p25-sku-oma-ayun/publish" \
+      -H "authorization: Bearer $A_two" -H 'content-type: application/json' \
+      -d '{"currency":"JPY","price_minor":1000,"region":"jp","platform":"all"}')
+  want "他管不着日本，也就定不了日本的价" 403 "$two_price"
 
   echo
   echo "══ 每一条读接口都打一遍 · 用手里真有那样东西的人 ══"
@@ -984,7 +1062,7 @@ do_check() {
   do_shots
 
   echo
-  echo "══ 后台逐页走 · 两个管理员各一轮 ══"
+  echo "══ 后台逐页走 · 三个管理员各一轮 ══"
   do_console
 
   echo

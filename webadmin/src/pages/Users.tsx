@@ -8,6 +8,8 @@ import PageHeader from '../components/PageHeader';
 import Pagination from '../components/Pagination';
 import TableError from '../components/TableError';
 import { rel, ts, shortId, platformLabel, thou, regionLabel } from '../components/util';
+import { useAtom } from 'jotai';
+import { activeRegionAtom } from '../store/auth';
 import { Search } from 'lucide-react';
 
 interface UserRow {
@@ -21,13 +23,29 @@ export default function Users() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [platform, setPlatform] = useState('');
-  const [region, setRegion] = useState('');
   const size = 30;
+  /* 【区跟顶栏那个「看的是」走，这一页不再自己开一个下拉框】（2026-09-05）。
+     两件事一起修:
+
+     一、那个下拉框列的是 `cn / hk / tw / jp / us`，而名册里的六格是
+        cn / jp / kr / sea / na / zh_hant —— 五个选项里三个不是区，
+        挑中它们恒定 0 条，屏上跟「这个区真没人」长得一模一样。
+     二、它默认「所有区域」，也就是不带 region 去问。而后端的规矩是
+        「scope 有多个区、请求又不带 region → 当场拒」——
+        于是**一位管两个区的运营打开用户页只看得到一句 forbidden**。
+        种子里一个多区管理员都没有，所以这条路径一次都没被走过
+        （docs/ACCEPTANCE-25.md 先决条件四）。
+
+     顶栏那个镜头本来就是「区是全局镜头，不是筛选条件」（Layout.tsx
+     那一段注释），别的十八页都跟着它走，只有这一页另开了一套。 */
+  const [region] = useAtom(activeRegionAtom);
+  /* 「全部区域」（super 才有）就是不带 region —— 后端认这个语义 */
+  const 区参数 = region === 'global' ? '' : region;
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['users', page, search, platform, region],
     queryFn: () => api.get<{ items: UserRow[]; total: number; size: number }>(
-      `/users?page=${page}&size=${size}&q=${encodeURIComponent(search)}&platform=${platform}&region=${region}`
+      `/users?page=${page}&size=${size}&q=${encodeURIComponent(search)}&platform=${platform}&region=${区参数}`
     ),
   });
 
@@ -63,16 +81,13 @@ export default function Users() {
               <option value="ios">iOS</option>
               <option value="android">安卓</option>
             </select>
-            <select value={region} onChange={(e) => { setRegion(e.target.value); setPage(1); }} className="select w-28">
-              <option value="">所有区域</option>
-              <option value="cn">cn</option>
-              <option value="hk">hk</option>
-              <option value="tw">tw</option>
-              <option value="jp">jp</option>
-              <option value="us">us</option>
-            </select>
+            {/* 区在顶栏那个「看的是」上 —— 这里说一句它现在看的是哪儿，
+                免得人以为这一页列的是所有区的人 */}
+            <span className="label text-ink-4">
+              看的是 {region === 'global' ? '全部区域' : regionLabel(region)}
+            </span>
             <div className="flex-1" />
-            <button onClick={() => { setSearch(''); setPlatform(''); setRegion(''); }} className="btn btn-soft">重置</button>
+            <button onClick={() => { setSearch(''); setPlatform(''); }} className="btn btn-soft">重置</button>
             <button onClick={() => window.location.reload()} className="btn btn-soft">刷新</button>
           </div>
         </div>

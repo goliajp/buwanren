@@ -294,6 +294,24 @@ pub(crate) fn normalize_region_scoped(
     }
 }
 
+/// 这一批券落在哪个区。
+///
+/// 【管全部区域的人必须说清楚】（2026-09-05）。这里原先是
+/// `.unwrap_or_else(|| "cn")` —— 于是一位 super 在顶栏切到日本、
+/// 发一张券，券落在 `cn`：他手上的界面从头到尾说的是日本，
+/// 而这张券只有大陆的人用得上，**两边都不会报错**。
+/// 券要到有人拿它下单才炸，那时炸在用户脸上（`券 X 不能在 jp 用`）。
+///
+/// 分区管理员不受影响：`normalize_region_scoped` 已经把他锁到
+/// 他那一格了，`None` 只可能出自「不限区」这一支。
+fn 发券落在哪个区(r: &Option<String>, admin: &Admin) -> Result<String, ApiError> {
+    normalize_region_scoped(r, admin)?.ok_or_else(|| {
+        ApiError(AppError::BadRequest(
+            "你管的是全部区域 —— 发券得说清这一张落在哪个区".into(),
+        ))
+    })
+}
+
 /// 按 id 写的那些端点：这个对象在不在他管得着的区里。
 ///
 /// 【上面那个管不到它们】——它收的是查询参数里的 `region`，
@@ -627,10 +645,21 @@ async fn publish_price(
 ) -> Result<Json<J>, ApiError> {
     这个对象归他管吗(&st.db, &admin, "sku", &sku_id).await?;
     admin.requires_role("finance")?;    // 定价直接是钱
+    /* 【定的是哪个区的价，也得在他管得着的范围里】（2026-09-05）。
+       上一行只问了「这个 sku 归不归他管」—— 而**价是按区落的**:
+       `region_scope={cn}` 的人给一个 cn 的 sku 发一条 `region='jp'` 的价，
+       上面那一道一路放行。日本那一格的定价就这么被大陆的运营改掉了，
+       而两边的后台都不会说一个字。
+
+       `PublishPriceBody` 的 region 有默认值（cn），所以这里一律当成
+       「他明说了要发哪个区」来判 —— 不填就是 cn，而 cn 归不归他管，
+       同一道判断答得出来。 */
+    let region = normalize_region_scoped(&Some(b.region.clone()), &admin)?
+        .unwrap_or(b.region);
     let id = app_catalog::publish_price(&st.db, &sku_id, app_catalog::NewPrice {
         currency: b.currency,
         price_minor: b.price_minor,
-        region: b.region,
+        region,
         platform: b.platform,
         effective_from: b.effective_from,
         audit_note: b.audit_note,
@@ -743,10 +772,7 @@ async fn issue_coupon(
             "expires_at 要是 RFC3339 的时刻，例如 2026-12-31T23:59:59Z".into(),
         )
     })?;
-    let region = normalize_region_scoped(&b.region, &admin)?
-        // 发券必须落在某个区 —— super 不指定时默认 cn，
-        // 分区管理员上面已经锁到他管得着的那个了
-        .unwrap_or_else(|| "cn".to_string());
+    let region = 发券落在哪个区(&b.region, &admin)?;
     let id = app_coupon::issue(
         &st.db,
         app_coupon::IssueCoupon {
@@ -789,7 +815,7 @@ async fn issue_coupon_batch(
             "expires_at 要是 RFC3339 的时刻，例如 2026-12-31T23:59:59Z".into(),
         )
     })?;
-    let region = normalize_region_scoped(&b.region, &admin)?.unwrap_or_else(|| "cn".to_string());
+    let region = 发券落在哪个区(&b.region, &admin)?;
     let (batch_id, 码们) = app_coupon::issue_batch(
         &st.db,
         app_coupon::IssueBatch {
@@ -1447,11 +1473,26 @@ async fn list_risk_cases(
 
 // ═══════════════════════════ Finance ═══════════════════════════
 
+/// 会计期。
+///
+/// 【它是按区记的，而这一条从前不看区】（2026-09-05）。
+/// `accounting_period` 有 region 列，`close_period` 与 `list_journal_entries`
+/// 都按它守着 —— 只有这一条是 `_: Admin` 加一句不带 WHERE 的 SELECT。
+///
+/// 后果不是越权，是**一整页读不通**：一位只管繁中那一格的财务打开财务页，
+/// 上面列着大陆的五个会计期（那是这个产品唯一有账的区），
+/// 挑一个进去，分录一条都没有 —— 因为那些分录是大陆的。
+/// 屏上没有一处说得出「这不是你那一格的期间」。
+/// 后台逐页走那一支报的正是这个:「拿到 5 条，一行都没渲」。
 async fn list_periods(
-    State(st): State<AppState>, _: Admin,
+    State(st): State<AppState>, admin: Admin, Query(q): Query<Pg>,
 ) -> Result<Json<Vec<J>>, ApiError> {
-    let rows = sqlx::query("SELECT * FROM accounting_period ORDER BY year DESC, sub DESC, kind")
-        .fetch_all(&st.db).await.map_err(map_db)?;
+    let region = normalize_region_scoped(&q.region, &admin)?;
+    let rows = sqlx::query(
+        "SELECT * FROM accounting_period
+          WHERE ($1::text IS NULL OR region=$1)
+          ORDER BY year DESC, sub DESC, kind",
+    ).bind(&region).fetch_all(&st.db).await.map_err(map_db)?;
     Ok(Json(map_rows(rows)))
 }
 

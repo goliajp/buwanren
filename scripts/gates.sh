@@ -439,6 +439,10 @@ gate "库里的枚举都有中文说法" . python3 scripts/check-enum-labels.py
 # 【读失败也要有话说】。写操作那一半 2026-09-01 接上了反馈条，
 # 读这一半到 09-03 还是零个 isError —— 取不到时是一张只有表头的空表。
 gate "运营台 · 取不到时说得出来" . python3 scripts/check-console-read-error.py
+# 【三套区名同时活着】——名册六格、领域枚举六格、后台三个页面各写死一份
+# cn/hk/tw/jp/us/eu，而两边只有 cn 与 jp 对得上。挑 tw 发出去的价
+# 落进一个谁也查不到的 region，按 tw 关一个功能永远关不到人。
+gate "区名只有名册说了算" . python3 scripts/check-region-vocab.py
 if [ -d webadmin/node_modules ]; then
   gate "webadmin build · 类型+打包" webadmin npm run build
 else
@@ -464,7 +468,19 @@ if curl -sf http://127.0.0.1:6029/admin/health >/dev/null 2>&1; then
   else
     skip "幽灵 id 的写操作不许说成功" "业务 API（:6028）没起，跳过 —— 这一项【没验】"
   fi
-  gate "admin 控制台 · 逐页走"  . bash scripts/webadmin-verify.sh
+  # 【三个管理员各走一轮】（2026-09-05）。一个人走不出分区那一面:
+  # 阿超管全部，每一页都是满的，于是「分区管理员看到的那一屏长什么样」
+  # 一次都没被看过 —— 而那正是这套后台最容易出事的地方。
+  #
+  # 实测这一轮就抓到两处:阿港（只管一格）的顶栏区域选择器【是空的】,
+  # 而财务页给他列的是大陆的五个会计期、点进去一条分录都没有
+  # （`list_periods` 是整个财务组里唯一不看区的一条）。
+  # 阿双（管两格）此前【打开用户页只看得到一句 forbidden】。
+  #
+  # 三个人各起一次 vite（各十来秒），换来的是这一整面每轮都被走一遍。
+  gate "admin 控制台 · 逐页走 · 阿超（管全部）" . bash scripts/webadmin-verify.sh
+  gate "admin 控制台 · 逐页走 · 阿港（管一格）" . env ADMIN_EMAIL=hk@unmei.local bash scripts/webadmin-verify.sh
+  gate "admin 控制台 · 逐页走 · 阿双（管两格）" . env ADMIN_EMAIL=shuang@unmei.local bash scripts/webadmin-verify.sh
   # 【25 计划 · 横切验收】。上面那些门禁各守一条规矩，而它守的是
   # 「两个管理员加五个用户，这套东西整个用得起来吗」——
   # 清零、种人、办事、逐屏走，全走真接口（见 docs/ACCEPTANCE-25.md）。
@@ -480,7 +496,9 @@ if curl -sf http://127.0.0.1:6029/admin/health >/dev/null 2>&1; then
 else
   skip "admin 冒烟 · 每条路由" "后台 API（:6029）没起，跳过 —— 这一项【没验】"
   skip "幽灵 id 的写操作不许说成功" "同上"
-  skip "admin 控制台 · 逐页走"  "同上"
+  skip "admin 控制台 · 逐页走 · 阿超（管全部）" "同上"
+  skip "admin 控制台 · 逐页走 · 阿港（管一格）" "同上"
+  skip "admin 控制台 · 逐页走 · 阿双（管两格）" "同上"
   skip "通知条 · 真浏览器"      "同上"
 fi
 

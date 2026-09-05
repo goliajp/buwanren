@@ -160,8 +160,16 @@ export function statusLabel(s: string): string {
  * 它们【不进真目录】，所以要在屏上一眼认得出来，
  * 免得有人把它们当成真在卖的东西。 */
 export function regionLabel(r?: string | null): string {
-  return { cn: '中国大陆', hk: '香港', tw: '台湾', jp: '日本',
-           us: '美国', eu: '欧洲',
+  /* 【名册里的六格排在最前】（2026-09-05）。这张表原先只有
+     cn / hk / tw / jp / us / eu —— 而名册（`region_registry`）里的是
+     cn / jp / kr / sea / na / zh_hant，**四格在这儿没有名字**，
+     屏上打的是 `zh_hant` 这样的原文。
+     下面第二组是库里真出现过、而名册里没有的值:它们照实翻译，
+     因为这张表的活儿是「把库里的值说成人话」，不是「定义有哪些区」——
+     定义那件事只有名册说了算（见 `lib/regions.ts`）。 */
+  return { cn: '中国大陆', jp: '日本', kr: '韩国', sea: '东南亚',
+           na: '北美', zh_hant: '繁体中文圈',
+           hk: '香港', tw: '台湾', us: '美国', eu: '欧洲',
            verify: '校验区', p25: '验收区',
            /* 【`zz` 不是一个区】（2026-09-04 · 枚举那一支门禁刚接上就抓到的）。
               库里两条 8 月 18 日的「过客」记着这个值，而全仓的 Rust
