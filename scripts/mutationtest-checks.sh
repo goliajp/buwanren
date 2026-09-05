@@ -56,6 +56,9 @@ FILES=(
   webadmin/src/pages/Naji.tsx
   web/run-verify.sh
   backend/unmei-domain/src/lib.rs
+  # 区名那一支的变异对象:名册与枚举、以及后台页面里写死的那种名单
+  backend/unmei-domain/src/commerce/region.rs
+  webadmin/src/pages/Users.tsx
   mini/miniprogram/types/natal.ts
   backend/unmei-admin-api/src/routes/users.rs
   webadmin/src/lib/api.ts
@@ -351,8 +354,28 @@ mutate "后端改了【拼出来的】那条路由" check-routes \
   "edit('backend/unmei-api/src/routes/village.rs', '\"/v1/villagers/:id/reading\"', '\"/v1/villagers/:id/ask\"')"
 keep "拼在路径后面的查询串不算路径段" check-routes \
   "edit('mini/miniprogram/services/naji.ts', \"'/v1/naji/history'\", \"'/v1/naji/history' + qs({page:1})\")"
+# 锚点 2026-09-05 搬了家:那一行原先是 `if (!path.startsWith('/commerce'))`,
+# 加上 `/users` 之后改成按一张名单判。变异要植的东西没变 ——
+# 往源码里塞一个 `startsWith('/nowhere')`，check-routes 不许把它当成一条路由。
 keep "字符串方法的参数不算路径" check-routes \
-  "edit('webadmin/src/lib/api.ts', \"if (!path.startsWith('/commerce')) return path;\", \"if (!path.startsWith('/commerce')) return path;\\n  if (path.startsWith('/nowhere')) return path;\")"
+  "edit('webadmin/src/lib/api.ts', \"  if (path.includes('region=')) return path;\", \"  if (path.startsWith('/nowhere')) return path;\\n  if (path.includes('region=')) return path;\")"
+
+echo
+echo "── check-region-vocab（区名只有名册说了算）──"
+# 后台页面里写死一串区名 —— 这一支就是为它存在的:定价页挑一个
+# 名册里没有的区发出去的价，落进一个谁也查不到的 region
+mutate "后台页面里写死一串区名" check-region-vocab \
+  "edit('webadmin/src/pages/Users.tsx', 'const size = 30;', \"const size = 30;\\n  const REGIONS = ['cn','hk','tw'];\")"
+# 写死一个区的 <option> —— 用户页原先那五个就是这么摆的
+mutate "后台页面里写死一个区的选项" check-region-vocab \
+  "edit('webadmin/src/pages/Users.tsx', '<option value=\"web\">网页</option>', '<option value=\"cn\">cn</option>')"
+# 枚举跟名册走散 —— 开第二格那天最容易发生的就是「只改了库没改代码」
+mutate "枚举跟名册走散了" check-region-vocab \
+  "edit('backend/unmei-domain/src/commerce/region.rs', '\"kr\"      => Ok(Self::Kr),', '\"korea\"   => Ok(Self::Kr),')"
+# 【注释里提到区名不算】。这一支要抓的是【选项与名单】,
+# 而注释里正需要把「hk / tw 不是区」这件事写清楚 —— 报它就等于逼人删掉说明
+keep "注释里提到区名不算" check-region-vocab \
+  "edit('webadmin/src/pages/Users.tsx', 'const size = 30;', \"const size = 30;\\n  // 旧的那一版写死过 ['cn','hk','tw','jp','us']\")"
 
 echo
 echo "── check-bodies（写操作的请求体）──"
