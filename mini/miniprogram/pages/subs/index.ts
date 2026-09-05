@@ -57,9 +57,17 @@ function 日子那句(x: Subscription): string {
   return `续到 ${到}`
 }
 
+/* 还在续的那几种。跟后端排序用的是同一批（commerce.rs `my_subscriptions`
+   的 ORDER BY）—— 两处各写一份必然走散，而走散的样子是「屏上说你还订着，
+   而它排在最后面」。 */
+const 还在续的 = ['trialing', 'active', 'past_due', 'grace', 'paused']
+
 interface IData {
   loading: boolean
   err: string
+  /** 手上还有没有一份在续的。**「有三份记录」跟「还订着」是两件事** ——
+   *  三份全到期的人，这一屏原先是三张读不动的卡片加一颗「回去」 */
+  还订着: boolean
   /** `名 / 说 / 要紧` 是屏上那三样 —— wxml 里调不了函数，在这儿算好 */
   subs: Array<Subscription & { 名: string; 说: string; 要紧: boolean }>
   /** 空的时候摆出来的出口：村里现在有什么可以订 */
@@ -69,7 +77,7 @@ interface IData {
 }
 
 Page<IData, WechatMiniprogram.IAnyObject>({
-  data: { loading: true, err: '', subs: [], offers: [], offersErr: '' },
+  data: { loading: true, err: '', subs: [], 还订着: false, offers: [], offersErr: '' },
 
   /* 无条件取，不拿 token 当守卫 —— 跟村主屏一致。
      带守卫的写法在【还没登录】时什么都不做，页面就一直停在「取着……」，
@@ -89,6 +97,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
       const list = await mineApi.subscriptions()
       this.setData({
         loading: false,
+        还订着: list.some((x) => 还在续的.indexOf(x.status) >= 0),
         subs: list.map((x) => ({
           ...x,
           // 取不到名就退回 id —— 不编一个好看的名字盖住「这条数据不全」
