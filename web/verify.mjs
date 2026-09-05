@@ -3220,9 +3220,22 @@ console.log('\n── 一屏放得下吗（iPhone SE · 内容区 597）──')
         /* 顺便把这一单切成【已付】。一张能有十二条轨迹的单不可能还没付钱 ——
            没付钱不会发货。不切的话「已付≠合计」那一块会一起显示，
            而这一屏量到的就成了一个现实中不存在的组合。 */
+        /* 【造出来的那一态得是真实存在的一种】（2026-09-06）。
+           上一版只切 status 与 shipments —— 而这一趟拿到的那一单是
+           【说明书】那一单（`report` 非空）。于是量到的是
+           「一张报告单挂着十二条物流轨迹」:报告是算出来的，从不发货,
+           这个组合真实链路造不出来。它凭空多出一颗「读你的说明书」的
+           主按钮（`.cta-read`，49px）和一整块用不上的高度。
+           这个仓在这一屏上栽过同一件事:上一版直插一条 `delivered` 的运单
+           造出「包裹到了、人还没住进来」，而买御守从来不寄东西 ——
+           那段注释就写在这个文件里，「拿一个不存在的状态验出来的绿，是假的绿」。
+
+           十二条轨迹属于【实物那一单】。所以一并把它切成实物的样子:
+           没有册子、能申请退款（实物签收前可以退，协议这么写的）。 */
         c.setData({ traceOf: 'shp-x', trace: 条.slice(0, 8), traceMore: 条.length - 8,
                     shipments: [{ id: 'shp-x', statusText: '在路上', tracking_no: 'X1' }],
-                    status: 'paid', statusText: '已付', paidText: c.data.totalText, err: '' })
+                    status: 'paid', statusText: '已付', paidText: c.data.totalText, err: '',
+                    report: null, 能退: true, 退不了: '' })
       },
       凭据: '更早还有 4 条',
       为什么: '10.3：一屏八条，超了折叠 —— 全渲的话这一屏会被轨迹顶出去' },
@@ -4153,14 +4166,44 @@ if (!API) {
       ok(/等审核/.test(说), '按完说的是「已申请，等审核」，不是「已退款」', 说)
       const 落了 = sql1(`SELECT status FROM refund WHERE order_id='${已付的}' ORDER BY created_at DESC LIMIT 1`)
       ok(落了 === 'requested', '库里真多了一张待审的退款单', 落了 || '（一条都没有）')
-      /* 【再按一次不许再建一张】。幂等键由客户端生成并在重试时复用
-         （`newIdemKey`），而这一屏那颗按钮按两下是很常见的事 ——
-         后台多出两张永远批不下去的单子，没有人知道它们为什么批不动。 */
-      await p.getByText('申请退款', { exact: true }).click().catch(() => {})
-      await p.waitForTimeout(2500)
+      /* 【申请完这一屏要看得见】（2026-09-06）。此前按完一个字都不变:
+         那句提示被紧接着的 `load()` 清掉，而订单详情接口不返退款单。
+         人这时只会做一件事 —— 再按一次。 */
+      await p.waitForTimeout(1200)
+      const 退后 = await text()
+      ok(/退款 · 审核中/.test(退后), '屏上摆得出「退款 · 审核中」',
+         (退后.match(/退款[^·]{0,8}·[^·]{0,10}/) || [''])[0])
+      ok(/单号 [0-9a-z]{6,10}/.test(退后), '给得出一个念得给客服听的退款单号',
+         (退后.match(/单号 \S+/) || [''])[0])
+      /* 【在途的时候不给第二颗按钮】。后端的在途检查会拒，
+         而屏上此刻已经写着「审核中」—— 按第二次的唯一结果是一句错话。 */
+      ok(await p.getByText('申请退款', { exact: true }).count() === 0,
+         '已经在审核里的时候，不再摆一颗按了必被拒的按钮',
+         String(await p.getByText('申请退款', { exact: true }).count()))
       const 几张 = sql1(`SELECT count(*) FROM refund WHERE order_id='${已付的}'`)
-      ok(几张 === '1', '按两下只建一张退款单', 几张 + ' 张')
+      ok(几张 === '1', '只建了一张退款单', 几张 + ' 张')
       run(`DELETE FROM refund WHERE order_id='${已付的}'`)
+
+      /* 【数字内容交付之后不给这颗按钮，给一句话】。用户协议写着
+         「数字内容一经交付（住进来了、说明书出好了）不支持退款」,
+         而那颗按钮此前的条件是 `paid || fulfilling || done`——不看买的是什么。
+         买家的体验是:按了 → 屏上什么都没变 → 若干天后被拒。 */
+      const 住下的单 = sql1(
+        `SELECT o.id FROM order_record o JOIN order_line ol ON ol.order_id=o.id`
+        + ` JOIN sku k ON k.id=ol.sku_id JOIN product pr ON pr.id=k.product_id`
+        + ` WHERE o.user_id='${我}' AND o.status IN ('paid','fulfilling','done')`
+        + ` AND pr.fulfillment_kind='residency' AND ol.fulfillment_status='done' LIMIT 1`)
+      if (住下的单) {
+        await open('pages/order/index', { id: 住下的单 })
+        await p.waitForTimeout(1400)
+        const 住文 = await text()
+        ok(await p.getByText('申请退款', { exact: true }).count() === 0,
+           '已经住进来的那一单不摆「申请退款」—— 协议说它退不了',
+           String(await p.getByText('申请退款', { exact: true }).count()))
+        ok(/这一单不退/.test(住文),
+           '而是说清为什么退不了 —— 不是按钮消失了没人知道',
+           (住文.match(/[^·]{0,12}这一单不退[^·]{0,4}/) || [''])[0])
+      }
     }
   }
 
@@ -5180,6 +5223,9 @@ if (!(CAL > 0)) {
 // 三档的数都是【实测】的，不是从另一档减出来的：
 // 2026-09-03 同一台机器上分别跑了三趟 —— 假 130 / 真 358 / 真带排盘 384。
 // 建本命那一段是 26 条，不是当初以为的 17 条。
+/* 「真带排盘」这一档 2026-09-06 第八次改，496 → 501（实跑）——
+   退款那一路加了 5 条（申请完看得见 / 有单号 / 不给第二颗按钮 /
+   只建一张 / 数字内容说清为什么退不了）。 */
 /* 「真带排盘」这一档 2026-09-06 第七次改，485 → 496（实跑）——
    「收钱那一屏不许瞒着自动续费」5 条、「一件东西有几档就摆几档」6 条。 */
 /* 「真带排盘」这一档 2026-09-06 第六次改，476 → 485（实跑）——
@@ -5201,7 +5247,7 @@ if (!(CAL > 0)) {
    凭空少掉八十条仍然报「全通」。
    另外两档没有在这一轮实测过，不动 —— 改一个没量过的数，
    等于把「下限」变成「我猜的数」。 */
-const 基准 = { 假: 132, 真: 360, 真带排盘: 496 }
+const 基准 = { 假: 132, 真: 360, 真带排盘: 501 }
 // 名字不叫 `档`：978 行有个同名的局部变量（村民稀有度），
 // 两个都在这个文件里，读起来会以为是同一个东西
 const 这一档 = !API ? '假' : (MINGLI ? '真带排盘' : '真')

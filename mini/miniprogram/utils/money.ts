@@ -102,3 +102,25 @@ function 折数(bps: number): string {
   // 八五折:中文里「八五」是 0.85，不读成「八点五」
   return 折字[整] + 折字[零头] + '折'
 }
+
+
+/* 退款单走到哪儿了。取值跟后端 `RefundStatus` 一一对应，不自创。
+ *
+ * 【为什么要有这一张表】（2026-09-06 · 五路体验走查）。按完「申请退款」,
+ * 这一屏此前一个字都不变 —— 提示被随后的 `load()` 清掉，
+ * 而订单详情接口那时不返退款单。于是人再按一次，
+ * 撞上后端的在途检查，得到一句「有个地方填得不对」。
+ * 屏上要说得出「这一笔在哪一步」，才不会有第二次按。 */
+const 退款说法: Record<string, string> = {
+  requested: '审核中',
+  approved: '批了 · 正在退',
+  processing: '正在退',
+  succeeded: '已退款',
+  failed: '退款没成',
+  denied: '没批',
+  cancelled: '已撤回',
+}
+
+export function 退款那一词(status: string): string {
+  return 退款说法[status] || status
+}
