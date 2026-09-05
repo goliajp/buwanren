@@ -381,13 +381,16 @@ keep "注释里提到区名不算" check-region-vocab \
   "edit('webadmin/src/pages/Users.tsx', 'const size = 30;', \"const size = 30;\\n  // 旧的那一版写死过 ['cn','hk','tw','jp','us']\")"
 
 echo
-echo "── check-browser-pin（跑门禁的浏览器版本）──"
+echo "── check-script-deps（门禁脚本要的包）──"
 # 把确切版本改成范围 —— 明天 bun 就可能换一个浏览器回来
-mutate "版本写成了范围" check-browser-pin \
+mutate "版本写成了范围" check-script-deps \
   "edit('package.json', '\"playwright\": \"1.62.1\"', '\"playwright\": \"^1.62.1\"')"
 # 两处走散 —— 根跑的脚本用一个版本，rooms 的工具用另一个
-mutate "两处钉的版本走散了" check-browser-pin \
+mutate "两处钉的版本走散了" check-script-deps \
   "edit('rooms/package.json', '\"playwright\": \"1.62.1\"', '\"playwright\": \"1.61.1\"')"
+# 清单里少一个 —— 它会以 `Cannot find package` 的样子红在别的门禁上
+mutate "要的包漏在清单外" check-script-deps \
+  "edit('package.json', '    \"pngjs\": \"7.0.0\"\\n', '')"
 
 echo
 echo "── check-bodies（写操作的请求体）──"
