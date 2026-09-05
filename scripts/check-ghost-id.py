@@ -79,6 +79,11 @@ USER_PROBES = [
     ('POST', '/v1/orders/:id/pay', {'channel': 'wechat_jsapi'}),
     ('POST', '/v1/orders/:id/refund', {'reason_code': 'x'}),
     ('POST', '/v1/villagers/:id/reading', {'question': 'x'}),
+    # 2026-09-05 一味香按月送接上之后新加的两条。订阅号是可猜的
+    # （`p25-sub-…`），两条都要先问归属:不问就等于谁都能退别人的订、
+    # 替别人补别人的款
+    ('POST', '/v1/subscriptions/:id/cancel', {}),
+    ('POST', '/v1/subscriptions/:id/pay', {}),
 ]
 
 # 承运商回调不在此列：`:provider` 不是某样东西的 id，是渠道名，

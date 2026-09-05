@@ -475,6 +475,40 @@ const 商品 = {
     '........................',
     '........................',
   ],
+  /* 【一味香 · 按月送】—— 一只敞开的木盒，十支香并排立在里面，
+     露出朱色的头。跟上面那张 `incense` 是两件东西:
+     那张卖的是【几支香】（三支斜插在香插上），这张卖的是【一盒】,
+     而按月送每期到的正是一盒。画盒子而不是画更多支香,
+     是因为「按月」这件事在屏上唯一说得清的实体就是那只盒子。
+
+     十支:六格宽的盒膛里立十支太挤，画成【看得出是一排】就够 ——
+     像素画里数量靠密度读，不靠数得清。 */
+  'incense-box': [
+    '........................',
+    '........................',
+    '...r.r.r.r.r.r.r.r.r.r..',
+    '...r.r.r.r.r.r.r.r.r.r..',
+    '...r.r.r.r.r.r.r.r.r.r..',
+    '...R.R.R.R.R.R.R.R.R.R..',
+    '...s.s.s.s.s.s.s.s.s.s..',
+    '...s.s.s.s.s.s.s.s.s.s..',
+    '...s.s.s.s.s.s.s.s.s.s..',
+    '..kkkkkkkkkkkkkkkkkkkkk.',
+    '..ksssssssssssssssssssk.',
+    '..kSSSSSSSSSSSSSSSSSSSk.',
+    '..kwwwwwwwwwwwwwwwwwwwk.',
+    '..kwwwwwwwwwwwwwwwwwwwk.',
+    '..kSSSSSSSSSSSSSSSSSSSk.',
+    '..ksssssssssssssssssssk.',
+    '..kSSSSSSSSSSSSSSSSSSSk.',
+    '..kkkkkkkkkkkkkkkkkkkkk.',
+    '...kSSSSSSSSSSSSSSSSSk..',
+    '....kkkkkkkkkkkkkkkkk...',
+    '........................',
+    '........................',
+    '........................',
+    '........................',
+  ],
 }
 for (const [名, 网格] of Object.entries(商品)) {
   writeFileSync(resolve(出口, `goods-${名}.png`), 成图(网格, 货板, 5))
