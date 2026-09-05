@@ -448,7 +448,9 @@ gate "区名只有名册说了算" . python3 scripts/check-region-vocab.py
 # 2026-09-05 它从 1.62.1 漂到 1.63.0，新版要的浏览器本机没有，
 # 动线 / 截屏 / 触达面 / 对比度 / 三个管理员逐页走一起红，
 # 而那十句错都在浏览器那一层，看着像产品坏了。
-gate "跑门禁的浏览器版本钉住了吗" . python3 scripts/check-browser-pin.py
+# 补上清单之后又撞到反面:清单一旦存在，bun 就只认清单里写的 ——
+# `pngjs` 从前靠它顺手装，当场变成 `Cannot find package`。
+gate "门禁脚本要的包都钉住了吗" . python3 scripts/check-script-deps.py
 if [ -d webadmin/node_modules ]; then
   gate "webadmin build · 类型+打包" webadmin npm run build
 else
