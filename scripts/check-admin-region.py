@@ -87,7 +87,16 @@ try:
     批 = psql("SELECT id FROM recon_batch WHERE region='cn' LIMIT 1")
     凭 = psql("SELECT id FROM journal_entry WHERE region='cn' LIMIT 1")
 
-    探 = [('读 cn 的订单列表', 'GET', '/admin/commerce/orders?region=cn&size=2', None)]
+    探 = [('读 cn 的订单列表', 'GET', '/admin/commerce/orders?region=cn&size=2', None),
+         # 【`/commerce` 之外那两页 2026-09-06 之前一次都没被探过】。
+         # 两条的签名都是 `_: Admin`、SQL 里没有 region —— 实测
+         # `region_scope={zh_hant}` 的管理员拿到的审计【与超管逐字相同】,
+         # 而问签那一条更要紧:它是用户问的私事，不是台账。
+         #
+         # 这一支从前只扫 `commerce.rs` 里那几条 list/write，
+         # 于是这两页整整两个月落在门禁的视野之外。
+         ('读全站的操作记录', 'GET', '/admin/commerce/audit?size=2', None),
+         ('读 cn 的问签记录', 'GET', '/admin/naji?region=cn&size=2', None)]
 
     # 【按 id 读的那一整面，2026-09-03 之前一次都没被探过】。
     # 那一版这里六条:五条写、一条列表。而所有 `get_X(:id)` 的签名是 `_: Admin`，
