@@ -3996,6 +3996,58 @@ if (!API) {
        await p.evaluate(() => globalThis.__router.current().__route))
   }
 
+  /* ── 要去一场活动的人（2026-09-06）─────────────────────────
+     【这一屏此前一条断言都没有】。它在 `app.json` 里、在截屏名单里、
+     一屏放得下那一支也量过它 —— 而这一趟从没打开过它，
+     `activity·onSignUp` 一直挂在末尾那份「没碰过的」清单上。
+
+     报名是【线下真会发生的事】：报上了就有人在某个城市某一天等你。
+     它不是买东西，撤销也不退钱 —— 正因为不涉及钱，它更容易被漏掉，
+     而漏掉的后果是有人白跑一趟。 */
+  {
+    await open('pages/activity/index')
+    await p.waitForTimeout(1500)
+    const 场次 = await p.evaluate(() => globalThis.__router.current().data.场次 || [])
+    ok(场次.length > 0, '活动那一屏列得出场次', `${场次.length} 场`)
+    if (场次.length > 0) {
+      const 活文 = await text()
+      /* 【库里那些字段的原文一个都不许上屏】——`open` / `full` / ISO 时间戳。
+         这一屏此前没人验过，而它跟「订着的」是同一个形状:
+         后端把人话 join 出来了，屏那一头读不读是另一回事。 */
+      ok(!/\bopen\b|\bfull\b|\d{4}-\d{2}-\d{2}T/.test(活文),
+         '场次说的是人话，不是库里那个字段',
+         (活文.match(/\bopen\b|\bfull\b|\d{4}-\d{2}-\d{2}T\S*/) || [''])[0])
+      ok(/还剩|满了|位/.test(活文), '说得出还剩几位 —— 报名前最要紧的那个数',
+         (活文.match(/[^·]{0,12}位[^·]{0,6}/) || [''])[0])
+
+      const 我 = await p.evaluate(() => JSON.parse(localStorage.getItem('unmei:buwanren:user') || '{}').id)
+      const 报了几场 = () => sql1(`SELECT count(*) FROM activity_registration WHERE user_id='${我}' AND status='registered'`)
+      const 之前 = Number(报了几场())
+      const 能报的 = await p.locator('button.btn:not(.ghost):not([disabled])').filter({ hasText: '报名' })
+      if (await 能报的.count() > 0) {
+        await 能报的.first().click()
+        for (let i = 0; i < 20; i++) {
+          if (Number(报了几场()) > 之前) break
+          await p.waitForTimeout(400)
+        }
+        ok(Number(报了几场()) === 之前 + 1, '按「报名」真的报上了', 报了几场() + ' 场')
+        await p.waitForTimeout(800)
+        ok((await text()).includes('不去了'),
+           '报上之后那颗按钮改口说「不去了」—— 「已报名」是状态不是动作',
+           (await text()).slice(0, 60))
+        /* 【撤得掉】。报名是线下的事，去不了是常态 ——
+           一个报得上、撤不掉的名额比没有更麻烦:它占着别人的位子。 */
+        await p.getByText('不去了', { exact: true }).first().click()
+        for (let i = 0; i < 20; i++) {
+          if (Number(报了几场()) === 之前) break
+          await p.waitForTimeout(400)
+        }
+        ok(Number(报了几场()) === 之前, '按「不去了」真的撤了 —— 名额还给别人',
+           报了几场() + ' 场')
+      }
+    }
+  }
+
   /* ── 要退款的人（2026-09-05）───────────────────────────────
      用户协议上写着：「任何一单都能在「我的 › 我买过的」里申请，我们逐单看」。
      那颗按钮在订单屏上（`status` 是 paid / fulfilling / done 时才摆），
@@ -4296,6 +4348,40 @@ if (!API) {
          每期发什么;有它的时候屏上该是「下一盒 X 发」，不是「续到 X」。 */
       ok(/下一盒 .* 发/.test(活文), '它说的是「下一盒几号发」，不是「续到几号」',
          (活文.match(/下一盒[^·]{0,16}/) || [''])[0])
+
+      /* 【那颗按钮真按下去会怎样】（2026-09-06）。上面那一条只验了
+         「屏上给不给得出」，而注释里写着「真按下去由 25 计划打真接口验」——
+         也就是说 `subs·onStop` 这个处理器【一次都没被按过】，
+         它一直挂在这一趟末尾那份「没碰过的」清单上。
+
+         退订是「花钱的反面」，按错了要等一个月才发现，所以它有二次确认;
+         镜像里 `wx.showModal` 走浏览器 confirm，playwright 默认关掉它 ——
+         两边都要显式接管，跟上面取消订单那一段同一个手法。 */
+      const 还续着 = () => sql1(`SELECT cancel_at_period_end FROM subscription WHERE id='vsub-alive'`)
+      const 关掉退订 = (d) => d.dismiss()
+      p.on('dialog', 关掉退订)
+      await p.getByText('不再续了', { exact: true }).click()
+      await p.waitForTimeout(900)
+      ok(还续着() === 'f', '在确认框上说「再想想」，它还续着 —— 不该一按就停',
+         还续着())
+      p.off('dialog', 关掉退订)
+
+      const 点头退订 = (d) => d.accept()
+      p.on('dialog', 点头退订)
+      await p.getByText('不再续了', { exact: true }).click()
+      await p.waitForTimeout(1400)
+      ok(还续着() === 't', '确认之后真的不再续了', 还续着())
+      p.off('dialog', 点头退订)
+
+      /* 【标记打上之后，屏上要跟着改口】。`cancel_at_period_end` 为 true 时
+         状态仍然是 `active` —— 而这一屏原先只打状态，
+         一位已经点过「到期不续」的人，看到的跟没退的人一个字不差
+         （docs/ACCEPTANCE-25.md 先决条件五里记着这件事）。 */
+      await open('pages/subs/index')
+      await p.waitForTimeout(1400)
+      const 退后文 = await text()
+      ok(/不再续/.test(退后文), '点完之后那一屏跟着改口 —— 不是仍旧写着「订着」',
+         (退后文.match(/一味香[^·]{0,40}/) || [''])[0])
       run(`DELETE FROM subscription WHERE id IN ('${两份[0]}','${两份[1]}','vsub-alive')`)
     }
   }
@@ -5024,6 +5110,9 @@ if (!(CAL > 0)) {
 // 三档的数都是【实测】的，不是从另一档减出来的：
 // 2026-09-03 同一台机器上分别跑了三趟 —— 假 130 / 真 358 / 真带排盘 384。
 // 建本命那一段是 26 条，不是当初以为的 17 条。
+/* 「真带排盘」这一档 2026-09-06 第六次改，476 → 485（实跑）——
+   「要去一场活动的人」（整屏此前一条断言都没有）加 6 条，
+   「不再续了」那颗按钮真按一次加 3 条。 */
 /* 「真带排盘」这一档 2026-09-06 第五次改，472 → 476（实跑）——
    「要退款的人」那一段加了 4 条（那颗按钮此前一次都没被按过）。 */
 /* 「真带排盘」这一档 2026-09-05 第四次改，468 → 472（实跑）——
@@ -5040,7 +5129,7 @@ if (!(CAL > 0)) {
    凭空少掉八十条仍然报「全通」。
    另外两档没有在这一轮实测过，不动 —— 改一个没量过的数，
    等于把「下限」变成「我猜的数」。 */
-const 基准 = { 假: 132, 真: 360, 真带排盘: 476 }
+const 基准 = { 假: 132, 真: 360, 真带排盘: 485 }
 // 名字不叫 `档`：978 行有个同名的局部变量（村民稀有度），
 // 两个都在这个文件里，读起来会以为是同一个东西
 const 这一档 = !API ? '假' : (MINGLI ? '真带排盘' : '真')
