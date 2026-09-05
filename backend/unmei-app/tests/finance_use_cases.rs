@@ -12,22 +12,41 @@ mod common;
 use unmei_app::{finance, Actor, DomainError};
 
 /// 建一个空的 open 期间，返回它的 id。
+///
+/// 【撞了就换一格，不靠运气】（2026-09-05）。
+/// `year/sub` 要唯一（`uq_accounting_period`），原先是从 uuid 派生一格
+/// 就直接插 —— 900 × 12 = 10800 格，而**这些行从来不删**：
+/// 测试库里已经攒了两百多行，于是每插一格约 2.3% 撞号，
+/// 一轮九个用例就是两成的概率报红，而且越攒越常红。
+///
+/// 原来那段注释只防了一件事：「年份取 1000-1899，真数据在 2026 上下，
+/// 撞不着」—— 防的是撞真数据，没想过撞自己上一轮。
+///
+/// 症状最坏的地方在于它**偶发**：同一份代码这一轮红下一轮绿，
+/// 于是每一次真红都可以被当成噪音放过。
 async fn 建一期(pool: &sqlx::PgPool) -> String {
-    let id = format!("period-t{}", uuid::Uuid::new_v4().simple());
-    /* year/sub 要唯一（uq_accounting_period），而这些测试是并行跑的。
-       从 uuid 派生，不引 rand ——`unmei-app` 本来没有这个依赖，
+    /* 从 uuid 派生，不引 rand ——`unmei-app` 本来没有这个依赖，
        为一行测试代码加一个 crate 不划算。
-       年份取 1000-1899：真数据在 2026 上下，撞不着。 */
-    let 种: u128 = uuid::Uuid::new_v4().as_u128();
-    let 年: i32 = 1000 + (种 % 900) as i32;
-    let 月: i32 = 1 + ((种 >> 32) % 12) as i32;
-    sqlx::query(
-        "INSERT INTO accounting_period(id, kind, year, sub, state, region)
-         VALUES ($1, 'month', $2, $3, 'open', 'cn')",
-    )
-    .bind(&id).bind(年).bind(月)
-    .execute(pool).await.expect("建会计期");
-    id
+       年份仍取 1000-1899：真数据在 2026 上下，两边互不打扰。 */
+    for _ in 0..64 {
+        let id = format!("period-t{}", uuid::Uuid::new_v4().simple());
+        let 种: u128 = uuid::Uuid::new_v4().as_u128();
+        let 年: i32 = 1000 + (种 % 900) as i32;
+        let 月: i32 = 1 + ((种 >> 32) % 12) as i32;
+        let 落了 = sqlx::query(
+            "INSERT INTO accounting_period(id, kind, year, sub, state, region)
+             VALUES ($1, 'month', $2, $3, 'open', 'cn')
+             ON CONFLICT DO NOTHING",
+        )
+        .bind(&id).bind(年).bind(月)
+        .execute(pool).await.expect("建会计期");
+        // id 是新发的 uuid，所以唯一能冲突的只有 year/sub 那个索引
+        if 落了.rows_affected() == 1 {
+            return id;
+        }
+    }
+    panic!("连挑 64 格都被占着 —— 测试库里的会计期该清了：\n\
+            psql \"$TEST_DATABASE_URL\" -c \"DELETE FROM accounting_period WHERE year < 1900\"");
 }
 
 /// 往这一期记一条分录，借 `debit` 贷 `credit`（不平就传不等的数）。
