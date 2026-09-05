@@ -9,7 +9,7 @@ import { api } from './api'
 import { CONFIG } from '../config/index'
 import type {
   CreatedOrder, OrderDetail, OrderPage, OrderPreview, PayStarted, ProductCard, ProductDetail,
-  Shipment, ShipmentTrace,
+  MyCoupon, Shipment, ShipmentTrace,
 } from '../types/commerce'
 
 const scope = () => 'region=' + CONFIG.DEFAULT_REGION + '&platform=mini'
@@ -51,6 +51,15 @@ export const commerceApi = {
      现在单开一支，名字里就说清它问的是什么。 */
   subscribable: (): Promise<ProductCard[]> =>
     api.get<ProductCard[]>('/v1/products?' + scope() + '&kind=subscription'),
+
+  /* 【我手里有哪些券】（2026-09-05）。在这之前用户那一侧看不见任何一张:
+     后台发得出绑人的券、库里 `coupon.owner_user_id` 也一直存着，
+     而客户端唯一跟券有关的东西是确认页上那个「有券码就填这儿」的格子 ——
+     也就是**他得先知道那串码**。运营补一张券，用户打开什么都看不到，
+     券得另找一条路送到他眼前（短信 / 客服 / 二维码），那条路一断，
+     这张券就等于没发。 */
+  coupons: (): Promise<MyCoupon[]> =>
+    api.get<MyCoupon[]>('/v1/coupons?region=' + CONFIG.DEFAULT_REGION),
 
   /** 商品详情，价格在 `skus[].current_price_minor` 上 */
   product: (id: string): Promise<ProductDetail> =>

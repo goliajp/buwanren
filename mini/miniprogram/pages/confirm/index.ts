@@ -11,7 +11,7 @@
 import { commerceApi } from '../../services/commerce'
 import { 脸 } from '../../utils/face'
 import type { ProductDetail } from '../../types/commerce'
-import { money } from '../../utils/money'
+import { money, 券面那句话 } from '../../utils/money'
 import { 一句, 照原文 } from '../../utils/say'
 
 interface Contact { name?: string; phone?: string; address?: string }
@@ -45,6 +45,19 @@ interface IData {
   message: string
   /** 券码。空着就是没用券 —— 不预填、不记住上一次 */
   券码: string
+  /** 【他手里能用的那几张】。这一格原先只收码，也就是他得先知道那串码 ——
+   *  而运营发的券绑在他账号上，系统一直知道，只是从没说过。
+   *  `面` 是「八折 · 最多减 ¥100」那句，跟「手里的券」那一屏同一句 */
+  我的券: Array<{ code: string; 面: string }>
+  /** 这一格现在摆的是第几张。后端把先到期的排在前面，所以默认那一张
+   *  正是该先花掉的。多于一张时给一颗「换一张」 */
+  第几张: number
+  /** 摆在格子里的那句话。**wxml 里不拿变量下标取数组** ——
+   *  垫片那一层认不认这种写法是另一回事，而算在这儿本来就更好读 */
+  当前券面: string
+  /** 他点了「填码」——要手打一个别处拿到的码。切过去就不切回来:
+   *  切回来会把他打了一半的字吃掉 */
+  手填: boolean
   /** 这张券试得怎么样。'' = 还没试 */
   券状态: '' | '在算' | '用上了' | '不行'
   /** 试不成时的那一句 —— 说清是为什么，不只说「不行」 */
@@ -92,6 +105,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
        券是一次性的东西，替人记住它只会让人以为还能再用一次。 */
     券码: '', 券状态: '' as '' | '在算' | '用上了' | '不行',
     券说: '', 减了: 0, 减了文本: '', 实付文本: '',
+    我的券: [], 第几张: 0, 当前券面: '', 手填: false,
     要寄: false, 付完呢: '',
     qty: 1, message: '',
     contact: null, addrNote: '', buying: false, note: '', buyKey: '',
@@ -119,10 +133,12 @@ Page<IData, WechatMiniprogram.IAnyObject>({
 
   onShow() {
     this.load()
+    this.取我的券()
   },
 
   onAuthReady() {
     this.load()
+    this.取我的券()
   },
 
   load() {
@@ -222,6 +238,50 @@ Page<IData, WechatMiniprogram.IAnyObject>({
         this.setData({ addrNote: '没选成 —— 再点一下那一行试试' })
       },
     )
+  },
+
+  /* 【只摆能用的】。摆一张点下去被拒的券，比不摆更糟 ——
+     而「能不能用」是后端算的（`usable`），这一侧不另判一遍。
+     取不到就当没有:这一格本来就还收得了手打的码，不空屏。 */
+  取我的券() {
+    commerceApi.coupons().then(
+      (券) => {
+        const 能用 = 券
+          .filter((x) => x.usable && x.code)
+          .map((x) => ({ code: x.code as string, 面: 券面那句话(x) }))
+        this.setData({
+          我的券: 能用,
+          第几张: 0,
+          当前券面: 能用.length ? 能用[0].面 : '',
+        })
+      },
+      () => this.setData({ 我的券: [], 当前券面: '' }),
+    )
+  },
+
+  /* 点一下 = 把这张的码填进去并当场试一次。
+     只填不试的话，人得再按一下旁边那颗按钮，而他刚刚已经按过一下了。 */
+  用这张() {
+    const c = this.data.我的券[this.data.第几张]
+    if (!c) return
+    this.setData({ 券码: c.code, 券状态: '', 券说: '', 减了: 0, 减了文本: '', 实付文本: '' })
+    this.试券()
+  },
+
+  /* 手里不止一张时给的那颗。【换完就试】——换一张而屏上那个数不动，
+     人不知道换过去到底是多少，还得再按一次。 */
+  换一张() {
+    const n = this.data.我的券.length
+    if (n < 2) return
+    const i = (this.data.第几张 + 1) % n
+    this.setData({ 第几张: i, 当前券面: this.data.我的券[i].面 })
+    this.用这张()
+  },
+
+  /* 要手打一个别处拿到的码。**切过去就不切回来** ——
+     切回来会把他打了一半的字吃掉。 */
+  要手填() {
+    this.setData({ 手填: true, 券码: '', 券状态: '', 券说: '', 减了: 0, 减了文本: '', 实付文本: '' })
   },
 
   券码输入(e: { detail: { value: string } }) {

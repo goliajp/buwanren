@@ -129,3 +129,28 @@ button.btn.btn-wait { background: #EADFCD; color: #7A6A52; box-shadow: none; }
   font-size: 24rpx; color: #a6321e; text-align: right;
   padding: 0 0 8rpx;
 }
+
+/* 【手里那一张券】。占的是输入框那个位子 —— 这一屏没有多余的纵向空间
+   （实测内容 633px / 一屏 667px，「这张券减」那一行一出来就超 11px）,
+   所以它不能是另起的一块。高度跟输入框一样由行来定，加进来是 0px。 */
+.coupon-pick {
+  flex: 1;
+  min-width: 0;
+  min-height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  font-size: 26rpx;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 用上了的那一张跟下面「这张券减」那个数同一种橙 —— 一眼看得出是它减的 */
+.coupon-pick.pick-on { color: #b8632a; font-weight: 600; }
+
+/* 【底下那一行不许留着】。`.page` 的下留白原先是 220rpx（110px），
+   而钉在底下的成交栏实测 90px —— 多出来的 20px 在别处是余量，
+   在这一屏是「用上券之后就得滚」的那 11px。改成 196rpx（98px）,
+   离成交栏仍有 8px。 */
+.page { padding-bottom: 196rpx; }

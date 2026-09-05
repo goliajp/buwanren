@@ -258,6 +258,38 @@ async fn 带券下单不许复用之前那张没付的单() {
     assert_eq!(带券单.amount_total_minor, 15920, "券要真的减钱");
 }
 
+/// 【用过的券，屏上说的得是人话】。
+///
+/// 这一句先前是英文的:`illegal state transition: redeemed → locked`。
+/// `lock_for_order` 里那段人话（「用过了」）排在 `assert_transition`
+/// 后面，而状态机那一句抢先返回 —— 于是它**一行都执行不到**，
+/// 而确认页照原文显示后端这几句（`utils/say.ts` 的 `照原文`）。
+///
+/// 抓到它的是 2026-09-05 新开的「手里的券」那一屏:同一段判断换个地方读，
+/// 屏上直接摆出一个 `redeemed`。测试盯着别再倒回去。
+#[tokio::test]
+async fn 用过的券说的是人话不是状态机那句英文() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 19900).await;
+    let code = 发一张(&pool, 2000, None, None).await;
+    sqlx::query("UPDATE coupon SET state='redeemed', redeemed_at=NOW() WHERE code=$1")
+        .bind(&code)
+        .execute(&pool)
+        .await
+        .expect("标成用过了");
+
+    let e = 下一单(&pool, &user, &sku, vec![code]).await.unwrap_err();
+    match e {
+        DomainError::Validation(m) => {
+            assert!(m.contains("用过了"), "说的不是人话：{m}");
+            assert!(!m.contains("state transition"), "状态机那句英文漏上屏了：{m}");
+            assert!(!m.contains("redeemed"), "库里那个字段的原文漏上屏了：{m}");
+        }
+        其他 => panic!("拿到的是 {其他:?}"),
+    }
+}
+
 #[tokio::test]
 async fn 过期的券用不了() {
     let pool = db_or_skip!();

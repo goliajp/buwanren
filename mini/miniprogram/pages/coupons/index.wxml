@@ -1,0 +1,63 @@
+<view class="page">
+  <view class="hd">
+    <view class="title title-lg">手里的券</view>
+    <view class="sub" wx:if="{{!loading && !err}}">
+      {{说明}}
+    </view>
+    <view class="hr"></view>
+  </view>
+
+  <view class="sk-rows" wx:if="{{loading}}">
+    <view class="sk-card"><view class="sk-body">
+      <view class="sk sk-line mid"></view><view class="sk sk-line short"></view>
+    </view></view>
+  </view>
+
+  <view class="err" wx:elif="{{err}}">
+    <view class="err-msg">{{err}}</view>
+    <button class="btn ghost" bindtap="load">再试一次</button>
+  </view>
+
+  <block wx:else>
+    <view class="list" wx:if="{{券.length > 0}}">
+      <!-- 【券面那句话是这张卡上最大的东西】。一张券在人眼里就是
+           「能减多少」——名字、日子、码都是它的注脚。
+           用不了的那些整张压暗（`dim`），不是只把那句理由写成灰的:
+           压暗之后一眼就分得出哪几张是今天能花的。 -->
+      <view wx:for="{{券}}" wx:key="id" class="item enter {{item.usable ? '' : 'dim'}}"
+            style="animation-delay:{{index * 40}}ms">
+        <view class="item-face">{{item.面}}</view>
+        <view class="item-name" wx:if="{{item.title}}">{{item.title}}</view>
+        <!-- 码要能看见:别处收到的券得靠它对号，而结账那一格收的就是它 -->
+        <view class="item-code" wx:if="{{item.code}}">{{item.code}}</view>
+        <view class="item-meta">{{item.说}}</view>
+        <!-- 【一张卡上只给一个动作】——跟「订着的」那一屏同一条规矩。
+             能用的指向哪儿能花掉它;用掉的指回那一单;剩下的什么都不给
+             （过期、被收回的确实无事可做）。 -->
+        <view class="item-do" wx:if="{{item.usable}}" bindtap="goVillage"
+              hover-class="press-text" hover-stay-time="80">
+          去挑点什么 ›
+        </view>
+        <view class="item-do do-quiet" wx:elif="{{item.used_on_order_id}}"
+              data-id="{{item.used_on_order_id}}" bindtap="goOrder"
+              hover-class="press-text" hover-stay-time="80">
+          用在这一单 ›
+        </view>
+      </view>
+    </view>
+
+    <view class="empty" wx:else>
+      <view class="empty-art pix" style="--pix:url('/images/empty-subs.png')"></view>
+      <view class="empty-t">手里还没有券</view>
+      <!-- 空状态要说清两件事:现在没有、哪儿会有。
+           第二句尤其要紧 —— 券多半是别处（客服、活动）给的，
+           而人拿到码之后得知道往哪儿填 -->
+      <view class="empty-sub">有券的时候会摆在这儿</view>
+      <view class="empty-sub">别处拿到的码，结账时填在「优惠券」那一格</view>
+    </view>
+  </block>
+
+  <view class="cta">
+    <button class="btn ghost" bindtap="onBack">回去</button>
+  </view>
+</view>

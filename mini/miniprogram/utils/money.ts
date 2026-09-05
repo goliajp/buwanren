@@ -60,3 +60,45 @@ export function money(minor: number, currency: string): string {
   if (分 === 0) return s + 元
   return s + 元 + '.' + String(分).padStart(2, '0')
 }
+
+/* 券面上写的那句话 —— 「八折 · 最多减 ¥100」/「减 ¥20」。
+ *
+ * 【放在这儿不放页面里】：确认页上的券条、「手里的券」那一屏、
+ * 以后订单详情里那一行，说的都得是同一句。分头写的话，
+ * 同一张券在两屏上是两种说法，而人会以为那是两张券。
+ *
+ * 折扣在库里是万分比（`pct_off_bps`，2000 = 减两成）。屏上说「八折」——
+ * 那是中文里买东西的说法；「减 20%」是报表的说法。
+ * 除不尽的（比如 2345）没有对应的折数，那时才退回百分数，不硬凑。 */
+const 折字 = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九']
+
+export function 券面那句话(c: {
+  currency: string
+  pct_off_bps: number
+  amount_off_minor: number | null
+  max_off_minor: number | null
+}): string {
+  if (c.amount_off_minor && c.amount_off_minor > 0) {
+    return '减 ' + money(c.amount_off_minor, c.currency)
+  }
+  if (!c.pct_off_bps || c.pct_off_bps <= 0) {
+    /* 【不编】。券面读不懂的券后端会把 `why` 写满，卡片说的是那一句;
+       这里只负责不假装知道它减多少 */
+    return ''
+  }
+  const 主 = 折数(c.pct_off_bps)
+  return c.max_off_minor ? 主 + ' · 最多减 ' + money(c.max_off_minor, c.currency) : 主
+}
+
+function 折数(bps: number): string {
+  const 十分之 = (10000 - bps) / 1000          // 2000 → 8（八折）
+  const 一位小数 = Math.round(十分之 * 10) / 10
+  if (一位小数 !== 十分之 || 一位小数 <= 0 || 一位小数 >= 10) {
+    return '减 ' + (bps / 100) + '%'
+  }
+  const 整 = Math.floor(一位小数)
+  const 零头 = Math.round((一位小数 - 整) * 10)
+  if (零头 === 0) return 折字[整] + '折'
+  // 八五折:中文里「八五」是 0.85，不读成「八点五」
+  return 折字[整] + 折字[零头] + '折'
+}
