@@ -20,10 +20,22 @@ import os, re, subprocess, sys, pathlib
 
 # ── 代码里发得出哪几种 ────────────────────────────────────
 认得 = set()
-naji = (根 / 'backend/unmei-api/src/routes/naji.rs').read_text(encoding='utf-8')
+# 【2026-09-06 搬家了】。这一段原先读的是 `unmei-api/src/routes/naji.rs` ——
+# 转盘那条路由的私产。而问签（`villager_reading`）是「问一件事」的另一条路,
+# 它在 app 层，够不着 api 层某个路由文件里的私有函数,
+# 于是天天问村民的人徽章永远不动。判据与实现搬去了 `unmei_app::badge`。
+#
+# 【读错文件不许当成读到了】：搬家那天这一支照旧扫 naji.rs，
+# 扫出空集合，于是它报「四枚永远拿不到」—— 红得对（它确实够不着了）,
+# 但说的理由是错的。所以这里单独要求这一支【从徽章那个模块里】读出东西来。
+badge_rs = (根 / 'backend/unmei-app/src/badge.rs').read_text(encoding='utf-8')
 # match (typ, action) { ("count", "naji.spin") => …, ("streak", "naji.spin") => … }
-for t, a in re.findall(r'\("(\w+)",\s*"([\w.]+)"\)\s*=>', naji):
+for t, a in re.findall(r'\("(\w+)",\s*"([\w.]+)"\)\s*=>', badge_rs):
     认得.add((t, a))
+if not 认得:
+    print('✗ unmei-app/src/badge.rs 里读不出那张 (type, action) 表 —— '
+          '这一支的判据够不着它要验的东西了（是不是又搬家了？）')
+    sys.exit(1)
 ful = (根 / 'backend/unmei-app/src/fulfillment.rs').read_text(encoding='utf-8')
 # 履约那一侧:发的是 order.paid + count
 if 'Some("order.paid")' in ful and 'Some("count")' in ful:

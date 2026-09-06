@@ -211,11 +211,13 @@ async fn 注销会把还活着的订阅停掉() {
         .expect("库里得有一个在架套餐");
     let 订 = common::uniq("sub");
     sqlx::query(
+        // `region` 那一列有默认值 cn，不写永远不报错 —— 而后台按区分的账
+        // 会因此全是空的（门禁 check-region-written 盯着这件事）
         "INSERT INTO subscription(id, user_id, plan_id, status, source_channel,
                                   current_period_start, current_period_end,
-                                  next_billing_attempt_at)
+                                  next_billing_attempt_at, region)
          VALUES ($1,$2,$3,'active','wechat', NOW(), NOW() + INTERVAL '30 days',
-                 NOW() + INTERVAL '30 days')",
+                 NOW() + INTERVAL '30 days', 'cn')",
     )
     .bind(&订)
     .bind(&user)
