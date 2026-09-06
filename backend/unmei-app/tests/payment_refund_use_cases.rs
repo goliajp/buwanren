@@ -1104,6 +1104,152 @@ async fn 取消单上无家可归的钱会被退回去() {
     );
 }
 
+/// 【钱退干净了，东西要收回来】（2026-09-06 三路验证）。
+///
+/// `approve` 此前只动 refund / payment / order_record 三张表加一个事件 ——
+/// 客服按下「批」，钱退回去，而那位村民还住在他村里、那份说明书还读得到。
+/// 协议写的是「数字内容一经交付不支持退款」，订单屏也照这条把按钮换成了说明；
+/// 而那条规矩此前只靠「后台的人不点错」来维持。
+#[tokio::test]
+async fn 退干净了的单会把住进来的人搬走() {
+    let pool = db_or_skip!();
+    common::确保当月开着(&pool).await;
+    let user = common::user(&pool).await;
+    let (sku, villager) = common::residency_sku(&pool, "CNY", 9900).await;
+    let created = order::create(
+        &pool,
+        order::NewOrder {
+            user_id: user.clone(), region: "cn".into(), channel_origin: "web".into(),
+            lines: vec![order::NewOrderLine { sku_id: sku, qty: 1 }],
+            shipping_address: None, contact: None, coupon_codes: vec![],
+            note: None, ip: None, ua: None,
+        },
+    ).await.expect("建单");
+    let p = payment::start(&pool, &created.order_id, &user, "wechat_jsapi", None)
+        .await.expect("起一笔");
+    payment::apply_succeeded(&pool, &p.payment_id, None, chrono::Utc::now())
+        .await.expect("付了");
+    // 履约由 outbox 的消费者驱动，测试里直接调它那一支
+    unmei_app::fulfillment::apply_order_paid(&pool, &created.order_id).await.expect("履约");
+
+    // 付完就该住进来了 —— 这是这一支的前提，不成立的话下面验的是别的事
+    assert_eq!(
+        common::scalar_i64(
+            &pool, "SELECT count(*) FROM villager_residency WHERE user_id=$1", &user).await,
+        1,
+        "前提：付完钱 {villager} 该住进来",
+    );
+
+    let rid = refund::request(
+        &pool, &created.order_id, &user, None, None, "goodwill", Some("客服通融"),
+    ).await.expect("申请");
+    refund::approve(&pool, &rid, &Actor::admin("admin_kf")).await.expect("批");
+
+    assert_eq!(
+        common::scalar_i64(&pool, "SELECT count(*) FROM villager_residency WHERE user_id=$1", &user).await,
+        0,
+        "钱退干净了，人还住在他村里",
+    );
+}
+
+/// 退了一半不搬人 —— 部分退款对不上具体哪几行，凭它把人搬走，
+/// 会把「退了一半」变成「什么都没有了」。
+#[tokio::test]
+async fn 退了一半的单不搬人() {
+    let pool = db_or_skip!();
+    common::确保当月开着(&pool).await;
+    let user = common::user(&pool).await;
+    let (sku, _villager) = common::residency_sku(&pool, "CNY", 9900).await;
+    let created = order::create(
+        &pool,
+        order::NewOrder {
+            user_id: user.clone(), region: "cn".into(), channel_origin: "web".into(),
+            lines: vec![order::NewOrderLine { sku_id: sku, qty: 1 }],
+            shipping_address: None, contact: None, coupon_codes: vec![],
+            note: None, ip: None, ua: None,
+        },
+    ).await.expect("建单");
+    let p = payment::start(&pool, &created.order_id, &user, "wechat_jsapi", None)
+        .await.expect("起一笔");
+    payment::apply_succeeded(&pool, &p.payment_id, None, chrono::Utc::now())
+        .await.expect("付了");
+    unmei_app::fulfillment::apply_order_paid(&pool, &created.order_id).await.expect("履约");
+
+    let rid = refund::request(
+        &pool, &created.order_id, &user, None, Some(3000), "goodwill", Some("退一部分"),
+    ).await.expect("申请");
+    refund::approve(&pool, &rid, &Actor::admin("admin_kf")).await.expect("批");
+
+    assert_eq!(
+        common::scalar_i64(&pool, "SELECT count(*) FROM villager_residency WHERE user_id=$1", &user).await,
+        1,
+        "只退了一部分，人却被搬走了",
+    );
+}
+
+/// 【交付不了的那几行，钱要退回去】（2026-09-06 三路验证）。
+///
+/// 履约里有两处把行标成 `failed`（御守 SKU 没挂村民、这位村民已经住着了），
+/// 两处的注释都写着「该退这一笔」。而 `settle_order_in_tx` 数的是
+/// `NOT IN ('done','failed')` —— 一张全部失败的单照样翻成 `done`：
+/// 屏上写「已完成」，钱收着，东西没有，而自动退款那一支只捞已取消的单。
+#[tokio::test]
+async fn 交付不了的那几行钱会被退回去() {
+    let pool = db_or_skip!();
+    common::确保当月开着(&pool).await;
+    let (_user, order_id, _p) = paid_order(&pool, 9900).await;
+    // 履约把这一行判成交付不了 —— 两条真实路径写的都是这一个状态
+    sqlx::query("UPDATE order_line SET fulfillment_status='failed' WHERE order_id=$1")
+        .bind(&order_id).execute(&pool).await.expect("标 failed");
+    sqlx::query("UPDATE order_record SET status='done', fulfilled_at=NOW() WHERE id=$1")
+        .bind(&order_id).execute(&pool).await.expect("收尾就是这么翻的");
+
+    // 一轮最多 200 单，库里攒着同类的历史单 —— 照生产的样子扫到它为止
+    let mut 轮 = 0;
+    loop {
+        let 退了 = refund::refund_undelivered_lines(&pool).await.expect("清扫");
+        let 已退 = common::scalar_i64(
+            &pool, "SELECT COALESCE(amount_refunded_minor,0) FROM order_record WHERE id=$1", &order_id,
+        ).await;
+        if 已退 == 9900 {
+            break;
+        }
+        轮 += 1;
+        assert!(退了 > 0, "第 {轮} 轮一笔都没退，而这一单交付不了、钱还收着");
+        assert!(轮 < 40, "扫了 {轮} 轮还没轮到这一单");
+    }
+
+    /* 退完之后订单不该再写着「已完成」—— 那正是这条 bug 让买家看到的那句话。
+       `approve` 里那段 CASE 会把它推成 refunded / refund_partial。 */
+    let 状态 = common::scalar_string(
+        &pool, "SELECT status FROM order_record WHERE id=$1", &order_id).await;
+    assert_eq!(状态.as_deref(), Some("refunded"),
+        "钱退完了，单子还写着「已完成」");
+
+    // 每 30 秒扫一次 —— 不幂等的话同一笔钱会被退好几遍
+    refund::refund_undelivered_lines(&pool).await.expect("再扫一遍");
+    let 笔数 = common::scalar_i64(
+        &pool, "SELECT count(*) FROM refund WHERE order_id=$1", &order_id).await;
+    assert_eq!(笔数, 1, "扫第二遍又退了一笔");
+}
+
+/// 行都交付成了的单，不该被这一支碰 —— 那是绝大多数已付单的样子。
+#[tokio::test]
+async fn 交付成了的单不会凭空生出退款() {
+    let pool = db_or_skip!();
+    common::确保当月开着(&pool).await;
+    let (_user, order_id, _p) = paid_order(&pool, 9900).await;
+    sqlx::query("UPDATE order_line SET fulfillment_status='done' WHERE order_id=$1")
+        .bind(&order_id).execute(&pool).await.expect("标 done");
+    sqlx::query("UPDATE order_record SET status='done' WHERE id=$1")
+        .bind(&order_id).execute(&pool).await.expect("收尾");
+
+    refund::refund_undelivered_lines(&pool).await.expect("清扫");
+    let 笔数 = common::scalar_i64(
+        &pool, "SELECT count(*) FROM refund WHERE order_id=$1", &order_id).await;
+    assert_eq!(笔数, 0, "东西都给出去了，却生出了一笔退款");
+}
+
 /// 没收着钱的取消单不该被碰 —— 那是绝大多数取消单的样子。
 #[tokio::test]
 async fn 没收钱的取消单不会凭空生出退款() {
