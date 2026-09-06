@@ -41,31 +41,39 @@
 -- 订单与支付引着,删了会连带动外键（同 20260902009 的理由）。
 -- `plan25.sh` 也跟着改成用 `sku-oma-ayun`,不再自己造一件混进真目录。
 
+-- 【文案里不写他/她】（同日改）。头一版四件的副标题写的是「请他回村」
+-- 「请她回村」，正文里也是「他会住进你的村子里」—— 而
+-- `scripts/check-no-deixis.py` 当场报了:这套句式对四十位是同一套,
+-- 男女都有,而商品名旁边那一句读的人不一定知道说的是谁。
+-- 改成用名字,或者干脆省掉主语。
+-- 这一支红着的时候变异测试的结论一律不算数（它靠「干净源码上全绿」当基准）——
+-- 那一轮 117 项里「漏掉 2 项」全是这一条的下游。
+
 INSERT INTO product(id, code, name, sub_title, category, kind, status,
                     description_md, available_regions, available_platforms,
                     fulfillment_kind, tags, sort_weight, audit_note)
 VALUES
-  ('prod-oma-ayun', 'OMA-AYUN', '阿云的御守', '请他回村 · 住进你的村子',
+  ('prod-oma-ayun', 'OMA-AYUN', '阿云的御守', '请回村 · 住进你的村子',
    'omamori', 'one_shot', 'listed',
-   '请阿云回村。他会住进你的村子里，白天在村口那条路上晃，有事你可以问他 —— 一天一次。',
+   '请阿云回村。往后就住在你的村子里，白天在村口那条路上晃，有事你可以问阿云 —— 一天一次。',
    ARRAY['cn','zh_hant'], ARRAY['web','mini','ios','android'],
    'residency', ARRAY['御守','村民'], 95,
    '2026-09-06 立:名册第一次真的有东西卖'),
-  ('prod-oma-tao', 'OMA-TAO', '桃桃的御守', '请她回村 · 住进你的村子',
+  ('prod-oma-tao', 'OMA-TAO', '桃桃的御守', '请回村 · 住进你的村子',
    'omamori', 'one_shot', 'listed',
-   '请桃桃回村。她会住进你的村子里，在村西头开她的直播间，有事你可以问她 —— 一天一次。',
+   '请桃桃回村。往后就住在你的村子里，在村西头开直播间，有事你可以问桃桃 —— 一天一次。',
    ARRAY['cn','zh_hant'], ARRAY['web','mini','ios','android'],
    'residency', ARRAY['御守','村民'], 95,
    '2026-09-06 立:名册第一次真的有东西卖'),
-  ('prod-oma-popo', 'OMA-POPO', '婆婆的御守', '请她回村 · 住进你的村子',
+  ('prod-oma-popo', 'OMA-POPO', '婆婆的御守', '请回村 · 住进你的村子',
    'omamori', 'one_shot', 'listed',
-   '请婆婆回村。她会住进你的村子里，带着她那一屋子动物，有事你可以问她 —— 一天一次。',
+   '请婆婆回村。往后就住在你的村子里，带着那一屋子动物，有事你可以问婆婆 —— 一天一次。',
    ARRAY['cn','zh_hant'], ARRAY['web','mini','ios','android'],
    'residency', ARRAY['御守','村民'], 95,
    '2026-09-06 立:名册第一次真的有东西卖'),
-  ('prod-oma-tenz', 'OMA-TENZ', '丹增的御守', '请他回村 · 住进你的村子',
+  ('prod-oma-tenz', 'OMA-TENZ', '丹增的御守', '请回村 · 住进你的村子',
    'omamori', 'one_shot', 'listed',
-   '请丹增回村。他会住进你的村子里，天没亮就在村北练他那一百零八式，有事你可以问他 —— 一天一次。',
+   '请丹增回村。往后就住在你的村子里，天没亮就在村北练那一百零八式，有事你可以问丹增 —— 一天一次。',
    ARRAY['cn','zh_hant'], ARRAY['web','mini','ios','android'],
    'residency', ARRAY['御守','村民'], 95,
    '2026-09-06 立:名册第一次真的有东西卖')
