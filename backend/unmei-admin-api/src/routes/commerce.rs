@@ -1211,8 +1211,14 @@ async fn list_refunds(
     let kw = q.keyword.clone().unwrap_or_default();
     let kw_like = format!("%{kw}%");
     let rows = sqlx::query(
+        /* `failure_msg` 也取回来（2026-09-06 三路验证 · 运营那一路）：
+           库里 132 笔 `failed` 写着 `CHANNEL_REJECTED | 渠道拒绝`，
+           而屏上一个字都不显示 —— 客服看到的只是一颗「重试」按钮,
+           于是一笔笔重试，一笔笔再失败。
+           `failure_code` 早就在这条 SELECT 里了，`failure_msg` 连查都没查。 */
         r#"SELECT id, order_id, payment_id, amount_minor, currency, reason_code, reason_text,
-                  actor_kind, status, approved_at, completed_at, failure_code, created_at, region
+                  actor_kind, status, approved_at, completed_at,
+                  failure_code, failure_msg, created_at, region
            FROM refund
            WHERE ($1::text IS NULL OR status=$1)
              AND ($2::timestamptz IS NULL OR created_at >= $2)
@@ -1818,6 +1824,15 @@ async fn dashboard_kpi(
         r#"SELECT COUNT(*) FROM risk_case WHERE state IN ('open','investigating')
              AND ($1::text IS NULL OR region=$1)"#,
     ).bind(&region).fetch_one(&st.db).await.map_err(map_db)?;
+    /* 【对账那一千多批，看板与左栏一个字都不提】（2026-09-06 三路验证 ·
+       运营那一路）。实测 1,023 批未结差异、明细层 1,364 条 ——
+       而早上打开后台，看板十个数里没有对账，左栏那一项也没有 `watch`。
+       于是「今天有什么要我处理」这个问题，答案里少了最大的一块，
+       只能靠记性去翻那一页。 */
+    let open_recon_batches: i64 = sqlx::query_scalar(
+        r#"SELECT COUNT(*) FROM recon_batch WHERE status='has_discrepancy'
+             AND ($1::text IS NULL OR region=$1)"#,
+    ).bind(&region).fetch_one(&st.db).await.map_err(map_db)?;
     // product 是全局 SPU,按 available_regions 包含 region 判可见
     let listed_products: i64 = sqlx::query_scalar(
         r#"SELECT COUNT(*) FROM product WHERE status='listed'
@@ -1834,6 +1849,7 @@ async fn dashboard_kpi(
         "active_subscriptions": active_subs,
         "active_promotions": active_promos,
         "open_risk_cases": open_risk_cases,
+        "open_recon_batches": open_recon_batches,
         "listed_products": listed_products,
         "region": region,
     })))

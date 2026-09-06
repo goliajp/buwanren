@@ -5,6 +5,7 @@ import { commerce } from '../lib/api';
 import { 从网址读筛选 } from '../lib/urlfilter';
 import PageHeader from '../components/PageHeader';
 import TableError from '../components/TableError';
+import CopyId from '../components/CopyId';
 import FilterBar from '../components/FilterBar';
 import Pagination from '../components/Pagination';
 import Drawer from '../components/Drawer';
@@ -73,8 +74,8 @@ export default function Shipments() {
             <tbody>
               {(list.data?.items ?? []).map((s: any) => (
                 <tr key={s.id} className={s.status === 'exception' ? 'bg-debt-bg/30' : ''}>
-                  <td className="id">{shortId(s.id)}</td>
-                  <td className="font-mono text-ink-3">{shortId(s.order_id)}</td>
+                  <td className="id"><CopyId id={s.id}>{shortId(s.id)}</CopyId></td>
+                  <td className="font-mono text-ink-3"><CopyId id={s.order_id}>{shortId(s.order_id)}</CopyId></td>
                   <td>{carrierLabel(s.carrier_code)}</td>
                   <td className="id">{s.tracking_no ?? <span className="text-ink-4">未录入</span>}</td>
                   <td><span className={statusClass(s.status)}>{statusLabel(s.status)}</span></td>
@@ -147,6 +148,33 @@ function ShipActions({ s, onChanged }: { s: any; onChanged: () => void }) {
   );
 }
 
+/* 收件人快照怎么显示。
+ *
+ * 【形状不止一种】：下单那一路存的是 `{name, phone, address}`
+ * （`confirm/index.ts` 的 `chooseAddr` 拼的），而库里还躺着一批
+ * 只有 `{city, detail}` 的旧行（种子与验收夹具）。
+ * 所以不写死字段名 —— 认得的先按顺序摆，认不得的原样跟在后面。
+ * 空的就说空:一个 `—` 比一行看不懂的 JSON 有用。 */
+function 收件人(v: any) {
+  if (!v || typeof v !== 'object') return '—';
+  const 名 = [v.name, v.phone].filter(Boolean).join(' · ');
+  const 地 = v.address
+    ?? [v.province, v.city, v.district, v.detail].filter(Boolean).join('');
+  const 别的 = Object.entries(v)
+    .filter(([k]) => !['name', 'phone', 'address', 'province', 'city', 'district', 'detail'].includes(k))
+    .map(([k, x]) => `${k}: ${String(x)}`)
+    .join(' · ');
+  const 行 = [名, 地, 别的].filter(Boolean);
+  if (!行.length) return '—';
+  return (
+    <span>
+      {行.map((t, i) => (
+        <span key={i} className={i ? 'block text-ink-3' : 'block'}>{t}</span>
+      ))}
+    </span>
+  );
+}
+
 function ShipmentBody({ data }: { data: any }) {
   const { shipment, trace } = data;
   return (
@@ -154,8 +182,16 @@ function ShipmentBody({ data }: { data: any }) {
       <section>
         <h3 className="font-semibold mb-2 flex items-center gap-1.5"><Truck size={13}/> 基本</h3>
         <KvGrid kv={[
-          ['id', <span className="id">{shipment.id}</span>],
-          ['订单', <span className="id">{shipment.order_id}</span>],
+          ['id', <CopyId id={shipment.id}><span className="id">{shipment.id}</span></CopyId>],
+          ['订单', <CopyId id={shipment.order_id}><span className="id">{shipment.order_id}</span></CopyId>],
+          /* 【寄到哪儿，这一页此前一个字都不显示】（2026-09-06 三路验证 ·
+             运营那一路）。`get_shipment` 是 `SELECT *`，
+             `recipient_snapshot_json` 一直在响应里 —— 而这张字段表
+             十二项里没有它。客服接到「我的包裹没到」的电话，
+             能报出物流状态却报不出寄到哪儿，核对不了地址。
+             这一页的副标题写着「我们不管仓库，只跟单号」——
+             收件人不是仓库的事，是这一单的事。 */
+          ['收件人', 收件人(shipment.recipient_snapshot_json)],
           ['承运商', carrierLabel(shipment.carrier_code)],
           ['运单号', <span className="font-mono font-semibold">{shipment.tracking_no ?? '—'}</span>],
           ['状态', <span className={statusClass(shipment.status)}>{statusLabel(shipment.status)}</span>],

@@ -31,6 +31,28 @@ export default function Quotes() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['quotes'] }),
   });
 
+  /* 【全台唯一一颗没接线的按钮】（2026-09-06 三路验证 · 运营那一路）。
+     「新增一条」此前**没有 onClick** —— 而后端 `POST /admin/quotes` 是通的。
+     想加一条语料只能找工程师。
+
+     不做一整张表单:这一屏的活儿是「翻、筛、归档」，加一条是偶尔的事。
+     用三句 `prompt` 问最少的三样（出处、篇名、正文）—— 其余字段后端有默认值
+     （locale zh-CN、敏感度 1、两组 affinity 空数组）。
+     哪天加语料成了日常再做表单，那时它值得一屏。 */
+  const 新增 = useApiMutation({
+    mutationFn: (b: { book: string; chapter?: string; text: string }) =>
+      api.post('/quotes', b),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['quotes'] }),
+  });
+  const 问一条 = () => {
+    const text = prompt('这一句是什么？');
+    if (!text || !text.trim()) return;
+    const book = prompt('出自哪本书？（如「庄子」）');
+    if (!book || !book.trim()) return;
+    const chapter = prompt('哪一篇？不写也行') ?? '';
+    新增.mutate({ book: book.trim(), chapter: chapter.trim() || undefined, text: text.trim() });
+  };
+
   return (
     <div className="min-w-0">
       <PageHeader
@@ -57,7 +79,9 @@ export default function Quotes() {
               <option value="archived">已归档</option>
             </select>
             <div className="flex-1" />
-            <button className="btn btn-prim">新增一条</button>
+            <button className="btn btn-prim" onClick={问一条} disabled={新增.isPending}>
+              {新增.isPending ? '存着…' : '新增一条'}
+            </button>
           </div>
         </div>
 
@@ -103,7 +127,13 @@ export default function Quotes() {
                     <td><span className={statusClass(r.status)}>{statusLabel(r.status)}</span></td>
                     <td className="r font-mono text-xs text-ink-3">{ts(r.created_at)}</td>
                     <td className="r">
-                      <button onClick={() => archive.mutate(r.id)} className="btn btn-ghost text-xs hover:text-debt">归档</button>
+                      {/* 归档一点就生效 —— 念一句它是哪一条（2026-09-06） */}
+                      <button
+                        onClick={() => {
+                          if (!confirm(`把这一条归档？\n\n「${String(r.text ?? '').slice(0, 40)}」`)) return;
+                          archive.mutate(r.id);
+                        }}
+                        className="btn btn-ghost text-xs hover:text-debt">归档</button>
                     </td>
                   </tr>
                 ))}
