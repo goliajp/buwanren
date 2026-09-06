@@ -165,7 +165,7 @@ function 退不退得了(d: OrderDetail): { 能退: boolean; 退不了: string }
   }
   const 册 = (d.reports || [])[0]
   if (册 && 册.status === 'ready') {
-    return { 能退: false, 退不了: '册子已经出了 · 这一单不退' }
+    return { 能退: false, 退不了: '说明书已经出了 · 这一单不退' }
   }
   return { 能退: true, 退不了: '' }
 }
