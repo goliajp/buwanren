@@ -116,7 +116,29 @@ pub fn master_router() -> Router<AppState> {
         .route("/admin/master/risk-templates", get(master_risk_templates))
 }
 
-async fn master_products(State(st): State<AppState>, _: Admin) -> Result<Json<Vec<J>>, ApiError> {
+/* 【主数据是全局的，所以只给不限区的人】（2026-09-06 三路验证 · 运营那一路）。
+   这四条原先的签名是 `_: Admin` —— 没有角色、没有区域。实测阿港（只管繁中）
+   从这里拿到 13,904 个商品，而他自己那一格只有 4 个；另外还有全量会计科目表
+   与风控模板（含每条规则部署在哪些区）。
+
+   判据不是「谁需要」，是【这一页给的东西本身没有区】：SPU 目录、订阅套餐、
+   会计科目、风控模板，四张表要么没有 region 列、要么是跨区聚合。
+   给一位分区管理员看它，等于让他看别人那几格 —— 而他从这里看不出
+   哪一行归他。所以这一页归不限区的人，跟「操作记录」那一挡同一个理由
+   （`audit_log` 没有 region 列，一页看不到比一页看到别人的东西好）。
+
+   落成一个函数，四条共用 —— 四条各写一遍的话，下次加第五条会忘。 */
+fn 主数据归谁看(a: &Admin) -> Result<(), ApiError> {
+    let scope = &a.0.region_scope;
+    if scope.is_empty() || scope.iter().any(|s| s == "global") {
+        Ok(())
+    } else {
+        Err(ApiError(AppError::Forbidden))
+    }
+}
+
+async fn master_products(State(st): State<AppState>, a: Admin) -> Result<Json<Vec<J>>, ApiError> {
+    主数据归谁看(&a)?;
     let rows = sqlx::query(
         r#"SELECT id, code, name, sub_title, category, kind, status, fulfillment_kind,
                   available_regions, tags, sort_weight, created_at, updated_at
@@ -125,7 +147,8 @@ async fn master_products(State(st): State<AppState>, _: Admin) -> Result<Json<Ve
     Ok(Json(map_rows(rows)))
 }
 
-async fn master_plans(State(st): State<AppState>, _: Admin) -> Result<Json<Vec<J>>, ApiError> {
+async fn master_plans(State(st): State<AppState>, a: Admin) -> Result<Json<Vec<J>>, ApiError> {
+    主数据归谁看(&a)?;
     let rows = sqlx::query(
         r#"SELECT p.id, p.sku_id, p.name, p.billing_period, p.trial_days, p.grace_days,
                   p.cancel_policy, p.prorate_on_upgrade, p.channel_constraints, p.status,
@@ -136,7 +159,8 @@ async fn master_plans(State(st): State<AppState>, _: Admin) -> Result<Json<Vec<J
     Ok(Json(map_rows(rows)))
 }
 
-async fn master_account_chart(State(st): State<AppState>, _: Admin) -> Result<Json<Vec<J>>, ApiError> {
+async fn master_account_chart(State(st): State<AppState>, a: Admin) -> Result<Json<Vec<J>>, ApiError> {
+    主数据归谁看(&a)?;
     let rows = sqlx::query(
         r#"SELECT code, name, kind, parent_code, currency_constraint, created_at
            FROM account_chart ORDER BY code"#,
@@ -144,7 +168,8 @@ async fn master_account_chart(State(st): State<AppState>, _: Admin) -> Result<Js
     Ok(Json(map_rows(rows)))
 }
 
-async fn master_risk_templates(State(st): State<AppState>, _: Admin) -> Result<Json<Vec<J>>, ApiError> {
+async fn master_risk_templates(State(st): State<AppState>, a: Admin) -> Result<Json<Vec<J>>, ApiError> {
+    主数据归谁看(&a)?;
     // 把所有 region 的 risk_rule 聚合(按 name 去重),作为 template 展示
     let rows = sqlx::query(
         r#"SELECT name, kind, expression, action, priority,

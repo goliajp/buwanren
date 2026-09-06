@@ -39,6 +39,17 @@ const PASSWORD = process.env.ADMIN_PASSWORD || 'admin123'
 const ROUTES = ['/', '/products', '/pricing', '/promotions', '/subscriptions', '/orders',
                 '/payments', '/refunds', '/shipments', '/reconciliation', '/risk', '/finance',
                 '/outbox', '/master', '/users', '/naji', '/quotes', '/feature_flags', '/mingli']
+/* 【不是每个人都进得去每一页】（2026-09-06 三路验证 · 运营那一路）。
+   「主数据」给的四样东西本身没有区（SPU 目录 / 订阅套餐 / 会计科目 /
+   跨区聚合的风控模板），2026-09-06 之前它对分区管理员是敞开的 ——
+   实测阿港从那里拿到 13,904 个商品，而他自己那一格只有 4 个。
+   补上守卫之后这一页对他就是 403。
+
+   所以这一支对分区管理员【不再走这几页】，改成验另一件事:
+   **左栏里也不该摆着它**。一个点进去必然 403 的入口，
+   比没有这个入口更糟 —— 它让人以为功能坏了。
+   两侧一起验:进不去的页，导航上就不该有。 */
+const 只给全区 = new Set(['/master', '/audit'])
 
 let passed = 0
 let failed = 0
@@ -128,10 +139,43 @@ if (!loggedIn) {
   ok(有几格 > 0, '顶栏那个「看的是」有得挑', `${有几格} 格`)
 }
 
+/* 这个人是不是不限区。判据跟后端 `主数据归谁看` 一字不差:
+   scope 空、或者含 `global`。从 localStorage 里那份登录信息读 —— 
+   它就是前端拿来做同一个判断的那一份。 */
+const 不限区 = await page.evaluate(() => {
+  try {
+    const a = JSON.parse(localStorage.getItem('unmei_admin_auth') || 'null')
+    const s = (a && a.region_scope) || []
+    return s.length === 0 || s.includes('global')
+  } catch { return true }
+})
+
+/* ── 进不去的页，左栏上也不该摆着 ──────────────────────────
+   一个点进去必然 403 的入口，比没有这个入口更糟:它让人以为功能坏了。
+   实测阿港点「操作记录」拿 403 —— 那一挡是**有意为之**且写了原因
+   （`audit_log` 没有 region 列），问题从来不在守卫，在入口没跟着藏。 */
+{
+  const 左栏 = await page.locator('aside nav a').evaluateAll(
+    (as) => as.map((a) => a.getAttribute('href') || ''))
+  const 该藏的 = [...只给全区].filter((r) => 左栏.includes(r))
+  if (不限区) {
+    ok(该藏的.length === 只给全区.size,
+       '管全部区域的人，那几页在左栏上摆着', 该藏的.join(' '))
+  } else {
+    ok(该藏的.length === 0,
+       '只管几格的人，左栏上没有他点进去必然 403 的入口',
+       该藏的.length ? `还摆着：${该藏的.join(' ')}` : '一条都没有')
+  }
+}
+
 // ── 逐页 ──────────────────────────────────────────────────────
 console.log('\n── 十九页，每页都开得起来吗 ──')
 const 空表 = []
 for (const r of ROUTES) {
+  if (!不限区 && 只给全区.has(r)) {
+    console.log(`  · ${r} 跳过：这一页只给不限区的人（上面已经验过左栏里没有它）`)
+    continue
+  }
   errs.length = 0
   seen = []
   /* 走【真路径】。第一版用的是 `#/orders` 这种写法,而它是 BrowserRouter ——
@@ -188,7 +232,8 @@ ok(空表.length === 0, '没有「有数据却空着」的页', 空表.join(' ·
    十九张图分开看是十九次开关文件，连在一起才看得出
    「这十九个台子像不像一套东西」。 */
 if (SHOTS) {
-  const 图 = ROUTES.map((r) => (r === '/' ? 'dashboard' : r.replace(/^\//, '')).replace(/\//g, '-'))
+  const 图 = ROUTES.filter((r) => 不限区 || !只给全区.has(r))
+    .map((r) => (r === '/' ? 'dashboard' : r.replace(/^\//, '')).replace(/\//g, '-'))
   writeFileSync(join(SHOTS, 'index.html'),
     '<meta charset="utf-8"><title>后台逐页走 · ' + EMAIL + '</title>' +
     '<style>body{margin:0;background:#f4f1ea;font:14px/1.6 -apple-system,sans-serif}' +

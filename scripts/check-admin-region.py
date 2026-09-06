@@ -96,7 +96,15 @@ try:
          # 这一支从前只扫 `commerce.rs` 里那几条 list/write，
          # 于是这两页整整两个月落在门禁的视野之外。
          ('读全站的操作记录', 'GET', '/admin/commerce/audit?size=2', None),
-         ('读 cn 的问签记录', 'GET', '/admin/naji?region=cn&size=2', None)]
+         ('读 cn 的问签记录', 'GET', '/admin/naji?region=cn&size=2', None),
+         # 【主数据那四条 2026-09-06 之前签名是 `_: Admin`】。
+         # 实测一位只管繁中的管理员从这里拿到 13,904 个商品（他自己那格只有 4 个）,
+         # 外加全量会计科目表与风控模板（含每条规则部署在哪些区）。
+         # 四张表要么没有 region 列、要么是跨区聚合 —— 也就是说
+         # 这一页给的东西【本身就没有区】，给分区的人看等于让他看别人那几格。
+         ('读全站的主数据 · 商品', 'GET', '/admin/master/products', None),
+         ('读全站的主数据 · 会计科目', 'GET', '/admin/master/account-chart', None),
+         ('读全站的主数据 · 风控模板', 'GET', '/admin/master/risk-templates', None)]
 
     # 【按 id 读的那一整面，2026-09-03 之前一次都没被探过】。
     # 那一版这里六条:五条写、一条列表。而所有 `get_X(:id)` 的签名是 `_: Admin`，
@@ -126,6 +134,21 @@ try:
     if 运:
         探.append(('标 cn 的物流异常', 'POST', f'/admin/commerce/shipments/{运}/mark-exception',
                    {'reason': 'x'}))
+
+    # 【灰度开关 2026-09-06 之前只查角色不查区】。`by_region` 是整块 JSON
+    # 覆盖写,而分区管理员正是 `operator` —— 一次 PATCH 就能把某个功能
+    # 在别的区关掉。总开关与平台开关不分区,改它们等于改所有区,
+    # 所以那两样也只给不限区的人。
+    开关 = psql("SELECT code FROM feature_flag ORDER BY code LIMIT 1")
+    if 开关:
+        # 【探针要指着别人那一格】。`外人区` 是【探针管的那一格】——
+        # 名字读起来像「别人的区」，而它是这位探针管理员的 scope，
+        # 上面每一条探的都是 `cn`。头一版照名字写成 `by_region: {外人区: True}`,
+        # 也就是让他改【他自己那一格】—— 回 200 是对的，红的是探针。
+        探 += [('关掉 cn 那一格的灰度开关', 'PATCH',
+                f'/admin/feature_flags/{开关}', {'by_region': {'cn': True}}),
+               ('动总开关（它不分区）', 'PATCH',
+                f'/admin/feature_flags/{开关}', {'default_on': False})]
 
     # 【探到的太少就不算数】。库空了、字段改了，上面每一条都会跳过，
     # 而那跟「一条都没漏」长得一模一样。

@@ -23,7 +23,26 @@ import Notices from './Notices';
  * 没有 watch 的工作台不报数（它们没有「待办」这个概念，
  * 硬造一个数出来只会让真正要处理的那几个淹掉）。
  */
-interface Item { to: string; cn: string; icon: any; watch?: string }
+/* `需要` 说的是「进得去这一台要有什么」。
+ *
+ * 【入口要跟守卫一起挪】（2026-09-06 三路验证 · 运营那一路）。
+ * 三个管理员此前看到的是同样 21 个入口，而后端并不是都放行:
+ * 阿港（只管繁中）点「操作记录」拿 403 —— 那一挡是**有意为之**且写了原因
+ * （`audit_log` 没有 region 列，一页看不到比一页看到别人的东西好），
+ * 问题不在守卫，在入口没跟着藏。他也照样看得到「语料」，而他没有 `content`。
+ *
+ * 这一版把守卫那一侧的判据抄到这儿。**抄一份是有代价的** ——
+ * 两处会漂。所以规矩写死:藏起来只是省一次白点，
+ * **能不能做由后端说了算**，这儿漏掉一条最多是让人多点一次，
+ * 而这儿多藏一条会让人以为功能没了 —— 所以只写有把握的那几条。
+ */
+interface Item {
+  to: string; cn: string; icon: any; watch?: string;
+  /** 要这几个角色之一（`super` 永远通过，跟后端 `requires_any_role` 一致） */
+  需要?: string[];
+  /** 只给不限区的人。跟后端 `主数据归谁看` / 审计那一挡同一个判据 */
+  只给全区?: boolean;
+}
 
 const groups: { title: string; items: Item[] }[] = [
   {
@@ -39,7 +58,7 @@ const groups: { title: string; items: Item[] }[] = [
       { to: '/outbox', cn: '事件', icon: Radio },
       /* 【记了没人看等于没记】。审计表建库起就是空的，
          而后台有十八个花钱或改账的写操作。 */
-      { to: '/audit', cn: '操作记录', icon: ScrollText },
+      { to: '/audit', cn: '操作记录', icon: ScrollText, 只给全区: true },
     ],
   },
   {
@@ -57,10 +76,10 @@ const groups: { title: string; items: Item[] }[] = [
          一条服务不了任何人的接口。报名这条链也是这一轮才接上的。 */
       { to: '/activities', cn: '线下活动', icon: CalendarDays },
       { to: '/naji', cn: '问签记录', icon: Compass },
-      { to: '/quotes', cn: '语料', icon: BookOpen },
+      { to: '/quotes', cn: '语料', icon: BookOpen, 需要: ['content'] },
       { to: '/feature_flags', cn: '灰度开关', icon: ToggleLeft },
       { to: '/mingli', cn: '排盘服务', icon: Activity },
-      { to: '/master', cn: '主数据', icon: Database },
+      { to: '/master', cn: '主数据', icon: Database, 只给全区: true },
     ],
   },
 ];
@@ -70,6 +89,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [, setAuth] = useAtom(setAuthAtom);
   const [region] = useAtom(activeRegionAtom);
   const nav = useNavigate();
+
+  const roles = auth?.roles ?? [];
+  const scope = auth?.region_scope ?? [];
+  const 不限区 = scope.length === 0 || scope.includes('global');
+  const 是超管 = roles.includes('super');
+  const 进得去 = (it: Item) =>
+    是超管
+    || ((!it.只给全区 || 不限区)
+        && (!it.需要 || it.需要.some((r) => roles.includes(r))));
 
   /* 待办数跟看板同一份数据 —— 两处不许各查各的，
      不然左栏说「12 笔待退」而看板说 14，谁都不敢信。 */
@@ -89,10 +117,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav className="flex-1 py-2 px-2 overflow-y-auto">
-          {groups.map((g) => (
+          {/* 一组全被藏掉时连标题一起去掉 —— 只剩一个「内容与人」四个字
+              悬在那儿，读起来像这一组坏了 */}
+          {groups.filter((g) => g.items.some(进得去)).map((g) => (
             <div key={g.title} className="mb-3">
               <div className="label px-2 pb-1.5 pt-1">{g.title}</div>
-              {g.items.map(({ to, cn, icon: Ic, watch }) => {
+              {g.items.filter(进得去).map(({ to, cn, icon: Ic, watch }) => {
                 const n = watch ? (待办.data?.[watch] as number | undefined) : undefined;
                 return (
                   <NavLink
