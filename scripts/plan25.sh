@@ -352,23 +352,25 @@ make_user() {  # make_user <代号> <区> → 打印 "token id"
   echo "$tok $id"
 }
 
-# 御守那一件 —— 见文档里的先决条件：种子里一件都没有，这一支自己造。
-make_omamori_product() {
+# 【御守那一件不再自己造】（2026-09-06）。
+# 这一支原先头上写的是「见文档里的先决条件：种子里一件都没有，这一支自己造」——
+# 而它造出来的 `p25-oma-ayun` 是 `listed` + `{cn,zh_hant}`，也就是说
+# 它就摆在真货架上：名册那一屏按 `DISTINCT ON (villager_id) … sort_weight DESC, id`
+# 每位取一件，`p25-oma-ayun` 的 id 比 `prod-oma-ayun` 小，
+# 于是【阿云那一格摆的是验收夹具】。这正是下面 p25-box 那段自己写着的
+# 「验收用的东西不许混进真目录」，只是当时没轮到御守。
+#
+# 现在真目录里有了（`20260906001_omamori_catalogue.sql` 上了四件），
+# 这一支改成【用真的那一件】：`sku-oma-ayun`，¥99 CNY / 990 TWD 两格都在。
+# 验收买真商品是对的 —— P25 的单顺着用户删，跟别的单一样干净。
+make_p25_box() {
   psql "$DB" -q <<'SQL'
-INSERT INTO product (id, code, name, sub_title, category, kind, status,
-                     fulfillment_kind, tags, sort_weight, available_regions)
-VALUES ('p25-oma-ayun', 'p25_oma_ayun', '阿云的御守', '请她回村 · 住进你的村子',
-        'omamori', 'one_shot', 'listed', 'residency', ARRAY['御守','村民'], 95,
-        ARRAY['cn','zh_hant'])
-ON CONFLICT (id) DO UPDATE SET status='listed';
-INSERT INTO sku (id, product_id, code, name, stock_kind, default_currency, status, villager_id)
-VALUES ('p25-sku-oma-ayun', 'p25-oma-ayun', 'p25_sku_oma_ayun', '阿云的御守',
-        'unlimited', 'CNY', 'active', 'ayun')
-ON CONFLICT (id) DO UPDATE SET status='active';
 
--- 先决条件之三：**真目录只在 cn 上架**。
+-- 先决条件之三：**真目录几乎只在 cn 上架**。
 -- prod-jade-pendant / prod-suhe-incense / prod-naji-deep 三件的
--- available_regions 全是 {cn} —— 也就是说海外五个 cell 一件商品都没有，
+-- available_regions 全是 {cn}（御守那四件 2026-09-06 开了繁中那一格，
+-- 因为它不寄东西 —— 其余几件是物流与合规拦着，不是忘了）——
+-- 也就是说海外四个 cell 一件商品都没有，
 -- 而多区域是这个后台从建库起就在做的事（每条查询按 region 过滤、
 -- 11 个 KPI 与月报都按它分组）。
 -- 跟前两条同源：目录只做了 cn。
@@ -406,9 +408,7 @@ ON CONFLICT (id) DO UPDATE SET status='active';
 -- 价排在 sku 之后 —— price_book.sku_id 有外键，插在前面会当场报
 -- 「is not present in table sku」，而那条报错混在一堆输出里很容易被读成噪音。
 INSERT INTO price_book (id, sku_id, currency, price_minor, region, platform, status, effective_from)
-VALUES ('p25-pb-oma-cn', 'p25-sku-oma-ayun', 'CNY', 9900, 'cn', 'all', 'active', NOW()),
-       ('p25-pb-oma-zh-hant', 'p25-sku-oma-ayun', 'TWD', 990, 'zh_hant', 'all', 'active', NOW()),
-       -- 定得贵，为的是让种子里那条风控规则真命中
+VALUES -- 定得贵，为的是让种子里那条风控规则真命中
        -- （`amount > 100000 AND user.age_days < 7`）——
        -- 观察模式要看的就是「它会拦下什么」，而不命中的话那一整块验不到。
        ('p25-pb-box-p25', 'p25-sku-box',     'CNY', 128000, 'p25', 'all', 'active', NOW())
@@ -465,7 +465,7 @@ SQL
 }
 
 do_seed() {
-  make_omamori_product
+  make_p25_box
   local roster
 
   # ── U1 新来的：什么都不做。空态是这个产品的主设计 ──────────
@@ -512,7 +512,7 @@ do_seed() {
   # ── U3 请了人的：买御守 → 发货 → 扫开 → 进屋追问 ────────────
   read -r T3 I3 <<<"$(make_user u3 cn)"
   local o3
-  o3=$(must_order "$T3" '{"lines":[{"sku_id":"p25-sku-oma-ayun","qty":1}],"region":"cn","contact":{"name":"P25·请了人的","phone":"13800000003"},"shipping_address":{"province":"浙江","city":"杭州","district":"西湖","detail":"某处 1 号","name":"P25","phone":"13800000003"}}' "U3 请阿云回村的那一单") || return 1
+  o3=$(must_order "$T3" '{"lines":[{"sku_id":"sku-oma-ayun","qty":1}],"region":"cn","contact":{"name":"P25·请了人的","phone":"13800000003"},"shipping_address":{"province":"浙江","city":"杭州","district":"西湖","detail":"某处 1 号","name":"P25","phone":"13800000003"}}' "U3 请阿云回村的那一单") || return 1
   call POST "$T3" "/v1/orders/$o3/pay" '{"channel":"wechat_jsapi","openid":"p25_u3"}' >/dev/null
   wait_paid "$o3" || return 1
   # 【买御守不寄东西 —— 付款即入住】。fulfillment_kind=residency
@@ -644,7 +644,7 @@ do_seed() {
   # ── U5 香港那位：贵的一单（触发风控）+ 包裹出状况 ────────────
   read -r T5 I5 <<<"$(make_user u5 zh_hant)"
   local o5
-  o5=$(must_order "$T5" '{"lines":[{"sku_id":"p25-sku-oma-ayun","qty":1}],"region":"zh_hant","contact":{"name":"P25·香港那位","phone":"85200000005"},"shipping_address":{"province":"香港","city":"香港","district":"中西区","detail":"某处 5 号","name":"P25","phone":"85200000005"}}' "U5 请阿云回村的那一单") || return 1
+  o5=$(must_order "$T5" '{"lines":[{"sku_id":"sku-oma-ayun","qty":1}],"region":"zh_hant","contact":{"name":"P25·香港那位","phone":"85200000005"},"shipping_address":{"province":"香港","city":"香港","district":"中西区","detail":"某处 5 号","name":"P25","phone":"85200000005"}}' "U5 请阿云回村的那一单") || return 1
   call POST "$T5" "/v1/orders/$o5/pay" '{"channel":"wechat_jsapi","openid":"p25_u5"}' >/dev/null
   wait_paid "$o5" || return 1
   # 御守不寄东西（付款即入住），所以包裹那一条另买一件真会寄的
@@ -987,7 +987,7 @@ do_check() {
   want "他在繁中那一格"      zh_hant "$(psql1 "SELECT region FROM app_user WHERE id='$I5'")"
   # 【要说清是哪一单】。U5 有两单:御守记在 zh_hant、验收那只盒子记在 p25 区
   # （验收用的东西不混进真目录）。`LIMIT 1` 取到哪一张全看行序。
-  want "他买御守那一单记在繁中那一格" zh_hant "$(psql1 "SELECT o.region FROM order_record o JOIN order_line ol ON ol.order_id=o.id WHERE o.user_id='$I5' AND ol.sku_id='p25-sku-oma-ayun' LIMIT 1")"
+  want "他买御守那一单记在繁中那一格" zh_hant "$(psql1 "SELECT o.region FROM order_record o JOIN order_line ol ON ol.order_id=o.id WHERE o.user_id='$I5' AND ol.sku_id='sku-oma-ayun' LIMIT 1")"
   want "他买盒子那一单记在验收区" p25 "$(psql1 "SELECT o.region FROM order_record o JOIN order_line ol ON ol.order_id=o.id WHERE o.user_id='$I5' AND ol.sku_id='p25-sku-box' LIMIT 1")"
   want_some "他的包裹出了状况" "$(psql1 "SELECT count(*) FROM shipment s JOIN order_record o ON o.id=s.order_id WHERE o.user_id='$I5' AND s.status='exception'")"
 
@@ -1046,7 +1046,7 @@ do_check() {
   # 【定价也要看区】。上面那道守卫只问了「这个 sku 归不归他管」——
   # 而价是按区落的:阿双给一个 cn 的 sku 发一条 jp 的价，此前一路放行。
   local two_price
-  two_price=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$ADMIN/admin/commerce/pricing/p25-sku-oma-ayun/publish" \
+  two_price=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$ADMIN/admin/commerce/pricing/sku-oma-ayun/publish" \
       -H "authorization: Bearer $A_two" -H 'content-type: application/json' \
       -d '{"currency":"JPY","price_minor":1000,"region":"jp","platform":"all"}')
   want "他管不着日本，也就定不了日本的价" 403 "$two_price"

@@ -338,6 +338,15 @@ mutate "坐标定义改名（核对失效）" check-plots \
   "edit('rooms/src/engine/plots.js', '  const ROW_GY = [', '  const GROUND_Y = [')"
 
 echo
+echo "── check-can-move-in（在架的御守搬得进来吗）──"
+# 这一支半边看源码（屋子文件 + village.js 的走动名单）、半边看库（在架的御守）。
+# 源码那半边是可变异的:把桃桃的 `cast: true` 摘掉 —— 她的御守照旧在架，
+# 而村里再也走不出她。**没有任何东西会因此报错**:名册照样卖，
+# 买家照样付 ¥99，只是请回来的那位永远不出门。
+mutate "在架的那位村里走不动了" check-can-move-in \
+  "edit('rooms/src/engine/village.js', \"mkV('tao', 'WM', ['今日局不错哦', '家人们，点个小红心', '哼，才没在等谁'], { cast: true }),\", \"mkV('tao', 'WM', ['今日局不错哦', '家人们，点个小红心', '哼，才没在等谁'], {}),\")"
+
+echo
 echo "── check-relations（对白长在真实关系上）──"
 mutate "两个没关系的人有了专属对白" check-relations \
   "edit('rooms/src/engine/village.js', '  const CONVOS = [', \"  const CONVOS = [\n    { a:'bailu', b:'popo', L:[['a','…'],['b','…']] },\")"

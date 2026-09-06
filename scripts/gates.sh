@@ -251,6 +251,12 @@ gate "徽章都有像素图"        . python3 scripts/check-badge-art.py
 # 在卖御守的那几位必须答得上话 —— 那一屏写着「有事可以问 X」，
 # 而问签走口气模板，没模板的直接报错，可买家已经付过钱了。
 gate "在卖的都答得上话" . python3 scripts/check-can-answer.py
+# 答得上话是三条里的一条。另外两条 —— 有屋子、村里走得动 ——
+# 归下面这一支。它两个方向都守:上架了却搬不进来要报,
+# 素材都齐了却没上架也要报（屋子画了没人买得到，安静地不赚钱）。
+gate "在架的御守搬得进来吗" . env \
+    PSQL_URL='postgres://unmei:unmei_dev_pwd@localhost:6032/unmei' \
+    python3 scripts/check-can-move-in.py
 if [ "$QUICK" = 1 ]; then
   # `--quick` 跳过变异测试，而变异测试是【钉在具体文件的具体字符串上】的。
   # 你改的要是它盯着的文件，这一跳就正好跳过了唯一会发现「断言漂了」的那支。

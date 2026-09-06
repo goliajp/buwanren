@@ -1970,9 +1970,9 @@ if (API) {
            而这 36 位是真的请不了 —— 没有在架的居住商品，因为屋子还没盖。
            人看到一个点不动的货架而不知道为什么，只会以为这 app 坏了。
            （更早那一版写的是「还在路上」，听着像明天就到，同样不行。） */
-        ok((await text()).includes(`另外 ${册.共 - 册.在卖} 位，屋子还没盖好`),
+        ok((await text()).includes(`另外 ${册.共 - 册.在卖} 位，还搬不进来`),
            '没来的那些收成一行，数目照实报，并说清为什么请不了', `${册.共 - 册.在卖} 位`)
-        await p.getByText('屋子还没盖好', { exact: false }).first().click()
+        await p.getByText('还搬不进来', { exact: false }).first().click()
         await p.waitForTimeout(500)
       }
       const 摊开后 = await p.evaluate(() => ({
@@ -1982,10 +1982,10 @@ if (API) {
       ok(摊开后.展开 && 摊开后.行 === 册.共 - 册.在卖,
          '摊开之后没来的那些一位不少 —— 不是把他们永远藏起来',
          `摊开 ${摊开后.行} 行 / 应有 ${册.共 - 册.在卖}`)
-      /* 摊开之后还要说清【盖好了会怎样】—— 上面那一行只够说「没盖好」。
+      /* 摊开之后还要说清【齐了会怎样】—— 上面那一行只够说「还搬不进来」。
          不说的话，人的下一个问题（那我要不要等）没有答案。 */
-      ok((await text()).includes('盖好一间'),
-         '摊开之后说得出盖好之后会怎样 —— 不是只留一个「没盖好」')
+      ok((await text()).includes('走得动了'),
+         '摊开之后说得出什么时候请得回来 —— 不是只留一个「搬不进来」')
       // 0830:「未上架」是运营词，买家那一侧说的是「还没来」
       /* 没来的那些按不动 —— 点了再说「买不了」是先答应再反悔。
          它们连 bindtap 都没有，所以这一条验的是「真的没接」。 */
@@ -2096,7 +2096,13 @@ if (API) {
       const vj = await vr.json()
       for (const x of vj.villagers || []) if (!x.at_home) 在外面.add(x.id)
     }
-    for (const v of ['ayun', 'popo', 'shenyan', 'tenz']) {
+    /* 【候选跟着真目录走】（2026-09-06）。这张名单原先写着 shenyan ——
+       他那时「有货」靠的是库里的测试夹具，而夹具随每一轮门禁长出来、
+       又被下一支下架。真目录建起来之后在架的是阿云、桃桃、婆婆、丹增
+       （见 20260906001_omamori_catalogue.sql）。
+       名单跟不上目录时这一条不报错,它只是【安静地跳过】—— 而跳过
+       在这个脚本里不计入通过,于是一条从来没跑过的断言看着跟绿的一样。 */
+    for (const v of ['ayun', 'tao', 'popo', 'tenz']) {
       if (在外面.size && !在外面.has(v)) continue
       const r = await fetch(`${base}/v1/products?region=cn&platform=mini&category=omamori&villager_id=${v}`)
       if (!r.ok) continue
@@ -2113,22 +2119,26 @@ if (API) {
     console.log('  · 跳过「有货那条」：这个库里没有任何御守在卖（不计入通过）')
   }
 
-  /* 没货那一条任何库都成立：挑一个**确定没有**的。'tao' 在本机与 CI 都没有货，
-     但也别假设 —— 先问一句，真有货就换一个说法。 */
-  const tao有货 = await p.evaluate(async (base) => {
-    const r = await fetch(`${base}/v1/products?region=cn&platform=mini&category=omamori&villager_id=tao`)
+  /* 没货那一条任何库都成立：挑一个**确定没有**的。
+     【原先挑的是桃桃】,而 2026-09-06 她上架了 —— 于是这一条从那天起
+     一直在跳过,而跳过不计入通过。换成白鹭:她的屋子盖好了、口气也写了,
+     但村里没有她走动的那副像素,所以她【按定义】不上架
+     （`scripts/check-can-move-in.py` 守着这条,她一上架那一支就红）。
+     照旧先问一句,不假设。 */
+  const 白鹭有货 = await p.evaluate(async (base) => {
+    const r = await fetch(`${base}/v1/products?region=cn&platform=mini&category=omamori&villager_id=bailu`)
     if (!r.ok) return false
     const j = await r.json()
     return Array.isArray(j) && j.length > 0
   }, API)
-  if (tao有货) {
-    console.log('  · 跳过「没货那条」：桃桃这回真有货（不计入通过）')
+  if (白鹭有货) {
+    console.log('  · 跳过「没货那条」：白鹭这回真有货（不计入通过）')
   } else {
     /* 【话挪到按钮上了】。原先要【点一下】才说「他的御守还没上架」——
        等于让人白点一趟。现在这句直接写在按钮上，而且按钮是灰的：
        没上架这件事在按之前就看得见。
        所以这一条现在验两样：按钮说了这句话、并且按不动。 */
-    await open('pages/villager/index', { id: 'tao' })
+    await open('pages/villager/index', { id: 'bailu' })
     await 等取完('pages/villager/index')
     await p.waitForTimeout(800)
     const 桃 = await p.evaluate(() => {
