@@ -87,9 +87,20 @@ export default function Products() {
                   <td title={ts(p.updated_at)}>{rel(p.updated_at)}</td>
                   <td className="c flex justify-center gap-1">
                     <button className="btn btn-ghost" onClick={() => setDetailId(p.id)}><Eye size={13}/></button>
+                    {/* 【下架一点就生效，而相邻两行长得一模一样】
+                        （2026-09-06 三路验证 · 运营那一路）。
+                        13px 的图标，密集表格，手滑一行就是把在卖的东西
+                        从货架上拿下来，而买家那一侧当场看不见它了。
+                        确认框里把【名字】念出来 —— 那正是点错行时
+                        唯一看得出来的东西（跟退款那一颗同一个办法）。
+                        上架不问:它只会让更多东西可见，错了再点一下就回去。 */}
                     <button
                       className={`btn ${p.status === 'listed' ? 'btn-debt' : 'btn-soft'}`}
-                      onClick={() => toggle.mutate({ id: p.id, status: p.status === 'listed' ? 'delisted' : 'listed' })}
+                      onClick={() => {
+                        if (p.status === 'listed'
+                            && !confirm(`把「${p.name}」下架？买家那一侧当场就看不见它了。`)) return;
+                        toggle.mutate({ id: p.id, status: p.status === 'listed' ? 'delisted' : 'listed' });
+                      }}
                       title={p.status === 'listed' ? '下架' : '上架'}
                     ><Power size={13}/></button>
                   </td>

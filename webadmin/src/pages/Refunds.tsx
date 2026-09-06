@@ -4,6 +4,7 @@ import { useApiMutation } from '../lib/feedback';
 import { commerce } from '../lib/api';
 import PageHeader from '../components/PageHeader';
 import TableError from '../components/TableError';
+import CopyId from '../components/CopyId';
 import FilterBar from '../components/FilterBar';
 import Pagination from '../components/Pagination';
 import { rel, ts, yuan, shortId, thou, statusClass, statusLabel } from '../components/util';
@@ -122,12 +123,36 @@ export default function Refunds() {
             <tbody>
               {(list.data?.items ?? []).map((r: any) => (
                 <tr key={r.id}>
-                  <td className="id">{shortId(r.id)}</td>
-                  <td className="font-mono text-ink-3">{shortId(r.order_id)}</td>
-                  <td className="font-mono text-ink-3">{shortId(r.payment_id)}</td>
+                  {/* 点一下抄走整串 —— 这一页没有抽屉，不给这条路的话
+                      屏上根本拿不到一个完整单号（见 CopyId 顶上那段）。 */}
+                  <td className="id"><CopyId id={r.id}>{shortId(r.id)}</CopyId></td>
+                  <td className="font-mono text-ink-3"><CopyId id={r.order_id}>{shortId(r.order_id)}</CopyId></td>
+                  <td className="font-mono text-ink-3"><CopyId id={r.payment_id}>{shortId(r.payment_id)}</CopyId></td>
                   <td><span className={statusClass(r.status)}>{statusLabel(r.status)}</span></td>
                   <td><span className={r.actor_kind === 'user' ? 'text-ink-2' : 'text-ink-3'}>{谁提的(r.actor_kind)}</span></td>
-                  <td className="text-ink-2">{退款原因(r.reason_code)}</td>
+                  {/* 【客户的原话就在响应里，而屏上只渲那个码】
+                      （2026-09-06 三路验证 · 运营那一路）。
+                      `list_refunds` 的 SELECT 一直取着 `reason_text` ——
+                      库里 813/2568 笔写着客户自己打的字（「不想要了」这种）。
+                      取到了，扔掉了。而判一笔退款该不该批，那句话
+                      比一个枚举码有用得多。
+                      码留着当分类，原话跟在下面一行、轻一档。 */}
+                  <td className="text-ink-2">
+                    <div>{退款原因(r.reason_code)}</div>
+                    {r.reason_text && (
+                      <div className="text-[12px] text-ink-3 mt-0.5 max-w-[16rem] truncate"
+                           title={r.reason_text}>「{r.reason_text}」</div>
+                    )}
+                    {/* 【失败了要说为什么失败】。132 笔写着 `CHANNEL_REJECTED
+                        | 渠道拒绝`，而屏上只有一颗「重试」——
+                        渠道拒绝的重试必然再失败，客服只能一笔笔试。 */}
+                    {r.status === 'failed' && (r.failure_code || r.failure_msg) && (
+                      <div className="text-[12px] text-debt mt-0.5 max-w-[16rem] truncate"
+                           title={[r.failure_code, r.failure_msg].filter(Boolean).join(' · ')}>
+                        {[r.failure_code, r.failure_msg].filter(Boolean).join(' · ')}
+                      </div>
+                    )}
+                  </td>
                   <td className="r font-semibold">{yuan(r.amount_minor, r.currency)}</td>
                   <td title={ts(r.created_at)}>{rel(r.created_at)}</td>
                   {/* 【三列时间说的是同一件事】。审核、完成跟创建

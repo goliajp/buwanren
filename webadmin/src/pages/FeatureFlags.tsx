@@ -3,7 +3,7 @@ import { useApiMutation } from '../lib/feedback';
 import { api } from '../lib/api';
 import PageHeader from '../components/PageHeader';
 import TableError from '../components/TableError';
-import { ts } from '../components/util';
+import { ts, regionLabel } from '../components/util';
 import { useRegions } from '../lib/regions';
 
 interface FlagRow {
@@ -39,13 +39,29 @@ export default function FeatureFlags() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['feature_flags'] }),
   });
 
+  /* 【这一屏上的每一格都是一点就对线上生效】（2026-09-06 三路验证 ·
+     运营那一路）。格子 20×20px，一行里四个平台加六个区并排，
+     没有确认框 —— 点错隔壁就是把另一个区的功能关掉，
+     而爆炸半径比退款那一颗还大（退款是一笔钱，这是一个区的所有人）。
+
+     确认文案里把【关的是哪一个功能、哪一格】念出来，
+     那正是点错时唯一看得出来的东西 —— 跟退款那一颗同一个办法。
+     **只在「关掉」时问**：打开只会让更多人用上，错了再点一下就回去；
+     关掉是让线上的人当场少一个功能。 */
+  const 问一句 = (要关: boolean, 什么: string, 哪一格: string) =>
+    !要关 || confirm(`把「${什么}」在${哪一格}关掉？线上那一格的人当场就用不了了。`);
+
   const togglePlatform = (f: FlagRow, p: string) => {
     const next = { ...f.by_platform };
+    const 要关 = next[p] !== false;
+    if (!问一句(要关, f.code, `${p} 上`)) return;
     if (next[p] === false) delete next[p]; else next[p] = false;
     update.mutate({ code: f.code, body: { by_platform: next } });
   };
   const toggleRegion = (f: FlagRow, r: string) => {
     const next = { ...f.by_region };
+    const 要关 = next[r] !== false;
+    if (!问一句(要关, f.code, regionLabel(r))) return;
     if (next[r] === false) delete next[r]; else next[r] = false;
     update.mutate({ code: f.code, body: { by_region: next } });
   };
@@ -93,7 +109,12 @@ export default function FeatureFlags() {
                     <td className="text-ink-3 leading-relaxed">{f.description ?? '—'}</td>
                     <td className="c">
                       <button
-                        onClick={() => update.mutate({ code: f.code, body: { default_on: !f.default_on } })}
+                        onClick={() => {
+                          // 总开关不分区 —— 关掉它等于在所有区关掉
+                          if (f.default_on
+                              && !confirm(`把「${f.code}」的总开关关掉？这一条不分区，所有区的人当场都用不了了。`)) return;
+                          update.mutate({ code: f.code, body: { default_on: !f.default_on } });
+                        }}
                         className={`${f.default_on ? 'text-settled' : 'text-ink-3'}`}
                       >{f.default_on ? '开' : '关'}</button>
                     </td>

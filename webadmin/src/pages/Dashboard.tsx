@@ -15,6 +15,8 @@ interface Kpi {
   active_subscriptions: number;
   active_promotions: number;
   open_risk_cases: number;
+  /** 有差异、还没结的对账批次。实测 1,023 批 —— 而这一屏此前不提它 */
+  open_recon_batches: number;
   listed_products: number;
 }
 
@@ -46,6 +48,11 @@ export default function Dashboard() {
     { n: k?.pending_refunds ?? 0, 是: '笔退款等着批', 去: '/refunds', 做: '批一批' },
     { n: k?.exception_shipments ?? 0, 是: '件包裹出了状况', 去: '/shipments?exception_only=true', 做: '查物流' },
     { n: k?.open_risk_cases ?? 0, 是: '个风控案子没结', 去: '/risk?tab=cases', 做: '去看' },
+    /* 【对账是这张表上最大的一块，而它此前不在表上】
+       （2026-09-06 三路验证 · 运营那一路）:实测 1,023 批未结差异、
+       明细层 1,364 条，而早上打开后台这一屏说的是「都清完了」。
+       它排在最后 —— 差异不像退款那样有人在等，但它是真的欠着。 */
+    { n: k?.open_recon_batches ?? 0, 是: '批对账对不上', 去: '/reconciliation', 做: '去结一结' },
   ].filter((x) => x.n > 0);
 
   return (

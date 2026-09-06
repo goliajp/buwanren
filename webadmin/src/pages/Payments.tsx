@@ -4,6 +4,7 @@ import { useApiMutation } from '../lib/feedback';
 import { commerce } from '../lib/api';
 import PageHeader from '../components/PageHeader';
 import TableError from '../components/TableError';
+import CopyId from '../components/CopyId';
 import FilterBar from '../components/FilterBar';
 import Pagination from '../components/Pagination';
 import Drawer from '../components/Drawer';
@@ -73,8 +74,8 @@ export default function Payments() {
             <tbody>
               {(list.data?.items ?? []).map((p: any) => (
                 <tr key={p.id}>
-                  <td className="id">{shortId(p.id)}</td>
-                  <td className="font-mono text-ink-3">{shortId(p.order_id)}</td>
+                  <td className="id"><CopyId id={p.id}>{shortId(p.id)}</CopyId></td>
+                  <td className="font-mono text-ink-3"><CopyId id={p.order_id}>{shortId(p.order_id)}</CopyId></td>
                   <td>{channelLabel(p.channel)}</td>
                   <td><span className={statusClass(p.status)}>{statusLabel(p.status)}</span></td>
                   <td className="r font-semibold">{yuan(p.amount_minor, p.currency)}</td>

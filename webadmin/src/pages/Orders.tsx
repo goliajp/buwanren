@@ -5,6 +5,7 @@ import { commerce } from '../lib/api';
 import { 从网址读筛选 } from '../lib/urlfilter';
 import PageHeader from '../components/PageHeader';
 import TableError from '../components/TableError';
+import CopyId from '../components/CopyId';
 import FilterBar from '../components/FilterBar';
 import Pagination from '../components/Pagination';
 import Drawer from '../components/Drawer';
@@ -100,8 +101,9 @@ export default function Orders() {
             <tbody>
               {(list.data?.items ?? []).map((o: any) => (
                 <tr key={o.id} onClick={() => setDetailId(o.id)} className="cursor-pointer">
-                  <td className="id">{briefId(o.id)}</td>
-                  <td className="id">{briefId(o.user_id)}</td>
+                  {/* 点一下抄走整串（见 CopyId 顶上那段）—— 屏上仍然是短的 */}
+                  <td className="id"><CopyId id={o.id}>{briefId(o.id)}</CopyId></td>
+                  <td className="id"><CopyId id={o.user_id}>{briefId(o.user_id)}</CopyId></td>
                   <td className="text-ink-2">{platformLabel(o.channel_origin)}</td>
                   <td><span className={statusClass(o.status)}>{statusLabel(o.status)}</span></td>
                   <td className="r">{yuan(o.amount_total_minor, o.currency)}</td>
@@ -219,7 +221,16 @@ function OrderDetailBody({ data }: { data: any }) {
             {(lines ?? []).map((l: any) => (
               <tr key={l.id}>
                 <td className="id">{l.line_no}</td>
-                <td className="id">{shortId(l.sku_id, 10, 6)}</td>
+                {/* 【商品名就在响应里，而这一列渲的是 sku_id】
+                    （2026-09-06 三路验证 · 运营那一路）。
+                    `sku_snapshot_json.sku_name` 是下单那一刻的快照 ——
+                    客户说「那个八字报告」，客服屏上是 `sku-naji-…`,
+                    对不上话；判一笔退款该不该批同样卡在这儿。
+                    名在上、id 在下 —— id 仍然要看得见（查库要用它）。 */}
+                <td>
+                  <div className="text-ink">{l.sku_snapshot_json?.sku_name ?? '—'}</div>
+                  <div className="id text-[12px]">{shortId(l.sku_id, 10, 6)}</div>
+                </td>
                 <td className="r">{yuan(l.unit_price_minor, order.currency)}</td>
                 <td className="r font-mono">×{l.qty}</td>
                 <td className="r">{yuan(l.line_subtotal_minor, order.currency)}</td>

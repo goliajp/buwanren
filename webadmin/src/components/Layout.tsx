@@ -52,7 +52,7 @@ const groups: { title: string; items: Item[] }[] = [
       { to: '/payments', cn: '支付', icon: CreditCard, watch: 'pending_payments' },
       { to: '/refunds', cn: '退款', icon: Undo2, watch: 'pending_refunds' },
       { to: '/shipments', cn: '物流', icon: Truck, watch: 'exception_shipments' },
-      { to: '/reconciliation', cn: '对账', icon: Scale },
+      { to: '/reconciliation', cn: '对账', icon: Scale, watch: 'open_recon_batches' },
       { to: '/finance', cn: '财务', icon: Wallet },
       { to: '/risk', cn: '风控', icon: ShieldAlert, watch: 'open_risk_cases' },
       { to: '/outbox', cn: '事件', icon: Radio },
