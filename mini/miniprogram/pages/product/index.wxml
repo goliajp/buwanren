@@ -67,7 +67,13 @@
          一档的时候（玉坠、御守、说明书）大价钱是这一屏的锚，留着;
          多档的时候锚就是那一排牌。 -->
     <view class="price-row" wx:if="{{!多档}}">
-      <text class="price" wx:if="{{price}}">{{price}}</text>
+      <block wx:if="{{price}}">
+        <text class="price">{{price}}</text>
+        <!-- 【每月扣一次这件事，要跟价钱写在一起】（2026-09-06）。
+             订阅那一件在这儿原先是个光秃秃的「¥78」，旁边货架上还摆着
+             「一盒十支 ¥88」—— 读起来就是「更便宜的一盒」。 -->
+        <text class="price-cycle" wx:if="{{订阅}}"> / 月</text>
+      </block>
       <text class="price-none" wx:else>这个区暂时没有定价</text>
     </view>
 
@@ -155,6 +161,13 @@
       </button>
       <button class="btn ghost" bindtap="onBack">回去</button>
     </view>
-    <view class="foot-hint">下单后在「我的」里付款 · 支付要在微信里完成</view>
+    <!-- 【这句话指的动线不存在】（2026-09-06 三路验证 · 第一次打开的人）。
+         原先写的是「下单后在「我的」里付款」—— 而真实动线是
+         这一屏 → 确认屏 → `redirectTo` 订单屏，**一次都不经过「我的」**。
+         照实说:下一步是确认，付款在微信里完成。 -->
+    <view class="foot-hint" wx:if="{{订阅}}">
+      下一步确认订单 · 每月扣一次，到期前随时能停 · 支付要在微信里完成
+    </view>
+    <view class="foot-hint" wx:else>下一步确认这一单 · 支付要在微信里完成</view>
   </block>
 </view>

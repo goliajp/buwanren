@@ -33,6 +33,8 @@
   color: var(--ink);
 }
 .price-none { font-size: 28rpx; color: var(--stone-label); }
+/* 「/ 月」跟在价钱后面，比它小一档 —— 它是价钱的一部分，不是另一行 */
+.price-cycle { font-size: 30rpx; font-weight: 600; color: var(--ink-mid); }
 
 
 .desc {

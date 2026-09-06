@@ -206,6 +206,8 @@ Page<IData, WechatMiniprogram.IAnyObject>({
              屏上那个数看起来就是这一单的全部代价。 */
           totalText: sku ? money(unit * this.data.qty, cur) + (订阅了 ? ' / 月' : '') : '',
         })
+        // 券那一头可能先到 —— 两头哪个后到都在这儿汇一次
+        this.也许自动用券()
       },
       (e) => this.setData({ loading: false, err: '取不到：' + (一句(e)) }),
     )
@@ -281,9 +283,35 @@ Page<IData, WechatMiniprogram.IAnyObject>({
           第几张: 0,
           当前券面: 能用.length ? 能用[0].面 : '',
         })
+        this.也许自动用券()
       },
       () => this.setData({ 我的券: [], 当前券面: '' }),
     )
+  },
+
+  /* 【摆出来还不够，得替他用上】（2026-09-06 三路验证 · 第一次打开的人）。
+     上一版只是把券【摆出来】，要点一下「用这张」才去试、才减 ——
+     而那个 chip 没有边框、没有底色，跟旁边「运费 · 包邮」那种纯展示的值
+     同色同形。实测那一屏:券条上写着「八折 · 最多减 ¥100」，而「一共」
+     还是 ¥29。人读到的是「我有一张券」加「原价」，唯一看着能点的是旁边
+     那个橙色的「填码」—— 于是他以为要有码才用得上，然后原价付了。
+
+     用第一张:那是【先到期的那张】（后端排的），也正是该先花掉的那张。
+
+     【为什么要有这个汇合点】。`onShow` 里 `load()` 与 `取我的券()` 是
+     两条并行的请求，而 `试券` 头一句就是 `if (!this.data.skuId) return`
+     —— 券先到的时候它一声不响地什么都不做，屏上照旧原价。
+     头一版就是这么写的，验证脚本当场报「进来时一分没减」。
+     所以两头各自到齐时都来这儿一次，由这儿判「够了没有」。
+
+     只自动用一次:人点过「填码」「换一张」之后不再插手，
+     那时屏上的选择是他的，不是我们的。 */
+  也许自动用券() {
+    if (this.data.手填) return
+    if (this.data.券状态) return          // 已经试过（用上了 / 不行 / 在算）
+    if (!this.data.skuId) return          // 商品那一头还没回来
+    if (!this.data.我的券.length) return  // 他手里没有券
+    this.用这张()
   },
 
   /* 点一下 = 把这张的码填进去并当场试一次。
@@ -384,6 +412,11 @@ Page<IData, WechatMiniprogram.IAnyObject>({
       (e) => this.setData({ buying: false, note: 一句(e) }),
     )
   },
+
+  /* 协议那两条。写在这一屏而不是共用一个跳转工具 ——
+     全仓只有三处要它，抽一层反而多一个要读的文件。 */
+  goTerms() { wx.navigateTo({ url: '/pages/policy/index?kind=terms' }) },
+  goPrivacy() { wx.navigateTo({ url: '/pages/policy/index?kind=privacy' }) },
 
   onBack() {
     wx.navigateBack({ fail() { wx.switchTab({ url: '/pages/village/index' }) } })

@@ -57,6 +57,10 @@
   padding-bottom: 10rpx;
   font-size: 24rpx; color: var(--ink-faint);
 }
+/* 协议那一行比上面那句再小一档 —— 它是常驻的法律行，不是这一单的话。
+   链接用琥珀色 + 下划线:整屏没有别的蓝字，光靠颜色分不出它能点。 */
+.terms { font-size: 21rpx; padding-bottom: 4rpx; }
+.terms-a { color: var(--amber-text); text-decoration: underline; }
 
 
 /* ── 0830 ────────────────────────────────────────────────────

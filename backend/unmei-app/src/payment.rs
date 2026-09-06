@@ -98,7 +98,8 @@ pub async fn start(
        结果是 jp/kr/sea/na 四个区永远是 0，而没有任何东西会红。
        订单是唯一知道这笔生意属于哪个区的地方，从它那儿取。 */
     let order = sqlx::query(
-        "SELECT user_id, status, amount_total_minor, amount_paid_minor, currency, region
+        "SELECT user_id, status, amount_total_minor, amount_paid_minor, currency, region,
+                expires_at <= NOW() AS 过期了
          FROM order_record WHERE id=$1",
     )
     .bind(order_id)
@@ -113,6 +114,21 @@ pub async fn start(
     let status: String = order.get("status");
     if status != "unpaid" {
         return Err(DomainError::Conflict(format!("order status={status}，不可再发起支付")));
+    }
+    /* 【过了点就别再让人付了】（2026-09-06 三路验证 · 准备花钱的那一路）。
+       这里原先只看 `order.status`。而清扫每 30 秒跑一轮 ——
+       订单已过 `expires_at`、状态还挂在 `unpaid` 的那一段窗口里，
+       支付照发；随后订单被清扫取消，成功回调仍然被接受
+       （`Cancelling => Success` 是状态机明写的一条），
+       最后由 `refund_orphan_money` 自动退回。
+       链路是闭的，钱不会丢 —— 但在那几分钟里，屏上写着「已取消」，
+       而人刚在微信里付过钱。那几分钟他会认为自己被吞了钱。
+       倒计时是屏上给的承诺，服务端要认同一个时刻。 */
+    let 过期了: bool = order.get("过期了");
+    if 过期了 {
+        return Err(DomainError::Conflict(
+            "这一单已经过了三十分钟，付不了了 —— 想要的话再下一单就行".into(),
+        ));
     }
 
     let total: i64 = order.get("amount_total_minor");
