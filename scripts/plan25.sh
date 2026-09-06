@@ -1056,9 +1056,19 @@ do_check() {
   # 而阿双与阿港都是 operator，`by_region` 又是整块 JSON 覆盖写:
   # 一位只管繁中的人一次误点就能把某功能在大陆关掉,
   # 而那个格子只有 20×20px、一行里六个区并排、没有确认框。
-  local flag_code flag_now two_flag_jp two_flag_ok root_flag
+  local flag_code flag_was two_flag_jp two_flag_all two_flag_ok
   flag_code=$(psql1 "SELECT code FROM feature_flag ORDER BY code LIMIT 1")
   if [ -n "$flag_code" ]; then
+    # 【探针自带基线】。守卫比的是【这一次改了哪几个键】，不是整块 JSON ——
+    # 分区管理员每次改自己那一格提交的都是整块，拿整块比的话他连
+    # 原样提交都会被拒。而这就意味着:库里如果【已经】写着 `{"jp": true}`,
+    # 再发一次同样的值不算改动，回 200 是对的 —— 而那时这条断言验的是
+    # 「库里碰巧是什么值」，不是守卫。头一轮就这么红了一次:
+    # 这一段自己的还原语句把 `{"jp": true}` 固化了下来（还原点取在
+    # 第一次 PATCH 之后），下一轮它就成了「没改动」。
+    # 所以先把它压成空对象，跑完再还原成压之前那一版。
+    flag_was=$(psql1 "SELECT by_region::text FROM feature_flag WHERE code='$flag_code'")
+    psql "$DB" -q -c "UPDATE feature_flag SET by_region='{}'::jsonb WHERE code='$flag_code'" >/dev/null
     two_flag_jp=$(curl -s -o /dev/null -w '%{http_code}' -X PATCH "$ADMIN/admin/feature_flags/$flag_code" \
         -H "authorization: Bearer $A_two" -H 'content-type: application/json' \
         -d '{"by_region":{"jp":true}}')
@@ -1068,13 +1078,14 @@ do_check() {
         -H "authorization: Bearer $A_two" -H 'content-type: application/json' \
         -d '{"default_on":false}')
     want "总开关不分区，分区的人动不了" 403 "$two_flag_all"
-    # 而他自己那两格照样改得动 —— 守卫不能把他自己的活儿也挡了
-    flag_now=$(psql1 "SELECT by_region::text FROM feature_flag WHERE code='$flag_code'")
+    # 而他自己那一格照样改得动 —— 守卫不能把他自己的活儿也挡了
     two_flag_ok=$(curl -s -o /dev/null -w '%{http_code}' -X PATCH "$ADMIN/admin/feature_flags/$flag_code" \
         -H "authorization: Bearer $A_two" -H 'content-type: application/json' \
-        -d "{\"by_region\":$(printf '%s' "$flag_now" | jq -c '. + {"zh_hant": true}')}")
+        -d '{"by_region":{"zh_hant":true}}')
     want "他自己那一格照样改得动" 200 "$two_flag_ok"
-    psql "$DB" -q -c "UPDATE feature_flag SET by_region='$flag_now' WHERE code='$flag_code'" >/dev/null
+    want "那一格真的落进去了" "true" \
+      "$(psql1 "SELECT by_region->>'zh_hant' FROM feature_flag WHERE code='$flag_code'")"
+    psql "$DB" -q -c "UPDATE feature_flag SET by_region='$flag_was'::jsonb WHERE code='$flag_code'" >/dev/null
   else
     say_bad "库里一条 feature_flag 都没有 —— 灰度开关那三条验不到"
     return 1
