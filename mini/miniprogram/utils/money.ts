@@ -111,14 +111,20 @@ function 折数(bps: number): string {
  * 而订单详情接口那时不返退款单。于是人再按一次，
  * 撞上后端的在途检查，得到一句「有个地方填得不对」。
  * 屏上要说得出「这一笔在哪一步」，才不会有第二次按。 */
+/* 【这七个字面量是我照着印象写的，一个都没去对枚举】。
+   门禁当场抓到两处:后端写的是 `success`，我写了 `succeeded` ——
+   于是每一笔真的退成了的，屏上打的是英文 `success`（落点是 `|| status`）;
+   而 `denied` 后端根本没有这一档，那个键永远用不上。
+   驳回走的是 `deny()`，它写的是 `cancelled` —— 也就是说
+   「已撤回」这三个字会出现在【客服驳回了你】的时候,
+   读起来像是你自己反悔了。全仓只有 `deny()` 写这一档，没有用户撤回这条路。 */
 const 退款说法: Record<string, string> = {
   requested: '审核中',
   approved: '批了 · 正在退',
   processing: '正在退',
-  succeeded: '已退款',
+  success: '已退款',
   failed: '退款没成',
-  denied: '没批',
-  cancelled: '已撤回',
+  cancelled: '没批下来 · 客服会说明',
 }
 
 export function 退款那一词(status: string): string {

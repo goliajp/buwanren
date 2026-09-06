@@ -33,6 +33,9 @@ import re, sys, pathlib
     # 订着的那一屏（2026-09-05）。七种状态原先一档中文都没有 ——
     # 那一支从来没有一位真的订着的人走过，于是屏上打的是 `active`
     ('SubscriptionStatus', 'mini/miniprogram/pages/subs/index.ts', '状态说法', set()),
+    # 退款那一路（2026-09-06）。这张表是跟着退款屏一起写的,写完当天
+    # 这一支就抓到它两处对不上 —— 见 money.ts 那段注释。
+    ('RefundStatus', 'mini/miniprogram/utils/money.ts', '退款说法', set()),
     # 承运商代号。它不是枚举 —— 按区列在 region.rs 的 `carriers:` 里
     ('carriers@region', 'mini/miniprogram/pages/order/index.ts', '快递说法',
      # 后台手填单号、没挑承运商的那一档，不属于任何一个区
