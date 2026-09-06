@@ -23,6 +23,17 @@
       {{result.time_label}}
     </view>
 
+    <!-- 【同一小时同一件事是同一签】（2026-09-06 三路验证 · 第一次打开的人）。
+         种子 = 谁 + 哪一天哪一小时 + 问的那件事 —— 不写问题连摇两次
+         得到的是逐字相同的一句，那是设定（「不能反复摇到满意为止」）。
+         而罗盘照旧转三秒、照旧震一下，人读到的是「我又算了一次，
+         答案一模一样」，第一反应是这东西坏了。
+         说清楚它是同一签，那三秒就从「假装在算」变成「你已经问过了」。 -->
+    <view class="again-note enter" style="animation-delay:60ms"
+          wx:if="{{mode === 'result' && 又问了}}">
+      这一小时你已经问过了 —— 还是这一句
+    </view>
+
     <view class="q-echo" wx:if="{{result.question}}">
       <text class="q-mark">「</text>{{result.question}}<text class="q-mark">」</text>
     </view>

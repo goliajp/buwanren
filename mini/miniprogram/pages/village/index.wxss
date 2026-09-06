@@ -137,3 +137,24 @@
 /* 手输编号:一行入口 + 展开。常驻的是那一行，不是整块。 */
 .manual-caret { margin-left: 6rpx; font-size: 20rpx; color: var(--stone-label); }
 .manual-k-hover { opacity: .66; }
+
+/* 【御守是什么】。只对一个村民都没住下、又刚关掉相机的人说。
+   摆在扫码那一行底下，跟 `.scan-err` 同一个位置 —— 它回答的是同一个
+   动作之后的「然后呢」。两颗都按触点定高（88rpx = 44px）。 */
+.noscan {
+  margin: 0 32rpx 8rpx;
+  padding: 20rpx 24rpx;
+  border-radius: 20rpx;
+  background: var(--paper);
+}
+.noscan-t { font-size: 27rpx; font-weight: 600; color: var(--ink); line-height: 1.5; }
+.noscan-s { margin-top: 6rpx; font-size: 23rpx; color: var(--ink-faint); line-height: 1.6; }
+.noscan-acts { display: flex; align-items: center; justify-content: space-between; }
+.noscan-go {
+  min-height: 88rpx; display: flex; align-items: center;
+  font-size: 25rpx; font-weight: 600; color: #9a4f1e;
+}
+.noscan-x {
+  min-height: 88rpx; display: flex; align-items: center;
+  font-size: 25rpx; color: var(--stone-label);
+}

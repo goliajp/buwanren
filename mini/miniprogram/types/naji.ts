@@ -40,6 +40,8 @@ export interface NajiResult {
   recommend: RecommendOut | null
   /** 这一卦让你拿到的那几枚徽章。没拿到就是空数组 */
   earned?: Array<{ code: string; name: string }>
+  /** 这一签刚才就问过了（同一小时同一件事是同一签）。屏上据此说一句 */
+  again?: boolean
 }
 
 /** history list item · 后端 naji.rs 简化投影 */

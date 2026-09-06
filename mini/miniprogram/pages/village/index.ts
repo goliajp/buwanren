@@ -110,6 +110,8 @@ interface VillageData {
   code: string
   codeErr: string
   codeBusy: boolean
+  /** 一个村民都没住下的人关掉了相机 —— 那时说清御守是什么，并给一条路 */
+  扫不着: boolean
   /** 某位今天说的一句（设计册 V1）。null = 村里还没人，这一块整个不摆。
    *  它会改画布的可用高度 —— 从无到有那天要重算，见 `fitCanvas` */
   says: null | { villager_id: string; name: string; title: string | null; art: string | null; text: string; face: string; direction: string | null; 脸样?: string }
@@ -117,7 +119,7 @@ interface VillageData {
 }
 
 Page<VillageData, WechatMiniprogram.IAnyObject>({
-  data: { 手输开着: false, cssW: 0, cssH: 0, sub: '', greet: '', today: '', tonight: false, 当口: '', 今口: '', lived: 0, total: 40, err: '', 取到过: false, toScan: false, code: '', codeErr: '', codeBusy: false,
+  data: { 手输开着: false, cssW: 0, cssH: 0, sub: '', greet: '', today: '', tonight: false, 当口: '', 今口: '', lived: 0, total: 40, err: '', 取到过: false, toScan: false, code: '', codeErr: '', codeBusy: false, 扫不着: false,
     says: null },
 
   handle: null as { stop(): void } | null,
@@ -532,8 +534,30 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
    *  这是整条链上**唯一一次实物变成人**，而 toast 跟「已复制」是同一种语气。
    */
   onScan() {
-    扫一枚().then((r) => { if (r && !r.ok) this.setData({ codeErr: r.msg }) })
+    扫一枚().then((r) => {
+      if (r && !r.ok) { this.setData({ codeErr: r.msg }); return }
+      /* 【关掉相机之后，手上什么都没有的那个人】（2026-09-06 三路验证 ·
+         第一次打开的人）。「扫御守」是第一屏唯一的实心按钮，而全 app
+         **没有一处解释过御守是什么** —— 这一行的上一版注释自己写着
+         「同时在按钮底下给它一句自我解释」，那句解释从来没写出来。
+         按下去相机开了，他手上没有那样东西，关掉，屏上一个字都没有。
+
+         而线上买御守【不寄实体】（`fulfillment.rs` 付款那一刻直接搬进来）,
+         也就是说一个新用户手上确实不可能有 —— 那颗按钮对他是个死路。
+
+         所以:一个村民都没住下的人取消扫码时，说清那是什么、
+         并给一条他真的走得通的路。已经住过人的不说 —— 他知道那是什么，
+         再说一遍是啰嗦。
+         `r === null` 是「他自己取消了」（`utils/omamori.ts` 那一支）。 */
+      if (r === null && this.data.lived === 0) {
+        this.setData({ 扫不着: true })
+      }
+    })
   },
+
+  /** 说完那一句之后往「谁能来」走 —— 那是他真正走得通的下一步 */
+  goInviteFrom扫() { this.setData({ 扫不着: false }); this.goInvite() },
+  关掉扫不着() { this.setData({ 扫不着: false }) },
 
   /* 手输编号。设计册 E2 的弹性槽：「扫不出来？在这儿手输编号 ›」。
      码磨花了、相机坏了、光线不够 —— 这些人现在一条出路都没有，
