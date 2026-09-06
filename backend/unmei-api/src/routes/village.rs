@@ -296,7 +296,17 @@ struct 名册参数 {
     /// 按谁的用神排。传五行单字（木火土金水）；不传就按原来的规矩排
     #[serde(default)]
     r#for: Option<String>,
+    /* 【价按哪一格取】。原先下面那条查询写死 `region IN ('cn','global')` ——
+       也就是说繁中那一格的人在名册上看见的是人民币那个数，
+       而点进商品页看见的是台币。同一件东西两屏两个价，
+       中间隔着一次跳转，谁也不会同时看见它们、于是谁也不会报。
+       商品目录（`/v1/products`）从建库起就是收一个 `region` 参数、
+       默认 `cn` —— 这一屏跟着它，不另发明一套。 */
+    #[serde(default = "默认那一格")]
+    region: String,
 }
+
+fn 默认那一格() -> String { "cn".into() }
 
 async fn all_villagers(
     State(st): State<AppState>,
@@ -353,7 +363,7 @@ async fn all_villagers(
          LEFT JOIN LATERAL ( \
             SELECT price_minor, currency FROM price_book \
              WHERE sku_id = k.id AND status='active' \
-               AND region IN ('cn','global') AND platform IN ('mini','all') \
+               AND region IN ($1, 'global') AND platform IN ('mini','all') \
                AND effective_from <= NOW() \
                AND (effective_to IS NULL OR effective_to > NOW()) \
              ORDER BY effective_from DESC LIMIT 1 \
@@ -362,6 +372,7 @@ async fn all_villagers(
            AND p.status='listed' AND p.category = 'omamori' \
          ORDER BY k.villager_id, p.sort_weight DESC, p.id",
     )
+    .bind(&q.region)
     .fetch_all(&st.db)
     .await?
     .iter()
