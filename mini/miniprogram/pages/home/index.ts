@@ -212,7 +212,16 @@ Page<IData, WechatMiniprogram.IAnyObject>({
          上面 MIN_SPIN_MS 那段等待就是为这个。 */
       wx.vibrateShort({ type: 'medium', success() {}, fail() {}, complete() {} })
       this.setData({ mode: 'idle' })
-      wx.navigateTo({ url: '/pages/ask/index?id=' + result.id + '&new=1' })
+      /* 【同一小时同一件事是同一签】（2026-09-06 三路验证 · 第一次打开的人）。
+         种子 = 谁 + 哪一天哪一小时 + 问的那件事，所以不写问题连摇两次
+         得到的是逐字相同的一句 —— 那是设定（「不能反复摇到满意为止」）。
+         而这一屏照旧转三秒、照旧震一下，人读到的是
+         「我又算了一次，答案一模一样」——「这玩意儿是不是坏了」。
+         后端现在会说这是不是刚才那一签，带过去让那一屏说一句实话。 */
+      wx.navigateTo({
+        url: '/pages/ask/index?id=' + result.id + '&new=1'
+             + (result.again ? '&again=1' : ''),
+      })
       this.loadRecent()
     } catch (_e) {
       this.setData({ mode: 'idle' })

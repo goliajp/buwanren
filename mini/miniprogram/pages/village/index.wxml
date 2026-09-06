@@ -191,6 +191,24 @@
        这一句挂在按钮底下，跟 `toScan` 无关。 -->
   <view wx:if="{{codeErr && !toScan}}" class="scan-err">{{codeErr}}</view>
 
+  <!-- 【手上什么都没有的那个人】（2026-09-06 三路验证 · 第一次打开的人）。
+       「扫御守」是这一屏唯一的实心按钮，而全 app 没有一处解释过御守是什么 ——
+       上面那段注释自己写着「同时在按钮底下给它一句自我解释」，
+       而那句解释一直没写出来。按下去相机开了，他手上没有那样东西，
+       关掉，屏上一个字都没有。
+       线上买御守【不寄实体】（付款那一刻人就搬进来了），也就是说
+       一个新用户手上确实不可能有一枚 —— 那颗按钮对他是个死路。
+       所以只对【一个村民都没住下、且刚关掉相机】的人说这一句，
+       并给一条他真的走得通的路。 -->
+  <view wx:if="{{扫不着}}" class="noscan">
+    <view class="noscan-t">御守是一枚小牌子 —— 线下拿到的那一枚</view>
+    <view class="noscan-s">扫它背面的码，那一位就住进你的村子。手上没有的话，从名册里请一位回来也一样</view>
+    <view class="noscan-acts">
+      <text class="noscan-go" bindtap="goInviteFrom扫" hover-class="press-text" hover-stay-time="80">看看谁能来 ›</text>
+      <text class="noscan-x" bindtap="关掉扫不着" hover-class="press-text" hover-stay-time="80">知道了</text>
+    </view>
+  </view>
+
   <!-- 手输那一块的出现条件从 `toScan` 放宽到「或者刚扫失败过」——
        扫不出来的人正是最需要手输的人，而他不一定有待扫的单子
        （线下拿到一枚、朋友给的一枚，都不会有）。 -->

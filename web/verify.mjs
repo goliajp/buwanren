@@ -1756,13 +1756,30 @@ if (API) {
 
     await p.waitForTimeout(1500)
     const 夜 = await text()
-    ok(夜.includes('今晚一起点一支'), '这一屏说的是「今晚一起点一支」')
+    /* 【这一条原先钉着那句写死的话】（2026-09-06 三路验证 · 第一次打开的人）。
+       上一版断言的是 `夜.includes('今晚一起点一支')` —— 而屏上那句正是
+       写死的「今晚」，实测这一场是上午九点开的。
+       几点点香在后端是配置，`/v1/incense/schedule` 专门为此做出来了，
+       村口那一槽与一味香那一屏都跟着它走，唯独仪式本身这一屏漏了。
+       **护栏钉在要被淘汰的东西上，就会替它挡住改动** ——
+       这一条这两个月一直绿着，替那句假话挡着。
+       判据换成跟那一槽同一个钟点:两屏说的是同一场，同一个来源。 */
+    ok(夜.includes('一起点一支'), '这一屏说的是「一起点一支」', 夜.slice(0, 30))
+    ok(夜.includes(钟点那一词(排期.hour)),
+       '点香那一屏说的钟点也是配置里那个 —— 不再写死「今晚」',
+       (夜.match(/[^\n]{0,12}一起点一支/) || [''])[0])
     /* 【分钟不一定是两位】（2026-09-05）。原先写的是 `\d\d:\d\d` ——
        而烧多久是配置（`UNMEI_INCENSE_MINUTES`，后端 clamp 到 1–240）。
        把窗口设成两小时以上，屏上就是「已烧 127:34」，三位数，
        这一条当场红，而那一屏一个字都没错。
-       判据比它要守的东西窄:守的是「这个数在走」，不是「它有几位」。 */
-    ok(/已烧 \d+:\d\d/.test(夜), '烧了多久在走', (夜.match(/已烧 \S+/) || [''])[0])
+       判据比它要守的东西窄:守的是「这个数在走」，不是「它有几位」。
+
+       【2026-09-06 又窄了一次】：三位数的分钟本身就是那一屏的毛病 ——
+       「已烧 99:16 / 约 240:00」没有人知道单位是什么。
+       超过一小时现在说「1 小时 39 分」。判据同样只守「这个数在走」，
+       两种写法都收，不规定它长什么样。 */
+    ok(/已烧 (\d+:\d\d|\d+ 小时( \d+ 分)?)/.test(夜), '烧了多久在走',
+       (夜.match(/已烧 [^/]*/) || [''])[0])
     /* 没有顶栏没有 tab —— 全屏时刻（设计册 10.2）。
        这一刻给任何导航都是打断。 */
     ok(await p.evaluate(() => {
@@ -2787,9 +2804,14 @@ if (API) {
   ).catch(() => {})
   const r = await p.evaluate(() => {
     const c = globalThis.__router.current()
-    return { 路由: c.__route, mode: c.data.mode, dir: c.data.result && c.data.result.direction }
+    return { 路由: c.__route, mode: c.data.mode, dir: c.data.result && c.data.result.direction,
+             id: c.data.result && c.data.result.id }
   })
   ok(r.路由 === 'pages/ask/index', '转完跳去「今天」那一页', r.路由)
+  /* 这一签的 id 记下来 —— 下面「同一小时再转一次」要拿它比。
+     【不从库里拿最新那一条】：验证库里有别的用户的记录，
+     `ORDER BY asked_at DESC LIMIT 1` 抓到的是别人的（头一版就这么红了一次）。 */
+  const 头一签id = r.id || ''
   ok(r.mode === 'result', '看到的是刚落的那一卦（不是「翻回去看」那种）', r.mode)
   ok(!!r.dir, '这一卦有方位　—— 后端真算过', r.dir || '空的')
   ok((await text()).includes('再问一次'), '落卦之后可以再问一次')
@@ -2886,9 +2908,17 @@ if (API) {
      '主屏上没有输入框 —— 转一下就是转一下',
      String(await p.locator('.ask-q-input').count()))
 
-  /* 再转一签 —— 让「近几次」真有两条。
+  /* 再转一次。
+     【同一小时同一件事是同一签】（2026-09-06 三路验证 · 第一次打开的人）:
+     种子 = 谁 + 哪一天哪一小时 + 问的那件事，主屏又不带问题，
+     所以这一次转出来的必然是刚才那一条 —— 那是设定
+     （「不能反复摇到满意为止」），而屏上照旧转三秒、照旧震一下。
+     这一段下面两条验的就是「屏上说清了它是同一签」与「库里没有多一行」。
      转完之后**跳去「今天」那一页**（起卦在我家、看卦在那一页），
      所以这里等的是路由变了，不是这一页的 mode 变成 result。 */
+  const 转之前几条 = API ? Number(sql1(
+    "SELECT count(*) FROM naji_record WHERE asked_at > NOW() - INTERVAL '2 hours'")) : 0
+  const 上一签 = 头一签id
   await open('pages/home/index')
   await p.waitForTimeout(500)
   await p.getByText('问一件事', { exact: true }).click()
@@ -2901,6 +2931,23 @@ if (API) {
      && await p.evaluate(() => globalThis.__router.current().data.mode) === 'result',
      '转完跳到「今天」那一页，看的是刚落的那一卦',
      `${await p.evaluate(() => globalThis.__router.current().__route)} · ${await p.evaluate(() => globalThis.__router.current().data.mode)}`)
+
+  if (API) {
+    const 这一签 = await p.evaluate(() => (globalThis.__router.current().data.result || {}).id)
+    ok(这一签 === 上一签,
+       '同一小时再转一次，落到的是刚才那一签　—— 那是设定，不是缓存',
+       `${上一签} → ${这一签}`)
+    ok(await p.evaluate(() => globalThis.__router.current().data.又问了) === true,
+       '而且屏上说清了它是同一签　—— 不是假装刚算出来的',
+       String(await p.evaluate(() => globalThis.__router.current().data.又问了)))
+    ok((await text()).includes('这一小时你已经问过了'),
+       '那句话真的渲在屏上', ((await text()).match(/这一小时[^\n]{0,20}/) || [''])[0])
+    const 转之后几条 = Number(sql1(
+      "SELECT count(*) FROM naji_record WHERE asked_at > NOW() - INTERVAL '2 hours'"))
+    ok(转之后几条 === 转之前几条,
+       '库里没有因此多一行　—— 同一签就是同一条记录',
+       `${转之前几条} → ${转之后几条}`)
+  }
 
   /* 「看更多」那一段删了：近签整块搬到了我家的弹性槽（REDESIGN.md）。
      两处各留一份就是同一件事写两遍，而且会分头漂。
@@ -5330,6 +5377,9 @@ if (!(CAL > 0)) {
 // 三档的数都是【实测】的，不是从另一档减出来的：
 // 2026-09-03 同一台机器上分别跑了三趟 —— 假 130 / 真 358 / 真带排盘 384。
 // 建本命那一段是 26 条，不是当初以为的 17 条。
+/* 「真带排盘」这一档 2026-09-06 第十二次改，509 → 514（实跑）——
+   点香那一屏加了一条（钟点也按排期，不再写死「今晚」），
+   罗盘加了四条（同一小时是同一签 / 屏上说清 / 那句话真渲出来 / 库里不多一行）。 */
 /* 「真带排盘」这一档 2026-09-06 第十一次改，505 → 509（实跑）——
    订着的那一屏加了一条（不再答应「最后一盒还会发」），
    结账屏加了三条（自动用上第一张券 / 协议两条链 / 点得开）。 */
@@ -5361,7 +5411,7 @@ if (!(CAL > 0)) {
    凭空少掉八十条仍然报「全通」。
    另外两档没有在这一轮实测过，不动 —— 改一个没量过的数，
    等于把「下限」变成「我猜的数」。 */
-const 基准 = { 假: 132, 真: 360, 真带排盘: 509 }
+const 基准 = { 假: 132, 真: 360, 真带排盘: 514 }
 // 名字不叫 `档`：978 行有个同名的局部变量（村民稀有度），
 // 两个都在这个文件里，读起来会以为是同一个东西
 const 这一档 = !API ? '假' : (MINGLI ? '真带排盘' : '真')

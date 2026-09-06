@@ -12,6 +12,7 @@
  */
 import { incenseApi } from '../../services/incense'
 import { storage } from '../../services/storage'
+import { 今天那一刻 } from '../../utils/incense-when'
 
 interface IData {
   /** 人数。取不到是 null —— 不是 0，那是句假话 */
@@ -25,6 +26,8 @@ interface IData {
   total: string
   /** 只在点着的那一下为真 —— 窜火那个动画靠它出场 */
   刚点着: boolean
+  /** 这一场是什么时候开的（「今天上午九点」）。取不到就是空串 */
+  当口: string
 }
 
 let 秒表: ReturnType<typeof setInterval> | null = null
@@ -54,13 +57,24 @@ function 人数怎么说(n: number | null): string {
   return `还有 ${n} 个人在点`
 }
 
-function mmss(秒: number): string {
+/* 【烧多久说人话，不用 mm:ss】（2026-09-06 三路验证 · 第一次打开的人）。
+   后端的 `UNMEI_INCENSE_MINUTES` 收到 240（`routes/incense.rs` 里 clamp 的
+   上限），而这里是 `mm:ss` —— 于是屏上出现「已烧 99:16 / 约 240:00」。
+   分钟位溢出成三位数，读起来像一个坏掉的计时器，
+   而没有任何人知道那两个数的单位是什么。
+   一小时以内照旧 mm:ss（那是秒表该有的样子）；超过就换成「几小时几分」。 */
+function 烧了多久(秒: number): string {
   const s = Math.max(0, Math.floor(秒))
-  return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0')
+  if (s < 3600) {
+    return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0')
+  }
+  const 时 = Math.floor(s / 3600)
+  const 分 = Math.floor((s % 3600) / 60)
+  return 分 ? `${时} 小时 ${分} 分` : `${时} 小时`
 }
 
 Page<IData, WechatMiniprogram.IAnyObject>({
-  data: { count: null, 人数话: '', iLit: false, busy: false, burned: '00:00', total: '25:00', 刚点着: false },
+  data: { count: null, 人数话: '', iLit: false, busy: false, burned: '00:00', total: '25:00', 刚点着: false, 当口: '' },
 
   起于: 0,
   烧多久: 25 * 60,
@@ -79,6 +93,17 @@ Page<IData, WechatMiniprogram.IAnyObject>({
   },
 
   load() {
+    /* 【标题不许写死「今晚」】（2026-09-06 三路验证 · 第一次打开的人）。
+       几点点香在后端是配置（`UNMEI_INCENSE_WEEKDAY` / `HOUR` / `MINUTES`），
+       `/v1/incense/schedule` 专门为此做出来了，一味香那一屏与村口那一槽
+       都已经跟着它走 —— 而**这一屏，仪式本身那一屏，漏掉了**：
+       实测这一场是上午九点开的，屏上大字写着「今晚一起点一支」。
+       取不到就不说时刻（`当口` 留空，wxml 退回一句不带钟点的）——
+       说错一个钟点比不说更伤，有人会照着它来。 */
+    incenseApi.schedule().then(
+      (s) => this.setData({ 当口: 今天那一刻(s) }),
+      () => this.setData({ 当口: '' }),
+    )
     incenseApi.now().then(
       (s) => {
         if (!s) {
@@ -94,7 +119,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
           count: s.lit_count,
           人数话: 人数怎么说(s.lit_count),
           iLit: s.i_lit,
-          total: mmss(s.burn_seconds),
+          total: 烧了多久(s.burn_seconds),
         })
         this.走表()
       },
@@ -114,12 +139,12 @@ Page<IData, WechatMiniprogram.IAnyObject>({
       if (已烧 >= this.烧多久) {
         /* 烧完了。这一场结束，这一屏也就不存在了 —— 同不到点那一支。 */
         this.停表()
-        this.setData({ burned: mmss(this.烧多久) })
+        this.setData({ burned: 烧了多久(this.烧多久) })
         wx.showToast({ title: '这一支烧完了', icon: 'none' })
         setTimeout(退出去, 900)
         return
       }
-      this.setData({ burned: mmss(已烧) })
+      this.setData({ burned: 烧了多久(已烧) })
     }
     tick()
     秒表 = setInterval(tick, 1000)

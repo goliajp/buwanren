@@ -101,7 +101,37 @@ async fn spin(
     let t_chart_val: Option<serde_json::Value> = if t_chart_json.is_null() { None } else { Some(t_chart_json.clone()) };
     let rec_id = rec.as_ref().map(|r| r.id.clone());
     let signed_seed = seed as i64;
+
+    /* 【同一小时同一件事，是同一签 —— 不是新的一签】
+       （2026-09-06 三路验证 · 第一次打开的人）。
+       种子 = 谁 + 哪一天哪一小时 + 问的那件事。也就是说同一小时里
+       不写问题连摇五次，五次逐字相同 —— 那是**设定**（上面那段注释写着
+       「不能反复摇到满意为止」），而屏上照旧转三秒、照旧震一下，
+       库里也照旧多五行。实测:同一人同一小时五条记录里四条完全相同。
+       人读到的是「我又算了一次，答案一模一样」——「这玩意儿是不是坏了」。
+
+       所以同一签就返回同一条记录:不新建行，并把「这是刚才那一签」
+       告诉客户端，让它说一句而不是假装刚算出来。
+       判据用 `seed` —— 它本来就是「谁 + 什么时候 + 问什么」的全部。 */
+    let 刚才那一条: Option<String> = sqlx::query_scalar(
+        "SELECT id FROM naji_record
+          WHERE user_id=$1 AND seed=$2
+            AND asked_year=$3 AND asked_month=$4 AND asked_day=$5 AND asked_hour=$6
+          ORDER BY asked_at DESC LIMIT 1",
+    )
+    .bind(&c.sub)
+    .bind(signed_seed)
+    .bind(year)
+    .bind(month as i32)
+    .bind(day as i32)
+    .bind(hour as i32)
+    .fetch_optional(&st.db)
+    .await?;
+    let 又问了一次 = 刚才那一条.is_some();
+    let id = 刚才那一条.unwrap_or(id);
+
     // 清洗 question · trim + 空串归 None
+    if !又问了一次 {
     sqlx::query(
         r#"INSERT INTO naji_record
            (id, user_id, natal_id, asked_year, asked_month, asked_day, asked_hour, asked_minute, asked_tz,
@@ -115,6 +145,7 @@ async fn spin(
      .bind(&suit_json).bind(&avoid_json).bind(&q.id).bind(&rec_id).bind(signed_seed)
      .bind(&question_clean)
      .execute(&st.db).await?;
+    }
 
     /* ─── 8. 徽章触发
 
@@ -149,6 +180,9 @@ async fn spin(
         recommend: rec,
         earned: 拿到.into_iter()
             .map(|x| 拿到的徽章 { code: x.code, name: x.name }).collect(),
+        /* 这一签刚才就问过了。客户端据此说一句 ——
+           不说的话，屏上看起来像是刚算出来的，而它一个字都没变。 */
+        again: 又问了一次,
     }))
 }
 
