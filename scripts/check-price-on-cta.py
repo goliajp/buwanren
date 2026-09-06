@@ -17,6 +17,32 @@
 """
 import re, sys, pathlib
 
+def 函数体(源: str, 左括号: int) -> str:
+    """从这个 `{` 数到配对的 `}`。
+
+    【原先是「往后取一千二百字，切到下一个 `\\n  },`」】——
+    而一行写完的处理器（`goOrders() { wx.navigateTo({…}) },`）
+    结尾是 `},` 不是 `\n  },`，于是那一刀切不下来，
+    这个处理器的「函数体」一路吃进下面几个处理器。
+    2026-09-06「我的」那一屏上真报出来:`goOrders` 只跳订单列表，
+    却被判成「通向掏钱那一步」—— 因为它后面那个 `goBook` 跳商品页。
+    指错了地方的失败，比失败本身更贵。
+
+    括号配对不猜:字符串与注释里的括号会算错，而这几个文件里
+    处理器体内没有带大括号的字符串（真有那天这一支会多切一点，
+    多切的后果是误报，误报看得见）。
+    """
+    深 = 0
+    for i in range(左括号, len(源)):
+        if 源[i] == '{':
+            深 += 1
+        elif 源[i] == '}':
+            深 -= 1
+            if 深 == 0:
+                return 源[左括号 + 1: i]
+    return 源[左括号 + 1:]
+
+
 根 = pathlib.Path(__file__).resolve().parent.parent
 页目 = 根 / 'mini/miniprogram/pages'
 掏钱 = re.compile(r"/pages/(product|confirm)/index")
@@ -29,10 +55,9 @@ for ts in sorted(页目.glob('*/index.ts')):
         continue
     页 = wxml.read_text(encoding='utf-8')
     # 处理器:`名(` 开头到下一个同级 `},` —— 取它的函数体
-    for m in re.finditer(r'^  (\w+)\((?:[^)]*)\)\s*\{', 源, re.M):
+    for m in re.finditer(r'^  ([\w\u4e00-\u9fa5]+)\((?:[^)]*)\)\s*\{', 源, re.M):
         名 = m.group(1)
-        体 = 源[m.end(): m.end() + 1200]
-        体 = 体.split('\n  },')[0]
+        体 = 函数体(源, m.end() - 1)
         if not 掏钱.search(体):
             continue
         # 【不只是 <button>】。六个掏钱入口里只有两个用 <button>，
