@@ -35,9 +35,9 @@
          从整个 app 里再也找不到（摇卦推荐那条路按设计不再推它）。
          两头都缺，补在同一行:买过的打得开，没买过的通到那一件。
          取不到价就不摆 —— 摆一个买不了的入口比不摆更糟。 -->
-    <view class="entry" wx:if="{{bookText}}" bindtap="goBook" hover-class="entry-hover" hover-stay-time="100">
+    <view class="entry" wx:if="{{book价}}" bindtap="goBook" hover-class="entry-hover" hover-stay-time="100">
       <text class="entry-k">你的说明书</text>
-      <text class="entry-v">{{bookText}}</text>
+      <text class="entry-v">{{book价}}</text>
       <text class="entry-arrow">›</text>
     </view>
     <view class="entry" bindtap="goBadges" hover-class="entry-hover" hover-stay-time="100">
@@ -89,7 +89,11 @@
        「想请谁回家，去村子里挑」，同一件事在一屏上说了三遍
        （标尺 §1.5.5 第 4 条），而且最重的位置给了「什么都没有」。
        现在空的时候只留一行轻提示，指出哪儿能有。 -->
-  <view class="recent-k" wx:if="{{recent}}">最近一笔</view>
+  <!-- 【「最近一笔」那个小标题撤了】（2026-09-06）。它是一个 32px 的标签
+       压在一张【自己就说清了自己】的卡上面 —— 卡里写着商品名、
+       哪天下的单、现在什么状况、下一步去哪儿。
+       撤它是为了给「你的说明书」那一行腾位子:这一屏原先正好一屏放得下
+       （余 2px），加一行 44px 就超出 42px，而这是这一屏上最不承重的一处。 -->
   <view class="recent" wx:if="{{recent}}" bindtap="goRecent"
         hover-class="entry-hover" hover-stay-time="100">
     <view class="recent-title">{{recent.title}}</view>

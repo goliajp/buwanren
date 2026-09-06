@@ -3964,7 +3964,7 @@ if (!API) {
   await p.waitForTimeout(1200)
   {
     const 册 = await p.evaluate(() => ({
-      文: globalThis.__router.current().data.bookText,
+      文: globalThis.__router.current().data.book价,
       单: globalThis.__router.current().data.bookOrder,
     }))
     ok(!!册.文, '「我的」上有「你的说明书」这一行 —— 它自己说它在这儿',

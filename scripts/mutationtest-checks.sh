@@ -555,10 +555,16 @@ echo
 echo "── check-no-deixis（屏上不拿指代当名字）──"
 # 「那一份」曾是这个付费产品在屏上的全部说法。指代要有上下文才成立，
 # 而第一次看见它的人没有上下文（2026-08-31 用户指出）。
+# 【钉住的那句话 2026-09-06 改了】。原先钉的是「看你的说明书 ›」——
+# 而那一条去的是出生时间那一屏，不是说明书，所以它换成了「看你缺什么 ›」。
+# 换字的那一轮这一条报「没抓到」：`edit` 找到的唯一一处
+# 是我在同一个文件里写的【注释】（「上一版写的是「看你的说明书 ›」」），
+# 于是变异种在注释上，而 `check-no-deixis` 不扫注释。
+# 变异植进注释 = 这一支报的红说的是假话，这个坑 2026-08-18 记过一次。
 mutate "屏上又拿「那一份」当名字" check-no-deixis \
-  "edit('mini/miniprogram/pages/home/index.wxml', '看你的说明书 ›', '看完整的那一份 ›')"
+  "edit('mini/miniprogram/pages/home/index.wxml', '看你缺什么 ›', '看完整的那一份 ›')"
 keep "带上下文的指代不算" check-no-deixis \
-  "edit('mini/miniprogram/pages/home/index.wxml', '看你的说明书 ›', '在用的那一份生辰 ›')"
+  "edit('mini/miniprogram/pages/home/index.wxml', '看你缺什么 ›', '在用的那一份生辰 ›')"
 
 echo
 echo "── check-money-fmt（金额只有一支格式化）──"

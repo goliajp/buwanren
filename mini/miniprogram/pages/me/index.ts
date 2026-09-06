@@ -34,8 +34,14 @@ interface IData {
    *  那句话在界面上没有兑现的地方:填完之后，再也回不去了。 */
   natalText: string
   orderText: string
-  /** 说明书那一行说什么。买过就是「打得开」，没买过就是价钱；空串 = 不摆这一行 */
-  bookText: string
+  /* 说明书那一行说什么。买过就是「打得开」，没买过就是【价钱】。
+     空串 = 不摆这一行（取不到价的时候）。
+
+     【名字里带「价」是有意的】：`check-price-on-cta` 那一支的判据是
+     「通向掏钱那一步的屏上，有一处取自数据的 `{{…价…}}`」——
+     写死一个数字不算数（价在 price_book 上按区域生效，写死那天就开始骗人）。
+     这一行正是这一屏上唯一通向商品页的东西，它显示的也确实是价。 */
+  book价: string
   /** 买过的那一单 id。空串 = 还没买过，那一行通到商品页 */
   bookOrder: string
   badgeText: string
@@ -64,7 +70,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     natalText: '',
     orderText: '',
     /** 说明书那一行说什么。买过就是「打开」，没买过就是价钱 */
-    bookText: '',
+    book价: '',
     /** 买过的那一单 id。空串 = 还没买过，那一行通到商品页 */
     bookOrder: '',
     badgeText: '',
@@ -222,20 +228,20 @@ Page<IData, WechatMiniprogram.IAnyObject>({
            商品改了名、下了架，单子上写的还该是当时买的那个东西。 */
         const 册单 = items.find((x: OrderCard) => /说明书/.test(String(x.title || '')))
         if (册单) {
-          this.setData({ bookOrder: 册单.id, bookText: '打得开' })
+          this.setData({ bookOrder: 册单.id, book价: '打得开' })
         } else {
           this.setData({ bookOrder: '' })
           commerceApi.product('prod-naji-deep').then(
             (d) => {
               const 有价 = d.skus.filter((s) => s.current_price_minor != null && s.current_currency)
               this.setData({
-                bookText: 有价.length
+                book价: 有价.length
                   ? money(有价[0].current_price_minor as number, 有价[0].current_currency as string)
                   : '',
               })
             },
             // 取不到价就不摆这一行 —— 摆一个买不了的入口比不摆更糟
-            () => this.setData({ bookText: '' }),
+            () => this.setData({ book价: '' }),
           )
         }
         if (!items.length) { this.setData({ recent: null }); return }
