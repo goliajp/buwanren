@@ -28,6 +28,7 @@
 pub mod account;
 pub mod activity;
 pub mod actor;
+pub mod badge;
 pub mod catalog;
 pub mod coupon;
 pub mod finance;

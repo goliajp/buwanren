@@ -23,7 +23,7 @@ use chrono::{Duration as ChronoDuration, Utc};
 use serde::Deserialize;
 use serde_json::{json, Value as J};
 use sqlx::Row;
-use unmei_app::{residency, villager};
+use unmei_app::{badge as app_badge, residency, villager};
 
 use crate::auth::{ApiError, AuthedUser};
 use crate::mingli::MingliClient;
@@ -445,6 +445,19 @@ async fn ask_reading(
     let chart = fetch_chart(&st, &c.sub, &villager_id).await;
     let r = villager::reading(&st.db, &c.sub, &villager_id, today_shanghai(), chart).await?;
 
+    /* 【问签也算「问过一件事」】（2026-09-06 五路评审 · §七）。
+       在这之前徽章只由转盘那一条路触发，而且只数 `naji_record` ——
+       天天来村民屋里问的人，「一百次」与「七天没断」永远停在 0，
+       屏上那几枚灰徽章底下却写着「去问一件事」，指的正是这件事。
+       发不出来不让这一签失败（人已经拿到他的话了），但要留一行。 */
+    let 拿到 = match app_badge::发该发的(&st.db, &c.sub).await {
+        Ok(v) => v,
+        Err(e) => {
+            tracing::warn!(user = %c.sub, error = ?e, "徽章那一遍没跑完");
+            Vec::new()
+        }
+    };
+
     Ok(Json(json!({
         "villager_id": r.villager_id,
         "villager_name": r.villager_name,
@@ -454,6 +467,11 @@ async fn ask_reading(
         "suit": r.suit,
         "avoid": r.avoid,
         "say": r.say,
+        /* 【拿到了要有人说一声】。原先发一枚徽章【一点声音都没有】——
+           往 `user_badge` 写一行就完了，人得自己想起来去「我 → 我得到的」翻。
+           收集系统里「拿到」那一下是全部的奖励，而它此前不存在。 */
+        "earned": 拿到.iter().map(|b| json!({ "code": b.code, "name": b.name }))
+            .collect::<Vec<_>>(),
     })))
 }
 

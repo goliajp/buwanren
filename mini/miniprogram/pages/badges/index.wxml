@@ -41,6 +41,13 @@
         <view class="badge-n">{{item.name}}</view>
         <view class="badge-d">{{item.description}}</view>
         <view class="badge-s" wx:if="{{item.earned}}">{{item.earned_at}}</view>
+        <!-- 还差多少。一条细杠 + 一个数 —— 数是给人读的，杠是给人扫一眼的。
+             拿到的那几枚不画（它们是纪念），只有一步的那两枚也不画。 -->
+        <block wx:elif="{{item.进度}}">
+          <view class="badge-bar"><view class="badge-bar-in" style="width:{{item.进度宽}}%"></view></view>
+          <view class="badge-p">{{item.进度}}</view>
+          <view class="badge-go" wx:if="{{item.去}}">{{item.去}} ›</view>
+        </block>
         <view class="badge-go" wx:elif="{{item.去}}">{{item.去}} ›</view>
       </view>
     </view>

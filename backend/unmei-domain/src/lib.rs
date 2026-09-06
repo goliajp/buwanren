@@ -132,6 +132,19 @@ pub struct NajiResult {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub question: Option<String>,   // 用户问事内容 · 回显给客户端
     pub recommend: Option<RecommendOut>,
+    /* 【这一签让你拿到了什么】（2026-09-06）。在这之前发一枚徽章一点声音都没有:
+       往 `user_badge` 写一行就完了，人得自己想起来去「我 → 我得到的」翻。
+       收集系统里「拿到」那一下就是全部的奖励，而它此前不存在。
+       没拿到就是空数组 —— 屏上据此决定说不说那句话。 */
+    #[serde(default)]
+    pub earned: Vec<拿到的徽章>,
+}
+
+/// 刚拿到的一枚。`code` 给判据用（图、去处都按它索引），`name` 给屏上那句话
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct 拿到的徽章 {
+    pub code: String,
+    pub name: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -200,6 +213,20 @@ pub struct BadgePublic {
     pub points: i32,
     pub earned: bool,
     pub earned_at: Option<String>,
+    /* 【离拿到还差多少】（2026-09-06 五路评审 · §七）。
+       徽章那一屏原先只有「拿到了 / 没拿到」两态 —— 「连着三十天」这一枚，
+       第 29 天看到的跟第 1 天一模一样，而这是这个产品唯一的长期牵引。
+       两个数后端本来就算着（发的时候就要用），只是没往外给。
+       数不出来的那两枚（买东西、到过场）是 None，屏上就不画进度。 */
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub progress: Option<徽章进度>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct 徽章进度 {
+    /// 已经有多少。拿到之后不再往上涨 —— 「103 / 100」读起来像还没完
+    pub have: i64,
+    pub need: i64,
 }
 
 // ─── 客户端配置(/v1/config 启动拉)──────────────────────────────

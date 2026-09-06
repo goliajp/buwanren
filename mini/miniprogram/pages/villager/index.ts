@@ -52,10 +52,13 @@ interface IData {
   请不来: string
   inviting: boolean
   asking: boolean
+  /** 这一签让你拿到的那一枚徽章的名字。没拿到就是空串，屏上不说 */
+  拿到: string
 }
 
 Page<IData, WechatMiniprogram.IAnyObject>({
   data: { id: '', loading: true, err: '', who: null, canEnter: false, say: '', inviting: false, asking: false,
+    拿到: '',
     价: '', 请不来: '',
     脸样: '',
           sells: false, sellsLabel: '', sellsProduct: '' },
@@ -150,9 +153,16 @@ Page<IData, WechatMiniprogram.IAnyObject>({
   onAsk() {
     const { id, who } = this.data
     if (!id) return
-    this.setData({ asking: true, say: '' })
+    this.setData({ asking: true, say: '', 拿到: '' })
     villageApi.ask(id).then(
-      (r) => this.setData({ asking: false, say: r.say }),
+      (r) => this.setData({
+        asking: false,
+        say: r.say,
+        /* 一次最多报一枚。同一签同时够到两枚（第一次问签的人可能同时
+           拿到「头一回」与「七天没断」）时只念头一枚 —— 一行里塞两个书名号
+           读起来像系统通知，而这是村民说完话之后的一句添头。 */
+        拿到: (r.earned && r.earned.length) ? r.earned[0].name : '',
+      }),
       (e) => {
         /* 没请回家是 **404 不是 403** —— 那不是权限检查，是设定：御守是入住凭证。
            所以照状态码判，不去猜错误文案（文案会改，状态码是契约）。 */

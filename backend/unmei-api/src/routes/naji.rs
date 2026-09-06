@@ -9,7 +9,8 @@ use axum::{routing::{get, post}, Router, Json, extract::{State, Path}};
 use chrono::{Datelike, Timelike, Local, DateTime, Utc};
 use sqlx::Row;
 use uuid::Uuid;
-use unmei_domain::{NajiResult, NajiSpinReq, QuoteOut};
+use unmei_app::badge as app_badge;
+use unmei_domain::{NajiResult, NajiSpinReq, QuoteOut, 拿到的徽章};
 
 use crate::state::AppState;
 use crate::auth::{AuthedUser, ApiError};
@@ -115,15 +116,24 @@ async fn spin(
      .bind(&question_clean)
      .execute(&st.db).await?;
 
-    /* ─── 8. 徽章触发(简化:仅在写入后检查 count 类规则)
+    /* ─── 8. 徽章触发
 
        徽章发不出来不该让这一签失败,所以错误不往上抛;但**每一处都留一行 warn**。
        2026-08-19 之前这里是两个 `.ok()`,当时的注释写着「今天不要紧,因为没有任何
        客户端读徽章」,并说好接 UI 的时候改掉。徽章那天接进了「我」,所以改了 ——
-       从此「悄悄没发」是用户看得见的缺斤少两。 */
-    if let Err(e) = check_badges(&st, &c.sub).await {
-        tracing::warn!(user = %c.sub, error = ?e.0, "徽章那一遍没跑完");
-    }
+       从此「悄悄没发」是用户看得见的缺斤少两。
+
+       【2026-09-06 搬走了】。这一段原先是本文件里的 `check_badges` ——
+       转盘这条路由的私产，只数 `naji_record`。而问签（`villager_reading`）
+       是同一件事的另一条路，它够不着这个私有函数，于是天天问村民的人
+       徽章永远不动。判据与实现搬去 `unmei_app::badge`，两条路都调它。 */
+    let 拿到 = match app_badge::发该发的(&st.db, &c.sub).await {
+        Ok(v) => v,
+        Err(e) => {
+            tracing::warn!(user = %c.sub, error = ?e, "徽章那一遍没跑完");
+            Vec::new()
+        }
+    };
 
     Ok(Json(NajiResult {
         id,
@@ -137,6 +147,8 @@ async fn spin(
         avoid: ji,
         question: question_clean,
         recommend: rec,
+        earned: 拿到.into_iter()
+            .map(|x| 拿到的徽章 { code: x.code, name: x.name }).collect(),
     }))
 }
 
@@ -279,64 +291,4 @@ async fn call_qimen(
     // 取 qimen 叶 chart
     let q = crate::mingli::leaf(&cast, "qimen").cloned().unwrap_or(serde_json::Value::Null);
     Ok(q)
-}
-
-async fn check_badges(st: &AppState, user_id: &str) -> Result<(), ApiError> {
-    /* 【2026-09-01 streak 也在这儿发了】。这里原先只发 `count` 类，
-       注释写着「streak 类需更精细日历比对,留 worker」—— 而那个 worker
-       从来没做出来。后果是六枚徽章里「七天没断」「一个月」两枚
-       【永远拿不到】，而屏上还给了 CTA 催人去做。
-       库里的账:b_first 发出去 1314 次，其余五枚全是 0
-       （2026-09-01 五路评审，两路各自独立抓到）。
-
-       连续天数不需要 worker:问签记录上有日期，一句 SQL 就数得出来。
-       按上海时区算「哪一天」—— 跟村子首页那句「今天说」同一个口径，
-       不然晚上八点之后两处对不上。 */
-    let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM naji_record WHERE user_id=$1")
-        .bind(user_id).fetch_one(&st.db).await?;
-    // 到今天为止连着问了多少天。`gap` 那一列是「日期减掉序号」——
-    // 连续的日子减出来是同一个值，一组就是一段连击。
-    let streak: i64 = sqlx::query_scalar(
-        r#"WITH d AS (
-             SELECT DISTINCT ((asked_at AT TIME ZONE 'Asia/Shanghai')::date) AS day
-               FROM naji_record WHERE user_id = $1
-           ), g AS (
-             SELECT day, day - (ROW_NUMBER() OVER (ORDER BY day))::int AS gap FROM d
-           )
-           SELECT COALESCE(MAX(n), 0) FROM (
-             SELECT COUNT(*) AS n, MAX(day) AS last_day FROM g GROUP BY gap
-           ) s
-           WHERE s.last_day >= ((NOW() AT TIME ZONE 'Asia/Shanghai')::date - 1)"#,
-    ).bind(user_id).fetch_one(&st.db).await.unwrap_or(0);
-    let badges = sqlx::query("SELECT id, code, rule_dsl FROM badge WHERE status='active'")
-        .fetch_all(&st.db).await?;
-    for b in badges {
-        let rule: serde_json::Value = b.get("rule_dsl");
-        let typ = rule.get("type").and_then(|x| x.as_str()).unwrap_or("");
-        let action = rule.get("action").and_then(|x| x.as_str()).unwrap_or("");
-        let threshold = rule.get("threshold").and_then(|x| x.as_i64()).unwrap_or(0);
-        let days = rule.get("days").and_then(|x| x.as_i64()).unwrap_or(0);
-        let 够了 = match (typ, action) {
-            ("count", "naji.spin") => count >= threshold,
-            ("streak", "naji.spin") => days > 0 && streak >= days,
-            _ => false,                      // 别的规则由别处发（买东西那一类在 fulfillment）
-        };
-        if 够了 {
-            // 已持有则跳过
-            let badge_id: String = b.get("id");
-            let exists: Option<String> = sqlx::query_scalar(
-                "SELECT badge_id FROM user_badge WHERE user_id=$1 AND badge_id=$2"
-            ).bind(user_id).bind(&badge_id).fetch_optional(&st.db).await?;
-            if exists.is_none() {
-                // 发不出来仍然不让这一签失败，但**要留一行** ——
-                // 2026-08-19 徽章接进「我」了，从此「悄悄没发」是用户看得见的缺斤少两。
-                if let Err(e) = sqlx::query("INSERT INTO user_badge (user_id, badge_id) VALUES ($1,$2)")
-                    .bind(user_id).bind(&badge_id).execute(&st.db).await
-                {
-                    tracing::warn!(user_id, badge_id, error = %e, "徽章没发出去");
-                }
-            }
-        }
-    }
-    Ok(())
 }

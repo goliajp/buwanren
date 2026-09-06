@@ -89,5 +89,18 @@
 /* 还没拿到的那几枚点得动 —— 通到能拿到它的地方。
    原先六枚全灰、一个都点不动，这一屏唯一能做的事是「回去」。 */
 .badge-go { font-size: 21rpx; color: var(--amber-text); margin-top: 8rpx; font-weight: 600; }
+
+/* 还差多少 —— 一条细杠加一个数。
+   杠是扫一眼用的（还剩多长），数是读出来用的（17 / 30）。
+   只画在【还没拿到】的那几枚上：拿到的是纪念，写「30 / 30」是把纪念变回待办。 */
+.badge-bar {
+  margin-top: 10rpx; height: 6rpx; border-radius: 999rpx;
+  background: var(--stone-line-x); overflow: hidden;
+}
+.badge-bar-in { height: 100%; border-radius: 999rpx; background: var(--amber-text); }
+.badge-p {
+  margin-top: 6rpx; font-size: 19rpx; color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
 .badge-hover { transform: scale(.97); }
 .badge { transition: transform .12s cubic-bezier(.34,1.56,.64,1); }

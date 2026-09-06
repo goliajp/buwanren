@@ -128,6 +128,16 @@ Page({
              没得到的是灰的空圈。取不到图名就留空 —— wxml 那边会退回
              印刷体那个字，而门禁不许在发的徽章走到那一支。 */
           图: 图名[b.code] ? `${图名[b.code]}${b.earned ? '' : '-off'}` : '',
+          /* 【差多少也要说】（2026-09-06 五路评审 · §七）。原先只有两态,
+             「连着三十天」这一枚第 29 天看到的跟第 1 天一模一样 ——
+             而这是这个产品唯一的长期牵引。
+             只给【还没拿到、且数得出来】的那几枚:拿到的那几枚是纪念,
+             写「30 / 30」是把纪念变回待办;而买东西、到过场那两枚
+             后端不给 progress，一条二选一的进度条是噪音。 */
+          进度: !b.earned && b.progress && b.progress.need > 1
+            ? `${b.progress.have} / ${b.progress.need}` : '',
+          进度宽: !b.earned && b.progress && b.progress.need > 1
+            ? Math.round(Math.min(1, b.progress.have / b.progress.need) * 100) : 0,
         })) })(),
         got: list.filter((b) => b.earned).length,
         all: list.length,
