@@ -2222,6 +2222,27 @@ ok(位 >= 0, '出的是阿云的口气',
    位 >= 0 ? said.slice(0, 24) : `没找到「${开场}」；屏上是：${t3.slice(0, 60).replace(/\s+/g, ' ')}`)
 ok(said.includes('今天适合') && said.includes('先别'),
    '签里说得出今天适合什么、先别什么　—— 而且是人话，不是「宜/忌」', said.slice(0, 40))
+/* 【问签也算「问过一件事」】（2026-09-06 五路评审 · §七）。
+   在这之前徽章只由转盘触发、只数 `naji_record` —— 天天来村民屋里问的人，
+   「一百次」与「七天没断」永远停在 0，而屏上那几枚灰徽章底下
+   写着「去问一件事」，指的正是这件事。
+   判据钉在【数】上，不钉在某一枚：刚问过的这个人，
+   「一百次」那一枚的进度必须 ≥ 1。 */
+if (API) {
+  const 进度 = await p.evaluate(async (base) => {
+    const raw = localStorage.getItem('unmei:buwanren:token')
+    const r = await fetch(base + '/v1/user/me/badges', {
+      headers: raw ? { authorization: 'Bearer ' + JSON.parse(raw) } : {},
+    })
+    if (!r.ok) return null
+    const j = await r.json()
+    const b = (j || []).find((x) => x.code === 'hundred_naji')
+    return b ? (b.progress || null) : null
+  }, API)
+  ok(进度 && 进度.have >= 1,
+     '问了一签之后，「问过一百件事」那一枚的进度真的动了　—— 问签也算数',
+     进度 ? `${进度.have} / ${进度.need}` : '（后端没给 progress）')
+}
 await shot('03-reading')
 
 // ⑤ 住着但房间还没搬进来的 ──────────────────────────────────────
@@ -3926,6 +3947,28 @@ if (!API) {
       ok(之后 !== 之前, '点一枚没拿到的，真的走得到那儿', `${之前} → ${之后}`)
       await open('pages/badges/index')
       await p.waitForTimeout(900)
+      /* 【差多少也要说】（2026-09-06 五路评审 · §七）。原先只有「拿到了 /
+         没拿到」两态 ——「连着三十天」这一枚，第 29 天看到的跟第 1 天一样。 */
+      const 有进度 = await p.evaluate(() =>
+        (globalThis.__router.current().data.items || []).filter((x) => x.进度).length)
+      ok(有进度 >= 1, '还没拿到的那几枚，屏上写得出还差多少',
+         `${有进度} 枚写着进度`)
+      /* 【那条路指的是最容易的那一枚】。六枚里四枚指同一件事，页面
+         「同一条路只留最近的那一枚」，取的是后端返回的顺序 ——
+         而在 20260906002 之前六枚 points 全是 10，也就是没有定序，
+         实测那条「去问一件事 ›」指给了「一个月 · 连着三十天」，
+         而一次都没问过的人，一步之遥的「头一回」什么出口都没有。 */
+      const 指给谁 = await p.evaluate(() => {
+        const xs = (globalThis.__router.current().data.items || []).filter((x) => !x.earned && x.去)
+        return xs.length ? xs[0].points : null
+      })
+      const 最容易 = await p.evaluate(() => {
+        const xs = (globalThis.__router.current().data.items || []).filter((x) => !x.earned)
+        return xs.length ? Math.min(...xs.map((x) => x.points)) : null
+      })
+      ok(指给谁 !== null && 指给谁 === 最容易,
+         '那条「去哪儿拿」指的是还没拿到里最容易的那一枚',
+         `指的是 ${指给谁} 分那枚 · 最容易的是 ${最容易} 分`)
     } else {
       ok(false, '验得到「还没拿到」那一支', '这个库里六枚全拿到了')
     }
@@ -5247,6 +5290,8 @@ if (!(CAL > 0)) {
 // 三档的数都是【实测】的，不是从另一档减出来的：
 // 2026-09-03 同一台机器上分别跑了三趟 —— 假 130 / 真 358 / 真带排盘 384。
 // 建本命那一段是 26 条，不是当初以为的 17 条。
+/* 「真带排盘」这一档 2026-09-06 第十次改，502 → 505（实跑）——
+   徽章那一路加了三条（问签也算数 / 屏上写得出还差多少 / 那条路指最容易的一枚）。 */
 /* 「真带排盘」这一档 2026-09-06 第九次改，501 → 502（实跑）——
    商品屏多档那一段的一条判据换成了两条（大价钱撤了 / 牌上名价都在）。 */
 /* 「真带排盘」这一档 2026-09-06 第八次改，496 → 501（实跑）——
@@ -5273,7 +5318,7 @@ if (!(CAL > 0)) {
    凭空少掉八十条仍然报「全通」。
    另外两档没有在这一轮实测过，不动 —— 改一个没量过的数，
    等于把「下限」变成「我猜的数」。 */
-const 基准 = { 假: 132, 真: 360, 真带排盘: 502 }
+const 基准 = { 假: 132, 真: 360, 真带排盘: 505 }
 // 名字不叫 `档`：978 行有个同名的局部变量（村民稀有度），
 // 两个都在这个文件里，读起来会以为是同一个东西
 const 这一档 = !API ? '假' : (MINGLI ? '真带排盘' : '真')

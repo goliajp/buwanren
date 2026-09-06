@@ -93,6 +93,9 @@
 .reading.daily .reading-v { font-size: 30rpx; margin-top: 8rpx; line-height: 1.6; }
 .reading.daily .reading-v.dim { color: var(--ink-mid); font-weight: 400; }
 .reading-hint { margin-top: 10rpx; font-size: 22rpx; color: var(--stone-label); }
+/* 拿到一枚的那一行。琥珀色的字 —— 跟徽章屏那一套同色，
+   而字号比他刚说的那句小一档:它是添头，不是主角。 */
+.reading-got { margin-top: 14rpx; font-size: 23rpx; color: var(--amber-text); font-weight: 600; }
 
 /* ── 请他回家之后 ─────────────────────────────────────────
    「还没请来」那一支原先屏上只有四个标签，中间三百多像素空着 ——

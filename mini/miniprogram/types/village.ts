@@ -91,6 +91,8 @@ export interface Reading {
   avoid: string[]
   /** 声音层说出来的整句 —— 界面上直接显示这一句 */
   say: string
+  /** 这一签让你拿到的那几枚徽章。没拿到就是空数组 */
+  earned?: Array<{ code: string; name: string }>
 }
 
 /** 扫御守 */

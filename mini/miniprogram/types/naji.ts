@@ -38,6 +38,8 @@ export interface NajiResult {
   avoid: string[]
   question?: string | null
   recommend: RecommendOut | null
+  /** 这一卦让你拿到的那几枚徽章。没拿到就是空数组 */
+  earned?: Array<{ code: string; name: string }>
 }
 
 /** history list item · 后端 naji.rs 简化投影 */

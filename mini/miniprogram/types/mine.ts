@@ -17,6 +17,8 @@ export interface Badge {
   points: number
   earned: boolean
   earned_at?: string | null
+  /** 离拿到还差多少。数不出来的那两枚（买东西、到过场）后端不给这一项 */
+  progress?: { have: number; need: number } | null
 }
 
 export interface Subscription {
