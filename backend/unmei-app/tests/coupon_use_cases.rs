@@ -507,3 +507,57 @@ async fn 预算用光的活动券用不了() {
     let e = 下一单(&pool, &user, &sku, vec![code]).await.unwrap_err();
     assert!(matches!(e, DomainError::Validation(_)), "拿到的是 {e:?}");
 }
+
+// ═══════════════════════ 减到零的那一单 ═══════════════════════
+
+/// 【券把整单减完，那一单当场就算付过了】（2026-09-06 三路验证）。
+///
+/// `off.clamp(0, base)` 明写着减免不能超过本单金额 —— 也就是说
+/// 「减 ¥30」用在 ¥29 的东西上就是白送，那是一张券该有的样子。
+/// 而在这之前那一单会卡死:`payment::start` 头一句是
+/// `if due <= 0 { Err }`，于是屏上写着「一共 ¥0」、点「去付」得到
+/// 一句技术味的拒绝，然后这一单挂三十分钟自己取消。
+///
+/// 今天撞不到（在架的券最多减 ¥20，最便宜的东西 ¥29）——
+/// 运营发一张 ¥30 券的那天就撞到。
+#[tokio::test]
+async fn 券减到零的单不用付款就成立() {
+    let pool = db_or_skip!();
+    common::确保当月开着(&pool).await;
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 2900).await;
+    // 十成折扣 = 整单减完
+    let code = 发一张(&pool, 10_000, None, None).await;
+
+    let o = 下一单(&pool, &user, &sku, vec![code.clone()]).await.expect("下单");
+    assert_eq!(o.amount_total_minor, 0, "十成折扣该把这一单减到零");
+    assert_eq!(o.status, "paid", "零元单建出来就该是已付 —— 没有钱可付");
+
+    assert_eq!(
+        common::order_status(&pool, &o.order_id).await.as_deref(),
+        Some("paid"),
+        "库里那一行还挂在 unpaid —— 它会在三十分钟后自己取消",
+    );
+    assert_eq!(
+        common::scalar_i64(
+            &pool, "SELECT COALESCE(amount_paid_minor,0) FROM order_record WHERE id=$1", &o.order_id,
+        ).await,
+        0,
+        "实收就是零，不该记成收过钱",
+    );
+
+    /* 履约那一侧唯一的触发器是 `OrderPaid` —— 不发的话，
+       这一单的行永远停在 pending，东西永远发不出去。 */
+    assert_eq!(
+        common::outbox_count(&pool, "OrderPaid", &o.order_id).await,
+        1,
+        "零元单没发 OrderPaid —— 那它就永远不会被履约",
+    );
+
+    // 券是真用掉了，不是还锁着 —— 锁着的话它在别处还显示「能用」
+    assert_eq!(
+        common::scalar_string(&pool, "SELECT state FROM coupon WHERE code=$1", &code).await.as_deref(),
+        Some("redeemed"),
+        "这一单成立了，而券还没核销",
+    );
+}

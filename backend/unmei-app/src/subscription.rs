@@ -397,7 +397,7 @@ pub async fn renew_due(pool: &PgPool, subscription_id: &str) -> Result<RenewOutc
         &mut *tx,
         &DomainEvent::OrderPaid {
             order_id: order_id.clone(),
-            payment_id: payment_id.clone(),
+            payment_id: Some(payment_id.clone()),
             occurred_at: Utc::now(),
         },
     )

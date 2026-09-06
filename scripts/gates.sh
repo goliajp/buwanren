@@ -86,12 +86,19 @@ trap 'exit 130' INT TERM PIPE
 
 pass=0; fail=0; skipped=0
 FAILED=()
+# 每支跑了多少秒。收尾按秒排一遍 —— 「这一轮为什么要四十分钟」
+# 在这之前没有任何地方答得上来，于是只能靠印象猜哪一支慢。
+# 数组元素长这样:`123 名字`（秒在前，排序好排）。
+TIMES=()
 
 # gate <名字> <在哪个目录> <命令...>
 gate() {
   local name="$1" dir="$2"; shift 2
-  local out rc
+  local out rc t0 t1
+  t0=$(date +%s)
   out=$(cd "$dir" && "$@" 2>&1); rc=$?
+  t1=$(date +%s)
+  TIMES+=("$((t1 - t0)) $name")
   # 【退 3 = 这一支自己说「我跳过了」】。
   # 一条永远跳过的核对就是一条永远绿的核对，比没有更糟 ——
   # 而在这之前，脚本里那种「缺依赖就 return 0」会在总账上算成「过」，
@@ -681,6 +688,25 @@ if [ "$TREE_FP_START" != "$TREE_FP_END" ]; then
   FAILED+=("工作树中途被改过")
 fi
 
+# ── 这一轮的时间花在哪儿 ────────────────────────────────────
+#
+# 【在这之前没有任何地方答得上「为什么要这么久」】。一轮四十分钟，
+# 而哪一支占了多少，只能靠印象猜 —— 于是「能不能更快」这个问题
+# 没有证据可谈，`--quick` 跳的那三支也只是当年拍的。
+#
+# 只报【慢的那几支】与总数:一百二十三行秒数没人读，
+# 而「前十支占了几成」是真正能拿来做决定的那个数。
+{
+  local_total=0
+  for t in "${TIMES[@]}"; do local_total=$((local_total + ${t%% *})); done
+  echo
+  printf '这一轮 %d 支，合计 %d 分 %d 秒。慢的这几支：\n' \
+    "${#TIMES[@]}" "$((local_total / 60))" "$((local_total % 60))"
+  printf '%s\n' "${TIMES[@]}" | sort -rn | head -8 | while read -r sec nm; do
+    # 占比按整数算 —— bash 没有浮点，而这里要的是量级不是精度
+    printf '  %4ds  %2d%%  %s\n' "$sec" "$((sec * 100 / (local_total > 0 ? local_total : 1)))" "$nm"
+  done
+}
 echo
 echo "过 $pass · 挂 $fail · 跳过 $skipped"
 if [ "$fail" -gt 0 ]; then
