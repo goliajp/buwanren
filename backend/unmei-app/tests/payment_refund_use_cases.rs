@@ -1104,6 +1104,29 @@ async fn 取消单上无家可归的钱会被退回去() {
     );
 }
 
+/// 【过了三十分钟就付不了了】（2026-09-06 三路验证 · 准备花钱的那一路）。
+///
+/// `start` 原先只看 `order.status`。清扫每 30 秒一轮，所以「已过 `expires_at`、
+/// 状态还挂 unpaid」是一段真实存在的窗口:在那里点「去付」，微信真扣钱，
+/// 回来看到「已取消」，几分钟后钱才自动退回。链路是闭的，
+/// 而那几分钟里人会认为自己被吞了钱。
+#[tokio::test]
+async fn 过了点的单发不起支付() {
+    let pool = db_or_skip!();
+    let (user, order_id) = unpaid_order(&pool, 9900).await;
+    // 清扫还没轮到它：过了点，状态还挂着 unpaid —— 这正是那段窗口
+    sqlx::query("UPDATE order_record SET expires_at = NOW() - INTERVAL '1 minute' WHERE id=$1")
+        .bind(&order_id).execute(&pool).await.expect("把它推到过期");
+
+    let err = payment::start(&pool, &order_id, &user, "wechat_jsapi", None)
+        .await
+        .expect_err("过了点还发得出支付");
+    assert!(
+        format!("{err}").contains("三十分钟"),
+        "报的不是「过了点」这件事，而是别的：{err}",
+    );
+}
+
 /// 【钱退干净了，东西要收回来】（2026-09-06 三路验证）。
 ///
 /// `approve` 此前只动 refund / payment / order_record 三张表加一个事件 ——

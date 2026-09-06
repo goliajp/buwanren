@@ -53,6 +53,9 @@ Page({
     /* 【多档】。三张牌摆得出来的时候，屏顶那个大价钱就是重复的 ——
        判据是 `有价.length > 1`，跟那一排牌用的是同一个。 */
     多档: false,
+    /** 这一件是不是订阅（`product.kind`）。是的话价后面缀「/ 月」，
+     *  底下那句话也换成订阅的说法 —— 自动扣款不能等到确认屏才说 */
+    订阅: false,
     skus: [] as Sku[],
     /** 有多档时摆出来的那几张牌。只有一档就是空数组，屏上不摆 */
     档: [] as Array<{ id: string; name: string; priceText: string }>,
@@ -117,6 +120,13 @@ Page({
           price: sku ? money(sku.current_price_minor, sku.current_currency) : '',
           skuId: sku ? sku.id : '',
           多档: 有价.length > 1,
+          /* 【这是一件订阅】（2026-09-06 三路验证 · 准备花钱的那一路）。
+             这一屏此前全程不读 `product.kind` —— 于是「一味香 · 按月送」
+             在这儿是一个光秃秃的「¥78」，旁边货架上还摆着「一盒十支 ¥88」。
+             读的人合理理解成「更便宜的一盒」，而它是每月扣一次。
+             确认屏是补上了的（`confirm/index.ts` 的 `付完会怎样`），
+             商品页没有 —— 而按下按钮之前看到的是这一屏。 */
+          订阅: d.product.kind === 'subscription',
           fulfillment: d.product.fulfillment_kind,
           /* 主按钮说什么，看卖的是什么。
              「请回家」是【御守】的话 —— 御守里封着一个人。
