@@ -1227,10 +1227,17 @@ async fn 交付不了的那几行钱会被退回去() {
     sqlx::query("UPDATE order_record SET status='done', fulfilled_at=NOW() WHERE id=$1")
         .bind(&order_id).execute(&pool).await.expect("收尾就是这么翻的");
 
-    // 一轮最多 200 单，库里攒着同类的历史单 —— 照生产的样子扫到它为止
+    /* 一轮最多 200 单，库里攒着同类的历史单 —— 照生产的样子扫到它为止。
+       【断言钉在这一单上，不钉在「这一轮退了几笔」】。
+       单跑这一支时 `退了 > 0` 成立，而 `cargo test` 是**并发**跑的:
+       同一个文件里另外两支也调这一支清扫，而清扫是【全库】的 ——
+       别的线程那一次调用可能已经把这一单退掉了，于是轮到自己调的时候
+       它返回 0，断言当场红，而产品行为完全正确。
+       单跑绿、全量红，报的还是「一笔都没退」——指错方向的失败比失败本身更贵。
+       要守的事只有一件:这一单的钱回去了。上限仍然在，扫不动它会挂在这儿。 */
     let mut 轮 = 0;
     loop {
-        let 退了 = refund::refund_undelivered_lines(&pool).await.expect("清扫");
+        refund::refund_undelivered_lines(&pool).await.expect("清扫");
         let 已退 = common::scalar_i64(
             &pool, "SELECT COALESCE(amount_refunded_minor,0) FROM order_record WHERE id=$1", &order_id,
         ).await;
@@ -1238,8 +1245,7 @@ async fn 交付不了的那几行钱会被退回去() {
             break;
         }
         轮 += 1;
-        assert!(退了 > 0, "第 {轮} 轮一笔都没退，而这一单交付不了、钱还收着");
-        assert!(轮 < 40, "扫了 {轮} 轮还没轮到这一单");
+        assert!(轮 < 40, "扫了 {轮} 轮，这一单交付不了、钱还收着 —— 已退 {已退}");
     }
 
     /* 退完之后订单不该再写着「已完成」—— 那正是这条 bug 让买家看到的那句话。
