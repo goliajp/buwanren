@@ -3951,9 +3951,43 @@ if (!API) {
      '名字那一屏上的「回去」真的退得出去',
      await p.evaluate(() => globalThis.__router.current().__route))
 
+  /* 【¥199 那一件，填完生辰之后从整个 app 里消失】（2026-09-06 三路验证 ·
+     第一次打开的人）。通往商品页的路全仓只有四条，而说明书唯一那条是
+     摇卦之后的推荐位 —— 而 `ai_compose.rs` 在 `has_natal` 为真时
+     候选类目只剩御守与配饰（那是有理由的产品决定，见那一段注释）。
+     于是链路成了:没填生辰 → 推荐说明书；填了生辰（而 app 到处都在催你填）
+     → 说明书再也找不到在哪儿卖。
+     而它自己最后一页写着「这一册一直在「我的」里」，
+     「我的」那八行里当时一行都没有。
+     这一条钉住那一行:在，而且点得到那一件（或者那一单）。 */
+  await open('pages/me/index')
+  await p.waitForTimeout(1200)
+  {
+    const 册 = await p.evaluate(() => ({
+      文: globalThis.__router.current().data.bookText,
+      单: globalThis.__router.current().data.bookOrder,
+    }))
+    ok(!!册.文, '「我的」上有「你的说明书」这一行 —— 它自己说它在这儿',
+       册.文 || '（这一行不在）')
+    if (册.文) {
+      const 之前 = await p.evaluate(() => globalThis.__router.current().__route)
+      /* 点【那一行】，不点那几个字。`getByText(..., exact)` 在这一屏上
+         够不着:同一串字在别处也出现（订单屏的按钮「读你的说明书」），
+         而这一行的键与值是两个 `<text>`，整行才是可点的那个元素。
+         头一版就是这么写的，等了三十秒超时。 */
+      await p.locator('.entry').filter({ hasText: '你的说明书' }).first().click()
+      await p.waitForTimeout(1400)
+      const 之后 = await p.evaluate(() => globalThis.__router.current().__route)
+      ok(之后 !== 之前 && (之后 === 'pages/product/index' || 之后 === 'pages/order/index'),
+         册.单 ? '买过的那一份，点进去是那一单' : '还没买的，点进去是卖它的那一页',
+         `${之前} → ${之后}`)
+      await open('pages/me/index')
+      await p.waitForTimeout(900)
+    }
+  }
+
   /* 「我」→「徽」：得了徽章要有人告诉你。后端一直在发（库里几百个），
      而 2026-08-19 之前没有任何客户端读它。 */
-  await open('pages/me/index')
   const 徽摘要 = await p.evaluate(() => globalThis.__router.current().data.badgeText)
   ok(/^\d+ \/ \d+ 枚徽章$/.test(徽摘要 || ''), '「我」上写着得了几个徽章', String(徽摘要))
   await p.getByText('我得到的', { exact: true }).click()
@@ -5377,6 +5411,8 @@ if (!(CAL > 0)) {
 // 三档的数都是【实测】的，不是从另一档减出来的：
 // 2026-09-03 同一台机器上分别跑了三趟 —— 假 130 / 真 358 / 真带排盘 384。
 // 建本命那一段是 26 条，不是当初以为的 17 条。
+/* 「真带排盘」这一档 2026-09-06 第十三次改，514 → 516（实跑）——
+   「我的」上补了说明书那一行，加了两条（它在 / 点得到那一件或那一单）。 */
 /* 「真带排盘」这一档 2026-09-06 第十二次改，509 → 514（实跑）——
    点香那一屏加了一条（钟点也按排期，不再写死「今晚」），
    罗盘加了四条（同一小时是同一签 / 屏上说清 / 那句话真渲出来 / 库里不多一行）。 */
@@ -5411,7 +5447,7 @@ if (!(CAL > 0)) {
    凭空少掉八十条仍然报「全通」。
    另外两档没有在这一轮实测过，不动 —— 改一个没量过的数，
    等于把「下限」变成「我猜的数」。 */
-const 基准 = { 假: 132, 真: 360, 真带排盘: 514 }
+const 基准 = { 假: 132, 真: 360, 真带排盘: 516 }
 // 名字不叫 `档`：978 行有个同名的局部变量（村民稀有度），
 // 两个都在这个文件里，读起来会以为是同一个东西
 const 这一档 = !API ? '假' : (MINGLI ? '真带排盘' : '真')

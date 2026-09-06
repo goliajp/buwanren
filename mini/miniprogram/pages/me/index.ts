@@ -13,7 +13,7 @@ import { commerceApi } from '../../services/commerce'
 import { activityApi } from '../../services/activity'
 import type { ApiError } from '../../services/api'
 import { 一句 } from '../../utils/say'
-import { 状态那一词, 该做什么 } from '../../utils/money'
+import { money, 状态那一词, 该做什么 } from '../../utils/money'
 import type { OrderCard, TraceEvent } from '../../types/commerce'
 import { 台账那天 } from '../../utils/day'
 
@@ -34,6 +34,10 @@ interface IData {
    *  那句话在界面上没有兑现的地方:填完之后，再也回不去了。 */
   natalText: string
   orderText: string
+  /** 说明书那一行说什么。买过就是「打得开」，没买过就是价钱；空串 = 不摆这一行 */
+  bookText: string
+  /** 买过的那一单 id。空串 = 还没买过，那一行通到商品页 */
+  bookOrder: string
   badgeText: string
   subText: string
   /** 「三场可去」/ 空串。空串时那一行不摆 —— 见下面 `hasActs` 的理由 */
@@ -59,6 +63,10 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     nickname: '',
     natalText: '',
     orderText: '',
+    /** 说明书那一行说什么。买过就是「打开」，没买过就是价钱 */
+    bookText: '',
+    /** 买过的那一单 id。空串 = 还没买过，那一行通到商品页 */
+    bookOrder: '',
     badgeText: '',
     subText: '',
     actText: '',
@@ -104,6 +112,23 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     )
   },
   goOrders() { wx.navigateTo({ url: '/pages/orders/index' }) },
+  /* 【¥199 那一件，填完生辰之后从整个 app 里消失】（2026-09-06 三路验证 ·
+     第一次打开的人）。通往商品页的路全仓只有四条，而说明书唯一那条是
+     摇卦之后的推荐位 —— `ai_compose.rs` 里 `has_natal` 为真时
+     候选类目只剩御守与配饰（那是**有理由的**产品决定，见那一段注释）。
+     于是链路成了:没填生辰 → 推荐说明书；填了生辰（而 app 到处都在催你填）
+     → 说明书再也找不到在哪儿卖。
+
+     而说明书自己最后一页写着「这一册一直在「我的」里」——
+     「我的」那八行里没有一行叫说明书。两头都缺，补在同一处:
+     买过的打得开，没买过的通到那一件。 */
+  goBook() {
+    if (this.data.bookOrder) {
+      wx.navigateTo({ url: '/pages/order/index?id=' + this.data.bookOrder })
+      return
+    }
+    wx.navigateTo({ url: '/pages/product/index?id=prod-naji-deep' })
+  },
   goBadges() { wx.navigateTo({ url: '/pages/badges/index' }) },
   goSubs() { wx.navigateTo({ url: '/pages/subs/index' }) },
   goActivity() { wx.navigateTo({ url: '/pages/activity/index' }) },
@@ -191,6 +216,28 @@ Page<IData, WechatMiniprogram.IAnyObject>({
           orderText: page.total ? page.total + ' 笔' : '还没有',
           recentEmpty: items.length === 0,
         })
+        /* 说明书那一行:买过就打得开那一单，没买过就说它多少钱。
+           判据是【下单那一刻的快照名】里有没有「说明书」——
+           跟这一列别处一样，不 join 现在的商品表:
+           商品改了名、下了架，单子上写的还该是当时买的那个东西。 */
+        const 册单 = items.find((x: OrderCard) => /说明书/.test(String(x.title || '')))
+        if (册单) {
+          this.setData({ bookOrder: 册单.id, bookText: '打得开' })
+        } else {
+          this.setData({ bookOrder: '' })
+          commerceApi.product('prod-naji-deep').then(
+            (d) => {
+              const 有价 = d.skus.filter((s) => s.current_price_minor != null && s.current_currency)
+              this.setData({
+                bookText: 有价.length
+                  ? money(有价[0].current_price_minor as number, 有价[0].current_currency as string)
+                  : '',
+              })
+            },
+            // 取不到价就不摆这一行 —— 摆一个买不了的入口比不摆更糟
+            () => this.setData({ bookText: '' }),
+          )
+        }
         if (!items.length) { this.setData({ recent: null }); return }
         const o: OrderCard = items[0]
         this.setData({

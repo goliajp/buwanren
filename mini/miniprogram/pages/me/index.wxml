@@ -29,6 +29,17 @@
       <text class="entry-v">{{orderText}}</text>
       <text class="entry-arrow">›</text>
     </view>
+    <!-- 【说明书自己说它在这儿，而这儿没有它】（2026-09-06 三路验证 ·
+         第一次打开的人）。册子最后一页写着「这一册一直在「我的」里」，
+         而这八行里没有一行叫说明书;而且填完生辰之后，卖它的那一页
+         从整个 app 里再也找不到（摇卦推荐那条路按设计不再推它）。
+         两头都缺，补在同一行:买过的打得开，没买过的通到那一件。
+         取不到价就不摆 —— 摆一个买不了的入口比不摆更糟。 -->
+    <view class="entry" wx:if="{{bookText}}" bindtap="goBook" hover-class="entry-hover" hover-stay-time="100">
+      <text class="entry-k">你的说明书</text>
+      <text class="entry-v">{{bookText}}</text>
+      <text class="entry-arrow">›</text>
+    </view>
     <view class="entry" bindtap="goBadges" hover-class="entry-hover" hover-stay-time="100">
       <text class="entry-k">我得到的</text>
       <text class="entry-v">{{badgeText}}</text>
