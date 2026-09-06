@@ -1051,6 +1051,45 @@ do_check() {
       -d '{"currency":"JPY","price_minor":1000,"region":"jp","platform":"all"}')
   want "他管不着日本，也就定不了日本的价" 403 "$two_price"
 
+  # 【灰度开关也要看区】（2026-09-06 三路验证 · 运营那一路）。
+  # `feature_flags` 的 update 原先只有 `requires_role("operator")` ——
+  # 而阿双与阿港都是 operator，`by_region` 又是整块 JSON 覆盖写:
+  # 一位只管繁中的人一次误点就能把某功能在大陆关掉,
+  # 而那个格子只有 20×20px、一行里六个区并排、没有确认框。
+  local flag_code flag_now two_flag_jp two_flag_ok root_flag
+  flag_code=$(psql1 "SELECT code FROM feature_flag ORDER BY code LIMIT 1")
+  if [ -n "$flag_code" ]; then
+    two_flag_jp=$(curl -s -o /dev/null -w '%{http_code}' -X PATCH "$ADMIN/admin/feature_flags/$flag_code" \
+        -H "authorization: Bearer $A_two" -H 'content-type: application/json' \
+        -d '{"by_region":{"jp":true}}')
+    want "他管不着日本，也就关不掉日本那一格的开关" 403 "$two_flag_jp"
+    # 总开关不分区 —— 分区的人改它等于改所有区
+    two_flag_all=$(curl -s -o /dev/null -w '%{http_code}' -X PATCH "$ADMIN/admin/feature_flags/$flag_code" \
+        -H "authorization: Bearer $A_two" -H 'content-type: application/json' \
+        -d '{"default_on":false}')
+    want "总开关不分区，分区的人动不了" 403 "$two_flag_all"
+    # 而他自己那两格照样改得动 —— 守卫不能把他自己的活儿也挡了
+    flag_now=$(psql1 "SELECT by_region::text FROM feature_flag WHERE code='$flag_code'")
+    two_flag_ok=$(curl -s -o /dev/null -w '%{http_code}' -X PATCH "$ADMIN/admin/feature_flags/$flag_code" \
+        -H "authorization: Bearer $A_two" -H 'content-type: application/json' \
+        -d "{\"by_region\":$(printf '%s' "$flag_now" | jq -c '. + {"zh_hant": true}')}")
+    want "他自己那一格照样改得动" 200 "$two_flag_ok"
+    psql "$DB" -q -c "UPDATE feature_flag SET by_region='$flag_now' WHERE code='$flag_code'" >/dev/null
+  else
+    say_bad "库里一条 feature_flag 都没有 —— 灰度开关那三条验不到"
+    return 1
+  fi
+
+  # 【主数据是全局的，分区的人看不到】。这四条原先签名是 `_: Admin` ——
+  # 阿港从这里拿到 13,904 个商品，而他自己那一格只有 4 个。
+  local two_master root_master
+  two_master=$(curl -s -o /dev/null -w '%{http_code}' "$ADMIN/admin/master/products" \
+      -H "authorization: Bearer $A_two")
+  want "主数据是全局的，管两格的人看不到" 403 "$two_master"
+  root_master=$(curl -s -o /dev/null -w '%{http_code}' "$ADMIN/admin/master/account-chart" \
+      -H "authorization: Bearer $A_root")
+  want "管全部的人照样看得到主数据" 200 "$root_master"
+
   echo
   echo "══ 每一条读接口都打一遍 · 用手里真有那样东西的人 ══"
   do_read_all "$T1" "$T2" "$T3" "$T4" "$T5"
