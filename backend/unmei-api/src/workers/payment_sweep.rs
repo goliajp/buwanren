@@ -128,6 +128,16 @@ async fn expire_stale(st: &AppState) -> anyhow::Result<()> {
     if 退回 > 0 {
         tracing::info!("payment_query_sweeper: 取消单上无家可归的钱退回 {退回} 笔");
     }
+
+    /* 【交付不了的那几行，钱也要退回去】（2026-09-06 三路验证）。
+       `failed` 是 order_line 的终态，而收尾数的是 `NOT IN ('done','failed')`
+       —— 一张全部失败的单照样翻成 `done`，屏上写「已完成」，钱收着。
+       放在同一个扫描里，理由跟上面那一支一样：进程死在中间、
+       以及历史存量本来就不经过任何钩子。 */
+    let 补退 = unmei_app::refund::refund_undelivered_lines(&st.db).await?;
+    if 补退 > 0 {
+        tracing::info!("payment_query_sweeper: 交付不了的行退回 {补退} 笔");
+    }
     Ok(())
 }
 

@@ -23,7 +23,7 @@ Page({
     loading: true,
     err: '',
     /** awaiting_natal 时这一屏说的是「还差你的生辰」，不是报告 */
-    status: '' as '' | 'ready' | 'awaiting_natal',
+    status: '' as '' | 'ready' | 'awaiting_natal' | 'revoked',
     whose: '',
     birthLine: '',
     /** 页名那一排 */

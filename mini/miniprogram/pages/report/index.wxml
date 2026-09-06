@@ -40,6 +40,22 @@
     </view>
   </block>
 
+  <!-- 【退干净了的单，说明书收回】（2026-09-06）。不写这一档的话，
+       一个退过款的人在这儿看到的是一册空白的说明书（`pages` 是空数组）——
+       屏上什么都没有，而没有任何一句话说为什么。
+       说清楚是谁做的、什么时候做的:钱退了，所以它收回了。 -->
+  <block wx:elif="{{status === 'revoked'}}">
+    <view class="wait">
+      <view class="wait-line">这一单退了，说明书跟着收回了</view>
+      <view class="wait-note">
+        钱已经退回你的付款方式。想再要一份的话，重新下一单就行
+      </view>
+    </view>
+    <view class="acts">
+      <button class="btn ghost" bindtap="onBack">回去</button>
+    </view>
+  </block>
+
   <block wx:else>
     <view class="pg" wx:if="{{page}}">
       <view class="pg-hd">

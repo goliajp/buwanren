@@ -231,6 +231,51 @@ pub async fn approve(pool: &PgPool, refund_id: &str, actor: &Actor) -> Result<()
     .execute(&mut *tx)
     .await.db()?;
 
+    /* 【钱退干净了，东西也要收回来】（2026-09-06 三路验证 · 准备花钱的那一路）。
+       在这之前 `approve` 只动 refund / payment / order_record 三张表加一个事件 ——
+       客服在后台按下「批」，钱退回去，而**那位村民还住在他村里、
+       那份说明书还读得到**。协议写的是「数字内容一经交付不支持退款」，
+       订单屏也照这条把按钮换成了说明；而那条规矩此前只靠
+       「后台的人不点错」来维持。
+
+       判据是【这一单退干净了】，不是「有一笔退款」：
+       部分退款对不上具体哪几行（`refund` 上只有 order_id 与金额，没有行），
+       凭一笔部分退款就把人搬走，会把「退了一半」变成「什么都没有了」。
+       全额退完没有这个歧义 —— 这一单的每一样东西都退掉了。 */
+    let 退干净了: bool = sqlx::query_scalar(
+        "SELECT amount_refunded_minor >= amount_paid_minor AND amount_paid_minor > 0
+           FROM order_record WHERE id=$1",
+    )
+    .bind(&order_id)
+    .fetch_one(&mut *tx)
+    .await.db()?;
+    if 退干净了 {
+        // 御守：删掉住下的那一行就是搬走。判据是 `source_ref` —— 履约
+        // 搬他进来时记的正是这一行，别的行搬进来的人不该被这一单带走
+        let 搬走了 = sqlx::query(
+            "DELETE FROM villager_residency
+              WHERE source_ref IN (SELECT id FROM order_line WHERE order_id=$1)",
+        )
+        .bind(&order_id)
+        .execute(&mut *tx)
+        .await.db()?
+        .rows_affected();
+        // 说明书：不删行（`order_line_id` 是唯一键，删了同一行再履约会重建
+        // 一份；对账也要看得见这一册存在过），改成收回那一档
+        let 收回了 = sqlx::query(
+            "UPDATE report SET status='revoked'
+              WHERE status='ready'
+                AND order_line_id IN (SELECT id FROM order_line WHERE order_id=$1)",
+        )
+        .bind(&order_id)
+        .execute(&mut *tx)
+        .await.db()?
+        .rows_affected();
+        if 搬走了 > 0 || 收回了 > 0 {
+            tracing::info!(order_id, 搬走了, 收回了, "这一单退干净了，交付出去的东西收回");
+        }
+    }
+
     outbox::write(
         &mut *tx,
         &DomainEvent::RefundCompleted {
@@ -334,6 +379,81 @@ pub async fn apply_failed(
 ///
 /// 幂等：`status IN ('requested','success','refunded')` 的在途退款算作
 /// 「已经在管了」，不再重复发起。
+/// 交付不了的那几行，钱退回去。
+///
+/// 【`failed` 是终态，而终态之后没有人管这笔钱】（2026-09-06 三路验证 ·
+/// 准备花钱的那一路）。履约里有两处把行标成 `failed`，两处的注释都写着
+/// 「该退这一笔」：
+///   · 御守 SKU 没挂村民 —— 交付不了
+///   · 这位村民已经住着了，而这一笔又买了他一次
+/// 标 `failed` 是对的（留 pending 的话单子永远停在「正在办」）。
+/// 问题在下一步：`settle_order_in_tx` 数的是 `NOT IN ('done','failed')`，
+/// 于是**一张全部失败的单照样翻成 `done`** —— 屏上写着「已完成」，
+/// 钱收着，东西没有，而自动退款那一支只捞已取消的单。
+/// 买家唯一的出路是协议里那句「任何一单都能申请」，而他根本不知道要去申请。
+///
+/// **为什么系统自己批**：跟 `refund_orphan_money` 同一个理由 ——
+/// 这里没有可判断的东西。行标 failed 的成因全在系统这一侧
+/// （配置错、重复买同一位），不是「买家反悔要不要通融」。
+/// 让它排队等人批，等于把这些单攒起来。
+///
+/// **退多少**：那几行的实收。按 `line_subtotal - applied_discount` 算，
+/// 再拿这一单的实收余额封顶 —— 券把一单减到只付一半时，
+/// 按行原价退会退出比收到的还多的钱。
+///
+/// 幂等：跟兄弟那一支同一个判据，这一单上有在途/已成的退款就不再发。
+pub async fn refund_undelivered_lines(pool: &PgPool) -> Result<u64, DomainError> {
+    let 待退: Vec<(String, String, i64, i64)> = sqlx::query_as(
+        "SELECT o.id, o.user_id,
+                -- `SUM(bigint)` 在 Postgres 里回的是 NUMERIC，不是 INT8 ——
+                -- sqlx 的解码是强类型的，不转一下当场报「mismatched types」
+                (SELECT COALESCE(SUM(l.line_subtotal_minor - l.applied_discount_minor), 0)::int8
+                   FROM order_line l
+                  WHERE l.order_id = o.id AND l.fulfillment_status = 'failed'),
+                COALESCE(o.amount_paid_minor,0) - COALESCE(o.amount_refunded_minor,0)
+           FROM order_record o
+          WHERE o.status IN ('paid','fulfilling','done')
+            AND COALESCE(o.amount_paid_minor,0) > COALESCE(o.amount_refunded_minor,0)
+            AND EXISTS (SELECT 1 FROM order_line l
+                         WHERE l.order_id = o.id AND l.fulfillment_status = 'failed')
+            AND NOT EXISTS (
+                  SELECT 1 FROM refund r
+                   WHERE r.order_id = o.id
+                     AND r.status IN ('requested','success','refunded')
+                )
+          ORDER BY o.paid_at NULLS LAST
+          LIMIT 200",
+    )
+    .fetch_all(pool)
+    .await.db()?;
+
+    let mut 退了 = 0u64;
+    for (order_id, user_id, 那几行, 余) in 待退 {
+        let 该退 = 那几行.min(余);
+        if 该退 <= 0 {
+            continue;
+        }
+        // 一单一单地走，一单失败不拖累别的 —— 同 `refund_orphan_money`
+        let id = match request(
+            pool, &order_id, &user_id, None, Some(该退),
+            "undelivered", Some("这一单里有交付不了的东西 —— 系统自动退回那一部分"),
+        ).await {
+            Ok(id) => id,
+            Err(e) => {
+                tracing::warn!(order_id, 该退, %e, "交付不了的那几行：发起退款失败");
+                continue;
+            }
+        };
+        if let Err(e) = approve(pool, &id, &Actor::system()).await {
+            tracing::warn!(order_id, refund_id = id, %e, "交付不了的那几行：退款批不下去");
+            continue;
+        }
+        退了 += 1;
+        tracing::info!(order_id, refund_id = id, 该退, "有交付不了的行，那一部分钱已自动退回");
+    }
+    Ok(退了)
+}
+
 pub async fn refund_orphan_money(pool: &PgPool) -> Result<u64, DomainError> {
     let 待退: Vec<(String, String, i64)> = sqlx::query_as(
         "SELECT o.id, o.user_id,
