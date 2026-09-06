@@ -6,7 +6,11 @@
    而成交按钮的位置不该跟着买什么变。
    钉在底部是这一类屏的通行做法，也顺带把「一共多少钱」一直摆在眼前。 */
 .page { padding: 32rpx 40rpx 220rpx; }
-.card { padding: 24rpx; background: var(--paper-inset); }
+/* 【24rpx → 18rpx】（2026-09-06）。这一屏的纵向是满的:协议那一行
+   进来之后，内容排到 544 而成交栏顶在 533 —— 最后一行落在栏底下。
+   头一个卡片的内边距是这一屏上最松的一处（里面那张脸 84rpx 自己
+   已经定了高），收 6rpx 换 12px，两头都不动版式。 */
+.card { padding: 18rpx 24rpx; background: var(--paper-inset); }
 .card-name { font-size: 34rpx; font-weight: 700; }
 .card-sub { font-size: 24rpx; color: var(--ink-faint); margin-top: 8rpx; }
 /* 钱用墨色，不用桃粉。0830 §3.2：桃粉是「喜欢」那一档，压不住价格。
@@ -57,10 +61,19 @@
   padding-bottom: 10rpx;
   font-size: 24rpx; color: var(--ink-faint);
 }
-/* 协议那一行比上面那句再小一档 —— 它是常驻的法律行，不是这一单的话。
-   链接用琥珀色 + 下划线:整屏没有别的蓝字，光靠颜色分不出它能点。 */
-.terms { font-size: 21rpx; padding-bottom: 4rpx; }
-.terms-a { color: var(--amber-text); text-decoration: underline; }
+/* 协议那两条。**按触点定高，不按文字定高** —— 88rpx = 44px 是
+   能稳稳点中的下限（门禁 check-tap-size 盯着它）。
+   高度靠 `line-height` 撑，不靠 padding:这一行摆在成交栏里，
+   而成交栏每高一分，内容那一头就得让一分（见 wxml 那一处注释）。
+   链接用深一档的橙 + 下划线:整屏没有别的蓝字，光靠颜色分不出它能点，
+   而 `--amber-text` 在 12px 上过不了 4.5 那条线。 */
+.terms { display: flex; align-items: center; gap: 12rpx; }
+.terms-a {
+  min-height: 88rpx; line-height: 88rpx;
+  font-size: 22rpx;
+  color: #9a4f1e; text-decoration: underline;
+}
+.terms-dot { font-size: 21rpx; color: var(--ink-faint); }
 
 
 /* ── 0830 ────────────────────────────────────────────────────
@@ -125,8 +138,13 @@ button.btn.btn-wait { background: #EADFCD; color: #7A6A52; box-shadow: none; }
    【不自己写一份 `:active`】。小程序的按压走 hover-class，
    而 CSS `:active` 在真机上不一定触发;更要紧的是全仓只该有一套
    按压手感，各页各写一份的话，同一下按在不同屏上是不同的反应。 */
-/* 减掉的钱用同一种橙，跟「一共」那个数是一路的 */
-.row-off .off { color: #b8632a; }
+/* 减掉的钱用同一种橙，跟「一共」那个数是一路的。
+   【#b8632a 不够】（2026-09-06）:13px 上它是 4.22:1，线是 4.5。
+   这一行原先只在【点过券之后】才出现，而截屏那一趟从来没点过它 ——
+   于是它一直没被量到。改成自动用券之后它成了默认可见的一行，
+   门禁当场报出来。用 `.coupon-try` 早就选好的那个深一档的橙（5.4:1）,
+   同一屏上两处减价的字是同一个色。 */
+.row-off .off { color: #9a4f1e; }
 /* 券试不成时那一句。红字但不加底色 —— 这一屏上没有别的红，
    一句话足够被看见 */
 .coupon-bad {
@@ -151,10 +169,22 @@ button.btn.btn-wait { background: #EADFCD; color: #7A6A52; box-shadow: none; }
   white-space: nowrap;
 }
 /* 用上了的那一张跟下面「这张券减」那个数同一种橙 —— 一眼看得出是它减的 */
-.coupon-pick.pick-on { color: #b8632a; font-weight: 600; }
+/* 用上了那一态。颜色同上 —— 它跟「这张券减」说的是同一件事 */
+.coupon-pick.pick-on { color: #9a4f1e; font-weight: 600; }
 
 /* 【底下那一行不许留着】。`.page` 的下留白原先是 220rpx（110px），
    而钉在底下的成交栏实测 90px —— 多出来的 20px 在别处是余量，
    在这一屏是「用上券之后就得滚」的那 11px。改成 196rpx（98px）,
-   离成交栏仍有 8px。 */
-.page { padding-bottom: 196rpx; }
+   离成交栏仍有 8px。
+   【2026-09-06 跟着栏高一起长】：协议那一行进了成交栏，栏实测 134px,
+   留白跟着改成 284rpx（142px），仍是「栏高 + 8px」。
+   这个数【每次改成交栏里的东西都要重量一遍】—— 它是对着那一栏的
+   实测高度定的，而那一栏会随内容长高（上面那段注释记的就是同一课）。
+   实测下来它只能【正好等于栏高】（134px = 268rpx）:内容排到栏顶
+   就已经是这一屏的上限，再多留 8px 余量整页就超出一屏。 */
+.page { padding-bottom: 268rpx; }
+
+/* 这一屏的两道分隔线收一档（app.wxss 是 24rpx 上下）。
+   两道线四个外边距，收到 16rpx 省下 16px —— 而协议那一行要 5px。
+   收边距不动任何一个触点的高度，这是这一屏上最便宜的那 16px。 */
+.hr { margin: 16rpx 0; }
