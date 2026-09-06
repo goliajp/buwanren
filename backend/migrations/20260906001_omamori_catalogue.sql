@@ -49,29 +49,34 @@
 -- 这一支红着的时候变异测试的结论一律不算数（它靠「干净源码上全绿」当基准）——
 -- 那一轮 117 项里「漏掉 2 项」全是这一条的下游。
 
+-- 【副标题不重复眉题】（同日改）。头一版四件的副标题是「请回村 · 住进你的
+-- 村子」，而商品屏御守那一支的眉题写死的就是「请回村」（product/index.wxml:11）
+-- —— 两行叠在一起，屏上「请回村」出现两次，中间隔着名字。
+-- 副标题改成说别的:住进来之后会发生什么。
+
 INSERT INTO product(id, code, name, sub_title, category, kind, status,
                     description_md, available_regions, available_platforms,
                     fulfillment_kind, tags, sort_weight, audit_note)
 VALUES
-  ('prod-oma-ayun', 'OMA-AYUN', '阿云的御守', '请回村 · 住进你的村子',
+  ('prod-oma-ayun', 'OMA-AYUN', '阿云的御守', '住进你的村子 · 一天跟你说一句',
    'omamori', 'one_shot', 'listed',
    '请阿云回村。往后就住在你的村子里，白天在村口那条路上晃，有事你可以问阿云 —— 一天一次。',
    ARRAY['cn','zh_hant'], ARRAY['web','mini','ios','android'],
    'residency', ARRAY['御守','村民'], 95,
    '2026-09-06 立:名册第一次真的有东西卖'),
-  ('prod-oma-tao', 'OMA-TAO', '桃桃的御守', '请回村 · 住进你的村子',
+  ('prod-oma-tao', 'OMA-TAO', '桃桃的御守', '住进你的村子 · 一天跟你说一句',
    'omamori', 'one_shot', 'listed',
    '请桃桃回村。往后就住在你的村子里，在村西头开直播间，有事你可以问桃桃 —— 一天一次。',
    ARRAY['cn','zh_hant'], ARRAY['web','mini','ios','android'],
    'residency', ARRAY['御守','村民'], 95,
    '2026-09-06 立:名册第一次真的有东西卖'),
-  ('prod-oma-popo', 'OMA-POPO', '婆婆的御守', '请回村 · 住进你的村子',
+  ('prod-oma-popo', 'OMA-POPO', '婆婆的御守', '住进你的村子 · 一天跟你说一句',
    'omamori', 'one_shot', 'listed',
    '请婆婆回村。往后就住在你的村子里，带着那一屋子动物，有事你可以问婆婆 —— 一天一次。',
    ARRAY['cn','zh_hant'], ARRAY['web','mini','ios','android'],
    'residency', ARRAY['御守','村民'], 95,
    '2026-09-06 立:名册第一次真的有东西卖'),
-  ('prod-oma-tenz', 'OMA-TENZ', '丹增的御守', '请回村 · 住进你的村子',
+  ('prod-oma-tenz', 'OMA-TENZ', '丹增的御守', '住进你的村子 · 一天跟你说一句',
    'omamori', 'one_shot', 'listed',
    '请丹增回村。往后就住在你的村子里，天没亮就在村北练那一百零八式，有事你可以问丹增 —— 一天一次。',
    ARRAY['cn','zh_hant'], ARRAY['web','mini','ios','android'],
