@@ -50,12 +50,12 @@ Page({
     描述里说了寄: false,
     /** 头像那一段 style。画好脸的人有，没画好的是空串 */
     脸样: '',
-    tags: [] as string[],
+    /* 【多档】。三张牌摆得出来的时候，屏顶那个大价钱就是重复的 ——
+       判据是 `有价.length > 1`，跟那一排牌用的是同一个。 */
+    多档: false,
     skus: [] as Sku[],
     /** 有多档时摆出来的那几张牌。只有一档就是空数组，屏上不摆 */
     档: [] as Array<{ id: string; name: string; priceText: string }>,
-    /** 现在挑中的那一档叫什么。只有一档时是空串 */
-    档名: '',
     /** 能买的那个 sku（有价的第一个）。没有价就买不了，如实显示 */
     skuId: '',
     buying: false,
@@ -116,8 +116,7 @@ Page({
           desc: d.product.description_md || '',
           price: sku ? money(sku.current_price_minor, sku.current_currency) : '',
           skuId: sku ? sku.id : '',
-          /* 多档时标价那一行说清是哪一档的价 —— 光一个 ¥29 会被读成整件东西的价 */
-          档名: 有价.length > 1 && sku ? sku.name : '',
+          多档: 有价.length > 1,
           fulfillment: d.product.fulfillment_kind,
           /* 主按钮说什么，看卖的是什么。
              「请回家」是【御守】的话 —— 御守里封着一个人。
@@ -145,7 +144,6 @@ Page({
             : null,
           脸样: d.villager ? 脸(d.villager.id) : '',
           描述里说了寄: /寄/.test(d.product.description_md || ''),
-          tags: d.product.tags || [],
           skus: d.skus,
         })
       },
@@ -165,7 +163,7 @@ Page({
     const 它 = this.data.档.find((x) => x.id === id)
     if (!它) return
     轻()
-    this.setData({ skuId: 它.id, price: 它.priceText, 档名: 它.name })
+    this.setData({ skuId: 它.id, price: 它.priceText })
   },
 
   onBuy() {

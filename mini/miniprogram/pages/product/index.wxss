@@ -34,16 +34,6 @@
 }
 .price-none { font-size: 28rpx; color: var(--stone-label); }
 
-.tags { margin-bottom: 28rpx; }
-.tag {
-  display: inline-block;
-  font-size: 24rpx;
-  color: var(--stone-label);
-  border: 1rpx solid var(--stone-line);
-  border-radius: 16rpx;
-  padding: 4rpx 14rpx;
-  margin: 0 12rpx 12rpx 0;
-}
 
 .desc {
   font-size: 28rpx;
@@ -63,13 +53,13 @@
 
 /* 按钮组跟上面留出距离 —— 加了「你会收到」三条之后它贴了上去，
    第三条的副标题被压在按钮下面（截图上看见的）。 */
-.cta { display: flex; gap: 20rpx; margin-top: 34rpx; }
+.cta { display: flex; gap: 20rpx; margin-top: 26rpx; }
 /* 「请他回家」是主，「回去」是次 —— 等宽会读成两个并列的选择。 */
 .cta .btn { flex: 2; }
 .cta .btn.ghost { flex: 1; }
 
 .foot-hint {
-  margin-top: 32rpx;
+  margin-top: 22rpx;
   text-align: center;
   font-size: 22rpx;
   color: var(--stone-label);
@@ -92,9 +82,9 @@
 
 /* ── 你会收到什么 ─────────────────────────────────────────
    花这笔钱的决策屏原先只有一行小灰字把三件事挤在一起，底下半屏空着。 */
-.gets { margin-top: 30rpx; padding-top: 26rpx; border-top: 1rpx solid var(--stone-line-x); }
-.gets-k { font-size: 24rpx; color: var(--ink-faint); margin-bottom: 20rpx; }
-.gets-row { display: flex; align-items: flex-start; gap: 18rpx; margin-bottom: 22rpx; }
+.gets { margin-top: 22rpx; padding-top: 20rpx; border-top: 1rpx solid var(--stone-line-x); }
+.gets-k { font-size: 24rpx; color: var(--ink-faint); margin-bottom: 14rpx; }
+.gets-row { display: flex; align-items: flex-start; gap: 18rpx; margin-bottom: 16rpx; }
 .gets-row:last-child { margin-bottom: 0; }
 .gets-n {
   flex: none; width: 40rpx; height: 40rpx; margin-top: 2rpx;
@@ -137,5 +127,3 @@
 .pick-on { box-shadow: 0 0 0 2rpx var(--ink), var(--sh-card); }
 .pick-on .pick-p { color: var(--peach-text); }
 
-/* 标价旁边那一行:这是哪一档 */
-.price-sku { margin-left: 12rpx; font-size: 24rpx; color: var(--ink-faint); }

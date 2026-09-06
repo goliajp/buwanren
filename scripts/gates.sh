@@ -424,6 +424,11 @@ gate "钉住的那几块没互相压吗" . env SHOTS_DIR=$TAPDIR python3 scripts
 # 画布的 CSS 尺寸与像素尺寸是两回事 —— 引擎没挂上时后者停在 300×150，
 # 屏上一整块空白而 err 是空的、没有任何东西会红。
 gate "画布都真的铺开了吗" . env SHOTS_DIR=$TAPDIR python3 scripts/check-canvas-mounted.py
+# 【一屏放不放得下，也照着这份实测判】。shots.mjs 一直在量、也一直在
+# 收尾打一行「⚠ 这几屏一屏放不下」—— 而上面那条 gate 把它的标准输出
+# 丢进了 /dev/null。2026-09-06 香与御守两屏各超 95px / 64px,
+# 一支门禁都没红。动线那一支照着同一份台账判，但它一个模板只开一件商品。
+gate "一屏放得下吗 · 逐屏" . env SHOTS_DIR=$TAPDIR python3 scripts/check-fold.py
 
 echo
 echo "── 部署配置 ──"
