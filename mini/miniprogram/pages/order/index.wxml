@@ -87,6 +87,16 @@
       <view class="sum-row"><text class="sum-k">已付</text><text class="sum-v">{{paidText}}</text></view>
     </view>
 
+    <!-- 【券把整单减完的那一单】（2026-09-06 三路验证）。屏上写着
+         「¥0 · 已付」而这个人从头到尾没掏过钱 —— 不说清楚，第一反应是
+         这一单坏了，或者以为钱还没扣、过会儿要扣。 -->
+    <view class="sum" wx:if="{{券抵完了}}">
+      <view class="sum-row">
+        <text class="sum-k">这一单</text>
+        <text class="sum-v">券抵完了 · 一分没扣</text>
+      </view>
+    </view>
+
     <!-- 【申请完这一屏要看得见】（2026-09-06 · 五路体验走查）。
          按完「申请退款」，这一屏此前一个字都不变:提示被随后的 `load()`
          清掉，而订单详情接口那时不返退款单。于是屏上没有「审核中」这一态、

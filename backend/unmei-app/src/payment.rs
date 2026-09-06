@@ -437,7 +437,7 @@ pub async fn apply_succeeded(
             &mut *tx,
             &DomainEvent::OrderPaid {
                 order_id: order_id.clone(),
-                payment_id: payment_id.clone(),
+                payment_id: Some(payment_id.clone()),
                 occurred_at: paid_at,
             },
         )

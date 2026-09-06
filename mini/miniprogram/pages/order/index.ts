@@ -218,6 +218,8 @@ Page({
     statusText: '',
     totalText: '',
     paidText: '',
+    /** 这一单是券抵完的（合计零、有折扣）—— 屏上说一句，别让人以为坏了 */
+    券抵完了: false,
     /** 已付多少分。0 时不摆「已付」那一行 —— 摆一行 0 是噪音 */
     paidMinor: 0,
     lines: [] as Array<{ name: string; qty: number; sub: string }>,
@@ -299,6 +301,12 @@ Page({
           statusText: 状态那一词(o.status, o.cancel_reason),
           totalText: money(o.amount_total_minor, o.currency),
           paidText: money(o.amount_paid_minor, o.currency),
+          /* 【券把整单减完的那一单，得说一句】（2026-09-06 三路验证）。
+             屏上写着「¥0 · 已付」而这个人从头到尾没掏过钱 —— 不说清楚,
+             第一反应是这一单坏了，或者以为钱还没扣、过会儿要扣。
+             判据是【合计为零而且有折扣】:合计为零可能是数据坏了，
+             有折扣才说得出「是券抵掉的」。 */
+          券抵完了: Number(o.amount_total_minor) === 0 && Number(o.amount_discount_minor || 0) > 0,
           paidMinor: Number(o.amount_paid_minor) || 0,
           lines: d.lines.map((l) => ({
             // 「谁谁的御守」只对【买了会有人住进来】的行成立。

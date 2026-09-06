@@ -1672,9 +1672,101 @@ if (API) {
     const 坏说 = await p.evaluate(() => globalThis.__router.current().data.券说)
     ok(/没有这张券/.test(坏说 || ''), '编的码说得出为什么不行', 坏说)
 
+    /* ── 券把整单减完的那一单（2026-09-06 三路验证）─────────────
+       `off.clamp(0, base)` 明写着减免不能超过本单金额 —— 也就是说
+       一张够大的券就是白送，那是一张券该有的样子。
+       而在这之前那一单会卡死:`payment::start` 头一句是
+       `if due <= 0 { Err }`，于是屏上写着「一共 ¥0」、点「去付」
+       得到一句技术味的拒绝，然后这一单挂三十分钟自己取消。
+       今天在架的券最多减 ¥20、最便宜的东西 ¥29，撞不到 ——
+       所以这里自己发一张十成的，把那一天提前到现在。
+
+       走的是真链:真发券 → 真填码 → 真下单 → 看那一单的状态。 */
+    {
+      const 全免码 = 'MIRRORFREE' + Date.now()
+      run(`INSERT INTO coupon(id, code, benefit_json, state, issued_at, expires_at, audit_note, region)
+           VALUES ('cpn-free-${Date.now()}', '${全免码}',
+                   '{"pct_off_bps":10000}'::jsonb, 'issued', NOW(),
+                   NOW() + INTERVAL '30 days', '镜像验证 · 减到零那一单', 'cn')`)
+      await p.locator('.coupon-in').fill(全免码)
+      await p.locator('.coupon-try').click()
+      await p.waitForFunction(
+        () => globalThis.__router.current().data.券状态 === '用上了',
+        null, { timeout: 15000 },
+      ).catch(() => {})
+      const 实付0 = await p.evaluate(() => globalThis.__router.current().data.实付文本)
+      ok(/^[¥￥]0(\.00)?$/.test(实付0 || ''), '十成的券把「一共」减到零', 实付0 || '（没算出来）')
+
+
+      /* 【挑一件不用寄的来走这一条】。这一屏此刻挂的商品由这一趟的数据决定，
+         而实物那一档的成交按钮是「先填寄到哪儿」—— 它开微信地址簿，
+         浏览器里没有对应物（垫片照铁律抛）。头一版就是这么红的:
+         报「零元单也建得出来 · pages/confirm/index」，
+         看着像下单坏了，其实是卡在地址那一步。
+         说明书那一件是算出来的，不寄东西，没有这道坎。 */
+      await open('pages/confirm/index', { id: 'prod-naji-deep' })
+      await p.waitForTimeout(1600)
+      /* 重开一屏之后券那一格回到【券条】那一态（手里有券就摆券条，
+         2026-09-06 起还会自动用上第一张）—— 输入框这时不在。
+         先点「填码」把它换回来，再填这张十成的。 */
+      if (await p.getByText('填码', { exact: true }).count()) {
+        await p.getByText('填码', { exact: true }).click()
+        await p.waitForTimeout(400)
+      }
+      await p.locator('.coupon-in').fill(全免码)
+      await p.locator('.coupon-try').click()
+      await p.waitForFunction(
+        () => globalThis.__router.current().data.券状态 === '用上了',
+        null, { timeout: 15000 },
+      ).catch(() => {})
+      /* 确认屏那颗成交按钮写的是「去付」（不用寄的那一档）——
+         「就要这个 / 就要这份」是**商品页**那一颗，两屏不是同一句话。
+         头一版照商品页那两个词找，等了三十秒超时。 */
+      await p.getByText('去付', { exact: true }).click()
+      await p.waitForFunction(
+        () => globalThis.__router.current().__route === 'pages/order/index',
+        null, { timeout: 20000 },
+      ).catch(() => {})
+      /* 【等它取完再读】。跳到订单屏那一刻 `data.status` 还是空的 ——
+         头一版读完就断言，两条都报空值，看着像功能没做。 */
+      await p.waitForFunction(
+        () => !!globalThis.__router.current().data.status,
+        null, { timeout: 20000 },
+      ).catch(() => {})
+      const 单 = await p.evaluate(() => ({
+        路由: globalThis.__router.current().__route,
+        id: globalThis.__router.current().data.id,
+        状态: globalThis.__router.current().data.status,
+      }))
+      ok(单.路由 === 'pages/order/index', '零元单也建得出来', 单.路由)
+      if (单.路由 === 'pages/order/index') {
+        /* 【不钉死在 `paid` 上】。发了 `OrderPaid` 之后履约就跑起来了，
+           数字内容那一档当场就算完 —— 这一单在屏上多半已经是 `done`。
+           要守的事是「它没有挂在待付上等超时」，不是「它此刻停在哪一档」。 */
+        ok(单.状态 !== 'unpaid' && 单.状态 !== 'draft',
+           '一分钱都不用付的那一单，建出来就不在「待付」上　—— 不是挂在那儿等它自己超时',
+           String(单.状态))
+        ok(await p.getByText('去付', { exact: true }).count() === 0,
+           '所以屏上没有「去付」那颗按钮　—— 按了只会得到一句「应付余额 0 ≤ 0」',
+           String(await p.getByText('去付', { exact: true }).count()))
+        ok((await text()).includes('券抵完了'),
+           '而且说清了为什么是 ¥0 —— 不说的话人以为这一单坏了',
+           ((await text()).match(/[^\n]{0,10}券抵完了[^\n]{0,10}/) || [''])[0])
+        /* 履约那一侧唯一的触发器是 `OrderPaid` —— 不发的话，
+           这一单的行永远停在 pending，东西永远发不出去。 */
+        const 事件数 = Number(sql1(
+          `SELECT count(*) FROM outbox_event WHERE aggregate_id='${单.id}' AND kind='OrderPaid'`))
+        ok(事件数 === 1, '零元单也发了 OrderPaid —— 不发它就永远不会被履约',
+           `${事件数} 条`)
+      }
+      // 回到确认屏，把后面那一段的前提摆回去
+      await open('pages/confirm/index', 要参数['pages/confirm/index'])
+      await p.waitForTimeout(1400)
+    }
+
     // 清掉，别让它影响后面那一段
-    await p.locator('.coupon-in').fill('')
-    await p.locator('.coupon-try').click()
+    await p.locator('.coupon-in').count() && await p.locator('.coupon-in').fill('')
+    await p.locator('.coupon-try').count() && await p.locator('.coupon-try').click()
     await p.waitForTimeout(300)
   }
   }
@@ -5411,6 +5503,9 @@ if (!(CAL > 0)) {
 // 三档的数都是【实测】的，不是从另一档减出来的：
 // 2026-09-03 同一台机器上分别跑了三趟 —— 假 130 / 真 358 / 真带排盘 384。
 // 建本命那一段是 26 条，不是当初以为的 17 条。
+/* 「真带排盘」这一档 2026-09-07 第十四次改，516 → 522（实跑）——
+   券减到零那一单加了六条（减得到零 / 建得出来 / 不在待付 /
+   没有「去付」/ 说清为什么是 ¥0 / 也发了 OrderPaid）。 */
 /* 「真带排盘」这一档 2026-09-06 第十三次改，514 → 516（实跑）——
    「我的」上补了说明书那一行，加了两条（它在 / 点得到那一件或那一单）。 */
 /* 「真带排盘」这一档 2026-09-06 第十二次改，509 → 514（实跑）——
@@ -5447,7 +5542,7 @@ if (!(CAL > 0)) {
    凭空少掉八十条仍然报「全通」。
    另外两档没有在这一轮实测过，不动 —— 改一个没量过的数，
    等于把「下限」变成「我猜的数」。 */
-const 基准 = { 假: 132, 真: 360, 真带排盘: 516 }
+const 基准 = { 假: 132, 真: 360, 真带排盘: 522 }
 // 名字不叫 `档`：978 行有个同名的局部变量（村民稀有度），
 // 两个都在这个文件里，读起来会以为是同一个东西
 const 这一档 = !API ? '假' : (MINGLI ? '真带排盘' : '真')

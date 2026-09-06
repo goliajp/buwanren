@@ -500,6 +500,60 @@ pub async fn create(pool: &PgPool, req: NewOrder) -> Result<CreatedOrder, Domain
     )
     .await?;
 
+    /* 【一分钱都不用付的那一单，当场就算付过了】
+       （2026-09-06 三路验证 · 准备花钱的那一路）。
+
+       券减到零是**允许的**:`coupon.rs` 的 `off.clamp(0, base)` 明写着
+       减免不能超过本单金额，也就是说「减 ¥30」用在 ¥29 的东西上就是白送 ——
+       那是一张券该有的样子，不该在最后一步变成「这张券用不了」。
+
+       而在这之前那一单会卡死:`payment::start` 头一句是
+       `if due <= 0 { Err("应付余额 0 ≤ 0") }`，于是屏上写着「一共 ¥0」、
+       点「去付」得到一句技术味的拒绝，然后这一单挂三十分钟自己取消。
+       今天撞不到（在架的券最多减 ¥20，最便宜的东西 ¥29）——
+       **运营发一张 ¥30 券的那天就撞到**。
+
+       零元单没有支付可发起，所以在这儿一次做完付款成功那一路做的事:
+       置 paid、核销券、发 `OrderPaid`（履约的唯一触发器）。
+       都在建单这一个事务里 —— 要么这一单整个成立，要么它不存在。
+       `amount_paid_minor` 留 0:实收就是零，`post_sale_journal` 自己
+       认得这一档（`amount <= 0` 就不记账，不是错误，就是没有）。 */
+    let 零元单 = total == 0;
+    if 零元单 {
+        sqlx::query(
+            "UPDATE order_record SET status='paid', paid_at=NOW() WHERE id=$1",
+        )
+        .bind(&order_id)
+        .execute(&mut *tx)
+        .await.db()?;
+
+        let 张数 = crate::coupon::redeem_for_order(&mut tx, &order_id, discount).await?;
+
+        sqlx::query(
+            r#"INSERT INTO order_event(id, order_id, kind, actor_kind, actor_id,
+                                       before_status, after_status, meta_json)
+               VALUES ($1, $2, 'OrderPaid', 'system', NULL, 'unpaid', 'paid',
+                       jsonb_build_object('why', 'zero_total_after_coupon'))"#,
+        )
+        .bind(new_id("oe"))
+        .bind(&order_id)
+        .execute(&mut *tx)
+        .await.db()?;
+
+        outbox::write(
+            &mut *tx,
+            &DomainEvent::OrderPaid {
+                order_id: order_id.clone(),
+                // 没有支付 —— 钱一分没动
+                payment_id: None,
+                occurred_at: now,
+            },
+        )
+        .await?;
+        tracing::info!(order_id = %order_id, discount_minor = discount, 张数,
+            "券把这一单减到零，不用付款，直接算付过了");
+    }
+
     if !券们.is_empty() {
         tracing::info!(
             order_id = %order_id,
@@ -515,7 +569,8 @@ pub async fn create(pool: &PgPool, req: NewOrder) -> Result<CreatedOrder, Domain
         order_id,
         amount_total_minor: total,
         currency,
-        status: "unpaid",
+        // 零元单建出来就是已付 —— 客户端据此决定摆不摆「去付」
+        status: if 零元单 { "paid" } else { "unpaid" },
     })
 }
 
