@@ -218,7 +218,7 @@ pay_it() {  # pay_it <token> <订单号> <openid> [渠道]
   local tok=$1 ord=$2 openid=$3 ch=${4:-wechat_jsapi} pid
   pid=$(call POST "$tok" "/v1/orders/$ord/pay" \
         "{\"channel\":\"$ch\",\"openid\":\"$openid\"}" | jq -r '.payment_id // empty')
-  if [ -z "$pid" ]; then say_bad "发起支付没拿到 payment_id（$ord）"; return 1; fi
+  if [ -z "$pid" ]; then say_bad "发起支付没拿到 payment_id（${ord}）"; return 1; fi
   curl -sS -o /dev/null -X POST "$FAKE_WX/_control/pay/$pid" || {
     say_bad "假微信没应答 —— 起了吗？bash scripts/fake-wx.sh up"; return 1; }
 }
