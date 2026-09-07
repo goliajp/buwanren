@@ -597,7 +597,7 @@ keep "带上下文的指代不算" check-no-deixis \
   "edit('mini/miniprogram/pages/home/index.wxml', '看你缺什么 ›', '在用的那一份生辰 ›')"
 
 echo
-echo "── check-shell-braces（$变量 后面跟全角要加花括号）──"
+echo '── check-shell-braces（$变量 后面跟全角要加花括号）──'
 mutate "又写了一处 \$var 紧跟全角" check-shell-braces \
   "edit('scripts/plan25.sh', 'payment_id（\${ord}）', 'payment_id（\$ord）')"
 
