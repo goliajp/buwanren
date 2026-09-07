@@ -855,6 +855,14 @@ if (API) {
     + "  WHERE s.status='active' AND p.status='listed'"
     + "    AND ('cn' = ANY(p.available_regions) OR 'global' = ANY(p.available_regions))"
     + "    AND p.fulfillment_kind <> 'residency'"   // 御守要挑没住过的人，另一套判据
+    /* 【「按你缺的那一样配」那几件也不挑】（2026-09-07）。玉坠 / 单配香 /
+       按月送标着 `needs_yongshen`，而下单那一步会因为「还没填出生时间」
+       整单拒（`order.rs`）—— 这一趟走到这儿时镜像那个号还没建本命。
+       循环遇到第一个失败就 `break`，于是六张单只建出前几张,
+       报出来的是「超过五笔就分页 · 1 页」，读起来像订单列表坏了
+       （跟上面那条「只挑 cn 真买得到的」是同一种误报）。
+       这个夹具要的只是「有几张单好翻页」；那几件自己有专门的断言。 */
+    + "    AND COALESCE(s.spec_json->>'needs_yongshen','') <> 'true'"
     + "  ORDER BY p.sort_weight DESC, s.id LIMIT 6) t").split(',').filter(Boolean)
   ok(六件.length >= 1, '夹具：货架上挑得出在售商品来建单', `挑到 ${六件.length} 件`)
   const 单们 = await p.evaluate(async ([base, 六件]) => {
@@ -1796,6 +1804,32 @@ if (API) {
     ok(await p.evaluate(() => globalThis.__router.current().data.要寄) === true,
        '确认那一屏知道它要寄东西 —— 会问地址',
        String(await p.evaluate(() => globalThis.__router.current().data.要寄)))
+    /* 【「按你缺的那一味配」得在按之前说清】（2026-09-07 三路验证 ·
+       准备花钱的那一路）。按月送的正文写着这句话，而下单流程此前
+       从没问过买家缺什么 —— 收到的只能是默认款。
+       服务端现在会自己去取用神、没有本命就整单拒;这一屏要做的是
+       别让那次拒绝成为意外。走到这儿时镜像那个号还没建本命，
+       所以正好验「还没填」那一态。 */
+    const 配 = await p.evaluate(() => ({
+      要配: globalThis.__router.current().data.要配,
+      缺: globalThis.__router.current().data.缺,
+    }))
+    ok(配.要配 === true, '确认那一屏知道这一件是按你缺的那一样配的',
+       String(配.要配))
+    if (配.要配 && !配.缺) {
+      const 屏 = await text()
+      ok(/还差你的出生时间/.test(屏),
+         '还没填生辰时，这一屏当场说清差什么　—— 不是按下去才被拒',
+         (屏.match(/[^\n]{0,10}还差你的出生时间/) || [''])[0])
+      ok(await p.getByText('先填出生时间', { exact: true }).count() === 1,
+         '而且那颗成交按钮说的就是下一步该做的事',
+         String(await p.getByText('先填出生时间', { exact: true }).count()))
+      await p.getByText('先填出生时间', { exact: true }).click()
+      await p.waitForTimeout(1200)
+      ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/natal/index',
+         '按下去真的去填生辰那一屏',
+         await p.evaluate(() => globalThis.__router.current().__route))
+    }
     await open('pages/incense/index', { id: 'prod-suhe-incense' })
     await p.waitForTimeout(900)
   }
@@ -5503,6 +5537,9 @@ if (!(CAL > 0)) {
 // 三档的数都是【实测】的，不是从另一档减出来的：
 // 2026-09-03 同一台机器上分别跑了三趟 —— 假 130 / 真 358 / 真带排盘 384。
 // 建本命那一段是 26 条，不是当初以为的 17 条。
+/* 「真带排盘」这一档 2026-09-07 第十五次改，522 → 526（实跑）——
+   「按你缺的那一样配」加了四条（这一屏知道要配 / 说清差什么 /
+   按钮就是下一步 / 按下去真去填生辰）。 */
 /* 「真带排盘」这一档 2026-09-07 第十四次改，516 → 522（实跑）——
    券减到零那一单加了六条（减得到零 / 建得出来 / 不在待付 /
    没有「去付」/ 说清为什么是 ¥0 / 也发了 OrderPaid）。 */
@@ -5542,7 +5579,7 @@ if (!(CAL > 0)) {
    凭空少掉八十条仍然报「全通」。
    另外两档没有在这一轮实测过，不动 —— 改一个没量过的数，
    等于把「下限」变成「我猜的数」。 */
-const 基准 = { 假: 132, 真: 360, 真带排盘: 522 }
+const 基准 = { 假: 132, 真: 360, 真带排盘: 526 }
 // 名字不叫 `档`：978 行有个同名的局部变量（村民稀有度），
 // 两个都在这个文件里，读起来会以为是同一个东西
 const 这一档 = !API ? '假' : (MINGLI ? '真带排盘' : '真')

@@ -609,6 +609,11 @@ else
   gate "活动的规则真生效吗" . env \
     PSQL_URL='postgres://unmei:unmei_dev_pwd@localhost:6032/unmei' \
     python3 scripts/check-promo-rules.py
+  # 【「按你缺的那一样配」得真的配得出来】（2026-09-07）。
+  # 玉坠 / 单配香 / 按月送三件这么写，而下单流程此前从没问过买家缺什么。
+  gate "按你缺的那样配，记得下来吗" . env \
+    PSQL_URL='postgres://unmei:unmei_dev_pwd@localhost:6032/unmei' \
+    python3 scripts/check-yongshen-recorded.py
   # 「你缺 X，下面这几位跟你补得上」那句话的依据。写错一个方向名这条链就断，
   # 而断了【不报错】—— 匹配不到人，排序悄悄退回原样，那句话跟着变成假话。
   gate "每个用神都指得着人吗" . env \

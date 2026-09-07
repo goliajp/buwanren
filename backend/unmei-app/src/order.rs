@@ -416,6 +416,60 @@ pub async fn create(pool: &PgPool, req: NewOrder) -> Result<CreatedOrder, Domain
        锁券跑在同一个事务里：券锁上了、订单也落库了，要么都成要么都不成。
        券不合用就整单拒绝（`lock_for_order` 里逐条抛），
        不悄悄跳过 —— 跳过在用户那边看到的就是「按原价扣款」。 */
+    /* 【「按你缺的那一样配」得真的问一遍你缺什么】（2026-09-07 三路验证 ·
+       准备花钱的那一路）。
+       玉坠（¥398，商品名就叫「配你缺的那一样」）、单配香（¥268）、
+       按月送（¥78/月，正文写着「按你缺的那一味配」）——三件都这么写,
+       而 `product.required_inputs` 全仓零读者、`order_line` / `order_meta`
+       没有任何相关列，`yongshen` 在这个文件里一次都没出现过。
+       **下单流程从头到尾没问过买家缺什么，装箱的人也拿不到**:
+       花 ¥398 买「配我缺的那一样」，收到的只能是默认款。
+
+       【服务端自己去取，不收客户端报上来的】。用神在
+       `natal_summary` 上，跟着他此刻在用的那一份本命走 ——
+       让客户端报的话，它可以忘、可以报错一个，而这一笔是要照着它装箱的。
+
+       没有本命就【整单拒掉】，不悄悄按默认款发货 ——
+       那正是这条 bug 现在的样子。屏上那句出口由确认屏给
+       （`confirm/index.ts` 同日接上「先填出生时间」）。
+       判据在 `sku.spec_json.needs_yongshen` 上，不写死商品号:
+       苏合那一件下面三档只有一档是现配的（见 20260907002 那支迁移）。 */
+    let 要配的: Vec<String> = sqlx::query_scalar(
+        "SELECT s.id FROM sku s
+          WHERE s.id = ANY($1) AND COALESCE(s.spec_json->>'needs_yongshen','') = 'true'",
+    )
+    .bind(&lines.iter().map(|l| l.1.clone()).collect::<Vec<_>>())
+    .fetch_all(&mut *tx)
+    .await.db()?;
+    let 额外: Value = if 要配的.is_empty() {
+        json!({})
+    } else {
+        let 用神 = sqlx::query(
+            "SELECT n.id, ns.primary_yongshen, ns.secondary_yongshen
+               FROM app_user u
+               JOIN natal n ON n.id = u.active_natal_id
+               JOIN natal_summary ns ON ns.natal_id = n.id
+              WHERE u.id = $1",
+        )
+        .bind(&req.user_id)
+        .fetch_optional(&mut *tx)
+        .await.db()?;
+        let Some(row) = 用神 else {
+            return Err(DomainError::Validation(
+                "这一件是按你缺的那一样配的 —— 先把出生时间填了，才配得出来".into(),
+            ));
+        };
+        json!({
+            "yongshen": {
+                "natal_id": row.get::<String, _>("id"),
+                "primary": row.get::<String, _>("primary_yongshen"),
+                "secondary": row.get::<Option<String>, _>("secondary_yongshen"),
+                // 记下这一笔是照着哪几个 sku 配的 —— 一单里可能只有一行要配
+                "for_skus": 要配的,
+            }
+        })
+    };
+
     let (券们, discount) = crate::coupon::lock_for_order(
         &mut tx, &order_id, &req.user_id, &req.region, subtotal, &req.coupon_codes,
     ).await?;
@@ -469,11 +523,12 @@ pub async fn create(pool: &PgPool, req: NewOrder) -> Result<CreatedOrder, Domain
 
     sqlx::query(
         r#"INSERT INTO order_meta(order_id, shipping_address_json, contact_json, extra_json)
-           VALUES ($1, $2, $3, '{}'::jsonb)"#,
+           VALUES ($1, $2, $3, $4)"#,
     )
     .bind(&order_id)
     .bind(&req.shipping_address)
     .bind(&req.contact)
+    .bind(&额外)
     .execute(&mut *tx)
     .await.db()?;
 

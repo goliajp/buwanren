@@ -1333,9 +1333,24 @@ async fn get_shipment(
         .ok_or_else(|| ApiError::not_found("shipment"))?;
     let trace = sqlx::query("SELECT * FROM shipment_trace_event WHERE shipment_id=$1 ORDER BY event_at DESC")
         .bind(&id).fetch_all(&st.db).await.map_err(map_db)?;
+    /* 【装箱的人得知道配哪一味】（2026-09-07 三路验证）。
+       玉坠、单配香、按月送三件写着「按你缺的那一样配」，下单时
+       服务端把用神记进 `order_meta.extra_json`（见 `order.rs`）——
+       而发货这一页此前连收件人都不显示，更不用说配的是什么。
+       跟着运单一起给，不让人再去翻订单页:这一页就是干这件事的地方。 */
+    let 配的: Option<J> = sqlx::query_scalar(
+        "SELECT extra_json->'yongshen' FROM order_meta
+          WHERE order_id = (SELECT order_id FROM shipment WHERE id=$1)",
+    )
+    .bind(&id)
+    .fetch_optional(&st.db)
+    .await
+    .map_err(map_db)?
+    .flatten();
     Ok(Json(json!({
         "shipment": map_rows(vec![s]).into_iter().next().unwrap_or(J::Null),
         "trace": map_rows(trace),
+        "yongshen": 配的,
     })))
 }
 

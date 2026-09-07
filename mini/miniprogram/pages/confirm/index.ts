@@ -9,6 +9,7 @@
  */
 
 import { commerceApi } from '../../services/commerce'
+import { natalApi } from '../../services/natal'
 import { 脸 } from '../../utils/face'
 import type { ProductDetail } from '../../types/commerce'
 import { money, 券面那句话 } from '../../utils/money'
@@ -39,6 +40,10 @@ interface IData {
    *  御守付完人就搬进来，说明书是算出来的，两样都没有包裹。
    *  见下面 `go()` 里那段。 */
   要寄: boolean
+  /** 这一件是不是「按你缺的那一样配」的（`sku.spec_json.needs_yongshen`） */
+  要配: boolean
+  /** 缺的是什么（主用神）。空串 = 还没填出生时间，那时按钮换成去填 */
+  缺: string
   /** 付完之后会发生什么 —— 按这一件的履约方式说一句实话 */
   付完呢: string
   qty: number
@@ -120,7 +125,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     券码: '', 券状态: '' as '' | '在算' | '用上了' | '不行',
     券说: '', 减了: 0, 减了文本: '', 实付文本: '',
     我的券: [], 第几张: 0, 当前券面: '', 手填: false,
-    要寄: false, 付完呢: '', 订阅: false, 档名: '',
+    要寄: false, 要配: false, 缺: '', 付完呢: '', 订阅: false, 档名: '',
     qty: 1, message: '',
     contact: null, addrNote: '', buying: false, note: '', buyKey: '',
     /* 寄到哪填了没 —— 「去付」长什么样看它。
@@ -205,7 +210,20 @@ Page<IData, WechatMiniprogram.IAnyObject>({
           /* 【订阅的合计要带上「/ 月」】。少了这两个字，
              屏上那个数看起来就是这一单的全部代价。 */
           totalText: sku ? money(unit * this.data.qty, cur) + (订阅了 ? ' / 月' : '') : '',
+          /* 【「按你缺的那一样配」得在按之前说清】（2026-09-07 三路验证 ·
+             准备花钱的那一路）。玉坠、单配香、按月送三件都这么写,
+             而下单流程此前从没问过买家缺什么 —— 收到的只能是默认款。
+             服务端现在会自己去取用神、没有本命就整单拒（`order.rs`），
+             这一屏要做的是**别让那次拒绝成为意外**:
+             要配的东西就说「按你缺的那一样配」，还没填生辰就把
+             按钮换成那件该做的事。判据是 sku 上那个标记，不写死商品号。 */
+          要配: !!(sku && sku.spec_json
+                   && (sku.spec_json as { needs_yongshen?: boolean }).needs_yongshen),
         })
+        if (sku && sku.spec_json
+            && (sku.spec_json as { needs_yongshen?: boolean }).needs_yongshen) {
+          this.取用神()
+        }
         // 券那一头可能先到 —— 两头哪个后到都在这儿汇一次
         this.也许自动用券()
       },
@@ -383,6 +401,11 @@ Page<IData, WechatMiniprogram.IAnyObject>({
   go() {
     const { p, qty, buying, buyKey, contact, message } = this.data
     if (buying || !p) return
+    /* 【差生辰的先去填生辰】。这一件是「按你缺的那一样配」的，
+       而没有本命服务端会整单拒（`order.rs`）—— 让人按下去撞那一句,
+       就是把一次可以避免的失败留给他。按钮上写的就是这一步（同下面地址那条）。
+       排在地址前面:没有生辰这一单根本建不出来，先解决那个。 */
+    if (this.data.要配 && !this.data.缺) { this.goNatal(); return }
     /* 没地址时这颗按钮上写的是「先填寄到哪儿」—— 它就该去做那件事。
        原先它写「去付」、是灰的，按下去只在底下冒一句「还差寄到哪」:
        整屏唯一的成交按钮长得跟禁用一样，人按两下没反应就走了。 */
@@ -412,6 +435,24 @@ Page<IData, WechatMiniprogram.IAnyObject>({
       (e) => this.setData({ buying: false, note: 一句(e) }),
     )
   },
+
+  /* 这一单要配的话，缺的是什么。
+     【走跟首页同一条路】：`globalData.activeNatalId` → `summary(id)`。
+     它是「此刻在用的那一份」—— 服务端配货读的也是这一份
+     （`order.rs` 走 `app_user.active_natal_id`），两边同一个来源。
+     取不到就当没填:那时按钮说「先填出生时间」，
+     跟服务端那一侧的拒绝是同一件事，不会出现「屏上说得出、下单被拒」。 */
+  取用神() {
+    const app = getApp<IAppOption>()
+    const nid = app.globalData.activeNatalId
+    if (!nid) { this.setData({ 缺: '' }); return }
+    natalApi.summary(nid).then(
+      (s) => this.setData({ 缺: s.primary_yongshen || '' }),
+      () => this.setData({ 缺: '' }),
+    )
+  },
+
+  goNatal() { wx.navigateTo({ url: '/pages/natal/index' }) },
 
   /* 协议那两条。写在这一屏而不是共用一个跳转工具 ——
      全仓只有三处要它，抽一层反而多一个要读的文件。 */
