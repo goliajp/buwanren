@@ -184,11 +184,18 @@ async fn my_village(
         .format("%Y-%m-%d").to_string();
     let says = today_says(&st.db, &c.sub, &home, &day).await?;
 
+    /* 【明天为什么再打开】（2026-09-07）。连击这个数一直算得出来，
+       而它只出现在「我的 › 徽章」那一屏的进度条上 —— 徽章页自己写着
+       「这是这个产品唯一的长期牵引」，而它落在要点两下才到得了的地方。
+       主屏是每次打开都会看到的那一屏，这个数该在这儿。 */
+    let (连着, 今天来过) = app_badge::连着几天(&st.db, &c.sub).await?;
+
     Ok(Json(json!({
         "found": home.len(),
         "total": all.len(),
         "villagers": all,
         "today_says": says,
+        "streak": { "days": 连着, "asked_today": 今天来过 },
         "to_scan": to_scan.map(|(order_id, delivered_at)| json!({
             "order_id": order_id,
             "delivered_at": delivered_at,

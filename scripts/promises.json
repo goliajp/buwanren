@@ -168,7 +168,7 @@
       "id": "注销会停掉还在扣钱的订阅",
       "屏上": [
         "mini/miniprogram/pages/leave/index.ts",
-        "订着的按月送会停掉，不再扣钱"
+        "订着的按月送会停掉，不再给你开单"
       ],
       "判据": [
         {
@@ -195,40 +195,42 @@
       ]
     },
     {
-      "id": "按月送每月扣一次",
+      "id": "按月送每月一期",
       "屏上": [
         "mini/miniprogram/pages/policy/index.ts",
-        "开通那天扣第一笔，之后每满一个月扣一次"
+        "之后每满一个月，我们给你开一张这一期的单"
       ],
       "判据": [
         {
           "库": "SELECT count(*) FROM plan pl JOIN sku s ON s.id=pl.sku_id JOIN product p ON p.id=s.product_id WHERE pl.status='active' AND s.status='active' AND p.status='listed' AND pl.billing_period <> 'month'",
           "要": "0",
-          "说": "买得到的套餐里有不是按月的 —— 协议写死了「每满一个月扣一次」"
+          "说": "买得到的套餐周期不是一个月 —— 协议写死了「每满一个月」"
         }
       ]
     },
     {
-      "id": "扣不成会再试几天",
+      "id": "不付也不会自动扣你的钱",
       "屏上": [
         "mini/miniprogram/pages/policy/index.ts",
-        "扣不成会再试几天，都不成就停在那儿等你来补"
+        "不会自动扣你的钱，也不会停掉你手里的东西"
       ],
       "判据": [
         {
-          "库": "SELECT count(*) FROM plan pl JOIN sku s ON s.id=pl.sku_id JOIN product p ON p.id=s.product_id WHERE pl.status='active' AND s.status='active' AND p.status='listed' AND pl.grace_days < 1",
-          "要": "0",
-          "说": "买得到的套餐没有宽限天数 —— 那是一次扣不成就断，协议说的是「会再试几天」"
+          "扫": [
+            "backend/unmei-app/src/subscription.rs"
+          ],
+          "不许有": "INSERT INTO payment",
+          "说": "续费那条路又在自己建支付 —— 它建出来的那笔渠道一分钱没动过，而系统会当成收到了。支付只许从 `payment::start` 那条路生出来，只许由渠道回调认（`apply_succeeded`）"
+        },
+        {
+          "源": "backend/unmei-wx/src/adapter.rs",
+          "要有": "off_session_charge: false",
+          "说": "微信这一侧改口说能免密代扣了 —— 那协议这一段要跟着重写，不能两处各说各的"
         },
         {
           "源": "backend/unmei-app/src/subscription.rs",
-          "要有": "record_renewal_failure",
-          "说": "扣款失败没人记 —— 「再试几天」的阶梯无从谈起"
-        },
-        {
-          "源": "backend/unmei-app/src/subscription.rs",
-          "要有": "past_due",
-          "说": "重试用完之后没有「停在那儿等你来补」那一档"
+          "要有": "AwaitingPayment",
+          "说": "续费不再是「开单等人付」—— 协议这两条得重写"
         }
       ]
     },
@@ -260,7 +262,7 @@
       "id": "停订之后这一期照走完",
       "屏上": [
         "mini/miniprogram/pages/policy/index.ts",
-        "按下之后这一期照走完 —— 手里那盒就是最后一盒"
+        "手里那盒就是最后一盒，到期之后不再给你开单"
       ],
       "判据": [
         {
@@ -381,6 +383,54 @@
           "源": "mini/miniprogram/pages/subs/index.wxml",
           "要有": "去填出生时间",
           "说": "说了要紧的事却不给做那件事的办法 —— 那比不说更差"
+        }
+      ]
+    },
+    {
+      "id": "付了才发下一盒",
+      "屏上": [
+        "mini/miniprogram/pages/policy/index.ts",
+        "那张单一直开着，什么时候付都算数 —— 付了才发下一盒"
+      ],
+      "判据": [
+        {
+          "源": "backend/unmei-app/src/subscription.rs",
+          "要有": "'unpaid', 'subscription_renew'",
+          "说": "续费单一开出来就是已付 —— 那盒香会在没人付钱的时候发出去"
+        },
+        {
+          "源": "backend/unmei-app/src/subscription.rs",
+          "要有": "pub async fn 这一期到账了",
+          "说": "没有「钱到了」这一步 —— 那周期要么不推，要么在没收钱的时候推"
+        },
+        {
+          "源": "backend/unmei-api/src/workers/outbox.rs",
+          "要有": "这一期到账了",
+          "说": "「钱到了」那一步没人调 —— 付了钱周期也不动，下一盒永远发不出"
+        }
+      ]
+    },
+    {
+      "id": "连着几天要在主屏上看得见",
+      "屏上": [
+        "mini/miniprogram/pages/village/index.wxml",
+        "连着 {{连着}} 天了 · 今天还没问 ›"
+      ],
+      "判据": [
+        {
+          "源": "backend/unmei-app/src/badge.rs",
+          "要有": "pub async fn 连着几天",
+          "说": "主屏那句「连着 N 天」没有数据来源 —— 那个数会退回 0，于是这一句从此不出现"
+        },
+        {
+          "源": "backend/unmei-api/src/routes/village.rs",
+          "要有": "\"streak\":",
+          "说": "村子接口不发这个数 —— 屏上那一句永远显示不出来"
+        },
+        {
+          "源": "mini/miniprogram/pages/village/index.ts",
+          "要有": "goAsk()",
+          "说": "「今天还没问」点下去没有去处 —— 说了要紧的事却不给做那件事的办法"
         }
       ]
     }

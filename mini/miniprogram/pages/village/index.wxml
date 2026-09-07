@@ -168,6 +168,17 @@
          这一态从没人看过：开发库里最多住着几位，走查也走不到。 -->
     <text class="tally-n" wx:if="{{lived > 0 && lived >= total}}">四十位都回来了</text>
     <text class="tally-n" wx:elif="{{lived > 0}}">还差 {{total - lived}} 位就集齐了</text>
+    <!-- 【明天为什么再打开】（2026-09-07）。连击这个数一直算得出来，
+         而它此前只在「我的 › 徽章」那一屏的进度条上 —— 徽章页自己写着
+         「这是这个产品唯一的长期牵引」，而它落在要点两下才到得了的地方。
+
+         **今天没来过才是要说的那一句**：「连着 6 天了」是纪念，
+         「连着 6 天了 · 今天还没问」才是他现在该做的事，所以它可点。
+         连不上（0 天）的时候一个字都不说 —— 「连着 0 天」不是鼓励，
+         是一句提醒你失败了的话。 -->
+    <text wx:if="{{连着 > 0 && !今天来过}}" class="tally-go" bindtap="goAsk"
+          hover-class="press-text" hover-stay-time="80">连着 {{连着}} 天了 · 今天还没问 ›</text>
+    <text wx:elif="{{连着 > 0}}" class="tally-dim">连着 {{连着}} 天了</text>
     <text wx:if="{{tonight}}" class="tally-go" bindtap="goTonight" hover-class="press-text" hover-stay-time="80">{{今口}}在苏合院子里 ›</text>
     <!-- 时刻按后端那份排期生成。取不到就不摆这一句 -->
     <text wx:elif="{{当口}}" class="tally-dim">{{当口}}，苏合在院子里点香</text>
