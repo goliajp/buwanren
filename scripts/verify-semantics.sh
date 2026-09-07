@@ -398,13 +398,22 @@ else
   # 退款要的是**一笔真的成功支付**，不是把订单状态改成 paid 就行 ——
   # 只改订单会得到「无成功支付可退」（2026-08-19 第一版就这么错了）。
   # 所以走真的发起支付拿到 payment 行，再把那一笔摆成 success。
-  curl -sS -o /dev/null -X POST "$API/v1/orders/$ORD6/pay" -H "authorization: Bearer $T6" \
+  #
+  # 【2026-09-07 起这一笔真的走渠道】。原先是发起支付之后拿 SQL 把它
+  # 摆成 success —— 那时可以，因为退款也是假的（`approve` 自己编一个
+  # `MOCK_` 号就当退成了）。现在退款真发给渠道，而渠道那边压根没听说过
+  # 这一单「付过」，于是它拒收，这一段跟着红。
+  # 本机那个渠道是 `scripts/fake-wx.sh` 起的假微信，
+  # 「用户按了付款」由它的控制面代替，之后走的是真回调。
+  VPID=$(curl -sS -X POST "$API/v1/orders/$ORD6/pay" -H "authorization: Bearer $T6" \
     -H 'content-type: application/json' -H "idempotency-key: $(idem paystart)" \
-    -d '{"channel":"wechat_jsapi","openid":"oVerify"}'
-  PSQL "UPDATE payment SET status='success', paid_at=NOW() WHERE order_id='$ORD6';
-        UPDATE order_record SET status='paid', amount_paid_minor=amount_total_minor, paid_at=NOW()
-        WHERE id='$ORD6';
-        INSERT INTO shipment (id, order_id, carrier_code, tracking_no, status, region)
+    -d '{"channel":"wechat_jsapi","openid":"oVerify"}' | jq -r '.payment_id // empty')
+  curl -sS -o /dev/null -X POST "${FAKE_WX:-http://127.0.0.1:6033}/_control/pay/${VPID}" || true
+  for _ in $(seq 1 30); do
+    [ "$(PSQL "SELECT status FROM payment WHERE id='${VPID}'")" = success ] && break
+    sleep 1
+  done
+  PSQL "INSERT INTO shipment (id, order_id, carrier_code, tracking_no, status, region)
         VALUES ('shp-v-$ORD6','$ORD6','sf','SFV-$ORD6','in_transit',
                 COALESCE((SELECT region FROM order_record WHERE id='$ORD6'),'cn'));"
   # 单号跟着订单走，不写死 —— 2026-09-03 起 (carrier_code, tracking_no) 上有
