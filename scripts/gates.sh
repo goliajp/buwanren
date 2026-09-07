@@ -391,6 +391,13 @@ if curl -s -m 2 -o /dev/null "http://127.0.0.1:6028/v1/health" 2>/dev/null; then
   #
   # 本机那个假微信照 v3 协议说话（真验我们的签名、真加密真签名地回回调），
   # 所以这一支验的是我方那一侧的每一个字节。起法见 scripts/fake-wx.sh。
+  # 【在卖东西的那一格，得有一条真收得了钱的路】（2026-09-07）。
+  # 繁中按 TWD 标价在卖，而只有微信一个适配器、它只收 CNY ——
+  # 那一格的每一单都付不出去，而在把桩换成真渠道之前，
+  # 查单那个桩把它们全结成了已付：**每一单都是白送的**，屏上一切正常。
+  gate "在卖的那几格收得了钱吗" . env \
+    PSQL_URL='postgres://unmei:unmei_dev_pwd@localhost:6032/unmei' \
+    python3 scripts/check-region-payable.py
   gate "跟渠道说话那条链真通吗" . env \
     PSQL_URL='postgres://unmei:unmei_dev_pwd@localhost:6032/unmei' \
     python3 scripts/check-wx-live.py

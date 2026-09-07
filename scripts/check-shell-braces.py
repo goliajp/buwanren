@@ -28,6 +28,10 @@ import sys
 扫过 = 0
 
 for f in sorted(list((根 / 'scripts').glob('*.sh')) + list((根 / 'web').glob('*.sh'))):
+    # 变异脚本里【故意】写着坏的那一版 —— 它的活儿就是把坏代码种进去，
+    # 再看门禁报不报红。扫它等于让这一支被自己的反例绊倒。
+    if f.name == 'mutationtest-checks.sh':
+        continue
     扫过 += 1
     for n, 行 in enumerate(f.read_text(encoding='utf-8').split('\n'), 1):
         # 注释里讨论这件事是允许的 —— 上面那段文档就在讨论它

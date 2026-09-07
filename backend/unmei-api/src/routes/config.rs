@@ -43,9 +43,20 @@ async fn config(
         flags.insert(r.get("code"), serde_json::Value::Bool(on));
     }
 
+    let 收得了 = unmei_domain::commerce::region::Region::from_id(&region)
+        .map(|r| {
+            let 币 = r.meta().primary_currency;
+            st.payment_adapters.wechat_jsapi.supported_currencies().contains(&币)
+        })
+        .unwrap_or(false);
+
     Ok(Json(ClientConfig {
         platform, region, locale,
         flags: serde_json::Value::Object(flags),
+        /* 这一格的主币种，有没有一个适配器收得了。
+           判据跟 `check-region-payable.py` 是同一条 —— 一处说得通、
+           另一处说不通的话，屏上说「付得了」而接口回 400。 */
+        can_pay: 收得了,
         subscribe_bill_template: std::env::var("WX_TPL_SUB_BILL").unwrap_or_default(),
     }))
 }

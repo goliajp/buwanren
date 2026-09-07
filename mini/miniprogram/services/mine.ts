@@ -32,8 +32,8 @@ export const mineApi = {
   /** 客户端配置。**这条接口一直在，而没有一个客户端调过它**
    *  （孤儿台账里记着）—— 现在它带着「这一期该付了」那条订阅消息的模板号，
    *  而模板号来自微信后台、每个小程序不一样，写死在这儿就得为它发版。 */
-  config: (): Promise<{ subscribe_bill_template?: string }> =>
-    api.get<{ subscribe_bill_template?: string }>('/v1/config'),
+  config: (): Promise<{ subscribe_bill_template?: string; can_pay?: boolean }> =>
+    api.get<{ subscribe_bill_template?: string; can_pay?: boolean }>('/v1/config'),
 
   /** 记下一次订阅消息授权。**授权那一下只有真机有**（`wx.requestSubscribeMessage`）——
    *  网页版会抛，这是对的:授权的额度记在微信那一侧，空实现会让
