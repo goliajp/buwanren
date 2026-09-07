@@ -838,8 +838,12 @@ mutate "开屏取数的页丢了 onAuthReady" check-auth-ready \
 # 【守门的那一支自己也要有人守】。它把自己也逮住过一次 ——
 # 接进 gates.sh 的那一刻它报「check-mutation-coverage 没有变异守着它」，
 # 而那正是它该说的话。这条变异让它自己也在这条规矩里。
+# 【锚点跟着台账走】（2026-09-07）。它原先钉在 `check-faces` 那一行上，
+# 而那一行当天被划掉了（那十六支「纯源码，欠着」一次做完）——
+# 于是这条变异「植不进去」，报出来是「漏掉 1 项」。
+# 挑一条留在台账上、且短期不会动的：截图那一类走不掉，理由是结构性的。
 mutate "覆盖台账里划掉一条（凭空多一支没人守的门禁）" check-mutation-coverage \
-  "edit('scripts/mutation-coverage-gaps.json', '    \"check-faces\": \"纯源码 —— 写一条变异就能划掉，欠着\",\n', '')"
+  "edit('scripts/mutation-coverage-gaps.json', '    \"check-canvas-mounted\": \"截图 —— 要真截图，变异得重跑整轮截屏\",\n', '')"
 
 # 后台读失败要有话说：把订单页那一行「取不到」拿掉
 mutate "后台某一页读失败又不说话了" check-console-read-error \
