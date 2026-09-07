@@ -17,6 +17,40 @@ pub fn router() -> Router<AppState> {
            而这个仓里所有「按下去会发生一件不可逆的事」的动作都是 POST
            （取消订单、退款、退订）。同一类动作用同一种方法。 */
         .route("/v1/user/me/delete", post(delete_me))
+        /* 【订阅消息的授权要记下来】（2026-09-07）。小程序的推送只有这一种，
+           而它要用户**每一条都单独授权**，授权一次只发得出一条 ——
+           所以「授权过几次、用掉几次」是要落库的事。
+           真机上 `wx.requestSubscribeMessage` 弹出那一下之后调这里。 */
+        .route("/v1/user/me/subscribe-grant", post(记下订阅授权))
+}
+
+fn 默认区() -> String { "cn".into() }
+
+#[derive(serde::Deserialize)]
+struct 授权体 {
+    template_id: String,
+    #[serde(default = "默认区")]
+    region: String,
+}
+
+/// 用户点了「允许」。
+///
+/// 【模板号必须是我们认识的那几个】。客户端报什么就存什么的话，
+/// 这张表会攒满一堆永远发不出去的授权（模板号错一个字微信就拒），
+/// 而那种错在日志里长得跟「用户没订阅」一模一样。
+async fn 记下订阅授权(
+    State(st): State<AppState>, AuthedUser(c): AuthedUser, Json(b): Json<授权体>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let 认识的: Vec<String> = ["WX_TPL_SUB_BILL"]
+        .iter()
+        .filter_map(|k| std::env::var(k).ok())
+        .filter(|v| !v.is_empty())
+        .collect();
+    if !认识的.contains(&b.template_id) {
+        return Err(ApiError::bad("这不是我们在用的模板".to_string()));
+    }
+    unmei_app::notify::记下授权(&st.db, &c.sub, &b.template_id, &b.region).await?;
+    Ok(Json(serde_json::json!({ "ok": true })))
 }
 
 async fn me(

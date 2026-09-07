@@ -478,6 +478,35 @@
           "说": "没有「该去撤的」这份名单 —— 撤单那一步无从谈起"
         }
       ]
+    },
+    {
+      "id": "该付了会有人告诉你",
+      "屏上": [
+        "mini/miniprogram/pages/subs/index.ts",
+        "这一期的单开出来了 —— 付了就发这一盒"
+      ],
+      "判据": [
+        {
+          "源": "backend/unmei-api/src/workers/subscription_billing.rs",
+          "要有": "这一期该付了(",
+          "说": "开完单没有人去提醒他 —— 而这一档现在要他动手，不说就是把订阅悄悄断掉"
+        },
+        {
+          "源": "backend/unmei-app/src/notify.rs",
+          "要有": "pub async fn 取一次授权",
+          "说": "没有「这次授权用掉没有」这件事 —— 一次授权发两条，微信会拒"
+        },
+        {
+          "源": "mini/miniprogram/pages/subs/index.ts",
+          "要有": "requestSubscribeMessage",
+          "说": "从来没要过授权 —— 那条提醒永远发不出去"
+        },
+        {
+          "源": "web/runtime/wx.js",
+          "要有": "deviceOnly('requestSubscribeMessage'",
+          "说": "镜像给了它一个空实现 —— 那会让「他授权了」在网页上成功而真机上没发生"
+        }
+      ]
     }
   ]
 }

@@ -222,10 +222,35 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     wx.navigateTo({ url: '/pages/natal/index' })
   },
 
+  /* 【顺手要一次「到时候提醒我」的授权】（2026-09-07）。
+     这一档现在是「每期我们开一张单、你来付」—— 人不打开 app 就不知道
+     该付了。小程序的推送只有订阅消息这一种，而它要用户**每一条单独
+     授权**，一次授权只发得出一条；所以要授权的时机就是他此刻在付这一期
+     （他显然在意这件事），而不是开屏就弹一个框。
+
+     **要不到也不挡着他付**：授权那一下只有真机有（网页版会抛），
+     而且他完全可以拒。拒了就是拒了，下一期他自己进来付。 */
+  async 也许要个提醒授权() {
+    try {
+      const cfg = await mineApi.config()
+      const tpl = cfg.subscribe_bill_template
+      if (!tpl) return
+      const wxAny = wx as unknown as {
+        requestSubscribeMessage?: (o: { tmplIds: string[] }) => Promise<Record<string, string>>
+      }
+      if (typeof wxAny.requestSubscribeMessage !== 'function') return
+      const r = await wxAny.requestSubscribeMessage({ tmplIds: [tpl] })
+      if (r && r[tpl] === 'accept') await mineApi.grantSubscribe(tpl)
+    } catch {
+      // 拒了、抛了、网不好 —— 都不该挡着他付这一期
+    }
+  },
+
   onPay(e: WechatMiniprogram.BaseEvent) {
     const id = String((e.currentTarget.dataset as { id?: string }).id || '')
     if (!id || this.data.忙) return
     轻()
+    void this.也许要个提醒授权()
     this.setData({ 忙: id })
     mineApi.paySubscription(id).then(
       (r) => {

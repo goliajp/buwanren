@@ -46,6 +46,7 @@ async fn config(
     Ok(Json(ClientConfig {
         platform, region, locale,
         flags: serde_json::Value::Object(flags),
+        subscribe_bill_template: std::env::var("WX_TPL_SUB_BILL").unwrap_or_default(),
     }))
 }
 
