@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { 从网址读筛选 } from '../lib/urlfilter';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApiMutation } from '../lib/feedback';
 import { commerce } from '../lib/api';
@@ -16,8 +17,9 @@ const PAYMENT_CHANNELS = ['wechat_jsapi','wechat_mp','wechat_h5','wechat_native'
 
 export default function Payments() {
   const qc = useQueryClient();
-  const [filt, setFilt] = useState<Record<string, any>>({ size: 50, page: 0 });
-  const [draft, setDraft] = useState<Record<string, any>>({});
+  // 同 Refunds：看板那条「该撤单而没撤掉」指的是 `?status=cancelling` 那一批
+  const [filt, setFilt] = useState<Record<string, any>>(从网址读筛选({ size: 50, page: 0 }));
+  const [draft, setDraft] = useState<Record<string, any>>(从网址读筛选({}));
   const [detailId, setDetailId] = useState<string | null>(null);
 
   const list = useQuery({

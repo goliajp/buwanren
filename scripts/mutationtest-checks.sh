@@ -625,8 +625,15 @@ mutate "前后端对整数金额说法分家" check-money-fmt \
 
 # 【退款那一条守的是「钱真的发给了渠道」】。`approve` 原先自己编一个
 # `MOCK_` 号就当退成了 —— 买家看到「已退款」，钱一分没回。
+#
+# 【锚点里不放 `$`】（2026-09-07 晚踩到）。头一版钉的是
+# `channel_refund_id=$1`，而 `$` 要穿过 shell 的双引号再穿过 Python 的
+# 双引号 —— 两层转义之后交给 `edit()` 的是带反斜杠的 `\$1`，源码里没有
+# 这个东西，于是它报「变异没植进去」。我在辅助脚本里验过这条变异，
+# 拿的是裸字符串 —— **经过 shell 那一层之后就不是同一个字符串了**。
+# 换成同一句 SQL 里不含 `$` 的那一段，绕开整件事。
 mutate "退款又回去自己编渠道号" check-promises \
-  "edit('backend/unmei-app/src/refund.rs', \"processed_at=NOW(), channel_refund_id=\\\$1\", \"processed_at=NOW(), channel_refund_id='MOCK_' || id\")"
+  "edit('backend/unmei-app/src/refund.rs', \"status='processing', processed_at=NOW()\", \"status='success', processed_at=NOW()\")"
 
 echo
 echo "── 台账上那十六支「纯源码，写一条变异就能划掉」（2026-09-07 一次划完）──"

@@ -71,8 +71,10 @@ export default function Dashboard() {
     { n: k?.failed_lines_unrefunded ?? 0, 是: '笔交付失败没退钱', 去: '/orders?issue=failed_lines_unrefunded', 做: '把钱退回去' },
     { n: k?.overcollected_payments ?? 0, 是: '笔收了订单不欠的钱', 去: '/payments?status=success', 做: '找出来退掉' },
     { n: k?.closed_users_owing ?? 0, 是: '位注销了还欠着单', 去: '/orders?issue=closed_user_owing', 做: '把东西办完' },
-    { n: k?.refunds_stuck ?? 0, 是: '笔退款批了发不出去', 去: '/refunds', 做: '看渠道怎么说' },
-    { n: k?.closes_stuck ?? 0, 是: '笔该撤单而没撤掉', 去: '/payments', 做: '看看卡在哪儿' },
+    /* 【指到那一批上，不是指到那一页】——跟上面订单那几条同一个规矩:
+       一个数把你送到全量列表里去找它，正是这个数本来要省掉的事。 */
+    { n: k?.refunds_stuck ?? 0, 是: '笔退款批了发不出去', 去: '/refunds?status=approved', 做: '看渠道怎么说' },
+    { n: k?.closes_stuck ?? 0, 是: '笔该撤单而没撤掉', 去: '/payments?status=cancelling', 做: '看看卡在哪儿' },
     { n: (k?.unpaid_orders ?? 0) + (k?.pending_payments ?? 0), 是: '笔订单还没付', 去: '/orders?status=unpaid', 做: '看看是卡在哪一步' },
     { n: k?.pending_refunds ?? 0, 是: '笔退款等着批', 去: '/refunds', 做: '批一批' },
     { n: k?.exception_shipments ?? 0, 是: '件包裹出了状况', 去: '/shipments?exception_only=true', 做: '查物流' },
@@ -129,7 +131,12 @@ export default function Dashboard() {
           ) : (
             <ul className="border border-rule rounded divide-y divide-rule bg-card">
               {待办.map((x) => (
-                <li key={x.去}>
+                /* 【别拿去处当 key】。两条待办可以指向同一页 ——
+                   「笔退款等着批」与「笔退款批了发不出去」都落在 /refunds 上，
+                   而 React 会为重复的 key 报一句警告，`admin 逐页走` 那一支
+                   把控制台里的报错当红看（它就是这么抓到的）。
+                   说法本身是唯一的，用它。 */
+                <li key={x.是}>
                   <button
                     type="button"
                     onClick={() => nav(x.去)}
