@@ -603,6 +603,12 @@ else
   gate "在售的东西给得出吗" . env \
     PSQL_URL='postgres://unmei:unmei_dev_pwd@localhost:6032/unmei' \
     python3 scripts/check-listed-deliverable.py
+  # 【活动上写着的规则，代码里得真的执行】（2026-09-07）。
+  # `rule_json` / `match_json` / `stackable` 后台一条条摆出来给人看,
+  # 而在这之前 `unmei-app` 与 `unmei-api` 里 grep 它们是零命中。
+  gate "活动的规则真生效吗" . env \
+    PSQL_URL='postgres://unmei:unmei_dev_pwd@localhost:6032/unmei' \
+    python3 scripts/check-promo-rules.py
   # 「你缺 X，下面这几位跟你补得上」那句话的依据。写错一个方向名这条链就断，
   # 而断了【不报错】—— 匹配不到人，排序悄悄退回原样，那句话跟着变成假话。
   gate "每个用神都指得着人吗" . env \

@@ -561,3 +561,114 @@ async fn 券减到零的单不用付款就成立() {
         "这一单成立了，而券还没核销",
     );
 }
+
+// ═══════════════════ 活动挂的那几条规则 ═══════════════════
+//
+// `promotion` 上 `rule_json` / `match_json` / `stackable` 从建库起就在，
+// 后台详情页也把它们摆出来给人看 —— 而在 2026-09-07 之前
+// `unmei-app` 与 `unmei-api` 里 grep 它们是零命中。
+// 种子里唯一一个真活动 `NEWUSER20`（新人首单立减 20%）写着
+// 「满 ¥49」「仅新客」「不可叠加」，三条一条都不生效。
+
+/// 发一张挂着活动的券，活动那几条规则由调用方给。
+async fn 发一张带活动的(
+    pool: &sqlx::PgPool,
+    bps: i64,
+    rule: serde_json::Value,
+    matc: serde_json::Value,
+    可叠加: bool,
+) -> String {
+    let promo = common::uniq("promo");
+    sqlx::query(
+        "INSERT INTO promotion(id, code, name, kind, match_json, rule_json, benefit_json,
+                               effective_from, effective_to, stackable, priority, status, region)
+         VALUES ($1, $1, '测试活动', 'pct_off', $2, $3, $4,
+                 NOW() - INTERVAL '1 day', NOW() + INTERVAL '30 days', $5, 50, 'active', 'cn')",
+    )
+    .bind(&promo)
+    .bind(&matc)
+    .bind(&rule)
+    .bind(json!({ "pct_off_bps": bps }))
+    .bind(可叠加)
+    .execute(pool)
+    .await
+    .expect("插一个活动");
+
+    let code = format!("P{}", uuid::Uuid::new_v4().simple());
+    coupon::issue(
+        pool,
+        coupon::IssueCoupon {
+            code: &code,
+            promotion_id: Some(&promo),
+            owner_user_id: None,
+            benefit_json: json!({ "pct_off_bps": bps }),
+            expires_at: Utc::now() + Duration::days(30),
+            region: "cn",
+        },
+        &Actor::system(),
+    )
+    .await
+    .expect("发券");
+    code
+}
+
+/// 【满多少才能用】。`NEWUSER20` 写着 `min_amount: 4900` ——
+/// 在这之前它一分钱的单子也能用。
+#[tokio::test]
+async fn 不够门槛的单用不了这张券() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let 小 = common::sku_with_price(&pool, "CNY", 2900).await;
+    let code = 发一张带活动的(&pool, 2000, json!({ "min_amount": 4900 }), json!({}), true).await;
+
+    let err = 下一单(&pool, &user, &小, vec![code.clone()]).await
+        .expect_err("不够门槛还能用");
+    let 话 = format!("{err}");
+    assert!(话.contains("满 ¥49"), "没说清门槛是多少：{话}");
+
+    // 够得着的单照样能用 —— 门槛不能把该用的也挡了
+    let 大 = common::sku_with_price(&pool, "CNY", 9900).await;
+    let o = 下一单(&pool, &user, &大, vec![code]).await.expect("够门槛的单该能用");
+    assert_eq!(o.amount_total_minor, 9900 - 1980);
+}
+
+/// 【只给新客】。判据是「他还没有一单付过钱的」——
+/// 活动名字就叫「新人首单」，那才是它要给的人。
+#[tokio::test]
+async fn 买过东西的人用不了新客券() {
+    let pool = db_or_skip!();
+    common::确保当月开着(&pool).await;
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 9900).await;
+    let code = 发一张带活动的(&pool, 2000, json!({}), json!({ "new_user_only": true }), true).await;
+
+    // 还没买过 —— 用得了
+    let o1 = 下一单(&pool, &user, &sku, vec![code.clone()]).await.expect("新客该用得了");
+    assert_eq!(o1.amount_total_minor, 9900 - 1980);
+
+    // 把那一单推成已付，他就不是新客了
+    sqlx::query("UPDATE order_record SET status='paid', amount_paid_minor=7920 WHERE id=$1")
+        .bind(&o1.order_id).execute(&pool).await.expect("推成已付");
+
+    let code2 = 发一张带活动的(&pool, 2000, json!({}), json!({ "new_user_only": true }), true).await;
+    let err = 下一单(&pool, &user, &sku, vec![code2]).await.expect_err("买过还能用新客券");
+    assert!(format!("{err}").contains("还没买过"), "理由不对：{err}");
+}
+
+/// 【不可叠加】。一张自己用可以，跟别的凑在一起不行。
+#[tokio::test]
+async fn 不可叠加的券不能跟别的一起用() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 10000).await;
+    let 独 = 发一张带活动的(&pool, 2000, json!({}), json!({}), false).await;
+    let 另 = 发一张(&pool, 1000, None, None).await;
+
+    let err = 下一单(&pool, &user, &sku, vec![独.clone(), 另]).await
+        .expect_err("不可叠加的券跟别的一起用了");
+    assert!(format!("{err}").contains("不能跟别的券一起用"), "理由不对：{err}");
+
+    // 自己一个人用是可以的
+    let o = 下一单(&pool, &user, &sku, vec![独]).await.expect("自己用该可以");
+    assert_eq!(o.amount_total_minor, 8000);
+}

@@ -38,6 +38,9 @@ FILES=(
   backend/migrations/20260901008_line_fixes2.sql
   # 指代那一支的变异对象
   mini/miniprogram/pages/home/index.wxml
+  # 活动规则那一支的变异对象。**凡是被 mutate 改到的文件都要在这张名单里** ——
+  # 不在的话还原还不到它，那条变异会被永久烙进源码（本文件开头那段记着）
+  backend/unmei-app/src/coupon.rs
   # 金额那一支的变异对象
   mini/miniprogram/pages/product/index.ts
   backend/unmei-api/src/ai_compose.rs
@@ -336,6 +339,15 @@ mutate "drawHouse 改名（核对失效）" check-plots \
 # 一屏「✓ 40 格」,量的却不是画上那四十栋。
 mutate "坐标定义改名（核对失效）" check-plots \
   "edit('rooms/src/engine/plots.js', '  const ROW_GY = [', '  const GROUND_Y = [')"
+
+echo
+echo "── check-promo-rules（活动的规则真生效吗）──"
+# 这一支半边看源码（`这一单过得了这张券吗` 认得哪几个键）、半边看库
+# （在架活动写着哪几个键）。源码那半边可变异:把认新客那一段摘掉 ——
+# 库里 `NEWUSER20` 还写着 `new_user_only`，而代码从此不读它,
+# 一个老客拿新人券照样减得下来，**没有任何一处会说出来**。
+mutate "认新客那一条被摘掉了" check-promo-rules \
+  "edit('backend/unmei-app/src/coupon.rs', '.and_then(|m| m.get(\"new_user_only\"))', '.and_then(|m| m.get(\"whatever\"))')"
 
 echo
 echo "── check-can-move-in（在架的御守搬得进来吗）──"
