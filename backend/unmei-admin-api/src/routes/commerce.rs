@@ -1943,6 +1943,32 @@ async fn dashboard_kpi(
               AND ($1::text IS NULL OR region=$1)"#,
     ).bind(&region).fetch_one(&st.db).await.map_err(map_db)?;
 
+    /* 【今天新造的两个状态，也要有人盯着】（2026-09-07 晚）。
+       退款从「批了就当退成了」改成「批了 → 发给渠道 → 渠道说退成了」，
+       撤单从「只动我们这边」改成「也去渠道撤」——两条都多出了一个
+       中间态，而中间态卡住的样子是**安静的**：屏上写着「退款中」，
+       而它可能已经卡了三天。 */
+
+    // ⑤ 批了发不出去的退款。给三十秒的扫描一点余量，超过十分钟就是卡住了
+    let refunds_stuck: i64 = sqlx::query_scalar(
+        r#"SELECT COUNT(*) FROM refund
+            WHERE (status='approved' AND approved_at < NOW() - INTERVAL '10 minutes')
+               OR status='failed'
+              AND ($1::text IS NULL OR region=$1)"#,
+    ).bind(&region).fetch_one(&st.db).await.map_err(map_db)?;
+
+    /* ⑥ 该去渠道撤而一直撤不掉的支付。窗口还开着 = 用户还付得出去，
+       而我们已经不等了 —— 那笔钱回来时收得下（`apply_succeeded` 认这两个
+       状态），但更该做的是别让它付得出去。 */
+    let closes_stuck: i64 = sqlx::query_scalar(
+        r#"SELECT COUNT(*) FROM payment
+            WHERE status IN ('cancelling','expired')
+              AND channel_closed_at IS NULL
+              AND expires_at > NOW()
+              AND updated_at < NOW() - INTERVAL '10 minutes'
+              AND ($1::text IS NULL OR region=$1)"#,
+    ).bind(&region).fetch_one(&st.db).await.map_err(map_db)?;
+
     // product 是全局 SPU,按 available_regions 包含 region 判可见
     let listed_products: i64 = sqlx::query_scalar(
         r#"SELECT COUNT(*) FROM product WHERE status='listed'
@@ -1964,6 +1990,8 @@ async fn dashboard_kpi(
         "failed_lines_unrefunded": failed_lines_unrefunded,
         "closed_users_owing": closed_users_owing,
         "overcollected_payments": overcollected_payments,
+        "refunds_stuck": refunds_stuck,
+        "closes_stuck": closes_stuck,
         "listed_products": listed_products,
         "region": region,
     })))

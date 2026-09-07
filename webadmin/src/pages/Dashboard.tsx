@@ -28,6 +28,14 @@ interface Kpi {
   closed_users_owing: number;
   /** 收了一笔这一单不欠的钱 —— 换支付方式两笔都付成时会出现 */
   overcollected_payments: number;
+  /* 【今天新造的两个中间态】（2026-09-07）。退款从「批了就当退成了」改成
+     「批了 → 发给渠道 → 渠道说退成了」，撤单从「只动我们这边」改成
+     「也去渠道撤」—— 卡住的样子是安静的：屏上写着「退款中」，
+     而它可能已经卡了三天。 */
+  /** 批了十分钟还没发出去、或者渠道拒收的退款 */
+  refunds_stuck: number;
+  /** 该去渠道撤而一直撤不掉的支付（窗口还开着 = 用户还付得出去） */
+  closes_stuck: number;
   listed_products: number;
 }
 
@@ -63,6 +71,8 @@ export default function Dashboard() {
     { n: k?.failed_lines_unrefunded ?? 0, 是: '笔交付失败没退钱', 去: '/orders?issue=failed_lines_unrefunded', 做: '把钱退回去' },
     { n: k?.overcollected_payments ?? 0, 是: '笔收了订单不欠的钱', 去: '/payments?status=success', 做: '找出来退掉' },
     { n: k?.closed_users_owing ?? 0, 是: '位注销了还欠着单', 去: '/orders?issue=closed_user_owing', 做: '把东西办完' },
+    { n: k?.refunds_stuck ?? 0, 是: '笔退款批了发不出去', 去: '/refunds', 做: '看渠道怎么说' },
+    { n: k?.closes_stuck ?? 0, 是: '笔该撤单而没撤掉', 去: '/payments', 做: '看看卡在哪儿' },
     { n: (k?.unpaid_orders ?? 0) + (k?.pending_payments ?? 0), 是: '笔订单还没付', 去: '/orders?status=unpaid', 做: '看看是卡在哪一步' },
     { n: k?.pending_refunds ?? 0, 是: '笔退款等着批', 去: '/refunds', 做: '批一批' },
     { n: k?.exception_shipments ?? 0, 是: '件包裹出了状况', 去: '/shipments?exception_only=true', 做: '查物流' },
