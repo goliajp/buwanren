@@ -168,7 +168,7 @@
       "id": "注销会停掉还在扣钱的订阅",
       "屏上": [
         "mini/miniprogram/pages/leave/index.ts",
-        "订着的按月送会停掉 —— 不再扣钱"
+        "订着的按月送会停掉，不再扣钱"
       ],
       "判据": [
         {
@@ -357,6 +357,30 @@
           "源": "backend/unmei-api/src/routes/user.rs",
           "要有": "active_natal_id",
           "说": "换不了 —— 没有「哪一份在用」这件事，「留几份随时换」就是空话"
+        }
+      ]
+    },
+    {
+      "id": "等生辰的那一期不扣钱",
+      "屏上": [
+        "mini/miniprogram/pages/subs/index.ts",
+        "这一盒是按你缺的那一味配的 —— 先把出生时间填了，下一盒才配得出来"
+      ],
+      "判据": [
+        {
+          "源": "backend/unmei-app/src/subscription.rs",
+          "要有": "RenewOutcome::NeedsYongshen",
+          "说": "续费拿不到用神时照旧扣钱 —— 屏上这句话说的是「这一期没扣」，那就成了假话"
+        },
+        {
+          "源": "backend/unmei-app/src/subscription.rs",
+          "要有": "last_failure_code = 'need_yongshen'",
+          "说": "原因没落库 —— 屏上那句话靠这个码，它不写页面就说不出为什么"
+        },
+        {
+          "源": "mini/miniprogram/pages/subs/index.wxml",
+          "要有": "去填出生时间",
+          "说": "说了要紧的事却不给做那件事的办法 —— 那比不说更差"
         }
       ]
     }
