@@ -39,6 +39,11 @@
               hover-class="press-btn" hover-stay-time="80">
           {{忙 === item.id ? '正在补……' : '补上这一期 ›'}}
         </view>
+        <view class="item-do" wx:elif="{{item.动 === '填生辰'}}"
+              bindtap="goNatal"
+              hover-class="press-btn" hover-stay-time="80">
+          去填出生时间 ›
+        </view>
         <view class="item-do do-quiet" wx:elif="{{item.动 === '停'}}"
               data-id="{{item.id}}" bindtap="onStop"
               hover-class="press-text" hover-stay-time="80">

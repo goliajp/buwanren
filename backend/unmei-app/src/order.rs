@@ -15,7 +15,7 @@
 
 use chrono::Utc;
 use serde_json::{json, Value};
-use sqlx::{PgPool, Row};
+use sqlx::{PgPool, Postgres, Row, Transaction};
 use unmei_domain::commerce::enums::OrderStatus;
 use unmei_domain::commerce::events::DomainEvent;
 use crate::DbResultExt;
@@ -434,40 +434,17 @@ pub async fn create(pool: &PgPool, req: NewOrder) -> Result<CreatedOrder, Domain
        （`confirm/index.ts` 同日接上「先填出生时间」）。
        判据在 `sku.spec_json.needs_yongshen` 上，不写死商品号:
        苏合那一件下面三档只有一档是现配的（见 20260907002 那支迁移）。 */
-    let 要配的: Vec<String> = sqlx::query_scalar(
-        "SELECT s.id FROM sku s
-          WHERE s.id = ANY($1) AND COALESCE(s.spec_json->>'needs_yongshen','') = 'true'",
-    )
-    .bind(&lines.iter().map(|l| l.1.clone()).collect::<Vec<_>>())
-    .fetch_all(&mut *tx)
-    .await.db()?;
-    let 额外: Value = if 要配的.is_empty() {
-        json!({})
-    } else {
-        let 用神 = sqlx::query(
-            "SELECT n.id, ns.primary_yongshen, ns.secondary_yongshen
-               FROM app_user u
-               JOIN natal n ON n.id = u.active_natal_id
-               JOIN natal_summary ns ON ns.natal_id = n.id
-              WHERE u.id = $1",
-        )
-        .bind(&req.user_id)
-        .fetch_optional(&mut *tx)
-        .await.db()?;
-        let Some(row) = 用神 else {
+    let 额外: Value = match 配的是哪一样(
+        &mut tx, &req.user_id,
+        &lines.iter().map(|l| l.1.clone()).collect::<Vec<_>>(),
+    ).await? {
+        配法::不用配 => json!({}),
+        配法::就配这个(v) => v,
+        配法::还不知道你缺什么 => {
             return Err(DomainError::Validation(
                 "这一件是按你缺的那一样配的 —— 先把出生时间填了，才配得出来".into(),
-            ));
-        };
-        json!({
-            "yongshen": {
-                "natal_id": row.get::<String, _>("id"),
-                "primary": row.get::<String, _>("primary_yongshen"),
-                "secondary": row.get::<Option<String>, _>("secondary_yongshen"),
-                // 记下这一笔是照着哪几个 sku 配的 —— 一单里可能只有一行要配
-                "for_skus": 要配的,
-            }
-        })
+            ))
+        }
     };
 
     let (券们, discount) = crate::coupon::lock_for_order(
@@ -815,4 +792,76 @@ pub async fn expire_unpaid(pool: &PgPool) -> Result<u64, DomainError> {
     }
     tx.commit().await.db()?;
     Ok(res.rows_affected())
+}
+
+/// 这一单要照着什么配 —— 拿得到就返回记进 `order_meta.extra_json` 的那块。
+///
+/// 【「按你缺的那一样配」得真的问一遍你缺什么】（2026-09-07 三路验证 ·
+/// 准备花钱的那一路）。
+/// 玉坠（¥398，商品名就叫「配你缺的那一样」）、单配香（¥268）、
+/// 按月送（¥78/月，正文写着「按你缺的那一味配」）——三件都这么写，
+/// 而 `product.required_inputs` 全仓零读者、`order_line` / `order_meta`
+/// 没有任何相关列，`yongshen` 在这个文件里一次都没出现过。
+/// **下单流程从头到尾没问过买家缺什么，装箱的人也拿不到**：
+/// 花 ¥398 买「配我缺的那一样」，收到的只能是默认款。
+///
+/// 【服务端自己去取，不收客户端报上来的】。用神在 `natal_summary` 上，
+/// 跟着他此刻在用的那一份本命走 —— 让客户端报的话，它可以忘、
+/// 可以报错一个，而这一笔是要照着它装箱的。
+///
+/// 判据在 `sku.spec_json.needs_yongshen` 上，不写死商品号：
+/// 苏合那一件下面三档只有一档是现配的（见 20260907002 那支迁移）。
+///
+/// 【拿不到的时候不替谁拍板】（2026-09-07 晚·门禁抓到续费那条）。
+/// 这一支只回答「要不要配、配什么、拿没拿到」，
+/// 遇上「要配而拿不到」由调用方定怎么办 —— 两个调用方的答案不一样：
+/// 下单那一侧整单拒掉（人就在屏前面，填完再来）；
+/// 续费那一侧不能拒，钱还没扣、香也不能按默认款发，
+/// 它要做的是【这一期先不扣】并且让人知道为什么。
+pub(crate) enum 配法 {
+    /// 这一单里没有要配的东西
+    不用配,
+    /// 配得出来，这是要记下的那块
+    就配这个(Value),
+    /// 要配，而他还没填出生时间
+    还不知道你缺什么,
+}
+
+pub(crate) async fn 配的是哪一样(
+    tx: &mut Transaction<'_, Postgres>,
+    user_id: &str,
+    sku_ids: &[String],
+) -> Result<配法, DomainError> {
+    let 要配的: Vec<String> = sqlx::query_scalar(
+        "SELECT s.id FROM sku s
+          WHERE s.id = ANY($1) AND COALESCE(s.spec_json->>'needs_yongshen','') = 'true'",
+    )
+    .bind(sku_ids)
+    .fetch_all(&mut **tx)
+    .await.db()?;
+    if 要配的.is_empty() {
+        return Ok(配法::不用配);
+    }
+    let 用神 = sqlx::query(
+        "SELECT n.id, ns.primary_yongshen, ns.secondary_yongshen
+           FROM app_user u
+           JOIN natal n ON n.id = u.active_natal_id
+           JOIN natal_summary ns ON ns.natal_id = n.id
+          WHERE u.id = $1",
+    )
+    .bind(user_id)
+    .fetch_optional(&mut **tx)
+    .await.db()?;
+    let Some(row) = 用神 else {
+        return Ok(配法::还不知道你缺什么);
+    };
+    Ok(配法::就配这个(json!({
+        "yongshen": {
+            "natal_id": row.get::<String, _>("id"),
+            "primary": row.get::<String, _>("primary_yongshen"),
+            "secondary": row.get::<Option<String>, _>("secondary_yongshen"),
+            // 记下这一笔是照着哪几个 sku 配的 —— 一单里可能只有一行要配
+            "for_skus": 要配的,
+        }
+    })))
 }

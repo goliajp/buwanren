@@ -286,3 +286,115 @@ async fn 周期没走完的订阅不会被提前处理() {
     );
     assert_eq!(sub_status(&pool, &sub).await, "active");
 }
+
+// ═══════════════════ 「按你缺的那一味配」那一档 ═══════════════════
+
+/// 给这个人一份本命 + 命局简介，返回那一份的 id。
+/// （跟 `order_use_cases.rs` 里那一份是同一件事的两处夹具 ——
+///  夹具不共用是有意的：共用的话，一处改动会同时改掉两支的前提。）
+async fn 给他一份本命(pool: &sqlx::PgPool, user: &str) -> String {
+    let natal = common::uniq("natal");
+    sqlx::query(
+        "INSERT INTO natal(id, user_id, label, year, month, day, hour, minute, gender)
+         VALUES ($1,$2,'我',1998,3,5,14,30,'male')",
+    ).bind(&natal).bind(user).execute(pool).await.expect("插本命");
+    sqlx::query(
+        // `mingli_version` 是 NOT NULL —— 少了它报的是「插简介失败」，
+        // 跟被测的那件事没关系
+        "INSERT INTO natal_summary(natal_id, day_master, strength_level, strength_score,
+                                   primary_yongshen, primary_role, secondary_yongshen,
+                                   avoid_wuxing, pattern_name, friendly_hint, mingli_version)
+         VALUES ($1,'丁','偏弱',40,'金','印星','土','[]'::jsonb,'建禄格','该收的收','test')",
+    ).bind(&natal).execute(pool).await.expect("插简介");
+    sqlx::query("UPDATE app_user SET active_natal_id=$1 WHERE id=$2")
+        .bind(&natal).bind(user).execute(pool).await.expect("挂上");
+    natal
+}
+
+/// 把这一档的 sku 标成「要按用神配」。
+async fn 标成要配的(pool: &sqlx::PgPool, sub: &str) {
+    sqlx::query(
+        "UPDATE sku SET spec_json = spec_json || '{\"needs_yongshen\":true}'::jsonb
+          WHERE id = (SELECT p.sku_id FROM subscription s JOIN plan p ON p.id=s.plan_id
+                       WHERE s.id=$1)",
+    )
+    .bind(sub).execute(pool).await.expect("标 needs_yongshen");
+}
+
+async fn 这一份的失败码(pool: &sqlx::PgPool, sub: &str) -> String {
+    sqlx::query_scalar("SELECT last_failure_code FROM subscription WHERE id=$1")
+        .bind(sub).fetch_one(pool).await.expect("查失败码")
+}
+
+async fn 这一份续出几张单(pool: &sqlx::PgPool, sub: &str) -> i64 {
+    sqlx::query_scalar(
+        "SELECT count(*)::int8 FROM order_record
+          WHERE source_kind='subscription_renew'
+            AND source_ref_id IN (SELECT id FROM subscription_invoice WHERE subscription_id=$1)",
+    ).bind(sub).fetch_one(pool).await.expect("数续费单")
+}
+
+/// 【拿不到用神就这一期不扣钱】（2026-09-07）。
+///
+/// 下单那条路早上接上了用神，而续费**不经过 `order::create`** ——
+/// 它自己拼 order_record + order_line，于是第一盒记着照谁的盘配，
+/// 之后每一盒都不记：钱照扣，装箱的人照默认款发。
+/// 全量门禁在一轮真跑上抓到了那张单（`check-yongshen-recorded`）。
+///
+/// 收了钱按默认款发出去比不发更糟 —— 买家会以为这就是他买的东西。
+#[tokio::test]
+async fn 按用神配的那一档拿不到用神就不扣这一期的钱() {
+    let pool = db_or_skip!();
+    let sub = 到期而没有下次扣款时间(&pool, true, false).await;
+    标成要配的(&pool, &sub).await;   // 而这个用户没有本命
+
+    let 结果 = unmei_app::subscription::renew_due(&pool, &sub).await.expect("续费");
+    assert!(
+        matches!(结果, unmei_app::subscription::RenewOutcome::NeedsYongshen),
+        "该说「还不知道他缺什么」，实际 {结果:?}",
+    );
+    assert_eq!(这一份续出几张单(&pool, &sub).await, 0, "钱扣了 —— 而没人知道该配哪一味");
+    assert_eq!(
+        这一份的失败码(&pool, &sub).await, "need_yongshen",
+        "屏上那句「先把出生时间填了」靠这个码，它不写就没人说得出为什么",
+    );
+    assert_eq!(sub_status(&pool, &sub).await, "active", "这不是欠费，不该改状态");
+    assert!(
+        next_billing(&pool, &sub).await.is_some(),
+        "不留下次再问的时间 = 这一份从此没人看它一眼",
+    );
+}
+
+/// 填了生辰之后，下一轮真的续得动 —— 而且那一单记着照谁的盘配。
+#[tokio::test]
+async fn 填了生辰之后续费单上记着照谁的盘配() {
+    let pool = db_or_skip!();
+    let sub = 到期而没有下次扣款时间(&pool, true, false).await;
+    标成要配的(&pool, &sub).await;
+    let user: String = sqlx::query_scalar("SELECT user_id FROM subscription WHERE id=$1")
+        .bind(&sub).fetch_one(&pool).await.expect("查人");
+    let natal = 给他一份本命(&pool, &user).await;
+
+    let 结果 = unmei_app::subscription::renew_due(&pool, &sub).await.expect("续费");
+    assert!(
+        matches!(结果, unmei_app::subscription::RenewOutcome::Renewed { .. }),
+        "填了生辰还续不动，实际 {结果:?}",
+    );
+    let 记的: String = sqlx::query_scalar(
+        "SELECT COALESCE(om.extra_json->'yongshen'->>'primary','')
+           FROM order_record o JOIN order_meta om ON om.order_id=o.id
+          WHERE o.source_kind='subscription_renew'
+            AND o.source_ref_id IN (SELECT id FROM subscription_invoice WHERE subscription_id=$1)
+          ORDER BY o.created_at DESC LIMIT 1",
+    ).bind(&sub).fetch_one(&pool).await.expect("查续费单上的用神");
+    assert_eq!(记的, "金", "续费单上没记用神 —— 装箱的人还是不知道配哪一味");
+    let 用的盘: String = sqlx::query_scalar(
+        "SELECT COALESCE(om.extra_json->'yongshen'->>'natal_id','')
+           FROM order_record o JOIN order_meta om ON om.order_id=o.id
+          WHERE o.source_kind='subscription_renew'
+            AND o.source_ref_id IN (SELECT id FROM subscription_invoice WHERE subscription_id=$1)
+          ORDER BY o.created_at DESC LIMIT 1",
+    ).bind(&sub).fetch_one(&pool).await.expect("查盘");
+    assert_eq!(用的盘, natal, "记的不是他此刻在用的那一份盘");
+    assert_eq!(这一份的失败码(&pool, &sub).await, "", "续成了还挂着上一次的原因");
+}
