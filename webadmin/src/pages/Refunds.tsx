@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { 从网址读筛选 } from '../lib/urlfilter';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApiMutation } from '../lib/feedback';
 import { commerce } from '../lib/api';
@@ -54,8 +55,14 @@ export default function Refunds() {
   /* 【默认落在要做的事上】。这一页的活儿是「等你批」，
      而上一版默认按时间列出全部 1838 条 —— 424 条待批的埋在里面，
      第一屏一条都看不见。要看全部，把状态改成「全部」就是了。 */
-  const [filt, setFilt] = useState<Record<string, any>>({ status: 'requested', size: 50, page: 0 });
-  const [draft, setDraft] = useState<Record<string, any>>({ status: 'requested' });
+  /* 【筛选条件从网址上读】。看板那两条待办（「等着批」与「批了发不出去」）
+     各指一批，而这一页原先不读 `location.search` —— 于是两条都落在
+     同一个「待批」默认视图上，点第二条什么都没变。
+     这正是 `从网址读筛选` 当初写出来要挡的那件事，只是这一页漏了。 */
+  const [filt, setFilt] = useState<Record<string, any>>(
+    从网址读筛选({ status: 'requested', size: 50, page: 0 }));
+  const [draft, setDraft] = useState<Record<string, any>>(
+    从网址读筛选({ status: 'requested' }));
 
   const list = useQuery({
     queryKey: ['refunds', filt],
