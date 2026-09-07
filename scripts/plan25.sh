@@ -686,8 +686,25 @@ do_seed() {
 
   # ── U5 香港那位：贵的一单（触发风控）+ 包裹出状况 ────────────
   read -r T5 I5 <<<"$(make_user u5 zh_hant)"
+  # 【那一格现在收不了钱，先把这件事钉住】（2026-09-07）。
+  # 繁中按 TWD 标价在卖，而全仓只有微信一个适配器、它只收 CNY ——
+  # 在把桩换成真渠道之前，那一格的每一单都是「付不出去而系统说已付」，
+  # 也就是白送。现在它回一句说得清的 400，屏上也在填地址之前就说。
+  # 台账在 scripts/region-payable-gaps.json。
+  local o5tw
+  o5tw=$(must_order "$T5" '{"lines":[{"sku_id":"sku-oma-ayun","qty":1}],"region":"zh_hant","contact":{"name":"P25·香港那位","phone":"85200000005"}}' "U5 那一单繁中价的") || return 1
+  local tw_code
+  tw_code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$API/v1/orders/$o5tw/pay" \
+    -H "authorization: Bearer $T5" -H 'content-type: application/json' \
+    -H "idempotency-key: p25-tw-$RANDOM$RANDOM" -d '{"channel":"wechat_jsapi","openid":"p25_u5"}')
+  want "繁中那一格付不了款，而且说得清楚" 400 "$tw_code"
+  want "付不了的那一单不会留下一笔待付" 0 "$(psql1 "SELECT count(*) FROM payment WHERE order_id='$o5tw'")"
+
+  # 请阿云那一单落在 cn 区（他本人仍然是繁中那一格的人）——
+  # 理由跟 U4 那只盒子一样：这一格能不能收钱是另一件事，
+  # 而这里要的是「有一位住进来了」。
   local o5
-  o5=$(must_order "$T5" '{"lines":[{"sku_id":"sku-oma-ayun","qty":1}],"region":"zh_hant","contact":{"name":"P25·香港那位","phone":"85200000005"},"shipping_address":{"province":"香港","city":"香港","district":"中西区","detail":"某处 5 号","name":"P25","phone":"85200000005"}}' "U5 请阿云回村的那一单") || return 1
+  o5=$(must_order "$T5" '{"lines":[{"sku_id":"sku-oma-ayun","qty":1}],"region":"cn","contact":{"name":"P25·香港那位","phone":"85200000005"}}' "U5 请阿云回村的那一单") || return 1
   pay_it "$T5" "$o5" p25_u5 || return 1
   wait_paid "$o5" || return 1
   # 御守不寄东西（付款即入住），所以包裹那一条另买一件真会寄的
@@ -758,6 +775,15 @@ do_admin_day() {  # do_admin_day <阿超的 token> <U1..U5 的 id>
                 WHERE o.user_id='$5' AND r.status='requested' LIMIT 1")
   if [ -n "$rid" ]; then
     want "批一笔退款" 200 "$(admin_call POST "$A" "/admin/commerce/refunds/$rid/approve" '{}')"
+    # 【批下来 ≠ 钱退回去了】（2026-09-07）。批完只是「我们同意退」——
+    # 真发给渠道那一步是 I/O，由 payment_sweep 每三十秒发一次，
+    # 渠道说退成了账才动。所以这儿要等它一轮。
+    local k
+    for k in $(seq 1 50); do
+      [ "$(psql1 "SELECT status FROM refund WHERE id='${rid}'")" = success ] && break
+      sleep 2
+    done
+    want "退款真的发给了渠道" success "$(psql1 "SELECT status FROM refund WHERE id='${rid}'")"
     want_some "用户那一侧退款到账了" "$(psql1 "SELECT COALESCE(amount_refunded_minor,0) FROM order_record
                                               WHERE id=(SELECT order_id FROM refund WHERE id='$rid')")"
   else
@@ -1028,9 +1054,11 @@ do_check() {
   echo
   echo "══ U5 香港那位 · 别的区 ══"
   want "他在繁中那一格"      zh_hant "$(psql1 "SELECT region FROM app_user WHERE id='$I5'")"
-  # 【要说清是哪一单】。U5 有两单:御守记在 zh_hant、验收那只盒子记在 p25 区
-  # （验收用的东西不混进真目录）。`LIMIT 1` 取到哪一张全看行序。
-  want "他买御守那一单记在繁中那一格" zh_hant "$(psql1 "SELECT o.region FROM order_record o JOIN order_line ol ON ol.order_id=o.id WHERE o.user_id='$I5' AND ol.sku_id='sku-oma-ayun' LIMIT 1")"
+  # 【他确实下得出繁中那一格的单】—— 只是付不了（那一格还没有收款渠道，
+  # 见 scripts/region-payable-gaps.json）。真住进来那一单落在 cn，
+  # 理由跟 U4 那只盒子一样:这里要的是「有一位住进来了」。
+  want_some "他下得出繁中那一格的单" "$(psql1 "SELECT count(*) FROM order_record WHERE user_id='$I5' AND region='zh_hant'")"
+  want "繁中那一单没收着钱" 0 "$(psql1 "SELECT COALESCE(SUM(amount_paid_minor),0) FROM order_record WHERE user_id='$I5' AND region='zh_hant'")"
   want "他买盒子那一单记在验收区" p25 "$(psql1 "SELECT o.region FROM order_record o JOIN order_line ol ON ol.order_id=o.id WHERE o.user_id='$I5' AND ol.sku_id='p25-sku-box' LIMIT 1")"
   want_some "他的包裹出了状况" "$(psql1 "SELECT count(*) FROM shipment s JOIN order_record o ON o.id=s.order_id WHERE o.user_id='$I5' AND s.status='exception'")"
 

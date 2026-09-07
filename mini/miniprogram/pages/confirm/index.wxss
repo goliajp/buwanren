@@ -188,3 +188,16 @@ button.btn.btn-wait { background: #EADFCD; color: #7A6A52; box-shadow: none; }
    两道线四个外边距，收到 16rpx 省下 16px —— 而协议那一行要 5px。
    收边距不动任何一个触点的高度，这是这一屏上最便宜的那 16px。 */
 .hr { margin: 16rpx 0; }
+
+/* 【这一格收不了钱】（2026-09-07）。它是「别按下去」的理由，
+   所以摆在按钮正上方，用告警那一档的颜色 —— 跟「差生辰」那种
+   「按下去就去做那一步」不一样：这一件他做不了，是我们还没接上。 */
+.cant-pay {
+  font-size: 25rpx;
+  line-height: 1.6;
+  color: var(--danger);
+  background: var(--paper-inset);
+  border-radius: 12rpx;
+  padding: 16rpx 20rpx;
+  margin-bottom: 16rpx;
+}

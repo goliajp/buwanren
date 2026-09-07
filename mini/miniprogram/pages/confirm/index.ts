@@ -9,6 +9,7 @@
  */
 
 import { commerceApi } from '../../services/commerce'
+import { mineApi } from '../../services/mine'
 import { natalApi } from '../../services/natal'
 import { 脸 } from '../../utils/face'
 import type { ProductDetail } from '../../types/commerce'
@@ -18,6 +19,8 @@ import { 一句, 照原文 } from '../../utils/say'
 interface Contact { name?: string; phone?: string; address?: string }
 
 interface IData {
+  /** 这一格收不收得了钱（ 的 can_pay）。收不了就别让他按 */
+  收不了钱: boolean
   id: string
   /** 他在上一屏挑的那一档。空 = 上一屏没让他挑（只有一档的商品） */
   wantSku: string
@@ -118,6 +121,8 @@ function 付完会怎样(kind: string, 订阅: boolean): string {
 
 Page<IData, WechatMiniprogram.IAnyObject>({
   data: {
+    /** 这一格收不收得了钱（`/v1/config` 的 can_pay）。收不了就别让他按 */
+    收不了钱: false,
     id: '', wantSku: '', loading: true, err: '', p: null,
     skuId: '', unit: 0, cur: 'CNY', unitText: '', totalText: '', face: '', 脸样: '', 住进来: false,
     /* 券码。空着就是没用券 —— 不预填、不记住上一次:
@@ -153,6 +158,18 @@ Page<IData, WechatMiniprogram.IAnyObject>({
   onShow() {
     this.load()
     this.取我的券()
+    this.问收不收得了钱()
+  },
+
+  /* 【这一格收不收得了钱】（2026-09-07）。繁中那一格按 TWD 标价在卖，
+     而全仓只有微信一个适配器、它只收 CNY —— 那一格的每一单都付不出去。
+     后端在发起支付时会说清楚，可那已经是填完地址之后了。
+     取不到就当收得了:一句多余的告警比拦住一单真买卖便宜。 */
+  问收不收得了钱() {
+    mineApi.config().then(
+      (cfg) => this.setData({ 收不了钱: cfg.can_pay === false }),
+      () => {},
+    )
   },
 
   onAuthReady() {

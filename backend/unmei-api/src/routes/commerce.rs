@@ -605,6 +605,27 @@ async fn pay_my_order_inner(
     let adapter = st.payment_adapters.pick(&b.channel)
         .ok_or_else(|| ApiError::bad(format!("unsupported channel {}", b.channel)))?;
 
+    /* 【收不了这个币种，就别先建一笔支付】（2026-09-07）。
+       在这之前次序是反的:先落库一笔 pending，再拿去调渠道 —— 渠道说
+       「这个币种我不收」（TWD / JPY 只有 CNY 的微信一个适配器），
+       接口回 500，而库里留下一笔谁也结不掉的 pending。
+
+       从前没露馅，是因为查单那个桩无条件说「已支付」:
+       那笔付不出去的钱在九十秒内被结成已付，货照发。
+       也就是说 **繁中那一格的每一单都是白送的**，而屏上一切正常。
+
+       现在先问一句「收不收得了」。收不了就当场说清楚 ——
+       这是产品要答的一个问题（那一格还没有能收钱的渠道），
+       而不是一个 500。 */
+    let 这一单的币种: String = sqlx::query_scalar(
+        "SELECT currency FROM order_record WHERE id = $1",
+    ).bind(id).fetch_one(&st.db).await.map_err(map_db)?;
+    if !adapter.supported_currencies().contains(&这一单的币种.as_str()) {
+        return Err(ApiError(AppError::BadRequest(format!(
+            "这一格现在还收不了 {这一单的币种} —— 付款方式还没接上，这一单先付不了"
+        ))));
+    }
+
     let pending = app_payment::start(
         &st.db, id, c_sub, &b.channel, b.openid.as_deref(),
     ).await?;

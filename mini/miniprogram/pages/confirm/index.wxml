@@ -223,7 +223,14 @@
            不禁用让人猜为什么按不动，按下去就去做那一步。
            这一条排在地址前面 —— 没有生辰这一单根本建不出来
            （`order.rs` 整单拒），先解决那个。 -->
-      <button class="btn" bindtap="go" disabled="{{buying}}">
+      <!-- 【收不了钱就先说】（2026-09-07）。繁中那一格按 TWD 标价在卖，
+           而全仓只有微信一个适配器、它只收 CNY —— 那一格的每一单都付不出去。
+           后端在发起支付时会说清楚，可那已经是填完地址之后了；
+           这一句要赶在他动手之前。 -->
+      <view class="cant-pay" wx:if="{{收不了钱}}">
+        这一格现在还付不了款 —— 付款方式还没接上，先别下这一单
+      </view>
+      <button class="btn" bindtap="go" disabled="{{buying || 收不了钱}}">
         <block wx:if="{{buying}}">建单中…</block>
         <block wx:elif="{{要配 && !缺}}">先填出生时间</block>
         <block wx:elif="{{!要寄 || 有地址}}">去付</block>
