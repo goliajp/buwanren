@@ -123,6 +123,8 @@ FILES=(
   mini/miniprogram/pages/ask/index.wxss
   rooms/src/rooms/ayun.js
   mini/miniprogram/pages/order/index.wxss
+  # 2026-09-07 晚：接真渠道那一批碰到的文件
+  backend/unmei-app/src/refund.rs
 )
 # ── 开跑之前两道自保 ────────────────────────────────────────────
 # 这支脚本【会真改源码】，所以两件事必须先确认：
@@ -613,6 +615,11 @@ mutate "某一页又抄了一份金额格式" check-money-fmt \
 # 会变成「改一个没人读的字符串」，而门禁照旧绿着。
 mutate "前后端对整数金额说法分家" check-money-fmt \
   "edit('backend/unmei-domain/src/commerce/money.rs', 'if self.amount_minor % pow == 0 {', 'if false {')"
+
+# 【退款那一条守的是「钱真的发给了渠道」】。`approve` 原先自己编一个
+# `MOCK_` 号就当退成了 —— 买家看到「已退款」，钱一分没回。
+mutate "退款又回去自己编渠道号" check-promises \
+  "edit('backend/unmei-app/src/refund.rs', \"processed_at=NOW(), channel_refund_id=\\\$1\", \"processed_at=NOW(), channel_refund_id='MOCK_' || id\")"
 
 echo
 echo "── 台账上那十六支「纯源码，写一条变异就能划掉」（2026-09-07 一次划完）──"

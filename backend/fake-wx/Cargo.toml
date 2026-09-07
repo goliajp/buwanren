@@ -1,0 +1,22 @@
+[package]
+name = "fake-wx"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "本机用的假微信 —— 照 v3 协议说话，好让我方那一侧的每一个字节都真跑一遍"
+
+[dependencies]
+tokio.workspace = true
+axum.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+base64.workspace = true
+rand.workspace = true
+sha2.workspace = true
+aes-gcm.workspace = true
+rsa = { workspace = true }
+reqwest.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+rcgen = "0.13"

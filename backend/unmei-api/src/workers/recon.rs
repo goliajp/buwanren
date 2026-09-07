@@ -46,23 +46,54 @@ fn 过了出账时间() -> bool {
     shanghai.hour() >= 2
 }
 
+/// 拉某一天的账并入库。**后台那颗「现在拉一次」按的就是它**。
+///
+/// 【为什么要能手动拉】。这一整段原先只在凌晨两点那一小时跑 ——
+/// 也就是说：拉账单、解 csv、对账入库这条链，在本机一天只有一次机会验，
+/// 而那一次没人看着。昨天的账没拉下来时，运营也只能等下一个凌晨。
+pub async fn 拉一天(st: &AppState, 那天: chrono::NaiveDate) -> anyhow::Result<Vec<String>> {
+    let channels = [
+        ("wechat_jsapi", st.payment_adapters.wechat_jsapi.clone()),
+        ("wechat_mp",    st.payment_adapters.wechat_mp.clone()),
+    ];
+    let mut 说 = Vec::new();
+    for (channel, adapter) in channels {
+        match adapter.pull_settlement(那天, "CNY").await {
+            Ok(rows) => {
+                let rows: Vec<recon::SettlementRow> = rows.into_iter().map(|r| recon::SettlementRow {
+                    channel_txn_id: r.channel_txn_id,
+                    amount_minor: r.amount_minor,
+                    status: r.status,
+                }).collect();
+                let n = rows.len();
+                match recon::ingest_settlement(&st.db, channel, 那天, "CNY", &rows).await {
+                    Ok(out) => 说.push(format!(
+                        "{channel}：{n} 笔 · 对上 {} · 金额不符 {} · 内部缺单 {} → {}",
+                        out.matched, out.amount_mismatch, out.missing_in_internal, out.status)),
+                    Err(e) => 说.push(format!("{channel}：入库失败 {e}")),
+                }
+            }
+            Err(e) => 说.push(format!("{channel}：拉不下来 {e}")),
+        }
+    }
+    Ok(说)
+}
+
 async fn run_recon(st: &AppState) -> anyhow::Result<()> {
     // 同 `routes/village.rs` 的 `today_shanghai()`：写死东八区，
     // 六 cell 里只有 cn / zh_hant 是 +8，而 `RegionMeta.tz` 没人读。
     // 那边的注释写着完整来龙去脉；改的时候两处一起。
     let 今天 = (Utc::now() + ChronoDuration::hours(8)).date_naive();
 
-    let channels = [
-        ("wechat_jsapi", st.payment_adapters.wechat_jsapi.clone()),
-        ("wechat_mp",    st.payment_adapters.wechat_mp.clone()),
-    ];
+    // 渠道名单在 `拉一天` 里 —— 那儿才是真去拉的地方
+    let channels = ["wechat_jsapi", "wechat_mp"];
 
     /* 【欠哪几天由用例层说】。这里只管「什么时候拉、跟谁拉」——
        「还欠哪几天」是业务判断，而 worker 里的 SQL 没有任何测试够得着
        （这个仓库对此有明写的规矩，见模块注释）。 */
     const 回头看几天: i64 = 7;
 
-    for (channel, adapter) in channels {
+    for channel in channels {
         let 欠着 = match recon::days_needing_pull(&st.db, channel, 今天, 回头看几天).await {
             Ok(v) => v,
             // 问不出来就照旧只拉昨天：宁可少补几天，也不要因为读不到而整晚不对账。
@@ -80,34 +111,12 @@ async fn run_recon(st: &AppState) -> anyhow::Result<()> {
         }
 
         for 那天 in 欠着 {
-            match adapter.pull_settlement(那天, "CNY").await {
-                Ok(rows) => {
-                    let rows: Vec<recon::SettlementRow> = rows
-                        .into_iter()
-                        .map(|r| recon::SettlementRow {
-                            channel_txn_id: r.channel_txn_id,
-                            amount_minor: r.amount_minor,
-                            status: r.status,
-                        })
-                        .collect();
-                    // 一个渠道对不上，不该让另一个渠道整晚不对账 ——
-                    // 上面 `pull_settlement` 的失败本来就是各算各的，这条原先用 `?`
-                    // 直接把整轮带走了，两种失败模式不一致。
-                    let out = match recon::ingest_settlement(&st.db, channel, 那天, "CNY", &rows).await {
-                        Ok(out) => out,
-                        Err(e) => {
-                            tracing::warn!("recon · {channel} {那天} 入库失败：{e}");
-                            continue;
-                        }
-                    };
-                    if out.skipped { continue; }
-                    tracing::info!(
-                        "recon · {channel} {那天}: {} 笔 · 对上 {} · 金额不符 {} · 内部缺单 {} -> {}",
-                        out.total_count, out.matched, out.amount_mismatch,
-                        out.missing_in_internal, out.status
-                    );
-                }
-                Err(e) => tracing::warn!("pull_settlement {channel} {那天}: {e}"),
+            /* 拉与入库都在 `拉一天` 里 —— 它跟这一段原先是同一份代码的两抄。
+               两抄的下场是可预见的：一处改了另一处没改，而对账这件事
+               出错的样子是「数对不上」，没人分得清是渠道的问题还是我们的。 */
+            match 拉一天(st, 那天).await {
+                Ok(说) => for 一句 in 说 { tracing::info!("recon · {那天} {一句}") },
+                Err(e) => tracing::warn!("recon · {那天} 整轮失败：{e}"),
             }
         }
     }

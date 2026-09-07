@@ -38,7 +38,8 @@ impl WxSdk {
             if let Ok(s) = String::from_utf8(bytes) { return Ok(s); }
         }
         let url = format!(
-            "https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid={appid}&secret={secret}"
+            "{base}/cgi-bin/token?grant_type=client_credential&appid={appid}&secret={secret}",
+            base = self.cfg.api_base,
         );
         let resp: TokenResp = self.http.get(&url).send().await?.json().await?;
         if let Some(t) = resp.access_token {

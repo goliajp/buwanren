@@ -433,6 +433,51 @@
           "说": "「今天还没问」点下去没有去处 —— 说了要紧的事却不给做那件事的办法"
         }
       ]
+    },
+    {
+      "id": "退款是真的退回去，不是屏上说一声",
+      "屏上": [
+        "mini/miniprogram/pages/policy/index.ts",
+        "实物在寄出前可以在「我的 › 我买过的」里申请退款"
+      ],
+      "判据": [
+        {
+          "扫": [
+            "backend/unmei-app/src/refund.rs"
+          ],
+          "不许有": "'MOCK_'",
+          "说": "`approve` 又在自己编一个渠道退款号 —— 那意味着钱没发给渠道，而买家在屏上看到「已退款」"
+        },
+        {
+          "源": "backend/unmei-app/src/refund.rs",
+          "要有": "pub async fn 批了还没发的",
+          "说": "没有「批了还没发」这一档 —— 那就是批下来就当退成了"
+        },
+        {
+          "源": "backend/unmei-api/src/workers/payment_sweep.rs",
+          "要有": "adapter.refund(",
+          "说": "没有一处真去调渠道退款 —— 钱不会自己回去"
+        }
+      ]
+    },
+    {
+      "id": "我们不等了就去渠道撤单",
+      "屏上": [
+        "mini/miniprogram/pages/order/index.wxml",
+        "不要这一单了"
+      ],
+      "判据": [
+        {
+          "源": "backend/unmei-api/src/workers/payment_sweep.rs",
+          "要有": "adapter.cancel_payment(",
+          "说": "取消之后没有人去渠道撤单 —— 渠道那边那一单还开着，用户照样付得出去"
+        },
+        {
+          "源": "backend/unmei-app/src/payment.rs",
+          "要有": "pub async fn 该去渠道撤的",
+          "说": "没有「该去撤的」这份名单 —— 撤单那一步无从谈起"
+        }
+      ]
     }
   ]
 }

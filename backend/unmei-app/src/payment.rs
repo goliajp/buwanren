@@ -559,6 +559,40 @@ pub async fn to_ask_channel_about(pool: &PgPool) -> Result<Vec<(String, String)>
     Ok(rows)
 }
 
+/// 该去渠道撤单的那几笔。
+///
+/// 【在这之前没有人去撤】。`cancel_in_flight` 把在飞的支付转成 `cancelling`、
+/// 换支付方式时旧那一笔被顶成 `expired` —— 两处都只动我们自己这一侧，
+/// 而**渠道那边那一单还开着，用户照样付得出去**。
+/// 那笔钱回来时我们收（`apply_succeeded` 认这两个状态），
+/// 但更该做的是一开始就别让它付得出去 —— 那是资金台账里
+/// 「真要收干净得做什么」写的那一条。
+///
+/// 判据是【窗口还没关】：过了 `expires_at` 渠道自己会关，再去撤是白撤。
+pub async fn 该去渠道撤的(pool: &PgPool, limit: i64) -> Result<Vec<(String, String)>, DomainError> {
+    let rows: Vec<(String, String)> = sqlx::query_as(
+        "SELECT id, channel FROM payment
+          WHERE status IN ('cancelling','expired')
+            AND channel_closed_at IS NULL
+            AND expires_at > NOW()
+          ORDER BY updated_at ASC
+          LIMIT $1",
+    )
+    .bind(limit)
+    .fetch_all(pool)
+    .await.db()?;
+    Ok(rows)
+}
+
+/// 渠道那边撤掉了。记下来，别每三十秒再撤一次。
+pub async fn 渠道撤了(pool: &PgPool, payment_id: &str) -> Result<(), DomainError> {
+    sqlx::query("UPDATE payment SET channel_closed_at = NOW() WHERE id = $1")
+        .bind(payment_id)
+        .execute(pool)
+        .await.db()?;
+    Ok(())
+}
+
 /// 到点还没结算的，批量置为过期。返回过期了几笔。
 ///
 /// 这段 SQL 原来长在 `unmei-api/src/workers/payment_sweep.rs` 里 —— 那是

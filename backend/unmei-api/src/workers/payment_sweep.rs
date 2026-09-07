@@ -30,6 +30,12 @@ pub async fn run(state: AppState) {
         if let Err(e) = expire_stale(&state).await {
             tracing::warn!("payment_query_sweeper · 过期清扫那一段失败：{e}");
         }
+        if let Err(e) = 把批了的退款发给渠道(&state).await {
+            tracing::warn!("payment_query_sweeper · 发退款那一段失败：{e}");
+        }
+        if let Err(e) = 去渠道撤单(&state).await {
+            tracing::warn!("payment_query_sweeper · 撤单那一段失败：{e}");
+        }
     }
 }
 
@@ -156,6 +162,85 @@ async fn apply_event(st: &AppState, _channel: &str, ev: WebhookEvent) -> anyhow:
         // （`DisputeOpened`）和认不出的事件（`Unknown`），而丢掉它们
         // 跟「渠道什么都没说」长得一模一样。
         other => tracing::warn!(event = ?other, "轮询到的事件没人处理"),
+    }
+    Ok(())
+}
+
+/// 【批了的退款要真的发给渠道】（2026-09-07）。
+///
+/// 在这之前 `refund::approve` 一步到位:`status='success'`、
+/// `channel_refund_id = 'MOCK_' || id`，而**渠道那一侧一个字都没收到**。
+/// 买家在屏上看到「已退款」，钱一分没回 —— 今天修的另外两个洞是
+/// 「钱在渠道里而系统说没有」，这一处是它的镜像，
+/// 而且面向的是已经不高兴的那个人。
+///
+/// 【为什么是扫描，不是挂在 approve 后面】。跟 `refund_orphan_money`
+/// 同一个理由:进程死在「批了、还没发」之间时，没有第二次机会；
+/// 而扫描跑几遍是同一个结果。后台按下「批」那一刻的即时性由这里的
+/// 三十秒兜住 —— 要更快就把这一支的间隔调小，而不是把 I/O 塞进事务。
+async fn 把批了的退款发给渠道(st: &AppState) -> anyhow::Result<()> {
+    let 待发 = unmei_app::refund::批了还没发的(&st.db, 20).await?;
+    for r in 待发 {
+        let Some(adapter) = st.payment_adapters.pick(&r.channel) else {
+            // 认不出渠道就别乱发。留在 approved 上，下一轮再看 ——
+            // 而「一直发不出去」这件事要有人知道，所以每一轮都 warn
+            tracing::warn!(refund_id = %r.refund_id, channel = %r.channel,
+                           "这笔退款的渠道认不出来 —— 发不出去");
+            continue;
+        };
+        let 参数 = unmei_domain::commerce::adapters::RefundParam {
+            refund_id: r.refund_id.clone(),
+            payment_id: r.payment_id.clone(),
+            channel_txn_id: String::new(),
+            amount_minor: r.amount_minor,
+            total_amount_minor: r.payment_total_minor,
+            currency: "CNY".into(),
+            reason: "用户申请退款".into(),
+            notify_url: std::env::var("WX_PAY_NOTIFY_URL").unwrap_or_default(),
+        };
+        match adapter.refund(参数).await {
+            Ok(resp) => {
+                unmei_app::refund::发给渠道了(&st.db, &r.refund_id, &resp.channel_refund_id).await?;
+                /* 【渠道当场就说退成了的，别等回调】。微信的退款接口在
+                   余额充足时同步回 `SUCCESS` —— 等一条可能不来的回调，
+                   会让这笔钱在屏上一直停在「退款中」。
+                   回调真来了也无妨:`apply_succeeded` 幂等。 */
+                if resp.status_hint == "success" {
+                    unmei_app::refund::apply_succeeded(&st.db, &resp.channel_refund_id).await?;
+                }
+                tracing::info!(refund_id = %r.refund_id, channel_refund_id = %resp.channel_refund_id,
+                               "退款发给渠道了");
+            }
+            Err(e) => {
+                /* 渠道不收。**不是终态** —— 状态机里 `Failed => [Approved]`，
+                   人可以在后台再批一次，而屏上要说得出为什么。 */
+                unmei_app::refund::渠道不收(&st.db, &r.refund_id, "channel_rejected", &e.to_string()).await?;
+                tracing::warn!(refund_id = %r.refund_id, "渠道不收这笔退款：{e}");
+            }
+        }
+    }
+    Ok(())
+}
+
+/// 【我们不等了，也要告诉渠道一声】（2026-09-07）。
+///
+/// `cancel_in_flight` 把在飞的支付转成 `cancelling`、换支付方式时旧那一笔
+/// 被顶成 `expired` —— 两处都只动我们自己这一侧，而渠道那边那一单还开着，
+/// **用户照样付得出去**。那笔钱回来时我们收（`apply_succeeded` 认这两个
+/// 状态），但更该做的是一开始就别让它付得出去。
+///
+/// 撤不掉不是灾难:`channel_closed_at` 不写，下一轮再来；窗口一过就不再试
+/// （那时渠道自己会关，再撤是白撤）。
+async fn 去渠道撤单(st: &AppState) -> anyhow::Result<()> {
+    for (pid, channel) in app_payment::该去渠道撤的(&st.db, 20).await? {
+        let Some(adapter) = st.payment_adapters.pick(&channel) else { continue };
+        match adapter.cancel_payment(&pid).await {
+            Ok(()) => {
+                app_payment::渠道撤了(&st.db, &pid).await?;
+                tracing::info!(payment_id = %pid, "去渠道撤了这一单");
+            }
+            Err(e) => tracing::warn!(payment_id = %pid, "渠道撤单没成：{e}"),
+        }
     }
     Ok(())
 }

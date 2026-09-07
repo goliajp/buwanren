@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["unmei-domain", "unmei-wx", "unmei-carrier", "unmei-app", "unmei-api", "unmei-admin-api"]
+members = ["unmei-domain", "unmei-wx", "unmei-carrier", "unmei-app", "unmei-api", "unmei-admin-api", "fake-wx"]
 
 [workspace.package]
 version = "0.2.0"

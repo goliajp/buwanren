@@ -25,3 +25,4 @@ rsa = { workspace = true }
 unmei-domain.workspace = true
 async-trait = "0.1"
 http = "1"
+x509-cert = { version = "0.2", default-features = false, features = ["pem"] }
