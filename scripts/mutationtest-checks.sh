@@ -631,9 +631,14 @@ mutate "前后端对整数金额说法分家" check-money-fmt \
 # 双引号 —— 两层转义之后交给 `edit()` 的是带反斜杠的 `\$1`，源码里没有
 # 这个东西，于是它报「变异没植进去」。我在辅助脚本里验过这条变异，
 # 拿的是裸字符串 —— **经过 shell 那一层之后就不是同一个字符串了**。
-# 换成同一句 SQL 里不含 `$` 的那一段，绕开整件事。
+# 换成同一句 SQL 里不含 `$` 的那一段（锚点在 `$1` 前面收住），绕开整件事。
+#
+# 【而且第二版还错过一次】：锚点换对了，但改出来的东西不违反
+# check-promises 盯的任何一条（它盯的是「refund.rs 里不许出现 MOCK_」），
+# 于是那条变异报绿 —— **一条不触发判据的变异等于没写**。
+# 现在替换的内容真把 `'MOCK_'` 塞回去，也就是把当初那个洞种回去。
 mutate "退款又回去自己编渠道号" check-promises \
-  "edit('backend/unmei-app/src/refund.rs', \"status='processing', processed_at=NOW()\", \"status='success', processed_at=NOW()\")"
+  "edit('backend/unmei-app/src/refund.rs', \"processed_at=NOW(), channel_refund_id=\", \"processed_at=NOW(), channel_refund_id='MOCK_' || id, x=\")"
 
 echo
 echo "── 台账上那十六支「纯源码，写一条变异就能划掉」（2026-09-07 一次划完）──"
