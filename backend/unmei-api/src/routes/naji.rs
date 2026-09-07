@@ -9,7 +9,8 @@ use axum::{routing::{get, post}, Router, Json, extract::{State, Path}};
 use chrono::{Datelike, Timelike, Local, DateTime, Utc};
 use sqlx::Row;
 use uuid::Uuid;
-use unmei_domain::{NajiResult, NajiSpinReq, QuoteOut};
+use unmei_app::badge as app_badge;
+use unmei_domain::{NajiResult, NajiSpinReq, QuoteOut, 拿到的徽章};
 
 use crate::state::AppState;
 use crate::auth::{AuthedUser, ApiError};
@@ -59,8 +60,23 @@ async fn spin(
         } else { (None, vec![]) }
     } else { (None, vec![]) };
 
-    // ─── 3. seed: 基于用户 + 当日(每天同用户结果稳定,新天换)
-    let seed = make_seed(&c.sub, year, month, day, hour);
+    /* ─── 3. seed: 用户 + 当日 + **问的那件事**
+       【问题必须进种子】（2026-09-02 第四轮评审 · 产品完整性）。
+       原先只有「谁 + 哪一天 + 哪一小时」，于是同一小时里问
+       「我该结婚吗」「明天会下雨吗」「这只股票能买吗」，
+       返回的是【逐字相同】的一签 —— 而这个产品卖的正是「替你看一件事」。
+       起卦没有日限，所以用户问第二件事就看得见，不需要任何特殊条件。
+
+       放进去之后两头都成立:
+       · 同一件事同一天再问，还是同一句 —— 不能反复摇到满意为止
+       · 不同的事给不同的答案 —— 因为那本来就是两件事
+       没写问题的（直接摇一摇）走空串，行为跟以前一样。 */
+    let question_clean = req.question.as_deref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(str::to_string);
+    let seed = make_seed(&c.sub, year, month, day, hour,
+                         question_clean.as_deref().unwrap_or(""));
 
     // ─── 4. 真奇门时盘(用现有 mingli /api/cast → qimen 叶取 time_ganzhi)
     //         算力虽不暴露,但能让 record.t_chart 留真盘审计
@@ -85,12 +101,37 @@ async fn spin(
     let t_chart_val: Option<serde_json::Value> = if t_chart_json.is_null() { None } else { Some(t_chart_json.clone()) };
     let rec_id = rec.as_ref().map(|r| r.id.clone());
     let signed_seed = seed as i64;
-    // 清洗 question · trim + 空串归 None
-    let question_clean = req.question.as_deref()
-        .map(|s| s.trim())
-        .filter(|s| !s.is_empty())
-        .map(str::to_string);
 
+    /* 【同一小时同一件事，是同一签 —— 不是新的一签】
+       （2026-09-06 三路验证 · 第一次打开的人）。
+       种子 = 谁 + 哪一天哪一小时 + 问的那件事。也就是说同一小时里
+       不写问题连摇五次，五次逐字相同 —— 那是**设定**（上面那段注释写着
+       「不能反复摇到满意为止」），而屏上照旧转三秒、照旧震一下，
+       库里也照旧多五行。实测:同一人同一小时五条记录里四条完全相同。
+       人读到的是「我又算了一次，答案一模一样」——「这玩意儿是不是坏了」。
+
+       所以同一签就返回同一条记录:不新建行，并把「这是刚才那一签」
+       告诉客户端，让它说一句而不是假装刚算出来。
+       判据用 `seed` —— 它本来就是「谁 + 什么时候 + 问什么」的全部。 */
+    let 刚才那一条: Option<String> = sqlx::query_scalar(
+        "SELECT id FROM naji_record
+          WHERE user_id=$1 AND seed=$2
+            AND asked_year=$3 AND asked_month=$4 AND asked_day=$5 AND asked_hour=$6
+          ORDER BY asked_at DESC LIMIT 1",
+    )
+    .bind(&c.sub)
+    .bind(signed_seed)
+    .bind(year)
+    .bind(month as i32)
+    .bind(day as i32)
+    .bind(hour as i32)
+    .fetch_optional(&st.db)
+    .await?;
+    let 又问了一次 = 刚才那一条.is_some();
+    let id = 刚才那一条.unwrap_or(id);
+
+    // 清洗 question · trim + 空串归 None
+    if !又问了一次 {
     sqlx::query(
         r#"INSERT INTO naji_record
            (id, user_id, natal_id, asked_year, asked_month, asked_day, asked_hour, asked_minute, asked_tz,
@@ -104,16 +145,26 @@ async fn spin(
      .bind(&suit_json).bind(&avoid_json).bind(&q.id).bind(&rec_id).bind(signed_seed)
      .bind(&question_clean)
      .execute(&st.db).await?;
+    }
 
-    /* ─── 8. 徽章触发(简化:仅在写入后检查 count 类规则)
+    /* ─── 8. 徽章触发
 
        徽章发不出来不该让这一签失败,所以错误不往上抛;但**每一处都留一行 warn**。
        2026-08-19 之前这里是两个 `.ok()`,当时的注释写着「今天不要紧,因为没有任何
        客户端读徽章」,并说好接 UI 的时候改掉。徽章那天接进了「我」,所以改了 ——
-       从此「悄悄没发」是用户看得见的缺斤少两。 */
-    if let Err(e) = check_badges(&st, &c.sub).await {
-        tracing::warn!(user = %c.sub, error = ?e.0, "徽章那一遍没跑完");
-    }
+       从此「悄悄没发」是用户看得见的缺斤少两。
+
+       【2026-09-06 搬走了】。这一段原先是本文件里的 `check_badges` ——
+       转盘这条路由的私产，只数 `naji_record`。而问签（`villager_reading`）
+       是同一件事的另一条路，它够不着这个私有函数，于是天天问村民的人
+       徽章永远不动。判据与实现搬去 `unmei_app::badge`，两条路都调它。 */
+    let 拿到 = match app_badge::发该发的(&st.db, &c.sub).await {
+        Ok(v) => v,
+        Err(e) => {
+            tracing::warn!(user = %c.sub, error = ?e, "徽章那一遍没跑完");
+            Vec::new()
+        }
+    };
 
     Ok(Json(NajiResult {
         id,
@@ -127,6 +178,11 @@ async fn spin(
         avoid: ji,
         question: question_clean,
         recommend: rec,
+        earned: 拿到.into_iter()
+            .map(|x| 拿到的徽章 { code: x.code, name: x.name }).collect(),
+        /* 这一签刚才就问过了。客户端据此说一句 ——
+           不说的话，屏上看起来像是刚算出来的，而它一个字都没变。 */
+        again: 又问了一次,
     }))
 }
 
@@ -134,11 +190,23 @@ async fn history(
     State(st): State<AppState>,
     AuthedUser(c): AuthedUser,
 ) -> Result<Json<serde_json::Value>, ApiError> {
+    /* 【那天问到了什么，按现在这一版的说法讲】。
+       原先这一列返回 `gate`（休门 / 生门），客户端原样印在「近几次」上 ——
+       而结果那一屏明令「门名与方位一个都不留」，同一个词一屏禁一屏留。
+
+       改成取 `gate_word.benefit_text`（现在这一版的人话）而不是记录上
+       存的 `gate_explain` 快照:库里 1600 多条记录里一千多条的快照还是
+       旧文言加半角标点（「休则养正,正则气盈;……」），
+       文案改了、已发出的快照不会跟着改，印出来就是把旧文言又请回来一次。
+       门是同一个门，说法用现在这一版的，才跟结果屏对得上。 */
     let rows = sqlx::query(
-        r#"SELECT id, asked_at, gate, direction, suit_words, avoid_words,
-                  asked_year, asked_month, asked_day, asked_hour, question
-           FROM naji_record WHERE user_id=$1
-           ORDER BY asked_at DESC LIMIT 50"#,
+        r#"SELECT r.id, r.asked_at, r.gate, r.direction, r.suit_words, r.avoid_words,
+                  r.asked_year, r.asked_month, r.asked_day, r.asked_hour, r.question,
+                  gw.benefit_text
+           FROM naji_record r
+           LEFT JOIN gate_word gw ON gw.gate = r.gate
+           WHERE r.user_id=$1
+           ORDER BY r.asked_at DESC LIMIT 50"#,
     ).bind(&c.sub).fetch_all(&st.db).await?;
     let mut v = Vec::with_capacity(rows.len());
     for r in rows {
@@ -153,6 +221,11 @@ async fn history(
             "asked_at": r.get::<DateTime<Utc>, _>("asked_at"),
             "gate": r.get::<String, _>("gate"),
             "direction": r.get::<String, _>("direction"),
+            /* 列表上那一行:结论的头半句（「适合开个头」）。
+               整句带着冒号后面的展开，一行放不下;取不到就是 null，
+               客户端据此少摆一列，不编。 */
+            "说": r.get::<Option<String>, _>("benefit_text")
+                   .and_then(|t| t.split('：').next().map(|x| x.to_string())),
             "question": r.get::<Option<String>, _>("question"),
         }));
     }
@@ -172,15 +245,44 @@ async fn detail(
     let yi: Vec<String> = serde_json::from_value(r.get("suit_words")).unwrap_or_default();
     let ji: Vec<String> = serde_json::from_value(r.get("avoid_words")).unwrap_or_default();
     let q = if let Some(qid) = r.get::<Option<String>, _>("quote_id") {
-        let qr = sqlx::query("SELECT book, chapter, text FROM quote WHERE id=$1")
+        // 落款只留出处，不带篇名 —— 理由见 ai_compose.rs 里那一段。
+        // 两处必须一致:同一句话在结果屏和历史详情里落款不同，比都错更糟。
+        let qr = sqlx::query("SELECT book, text FROM quote WHERE id=$1")
             .bind(&qid).fetch_optional(&st.db).await?;
         qr.map(|q| QuoteOut {
             text: q.get("text"),
-            source: format!("{} · {}",
-                q.get::<String, _>("book"),
-                q.get::<Option<String>, _>("chapter").unwrap_or_default()),
+            source: q.get::<String, _>("book"),
         })
     } else { None };
+
+    /* 【推荐也要回】（2026-09-02 第三轮评审 · 第一次打开的人）。
+       上面那条 SELECT 一直在取 `recommended_product_id`，但它从来没进过
+       响应体 —— 而结果屏（pages/ask）拿到 id 之后会用 `detail(id)`
+       把整条记录【重取一遍】（ask/index.ts 的 `showWanted`）。
+       于是转完卦那一瞬间有推荐、页面一渲染就没了:
+       `ask/index.wxml` 的 `wx:if="{{result.recommend}}"` 永远不成立。
+
+       后果是 ¥199 的「你的说明书」【全 app 没有一条路能走到】——
+       另外三个入口分别指向护身符与订阅，而订阅那屏说「村里现在没有
+       可以订的东西」。直接敲地址进得去，页面也写得好，只是没人到得了。
+
+       这里按 id 现取一次商品与价 —— 不存 name/价 的快照:
+       商品改了名、调了价、下了架，历史详情该显示的是【现在的那件】，
+       而不是当时那份会过期的抄件。取不到（下架了）就回 null，
+       跟「本来就没推荐」同一个形状，前端不必分两种。 */
+    let rec = match r.get::<Option<String>, _>("recommended_product_id") {
+        Some(pid) => {
+            // 区域与平台决定看哪一份价目表 —— 跟起卦那一侧同一个来源
+            let u = sqlx::query("SELECT platform, region FROM app_user WHERE id=$1")
+                .bind(&c.sub).fetch_one(&st.db).await?;
+            crate::ai_compose::product_brief(
+                &st.db, &pid,
+                &u.get::<String, _>("region"), &u.get::<String, _>("platform"),
+            ).await?
+        }
+        None => None,
+    };
+
     Ok(Json(serde_json::json!({
         "id": r.get::<String, _>("id"),
         "asked_at": r.get::<DateTime<Utc>, _>("asked_at"),
@@ -191,6 +293,7 @@ async fn detail(
         "avoid": ji,
         "quote": q,
         "question": r.get::<Option<String>, _>("question"),
+        "recommend": rec,
     })))
 }
 
@@ -200,11 +303,13 @@ fn compute_time_branch(hour: u32) -> u8 {
     if hour == 23 { 0 } else { (((hour + 1) / 2) % 12) as u8 }
 }
 
-fn make_seed(user_id: &str, y: i32, m: u32, d: u32, h: u32) -> u64 {
+fn make_seed(user_id: &str, y: i32, m: u32, d: u32, h: u32, question: &str) -> u64 {
     use std::hash::{Hash, Hasher};
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     user_id.hash(&mut hasher);
     y.hash(&mut hasher); m.hash(&mut hasher); d.hash(&mut hasher); h.hash(&mut hasher);
+    // 问的那件事也算一份 —— 没有它，同一小时里问什么都得到同一句
+    question.hash(&mut hasher);
     hasher.finish()
 }
 
@@ -220,35 +325,4 @@ async fn call_qimen(
     // 取 qimen 叶 chart
     let q = crate::mingli::leaf(&cast, "qimen").cloned().unwrap_or(serde_json::Value::Null);
     Ok(q)
-}
-
-async fn check_badges(st: &AppState, user_id: &str) -> Result<(), ApiError> {
-    // 仅检查 count 类徽章(streak 类需更精细日历比对,留 worker)
-    let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM naji_record WHERE user_id=$1")
-        .bind(user_id).fetch_one(&st.db).await?;
-    let badges = sqlx::query("SELECT id, code, rule_dsl FROM badge WHERE status='active'")
-        .fetch_all(&st.db).await?;
-    for b in badges {
-        let rule: serde_json::Value = b.get("rule_dsl");
-        let typ = rule.get("type").and_then(|x| x.as_str()).unwrap_or("");
-        let action = rule.get("action").and_then(|x| x.as_str()).unwrap_or("");
-        let threshold = rule.get("threshold").and_then(|x| x.as_i64()).unwrap_or(0);
-        if typ == "count" && action == "naji.spin" && count >= threshold {
-            // 已持有则跳过
-            let badge_id: String = b.get("id");
-            let exists: Option<String> = sqlx::query_scalar(
-                "SELECT badge_id FROM user_badge WHERE user_id=$1 AND badge_id=$2"
-            ).bind(user_id).bind(&badge_id).fetch_optional(&st.db).await?;
-            if exists.is_none() {
-                // 发不出来仍然不让这一签失败，但**要留一行** ——
-                // 2026-08-19 徽章接进「我」了，从此「悄悄没发」是用户看得见的缺斤少两。
-                if let Err(e) = sqlx::query("INSERT INTO user_badge (user_id, badge_id) VALUES ($1,$2)")
-                    .bind(user_id).bind(&badge_id).execute(&st.db).await
-                {
-                    tracing::warn!(user_id, badge_id, error = %e, "徽章没发出去");
-                }
-            }
-        }
-    }
-    Ok(())
 }

@@ -214,18 +214,52 @@ async fn risk_runs_and_records_but_blocks_nothing() {
     // 观察模式(默认):规则照跑、事件照落、一单不拦。
     assert!(!risk::enforcing(), "默认必须是观察模式 —— 上线当天不该突然开始拦真单");
 
-    let before: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM risk_event")
-        .fetch_one(&pool).await.expect("数事件");
+    /* 【要真命中一条规则，才验得到「事件照落」】（2026-09-04）。
+       上一版买的是 9900 分的一件 —— 而种子里那条规则是
+       `amount > 100000 AND user.age_days < 7`，九十九块钱压根不命中，
+       于是这一支从来没有落过一条事件。测试库里 `risk_event` 实测 0 行。
 
-    let sku = omamori_sku(&pool, "ayun", 9900).await;
+       买一件贵的:新建的用户 age_days 是 0，金额过十万分，两个条件都成立。
+       这样「照跑、照落、不拦」三件事这一条才都验得到 —— 
+       在此之前它只验到了「不拦」，而那一半靠的是下面那句 `paid`。 */
+    let sku = omamori_sku(&pool, "ayun", 199900).await;
     // 走得通就说明没被拦:建单与发起支付两处都过了风控
-    let (_user, order_id) = buy(&pool, &sku, 9900).await;
+    let (_user, order_id) = buy(&pool, &sku, 199900).await;
     let status = common::order_status(&pool, &order_id).await;
     assert_eq!(status.as_deref(), Some("paid"), "观察模式下这一单必须走到底");
 
-    let after: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM risk_event")
-        .fetch_one(&pool).await.expect("数事件");
-    assert!(after >= before, "风控事件只增不减");
+    /* 【按自己这一单数，不数全库】（2026-09-04）。
+       上一版是「跑之前数一次全库、跑之后再数一次，断言 after >= before」——
+       两个毛病：并行跑时别人也在写这张表，所以那个差跟这一单无关；
+       而 `>=` 让【一条都没落】也照样过 —— 这一支的名字说的正是「事件照落」，
+       断言却守不住它。
+
+       风控在观察模式下是「照跑、照落、不拦」。落没落是这一条唯一验得了的事
+       —— 拦没拦由上面那句 `paid` 守着。
+       `risk_event` 带着 order_id，所以收得到自己这一单上。
+
+       没有命中任何规则时确实一条都不落（`evaluate` 里写着「有命中才落」），
+       所以这里不断言「一定有」，而是断言【要么落在我这单上、要么全库都没多】——
+       后者用一个只属于这一单的查询表达不了，所以退一步：
+       只要落了，就必须是落在我这一单上，不许张冠李戴。 */
+    let 我这单的: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM risk_event WHERE order_id = $1",
+    )
+    .bind(&order_id)
+    .fetch_one(&pool).await.expect("数事件");
+    assert!(
+        我这单的 >= 1,
+        "命中了规则却一条事件都没落 —— 观察模式的全部意义就是「照落不拦」，\
+         不落的话上线前谁也不知道这些规则会拦掉什么",
+    );
+
+    // 落下来的那一条要说得出【它判了什么】。`review` 是那条规则写的动作。
+    let 判了: Option<String> = sqlx::query_scalar(
+        "SELECT decided_action FROM risk_event WHERE order_id=$1 ORDER BY decided_at LIMIT 1",
+    )
+    .bind(&order_id)
+    .fetch_one(&pool).await.expect("读判定");
+    assert_eq!(判了.as_deref(), Some("review"), "落了事件却没记下它判的是什么");
 }
 
 #[tokio::test]
@@ -240,4 +274,83 @@ async fn the_enforcement_switch_is_off_by_default_and_reads_the_env() {
     assert!(risk::enforcing(), "打开开关后该真的生效");
     unsafe { std::env::remove_var("UNMEI_RISK_ENFORCE") };
     assert!(!risk::enforcing());
+}
+
+// ═════════ 2026-09-04 · 风控命中了要有人接 ═════════
+
+/// 【`risk_case` 有表、后台有结案路由，而全仓没有一处建案子】。
+///
+/// 命中而不开案子的后果很具体：`risk_event` 是一条流水，
+/// 没有状态、没有负责人、没有「处理完了没有」。
+/// 运营那一屏「风控案子」永远是空的，而看板上「没结的案子」恒为 0 ——
+/// 它读起来像「风控没事」，而实际是「风控的事没人接」。
+#[tokio::test]
+async fn 风控命中会开一个案子() {
+    let _guard = RISK_ENV.lock().unwrap_or_else(|e| e.into_inner());
+    let pool = db_or_skip!();
+    let sku = omamori_sku(&pool, "ayun", 199900).await;
+    let (_user, order_id) = buy(&pool, &sku, 199900).await;
+
+    let 案子: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM risk_case WHERE involved_order_ids && ARRAY[$1]",
+    )
+    .bind(&order_id)
+    .fetch_one(&pool).await.expect("数案子");
+    assert_eq!(案子, 1, "风控命中了却没有案子 —— 那条命中没有人会接");
+
+    let (状态, 严重): (String, String) = sqlx::query_as(
+        "SELECT state, severity FROM risk_case WHERE involved_order_ids && ARRAY[$1]",
+    )
+    .bind(&order_id)
+    .fetch_one(&pool).await.expect("读案子");
+    assert_eq!(状态, "open", "开出来就该是待处理");
+    assert_eq!(严重, "med", "review 这一档记 med —— block/reject 才是 high");
+}
+
+/// 【一件事一个案子】。一单从下单到支付会过两道闸，
+/// 两次都命中就是两条 `risk_event`（流水本来就该有两条），
+/// 而案子是「这件事要不要人管」—— 不该开成两个。
+#[tokio::test]
+async fn 同一单命中两次也只开一个案子() {
+    let _guard = RISK_ENV.lock().unwrap_or_else(|e| e.into_inner());
+    let pool = db_or_skip!();
+    let sku = omamori_sku(&pool, "ayun", 199900).await;
+    let (user, order_id) = buy(&pool, &sku, 199900).await;
+
+    // 再发起一次支付 —— 同一单又过一道闸
+    let _ = unmei_app::payment::start(&pool, &order_id, &user, "alipay_wap", None).await;
+
+    let 案子: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM risk_case WHERE involved_order_ids && ARRAY[$1]",
+    )
+    .bind(&order_id)
+    .fetch_one(&pool).await.expect("数案子");
+    assert_eq!(案子, 1, "同一单开出了 {案子} 个案子 —— 案子是「要不要人管」，不是流水");
+}
+
+/// 结掉之后再命中，要能开新的 —— 不然一个人被结过一次案就再也不会被盯上。
+#[tokio::test]
+async fn 结掉的案子不挡下一次() {
+    let _guard = RISK_ENV.lock().unwrap_or_else(|e| e.into_inner());
+    let pool = db_or_skip!();
+    let sku = omamori_sku(&pool, "ayun", 199900).await;
+    let (user, 头一单) = buy(&pool, &sku, 199900).await;
+    sqlx::query("UPDATE risk_case SET state='resolved', closed_at=NOW() WHERE involved_order_ids && ARRAY[$1]")
+        .bind(&头一单).execute(&pool).await.expect("结案");
+
+    // 同一个人再买一单
+    let 第二单 = unmei_app::order::create(&pool, unmei_app::order::NewOrder {
+        user_id: user.clone(), region: "cn".into(), channel_origin: "web".into(),
+        lines: vec![unmei_app::order::NewOrderLine { sku_id: sku.clone(), qty: 1 }],
+        shipping_address: None, contact: None, coupon_codes: vec![], note: None,
+        ip: None, ua: None,
+    }).await.expect("第二单");
+    let _ = unmei_app::payment::start(&pool, &第二单.order_id, &user, "wechat_jsapi", None).await;
+
+    let 新案子: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM risk_case WHERE involved_order_ids && ARRAY[$1] AND state='open'",
+    )
+    .bind(&第二单.order_id)
+    .fetch_one(&pool).await.expect("数新案子");
+    assert_eq!(新案子, 1, "上一个案子结了，这一单又命中，却没开新的 —— 结过一次就再也不盯了");
 }

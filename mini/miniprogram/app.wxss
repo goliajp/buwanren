@@ -17,23 +17,69 @@ page {
   --paper-panel:   #FFFFFF;
   /* 字 —— 暖黑而非纯黑。纯黑压在暖底上会发脏、显硬 */
   --ink:           #2B2620;
-  --ink-mid:       #6B6259;
-  --ink-faint:     #A69C90;
+  --ink-mid:       #584F47;
+  /* 【2026-09-01 加深】。原先是 #A69C90，在纸底上只有 2.55:1 ——
+     连 WCAG AA（4.5:1）的一半都不到。而它是全 app 的次要文字色:
+     「还没填」「1 笔」「0 / 6 枚徽章」、所有空状态的副标、名册上那行
+     「小道士 · 掐指算」。后果不只是读不清 —— 2.55:1 让所有次要信息
+     看着像禁用，「我的」那一屏五行值全灰，整张表像是暂不可用
+     （2026-09-01 五路评审 · 视觉那一路量出来的）。
+     【2026-09-02 再加深一档，并且这次把数记对】。上一版写的「3.92:1」
+     跟三个底哪一个都对不上 —— 实测 #857B70 压纸 4.05、压白卡 4.15、
+     压凹底（--paper-inset）3.66，三个底一个都没到 AA 的 4.5。
+     而第三轮评审在镜像上逐节点扫了 33 屏 416 个文本节点:
+     **149 个不达标，色值全是这一个**，没有第二个色。它承载的又正好是
+     全 app 最小的那几档字（底栏标签 10px、`.says-id` 10.5px、
+     `.badge-d` 10px）—— 小字更该达标，不是更不该。
+
+     瓶颈是 `--paper-inset` #F6F0E6（三个底里最暗的那个）。
+     #736A5F 压它 4.68，压纸 5.18，压白卡 5.31 —— 三个底都过。
+     `--ink-mid` 跟着一起加深到 #584F47（7.81 / 8.00 / 7.06），
+     否则次要色一逼近它，三档层级就塌成两档。 */
+  --ink-faint:     #736A5F;
   --stone-line:   #E4DACA;
   --stone-line-x: #EFE7DA;
-  --stone-label:  #A69C90;
+  /* 【控件的轮廓要看得见，分隔线不用】。上面那两条在纸上是 1.31 与 1.13 ——
+     当装饰分隔线正好（它们的活儿是「暗示这里分了段」，不是「被看清」）;
+     但用来【圈出一个控件】就不行:性别那两格、生辰那几颗、订阅的分类、
+     换头像那个圆框，边框就是它们全部的「我是个可点的东西」的信号，
+     而 1.31 的边在浅色屏上、在户外，等于没有。
+     WCAG 1.4.11 对控件边界要的是 3:1;同色相（37°/33%）下最浅能到 3:1
+     的就是这一支，纸上 3.33、凹槽上 3.01。再浅一档就跌到 2.9。 */
+  --stone-line-ui: #A68654;
+  /* 标签色跟 --ink-faint 同源，一起加深 */
+  --stone-label:  #736A5F;
 
   /* 主色：琥珀。这个产品的核心情绪是「有人在等你回来」,
      最准的意象是黄昏的灯 —— 紫是这一品类的通用配色，用它等于自认是那一类 */
   --amber:        #FF9A3C;
   --amber-deep:   #E8791A;
   --amber-lite:   #FFE7CC;
+  /* 【琥珀有两个身份，颜色不能是同一个】（2026-09-01 第二轮评审 · 视觉）。
+     上面三个是【结构色】—— 底、描边、投影、渐变站，那是给眼睛定位用的，
+     多亮都行。下面两个是【字色】，要按对比度定:
+
+       --amber-text  琥珀色的字压在浅底上。--amber-deep 拿来当字是 2.86:1，
+                     全 app 十四处「去看看 ›」「还没填 ›」都是它 ——
+                     换成 #A34700 压纸 5.93:1、压 --amber-lite 5.08:1。
+       --on-amber    字压在琥珀实心上。白字压 --amber 只有 2.11:1，
+                     压 #FFB463 更低（1.76）;#4A2E10 分别是 5.88 和 7.08。
+
+     两个身份共用一个变量，就一定会有一边不合格 —— 这是上一版的实情。 */
+  --amber-text:   #A34700;
+  --on-amber:     #4A2E10;
   /* 副色：苔绿 = 村子、住进来了、已完成 */
   --moss:         #3FAE7A;
   --moss-lite:    #DFF3E8;
   /* 甜色：桃粉 = 喜欢、心动、二次元的那点甜 */
   --peach:        #FF7A8A;
   --peach-lite:   #FFE4E7;
+  /* 【绿和粉也各有一个字色版】，理由同上面的琥珀。
+     --moss 压纸 2.45:1、--peach 压纸 2.20:1 —— 而 --peach 正是所有
+     `.err` 用的颜色:出错那句话是整屏唯一要读的东西，它却是最看不清的
+     （2026-09-01 第二轮评审）。深一档之后仍然是绿是粉，只是读得出来了。 */
+  --moss-text:    #237049;
+  --peach-text:   #B82D45;
   /* 旧名保留：朱印那一处改指琥珀，免得留下一个没人用的红 */
   --stamp:        #FF9A3C;
 
@@ -86,7 +132,23 @@ page {
   letter-spacing: 0.1em;
 }
 
-/* 更小、更重。又大又细不如小一号加粗耐看 */
+/* ── 标题的三档 ─────────────────────────────────────────────
+   【一屏之主的标题，尺寸有 22 / 23 / 25 / 26 / 28 五档在混用】
+   （2026-09-02 第四轮评审 · 视觉，实测 measure.json）。
+   它们做的是同一件事:告诉你这一屏是什么。五档的来历也查得到 ——
+   基准写在这儿是 46rpx，而八个页面各自覆盖成 44 / 50 / 52 / 56，
+   每一次覆盖当时都有理由，加起来就没有理由了。
+
+   三档，按【这句话在这一屏的分量】选，不按它在哪一屏:
+   · 大 56rpx（28px）—— tab 主页与货架的屏名:「今天」「谁能来」「我的」
+   · 中 46rpx（23px）—— 内容屏的名字:「设置」「我买过的」「隐私政策」
+   · 小 36rpx（18px）—— 卡片里的小标题
+   `.title` 默认是【中】，最常用;要大要小挂 `.title-lg` / `.title-sm`。
+
+   （字号总共 22 档这件事不是这一次能收完的 ——
+   收的是「同一件事有五个数」这一层，那是最刺眼、也最好判的一层。） */
+.title-lg { font-size: 56rpx; }
+.title-sm { font-size: 36rpx; }
 .title {
   font-size: 46rpx;
   font-weight: 700;
@@ -99,6 +161,31 @@ page {
   font-size: 24rpx;
   color: var(--ink-mid);
   letter-spacing: 0.02em;
+}
+
+/* 【免责那一句，一份定义】（2026-09-02）。
+   「仅供研究与娱乐 · 不构成人生建议」出现在问签、建生辰、设置三屏，
+   而三处各写了一份样式:字号 20 / 20 / 25，颜色 --stone-label / --ink-faint，
+   内距三种 —— 同一句话在三屏是三个大小。
+   第三轮评审又发现【收 ¥199 的那一册压根没有这一句】，
+   加第四处之前先把定义收成一份。 */
+/* 【点得到的东西不许小于 44px】。真机上手指的接触面约 9mm ——
+   苹果写 44pt、谷歌写 48dp，两家都在这个数附近;比这小就要瞄，
+   而这个产品的人是躺着单手点的。
+   2026-09-02 在镜像里量真实排版:102 个可点元素里 23 个高度不足，
+   最矮的 17px（那一册末尾的「去看看」），报告页七个页签都是 27px。
+
+   扩法是【内距加、外距减】—— 命中框变大而占的版面一分不变，
+   所以不会把已经刚好放得下的那几屏顶破。不用 `::after` 撑，
+   因为伪元素不进 `getBoundingClientRect`，量不到的东西等于没改。
+   水平方向只在没有左右邻居时扩:并排的页签横着扩会互相盖住接缝。 */
+
+.foot-hint {
+  text-align: center;
+  font-size: 20rpx;
+  color: var(--stone-label);
+  letter-spacing: 0.02em;
+  padding: 24rpx 0;
 }
 
 .hr {
@@ -121,7 +208,13 @@ page {
    这是游戏按钮的经典做法，也是「有手感」最便宜的一处。 */
 button.btn {
   background: var(--amber);
-  color: #fff;
+  /* 【深棕，不是白】。白字压在琥珀 #FF9A3C 上只有 2.11:1 ——
+     30rpx（15px）按正文档要 4.5:1，连大字档的 3:1 都够不到。
+     截图上「问问婆婆」「去支付」的白字整片发虚，像橙色上浮着一层雾，
+     而这是全 app 出现最多的一个元素（2026-09-01 第二轮评审量出来的）。
+     #4A2E10 压在同一个琥珀上是 5.88:1;顺带它更像星露谷那一档 ——
+     暖底深棕字是那类界面的做法，白字是网页的做法。 */
+  color: var(--on-amber);
   border: none;
   border-radius: var(--r-btn);
   font-size: 30rpx;
@@ -148,10 +241,24 @@ button.btn.btn-hover:not([disabled]) {
    改成透明底 + 一圈细描边:看得见、点得着，但一眼就知道它次于主按钮。
    不用纯文字链是因为好几屏上它是唯一的按钮（空态的「回去」），
    太轻了就找不着落点。 */
+/* 【2026-09-01】次要按钮从「一圈淡线」改成「一块实的面」。
+   原先是透明底 + `--stone-line` 描边，而那个边在纸底上只有 1.31:1 ——
+   界面部件的边界该有 3:1，它连一半都不到:截图上「回村里」几乎只剩四个字
+   飘着，看不出是一颗按钮。
+   把边加深到 #D8C9B0（1.54:1）同时给一块 `--paper-inset` 的底 ——
+   这一档的可辨识不再靠那圈线，靠的是【它比纸暗一层】这件事本身，
+   而这也正是这一类游戏 UI（星露谷 / 动森）的做法:次要动作是一块木牌，
+   不是一个线框。文字仍是 `--ink-mid`（5.65:1），够清楚。 */
+/* 【两颗按钮要一样高】。上一版给 ghost 加了 2rpx 边框，而 `.btn` 是
+   默认的 content-box —— 边框加在盒子外面，于是次按钮比主按钮
+   高 2px、宽 2px。实测:问问婆婆 335×43 / 去屋里看看 164×45，
+   并排摆着一眼看得出次的那颗大一圈（2026-09-01 五路评审量出来的）。
+   主按钮也留一圈透明边，两边就落在同一个盒模型上。 */
+button.btn { box-sizing: border-box; border: 2rpx solid transparent; }
 button.btn.ghost {
-  background: transparent;
+  background: var(--paper-inset);
   color: var(--ink-mid);
-  border: 2rpx solid var(--stone-line);
+  border: 2rpx solid #D8C9B0;
   box-shadow: none;
 }
 button.btn.ghost.btn-hover:not([disabled]) {
@@ -164,31 +271,19 @@ button.btn.ghost.btn-hover:not([disabled]) {
    用它做主按钮的地方（绑定微信）压不住，看着像个促销标签。
    留着一条没人用的按钮样式，只会诱使下一个人用它。 */
 
-/* ── 五行药丸 ──────────────────────────────────────────────
-   五行是【内容标签】，第一要务是一眼分得开。
-   旧做法是拿五行色当文字色 —— 对比度随背景漂，小字号下木和金几乎同色。
-   改成浅底深字的药丸：对比度稳、色盲友好(形状+文字仍可读),
-   而且它把「辛亥」这种行话包装成了看得懂的物件，像游戏里的属性徽章。 */
-.pill {
-  display: inline-block;
-  padding: 4rpx 16rpx;
-  border-radius: 999rpx;
-  font-size: 23rpx;
-  font-weight: 600;
-  line-height: 1.5;
-}
-.pill.mu   { background: var(--wx-mu-bg);   color: var(--wx-mu-fg);   }
-.pill.huo  { background: var(--wx-huo-bg);  color: var(--wx-huo-fg);  }
-.pill.tu   { background: var(--wx-tu-bg);   color: var(--wx-tu-fg);   }
-.pill.jin  { background: var(--wx-jin-bg);  color: var(--wx-jin-fg);  }
-.pill.shui { background: var(--wx-shui-bg); color: var(--wx-shui-fg); }
-.pill.plain{ background: var(--paper-inset); color: var(--ink-mid);   }
+/* 【五行药丸那一套删了】（2026-09-02 第三轮评审 · 视觉）。
+   那六条规则（药丸本体 + 五行五色 + plain）全 app **一处都没用过** ——
+   类名在二十三个 wxml 里零命中，`.ts` 里也不拼它。
+   删它不只是清死码:六种配色实测 3.28–4.43:1，而评审在讨论
+   「五行怎么上屏」时反复拿它当好例子引用 —— 一段谁都没在看的代码
+   在替产品发言，且说的是错的。真正在用的是下面那两套。
+   （`--wx-*-bg` / `--wx-*-fg` 那十个变量留着:分布条与那个大字在用。） */
 
 /* 五行前景色 · 用 class wx-{五行拼音} 挂大字/chip */
 /* 【文字用 -fg 那一套】。`--wx-jin` 这类是【底色】版：金 #8FA4C4、
    水 #4FA8E8 摆在纸色底上对比度只有 2.5:1 左右，而「你缺的是「金」」
    里那个字是这一屏最重要的一个字 —— 看不清就等于没说。
-   药丸（`.pill.*`）一直用的就是 -fg，只有这一套落在了底色版上。 */
+   分布条用的是底色版（`--wx-*`），那是块面，够大;而这里是字。 */
 .wx-mu   { color: var(--wx-mu-fg);   }
 .wx-huo  { color: var(--wx-huo-fg);  }
 .wx-tu   { color: var(--wx-tu-fg);   }
@@ -228,12 +323,60 @@ button.btn.ghost.btn-hover:not([disabled]) {
 .entry {
   display: flex;
   align-items: center;
-  min-height: 96rpx;
+  /* 【96rpx → 88rpx】（2026-09-05）。88rpx = 44px 就是上面那句话里的数,
+     也是 iOS 设置那一类分组列表一行的高度;96rpx 是在它之上多给的 4px。
+     「我的」那一屏的入口是【跟着数据长的】——「订着的」「去得了的」
+     「手里的券」三行各有各的条件，一个投入的人身上会同时成立，
+     于是那一屏从设计册写的五行长到了八行。八行 × 48px 把它顶出了
+     一屏（697 > 667），而这个仓里除了政策那两份文件，没有一屏是滚的。
+     多给的那 4px 在这里的代价是「往下还有」而屏上没有任何提示。 */
+  min-height: 88rpx;
   padding: 0 26rpx;
   border-bottom: 1rpx solid var(--stone-line-x);
 }
 /* 最后一行不要分隔线 —— 卡片的下边缘已经在那儿了 */
 .entry:last-child { border-bottom: none; }
+/* 【客服那一行必须是 button】—— 微信的客服会话只认 `open-type="contact"`，
+   而那个属性只在 button 上生效。button 自带一身样式（背景、边框、圆角、
+   居中、行高），全部清掉，让它跟旁边两行 view 长得一模一样:
+   同一张卡里三行，其中一行因为标签不同而高半格、字偏一点，
+   人第一眼看不出为什么，只觉得这里没做完。 */
+button.entry-btn {
+  width: 100%; margin: 0; padding: 0 26rpx;
+  background: transparent; border-radius: 0;
+  /* 【只清掉四周那圈，别清掉分割线】（2026-09-02 第四轮评审 · 视觉）。
+     上一版写的是 `border: none` —— 它把 `.entry` 的 `border-bottom`
+     一起清了，于是同一张卡里「联系我们」下面没有线、
+     另外两行有:三行两种处理，而原因藏在一个为了清按钮样式写的简写里。
+     要清的是 button 自带的那一圈，那就只清那三面。 */
+  border-top: none; border-left: none; border-right: none;
+  font-size: inherit; line-height: inherit; color: inherit;
+  text-align: left;
+}
+button.entry-btn::after { border: none; }
+/* ── 按下去要有回应 ─────────────────────────────────────────
+   【三种，就三种】（2026-09-02 第四轮评审 · 视觉）。
+   评审量到:23 屏里 12 屏一处按压反馈都没有 —— 点「就要这个」花 ¥398、
+   点「问问婆婆」、点「存下」，屏幕纹丝不动;而有反馈的那 11 屏用了
+   13 个类名、6 种效果，其中 `.item-hover` 在名册里是变底色、
+   在订单列表里是缩放（同一个名字两种意思）。
+
+   按什么东西决定用哪一种，不按它在哪一屏:
+   · `.press-card` 整块可点的卡片 / 行 —— 底色沉一档
+   · `.press-btn`  按钮状的东西 —— 缩一点点，像被按下去
+   · `.press-text` 文字链 —— 淡一档
+   微信的 `<button>` 自带按压态，不用再挂。
+
+   数值只在这里出现一次。改这三行等于改全 app —— 那正是它们存在的理由。 */
+.press-card { background: var(--paper-inset); }
+.press-btn  { transform: scale(.97); }
+.press-text { opacity: .55; }
+
+/* 旧名字保留成同义词 —— 十六处 `entry-hover` 一次性改名会让这个 diff
+   淹掉真正的改动;它们指向同一件事，下一次经过时顺手换掉即可。
+   （`.item-hover` 没留:它在名册与订单列表里【各定义了两次】，
+   一次变底色一次缩放，后者悄悄覆盖前者 —— 一个名字两种意思，
+   留着只会继续骗人。三处用的都是「整块可点的行」，已改成 press-card。） */
 .entry-hover { background: var(--paper-inset); }
 .entry-k {
   flex: none;
@@ -255,7 +398,9 @@ button.btn.ghost.btn-hover:not([disabled]) {
   flex: none;
   margin-left: 14rpx;
   font-size: 28rpx;
-  color: var(--stone-line);
+  /* 【2026-09-01】原先用 --stone-line（1.31:1）—— 那是【线】的颜色，
+     当文字色用等于看不见。箭头是「这一行能点进去」的唯一记号。 */
+  color: var(--ink-faint);
 }
 /* 没有下一屏可去的那种：值不是「提示」而是事实，所以颜色跟正文一档，
    也不该有箭头 —— 有箭头而点不动，比没有箭头更糟 */
@@ -295,13 +440,44 @@ button.btn.ghost.btn-hover:not([disabled]) {
   text-align: center;
   padding: 40rpx 40rpx 80rpx;
 }
+/* 空状态那个圆牌。
+   【2026-09-01】圈里放的从【印刷体汉字】换成【像素画】。
+   原先四屏各放一个字（问 / 订 / 单 / ?），而这个产品全身都是像素:
+   四十个村民、六间屋、一整幅村子 —— 空态却是排版字，
+   而空屏是最容易被记住的地方（五路评审 · 视觉，说这是「游戏感」
+   差距最集中的一处，因为最有生气的资产早就画好了）。
+   画的都是村子里已经有的东西:签筒、木箱、单据、空门牌。
+   底还是那圈琥珀渐变 —— 它是对的，换的只是里头那个东西。 */
 .empty-art {
   width: 168rpx; height: 168rpx; border-radius: 999rpx;
   background: linear-gradient(155deg, var(--amber-lite) 0%, #FFF6EA 100%);
   box-shadow: 0 8rpx 24rpx rgba(232,121,26,.12);
   display: flex; align-items: center; justify-content: center;
-  font-size: 64rpx; color: var(--amber-deep); font-weight: 700;
+  font-size: 64rpx; color: var(--amber-text); font-weight: 700;
   margin-bottom: 30rpx;
+}
+/* 有像素图的那几屏:图压在圆牌上，字就不摆了（wxml 里留空）。
+   `pixelated` 是必须的 —— 16×16 放到 84px，不声明就是一团糊。
+
+   【2026-09-01 第二轮评审：这里犯了跟头像底盘一模一样的错】。
+   上面 `.empty-art` 的底是用简写 `background:` 写的，简写把渐变塞进
+   background-image;这条 `.pix` 再写一次 background-image，就把那圈琥珀
+   整个顶掉了 —— 四屏的圆牌只剩一圈 box-shadow，里头是纸色。
+   取样为证:ask 屏圆牌横向中线上全是 #FFFCF6。
+   同一个坑我今天上午刚在 `.face-*` 上修过，写这一条时又踩了一次。
+   办法:两层一起写在 background-image 里（图在上、渐变在下），
+   再补一个 background-color 兜底。 */
+.empty-art.pix {
+  background-color: var(--amber-lite);
+  background-image: var(--pix), linear-gradient(155deg, var(--amber-lite) 0%, #FFF6EA 100%);
+  background-repeat: no-repeat, no-repeat;
+  background-position: center, center;
+  /* 【定值不用百分比】。四张图的墨迹占格不同（8×13 到 12×9），
+     按百分比缩放出来一张细高一张扁宽，差 50% —— 正是头像统一画布之前
+     的那个毛病。96rpx = 48px = 16 格 × 3px，DPR2 下每格恰好 6 个设备像素，
+     像素块才齐。 */
+  background-size: 96rpx auto, cover;
+  image-rendering: pixelated;
 }
 .empty-t { font-size: 33rpx; font-weight: 600; color: var(--ink); }
 .empty-s { font-size: 25rpx; color: var(--ink-faint); margin-top: 12rpx; line-height: 1.7; max-width: 540rpx; }
@@ -383,27 +559,80 @@ input::placeholder, textarea::placeholder { color: var(--stone-label); }
    所以颜色本身也在说事。
 
    等 40 张头像画好，这一整套连同 `.face-*` 一起撤掉。 */
-.face-move   { --f1: #FFE0C2; --f2: #FFB067; background: linear-gradient(150deg, var(--f1), var(--f2)); color: #8A4A12; }
-.face-still  { --f1: #DCEEF7; --f2: #9CC9E4; background: linear-gradient(150deg, var(--f1), var(--f2)); color: #2A5C7A; }
-.face-wait   { --f1: #E6E2F5; --f2: #B3AADD; background: linear-gradient(150deg, var(--f1), var(--f2)); color: #4A3F7A; }
-.face-keep   { --f1: #E3EDDC; --f2: #A9C99A; background: linear-gradient(150deg, var(--f1), var(--f2)); color: #3F5F31; }
-.face-let_go { --f1: #F8DFE4; --f2: #E7A8B8; background: linear-gradient(150deg, var(--f1), var(--f2)); color: #7A3448; }
-.face-near   { --f1: #FFE6D2; --f2: #F5A98C; background: linear-gradient(150deg, var(--f1), var(--f2)); color: #8A3F28; }
-.face-ask    { --f1: #FDEDCB; --f2: #E8C878; background: linear-gradient(150deg, var(--f1), var(--f2)); color: #7A5A1A; }
+.face-move   { --f1: #FFE0C2; --f2: #FFB067; background-color: var(--f1); background-image: linear-gradient(150deg, var(--f1), var(--f2)); color: #8A4A12; }
+.face-still  { --f1: #DCEEF7; --f2: #9CC9E4; background-color: var(--f1); background-image: linear-gradient(150deg, var(--f1), var(--f2)); color: #2A5C7A; }
+.face-wait   { --f1: #E6E2F5; --f2: #B3AADD; background-color: var(--f1); background-image: linear-gradient(150deg, var(--f1), var(--f2)); color: #4A3F7A; }
+.face-keep   { --f1: #E3EDDC; --f2: #A9C99A; background-color: var(--f1); background-image: linear-gradient(150deg, var(--f1), var(--f2)); color: #3F5F31; }
+.face-let_go { --f1: #F8DFE4; --f2: #E7A8B8; background-color: var(--f1); background-image: linear-gradient(150deg, var(--f1), var(--f2)); color: #7A3448; }
+.face-near   { --f1: #FFE6D2; --f2: #F5A98C; background-color: var(--f1); background-image: linear-gradient(150deg, var(--f1), var(--f2)); color: #8A3F28; }
+.face-ask    { --f1: #FDEDCB; --f2: #E8C878; background-color: var(--f1); background-image: linear-gradient(150deg, var(--f1), var(--f2)); color: #7A5A1A; }
 
 /* 【铺了真脸的圆牌】。四十位的正面像素图早就画好在设计册里，
    只是从来没接到这一侧 —— 界面上一直是「圆底 + 姓名末字」。
    由 `rooms/tools/export-faces.mjs` 导出成 engine/faces.js，
    `utils/face.ts` 的 `脸(id)` 拼出这一段 style。
 
-   `pixelated` 是必须的:12×16 的图放到 168rpx，不声明就被插值成一团糊。
-   底色留着 —— 像素图有透明处，透出方向色，跟还没画好的那些看着是一套。 */
+   `pixelated` 是必须的:14×16 的图放到 168rpx，不声明就被插值成一团糊。
+   底色留着 —— 像素图有透明处，透出方向色，跟还没画好的那些看着是一套。
+
+   【2026-09-01】导出那一步开始把四十张摊到同一块 14×16 的画布上
+   （宽居中、底对齐）。在那之前每张各是各的尺寸（11×11 到 14×16），
+   同一个 74% 缩放下，窄的那位被放得更大 —— 并排摆着像素块一个人一个
+   大小，看着不是一套画。画布统一之后这一档从 74% 提到 84%:
+   人物在圆牌里的占比才跟原先相当（画布宽了两格，人没变大）。 */
+/* 【底盘要用 background-color 画】。方向色原先写成
+   `background: linear-gradient(...)` —— 简写把渐变放进 background-image，
+   而 `utils/face.ts` 内联的 `background-image:url(...)` 把它整个顶掉。
+   于是四十位像素人从头到尾【裸浮在纸上】:截图取色，婆婆圆牌里是
+   #FFFCF6，正是页面纸色（2026-09-01 五路评审抓到）。
+   方向色这套编码——「颜色本身在说他劝你往哪走」——一次都没出现过。
+   下面每个 `.face-<方向>` 因此都补了 `background-color`:
+   有画的人，画压在这块实色上;没画的人，渐变照旧。 */
+/* 【脸不许被圆切掉】（2026-09-01 第二轮评审 · 视觉）。
+   上一版是 `84% / center 58%` —— 阿云的斗笠帽檐两端被圆形切成两个平口，
+   读起来像渲染坏了，而不像裁剪。
+
+   尺寸是【量出来的】，不是调出来的:四十张脸都摊在 14×16 的画布上
+   （export-faces.mjs 统一画布、宽度居中、底边对齐），逐行取不透明像素的
+   最左最右，再二分求「每一张的每一个墨点都落在圆内」的最大宽度。
+   竖直居中时是 70.0%（几何上限:14×16 的对角线要塞进直径里，
+   14/√(14²+16²) = 65.7%，比它松一点是因为四角本来没有墨）；
+   而按原先的 `center 58%` 往下压，上限只剩 60.7%。
+   取 68%:居中，留两个百分点余量。
+
+   【代价与更好的那条路】。68% 比原先的 84% 明显小一圈，圆里空出一环 ——
+   这是几何决定的，不是调参能绕过的:14×16 的画布整个塞进圆里就只有这么大。
+   真正两全的做法是【让半身像破框】:圆牌退成背景，脸画在它上面、
+   允许探出去（游戏 UI 常见）。那需要把脸从 `background-image` 挪到一个
+   不被圆角裁的伪元素上（`脸()` 改成给 `--face` 变量，CSS 用 `var(--face)`），
+   十四处 wxml 一个字都不用动。留给下一轮 —— 现在先把「被切平」这个
+   实打实的缺陷修掉。 */
 .face-art {
   background-repeat: no-repeat;
-  background-position: center 58%;
-  background-size: 74% auto;
+  background-position: center center;
+  /* 【尺寸必须是 14 的整数倍，不能用百分比】。脸是 14×16 的像素画，
+     `pixelated` 不补间 —— 它把每一列【取整】到整数个设备像素。
+     宽度不是 14 的整数倍时，十四列里就有几列比别的宽一格:
+     源图左右对称，屏上却歪。2026-09-02 放大对比过 29px 与 28px 两版，
+     29px 那版一侧的肩比另一侧宽一格，一眼看得出来。
+
+     百分比做不到这件事:同一条 68% 落在十一种容器上，得出
+     1.07 到 4.86 十一个不同的非整数倍，最小的那个（名册预告那颗
+     22px 的小圆牌）等于十四列里有一列是双宽 —— 脸直接歪掉。
+
+     写成 14 的整数倍 CSS 像素（28rpx = 14px 一档），DPR2 与 DPR3
+     的真机上每列都是整数个设备像素。默认 56rpx = 28px = 14×2，
+     配 84rpx（42px）的圆牌正好 66.7%，跟原先那 68% 几乎一样大。
+     圆牌尺寸另有几种的，各自在下面按同一条规矩配一档。 */
+  background-size: 56rpx auto;
   image-rendering: pixelated;
 }
+/* 特别尺寸的圆牌，各配一档 14 的整数倍 */
+.peek-face.face-art,
+.soon-face.face-art { background-size: 28rpx auto; }   /* 14px —— 名册上那两排小预告 */
+.product-face.face-art { background-size: 84rpx auto; } /* 42px = 14×3 */
+.villager-face.face-art { background-size: 112rpx auto; } /* 56px = 14×4 */
+.moved-face.face-art { background-size: 140rpx auto; }  /* 70px = 14×5 */
 
 /* 【同一路人别长成同一张脸】。方向色是有意的（颜色本身在说「他劝你往哪走」），
    不能打乱;但缺「近人」那一路有十一位，名册上十一个一模一样的粉橙圆牌
@@ -460,11 +689,21 @@ input::placeholder, textarea::placeholder { color: var(--stone-label); }
   display: flex; align-items: center; justify-content: center;
 }
 .says-body { flex: 1; min-width: 0; }
+/* 【四处手写同一块气泡，量过了，暂不抽】（2026-09-02）。
+   第二轮评审说「.says 有四份实现」。实情:样式全在这儿（十条规则，
+   一份），重复的只是 wxml 那六行结构，一共四处（村主屏两处、
+   建生辰两处），而且逐字比过 —— 结构完全一致，没有漂。
+
+   抽成 `<template>` 要先给镜像的垫片加 `<template>` / `<import>` 支持，
+   而铁律一是「垫片遇到不认识的东西必须抛」—— 加这个能力有它自己的
+   风险面，换来的只是四处六行的去重，而真正会漂的那一半（样式）
+   本来就已经是一份了。
+   等它真的漂了、或者第五处出现时再抽。 */
 .says-who { font-size: 23rpx; color: var(--ink-faint); }
 .says-text { font-size: 33rpx; font-weight: 600; color: var(--ink); line-height: 1.5; margin-top: 4rpx; }
 .says-foot { display: flex; align-items: baseline; margin-top: 10rpx; }
 .says-id { font-size: 21rpx; color: var(--stone-label); }
-.says-go { margin-left: auto; font-size: 24rpx; color: var(--amber-deep); font-weight: 600; }
+.says-go { margin-left: auto; font-size: 24rpx; color: var(--amber-text); font-weight: 600; }
 /* 村子自己说话时的脸 —— 绿是「这个地方」的颜色，跟四十个人的七色分得开 */
-.intro-face { background: linear-gradient(150deg, var(--moss-lite), #9BD9BA); color: #2E7D5B; }
-.intro-alt { color: var(--amber-deep); font-weight: 600; }
+.intro-face { background: linear-gradient(150deg, var(--moss-lite), #9BD9BA); color: #1F5C40; }
+.intro-alt { color: var(--amber-text); font-weight: 600; }

@@ -1,6 +1,6 @@
 <view class="page">
   <view class="hd">
-    <view class="title">我的</view>
+    <view class="title title-lg">我的</view>
   </view>
 
   <view class="hr"></view>
@@ -14,9 +14,30 @@
       <text class="entry-v">{{nickname}}</text>
       <text class="entry-arrow">›</text>
     </view>
+    <!-- 【2026-09-01】出生时间。这一行原先不在这儿 ——
+         而建档那一屏自己写着「留几份、随时换」「问清楚了再建一份准的
+         换过来」，界面上却没有一个回得去的口子:填完就再也改不了，
+         那两句话就成了空头承诺。
+         放在「名字」下面:这两行是同一类东西 —— 关于你自己的。 -->
+    <view class="entry" bindtap="goNatal" hover-class="entry-hover" hover-stay-time="100">
+      <text class="entry-k">出生时间</text>
+      <text class="entry-v">{{natalText}}</text>
+      <text class="entry-arrow">›</text>
+    </view>
     <view class="entry" bindtap="goOrders" hover-class="entry-hover" hover-stay-time="100">
       <text class="entry-k">我买过的</text>
       <text class="entry-v">{{orderText}}</text>
+      <text class="entry-arrow">›</text>
+    </view>
+    <!-- 【说明书自己说它在这儿，而这儿没有它】（2026-09-06 三路验证 ·
+         第一次打开的人）。册子最后一页写着「这一册一直在「我的」里」，
+         而这八行里没有一行叫说明书;而且填完生辰之后，卖它的那一页
+         从整个 app 里再也找不到（摇卦推荐那条路按设计不再推它）。
+         两头都缺，补在同一行:买过的打得开，没买过的通到那一件。
+         取不到价就不摆 —— 摆一个买不了的入口比不摆更糟。 -->
+    <view class="entry" wx:if="{{book价}}" bindtap="goBook" hover-class="entry-hover" hover-stay-time="100">
+      <text class="entry-k">你的说明书</text>
+      <text class="entry-v">{{book价}}</text>
       <text class="entry-arrow">›</text>
     </view>
     <view class="entry" bindtap="goBadges" hover-class="entry-hover" hover-stay-time="100">
@@ -24,13 +45,35 @@
       <text class="entry-v">{{badgeText}}</text>
       <text class="entry-arrow">›</text>
     </view>
-    <!-- 真订着东西的时候才摆这一行。村里现在没有可订的东西，
-         那一屏点进去只会说「等有了会摆在这儿」—— 它唯一传达的信息是
-         这个产品还没做完，而它跟另外四行并排挂着，会把那四行的可信度
-         一起拉低。有货那天它自己就回来了。 -->
+    <!-- 【村里有可订的、或者你已经订着】才摆这一行。
+         没有可订的东西时那一屏点进去只会说「等有了会摆在这儿」——
+         它唯一传达的信息是这个产品还没做完，而它跟另外四行并排挂着，
+         会把那四行的可信度一起拉低。
+
+         【2026-09-01 改了门闩看的那个变量】。原先只看「你订过没有」，
+         而「订着的」那一屏的空状态正是唯一在卖订阅的地方 ——
+         两个条件互为反面，卖订阅那一半永远到不了。
+         现在看的是「村里有没有可订的」，那才是这一行该不该在的理由。 -->
     <view class="entry" wx:if="{{hasSubs}}" bindtap="goSubs" hover-class="entry-hover" hover-stay-time="100">
       <text class="entry-k">订着的</text>
       <text class="entry-v">{{subText}}</text>
+      <text class="entry-arrow">›</text>
+    </view>
+    <!-- 【手里真有券才摆这一行】——跟上下两行同一条规矩。
+         券这条链 2026-09-05 才接到用户这一侧:后台一直发得出绑人的券，
+         而客户端唯一跟券有关的东西是确认页上那个「有券码就填这儿」的格子，
+         也就是他得先知道那串码。运营补一张券，用户打开什么都看不到。 -->
+    <view class="entry" wx:if="{{hasCoupons}}" bindtap="goCoupons" hover-class="entry-hover" hover-stay-time="100">
+      <text class="entry-k">手里的券</text>
+      <text class="entry-v">{{couponText}}</text>
+      <text class="entry-arrow">›</text>
+    </view>
+    <!-- 【真有场次才摆这一行】——跟上面「订着的」同一条规矩。
+         线下活动这条链 2026-09-03 才接上（在那之前有表、有种子、
+         后台在算报名率，而没有任何人能报上名）。 -->
+    <view class="entry" wx:if="{{hasActs}}" bindtap="goActivity" hover-class="entry-hover" hover-stay-time="100">
+      <text class="entry-k">去得了的</text>
+      <text class="entry-v">{{actText}}</text>
       <text class="entry-arrow">›</text>
     </view>
     <view class="entry" bindtap="goSettings" hover-class="entry-hover" hover-stay-time="100">
@@ -46,7 +89,11 @@
        「想请谁回家，去村子里挑」，同一件事在一屏上说了三遍
        （标尺 §1.5.5 第 4 条），而且最重的位置给了「什么都没有」。
        现在空的时候只留一行轻提示，指出哪儿能有。 -->
-  <view class="recent-k" wx:if="{{recent}}">最近一笔</view>
+  <!-- 【「最近一笔」那个小标题撤了】（2026-09-06）。它是一个 32px 的标签
+       压在一张【自己就说清了自己】的卡上面 —— 卡里写着商品名、
+       哪天下的单、现在什么状况、下一步去哪儿。
+       撤它是为了给「你的说明书」那一行腾位子:这一屏原先正好一屏放得下
+       （余 2px），加一行 44px 就超出 42px，而这是这一屏上最不承重的一处。 -->
   <view class="recent" wx:if="{{recent}}" bindtap="goRecent"
         hover-class="entry-hover" hover-stay-time="100">
     <view class="recent-title">{{recent.title}}</view>
@@ -57,7 +104,11 @@
   </view>
   <view class="nothing" wx:elif="{{recentEmpty}}" bindtap="goVillage"
         hover-class="entry-hover" hover-stay-time="100">
-    <text>东西长在人身上 —— 去村里看看谁能来</text>
+    <!-- 【2026-09-01】原先写「东西长在人身上」—— 那是设计册里的一句话
+         （每样东西都归某位村民卖，没有独立的铺子），照抄到界面上就成了
+         一句谜语:没读过设计册的人不知道「东西」指什么、「长在」是什么意思。
+         空状态要说的只有两件事:现在没有、哪儿能有。 -->
+    <text>这儿还是空的 —— 村里每位都带着自己的东西 —— 先去看看谁能来</text>
     <text class="nothing-go">去 ›</text>
   </view>
   <view class="recent muted" wx:else>
@@ -65,7 +116,7 @@
   </view>
 
   <!-- 弹性槽 · 矮屏收起：下一站在哪儿。删掉它这一屏仍然成立 -->
-  <view class="flexslot" wx:if="{{nextStop}}" bindtap="goRecent">
+  <view class="flexslot" wx:if="{{nextStop}}" bindtap="goRecent" hover-class="press-card" hover-stay-time="80">
     <text class="slot-k">下一站</text>
     <text class="slot-v">{{nextStop}}</text>
     <text class="entry-arrow">›</text>

@@ -314,6 +314,26 @@ str_enum!(RiskCaseSeverity {
     Critical => "critical",
 });
 
+/* 对账差异是怎么结掉的。
+   【这一组以前不存在】——`recon_record` 建表时就留了
+   `resolved_action` / `resolved_by_admin_id` / `resolved_at` 三列，
+   而没有任何地方往里写:1432 条对不上的账，一条都没处理过，
+   因为没有处理的路。对账页找出差异之后是个死胡同。
+
+   四种结法对应四种真实情形，不是四个同义词:
+   哪一种都不该退化成「标记为已看过」。 */
+// str_enum! 的变体上不能挂文档注释，所以这几句写在这里:
+//   channel_wrong —— 查过了，我们这边是对的，渠道账单那一行有问题
+//   ours_missing  —— 查过了，渠道是对的，我们漏记了，已补一笔
+//   timing_only   —— 时间差:这笔跨了日切，下一批就对上了
+//   known_fee     —— 金额差是手续费 / 汇率之类的已知项，不是错账
+str_enum!(ReconResolveAction {
+    ChannelWrong  => "channel_wrong",
+    OursMissing   => "ours_missing",
+    TimingOnly    => "timing_only",
+    KnownFee      => "known_fee",
+});
+
 str_enum!(RiskCaseState {
     Open          => "open",
     Investigating => "investigating",

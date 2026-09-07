@@ -1,13 +1,15 @@
 .hd { padding: 24rpx 0 32rpx; }
 .hd .eyebrow { margin-bottom: 20rpx; }
 .hd .title { font-size: 56rpx; line-height: 1; margin: 8rpx 0 16rpx; }
+/* 副标题跟「我买过的」同一档字号与颜色 —— 同一组的两屏不该各写一套 */
+.hd .sub { font-size: 24rpx; color: var(--ink-faint); margin-top: 12rpx; }
 
 .cats { margin-bottom: 32rpx; }
 .cat {
   display: inline-block;
   font-size: 26rpx;
   color: var(--stone-label);
-  border: 1rpx solid var(--stone-line);
+  border: 1rpx solid var(--stone-line-ui);
   border-radius: 16rpx;
   padding: 8rpx 22rpx;
   margin: 0 14rpx 14rpx 0;
@@ -35,12 +37,20 @@
 .cta .btn { width: 100%; box-sizing: border-box; }
 .err-msg { margin-bottom: 28rpx; }
 
+/* 【卡片，不是表格行】（2026-09-05）。「我买过的」那一屏的注释写着:
+   「横线是文档的语言，卡片是物件的语言，而一笔订单是一件东西」——
+   一份订阅同样是一件东西，而这一屏一直是三条细线分出来的行。
+   同一组的两个入口，一屏是物件、一屏是表格，读起来像后者没做完。
+   （0830 版 §3.4「从表格到东西」；那一批只落到了「我买过的」。） */
+.list, .offers { display: flex; flex-direction: column; gap: 14rpx; }
 .item {
-  border-top: 1rpx solid var(--stone-line);
-  padding: 28rpx 0;
+  background: var(--paper-panel);
+  border-radius: var(--r-card);
+  box-shadow: var(--sh-card);
+  padding: 22rpx 24rpx;
+  transition: transform .12s cubic-bezier(.34,1.56,.64,1);
 }
-.item-hover { background: var(--paper-inset); }
-.item-name { font-weight: 600; font-size: 36rpx; color: var(--ink); }
+.item-name { font-weight: 600; font-size: 32rpx; color: var(--ink); }
 .item-sub { font-size: 26rpx; color: var(--stone-label); margin-top: 10rpx; line-height: 1.6; }
 .item-meta { font-size: 22rpx; color: var(--stone-label); margin-top: 12rpx; }
 .arrow { float: right; }
@@ -57,5 +67,29 @@
 .empty-t { font-size: 30rpx; font-weight: 600; }
 .empty-sub { font-size: 26rpx; color: var(--ink-faint); margin-top: 12rpx; }
 .offers { margin-top: 44rpx; }
-.offers-k { font-size: 26rpx; color: var(--ink-faint); margin-bottom: 16rpx; }
+.offers-k { font-size: 26rpx; color: var(--ink-faint); }
 .offers-err { font-size: 26rpx; color: var(--ink-faint); margin-top: 32rpx; }
+
+/* 能订的那一条右边:价在动作前面 —— 决定按不按的是它。 */
+.item-meta { display: flex; align-items: baseline; gap: 12rpx; }
+.item-price { font-size: 28rpx; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* 扣不成的那两种（past_due / grace）。灰色的一行读起来跟「订着」一样平，
+   而这两种是【他现在就得动手】的 —— 不显眼等于没说。 */
+.item-meta.meta-hot { color: var(--peach-text); }
+
+/* 卡上那一个动作。
+   「补上这一期」是这一屏唯一花钱的动作，给它主色;
+   「不再续了」是退出的动作，压成灰的一行 —— 两个一样重的话，
+   眼睛就分不出哪个是这张卡在等他做的事。
+   两个都撑到 44px 高（`check-tap-size.py` 那条线）。 */
+.item-do {
+  margin-top: 18rpx;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--peach-text);
+}
+.item-do.do-quiet { font-weight: 400; color: var(--ink-faint); }

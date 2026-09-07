@@ -2,6 +2,7 @@
 
 mod state;
 mod auth;
+mod audit;
 mod routes;
 
 use axum::Router;
@@ -60,6 +61,10 @@ async fn main() -> anyhow::Result<()> {
         .merge(routes::commerce::router())
         .merge(routes::commerce::master_router())
         .merge(routes::health::router())
+        /* 【留痕挂在这一层，不逐处调用】。十八个写端点手抄必然漏，
+             而漏掉的那处正好是出事时要查的那处。
+             挂在 with_state 之前 —— 它要拿 AppState 去写库。 */
+        .layer(axum::middleware::from_fn_with_state(state.clone(), audit::留痕))
         .layer(CorsLayer::very_permissive())
         .layer(TraceLayer::new_for_http())
         .with_state(state);

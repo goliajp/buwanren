@@ -87,15 +87,35 @@ check "publish_price 到不存在的 SKU" "404" "$code"
 # 那件商品一下架这一支就跟着红 —— 2026-08-28 已经因此改过两次
 # （问事一卦、黄金会员先后下架，都是因为「卖了给不出东西」）。
 #
-# 所以这里自己种一件，而且它【永远不上架】：product 留在 draft，
-# 只有 sku 是 active。跟「校验·香」同一个路子 ——
-# 校验用的数据不该长得像真数据，也不该混进真目录。
-PSQL "INSERT INTO product(id,code,name,category,kind,status,fulfillment_kind)
-      VALUES ('prod-verify-mix','verify_mix','校验·混币种','report','one_shot','draft','instant')
-      ON CONFLICT (id) DO UPDATE SET status='draft'" >/dev/null
+# 所以这里自己种两件。它们【不出现在任何真目录里】，
+# 靠的是一个只属于校验的区 `verify` —— 目录按 region 过滤，
+# 而没有任何真用户在这个区里。
+#
+# 【为什么不再用 draft】（2026-09-03 五路评审 · 资金审计之后）：
+# 上一版把 product 留在 `draft`、只让 sku 是 active，靠的是
+# 「建单不看 product.status」这件事 —— 而那正是那一轮修掉的洞
+#（13,678 个草稿商品可以直接下单，可下单面比可展示面大 1200 倍）。
+# 洞一堵，这条校验的前提就没了:它开始拿 404 而不是 422，
+# 也就是说【它当初能跑，靠的是被测系统的一个 bug】。
+#
+# 换成「上架、但只在校验区上架」——不混进真目录这条意图原样保住，
+# 而它不再依赖任何一个洞。
+PSQL "INSERT INTO product(id,code,name,category,kind,status,fulfillment_kind,available_regions)
+      VALUES ('prod-verify-mix','verify_mix','校验·混币种','report','one_shot','listed','instant',
+              ARRAY['verify'])
+      ON CONFLICT (id) DO UPDATE SET status='listed', available_regions=ARRAY['verify']" >/dev/null
 PSQL "INSERT INTO sku(id,product_id,code,name,stock_kind,default_currency,status)
       VALUES ('sku-verify-mix','prod-verify-mix','verify_mix_default','校验·混币种',
               'unlimited','CNY','active')
+      ON CONFLICT (id) DO UPDATE SET status='active'" >/dev/null
+# 同一件商品下的第二个 sku —— 混币种要两行，而两行都得在校验区里买得到。
+# 上一版拿的是真商品 `sku-naji-deep`，它只在 cn 上架，跟校验区凑不到一起。
+PSQL "INSERT INTO sku(id,product_id,code,name,stock_kind,default_currency,status)
+      VALUES ('sku-verify-mix2','prod-verify-mix','verify_mix_second','校验·混币种·第二行',
+              'unlimited','CNY','active')
+      ON CONFLICT (id) DO UPDATE SET status='active'" >/dev/null
+PSQL "INSERT INTO price_book(id,sku_id,currency,price_minor,region,platform,status,effective_from)
+      VALUES ('pb-verify-mix2','sku-verify-mix2','CNY',4900,'verify','all','active',NOW())
       ON CONFLICT (id) DO UPDATE SET status='active'" >/dev/null
 
 echo "  为 sku-verify-mix 发一条 JPY 价（建混币种场景）"
@@ -106,7 +126,7 @@ echo "  为 sku-verify-mix 发一条 JPY 价（建混币种场景）"
 # 要验「同一笔里币种不一致会不会被拒」，就得把不一致**真的造在同一个区里**。
 resp=$(curl -sS -X POST "$ADMIN/admin/commerce/pricing/sku-verify-mix/publish" \
   -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' \
-  -d '{"currency":"JPY","price_minor":1200,"region":"cn","platform":"all"}')
+  -d '{"currency":"JPY","price_minor":1200,"region":"verify","platform":"all"}')
 check "publish_price 合法请求" "true" "$(echo "$resp" | jq -r .ok)"
 
 echo
@@ -114,7 +134,7 @@ echo "▶ B · 建单：混币种必须被拒（两份旧实现都会静默算�
 code=$(curl -sS -o /tmp/mix.json -w '%{http_code}' -X POST "$API/v1/orders" \
   -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
   -H "idempotency-key: $(idem mix)" \
-  -d '{"lines":[{"sku_id":"sku-naji-deep","qty":1},{"sku_id":"sku-verify-mix","qty":1}],"region":"cn"}')
+  -d '{"lines":[{"sku_id":"sku-verify-mix2","qty":1},{"sku_id":"sku-verify-mix","qty":1}],"region":"verify"}')
 check "混币种下单 HTTP" "422" "$code"
 check "混币种下单 code" "validation" "$(jq -r .code /tmp/mix.json)"
 echo "    错误文本： $(jq -r .error /tmp/mix.json)"
@@ -122,7 +142,7 @@ echo "    错误文本： $(jq -r .error /tmp/mix.json)"
 # 把刚才那条 JPY 的 cn 价收掉 —— 留着的话这个 sku 在 cn 就有两个币种的活价，
 # 而「商品页显示的价 = 下单记的账」这条性质会跟着坏，往后每次跑都更乱。
 PSQL "UPDATE price_book SET status='expired'
-      WHERE sku_id='sku-verify-mix' AND region='cn' AND currency='JPY' AND status='active'" >/dev/null
+      WHERE sku_id='sku-verify-mix' AND region='verify' AND currency='JPY' AND status='active'" >/dev/null
 
 echo
 echo "▶ C · 建单：ip / ua 落库（旧实现一直写 NULL）"
@@ -175,8 +195,22 @@ PAID=$(curl -sS -X POST "$API/v1/orders" \
   -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
   -H "idempotency-key: $(idem paid)" \
   -d '{"lines":[{"sku_id":"sku-naji-deep","qty":1}],"region":"cn"}' | jq -r .order_id)
-# 直接把它摆成 paid：这一条验的是【状态机拒不拒】，不是怎么付的钱
-PSQL "UPDATE order_record SET status='paid', amount_paid_minor=amount_total_minor, paid_at=NOW() WHERE id='$PAID'" >/dev/null
+# 直接把它摆成 paid：这一条验的是【状态机拒不拒】，不是怎么付的钱。
+# 【但那笔钱也要有】（2026-09-03）——只改订单不落 payment 的话，
+# 造出来的是真实链路造不出的状态（订单说收到钱、支付表一条记录都没有），
+# 而这一支每跑一次攒一笔。下面 371 行那一处一直是走真支付的，
+# 只有这里漏了。`check-money-consistency` 盯着这个数。
+#
+# 【`'\$PAID'` 多一层转义，这句就静静插 0 行】——第一次补的时候
+# 我在 heredoc 里写成了 `'\\$PAID'`，变量没展开，SELECT 匹配不到任何行。
+# INSERT ... SELECT 匹配 0 行【不报错】，于是这一支照常绿，
+# 而每跑一轮仍旧攒一笔孤儿订单 —— 隔了两轮门禁才被那条不变量抓出来。
+PSQL "UPDATE order_record SET status='paid', amount_paid_minor=amount_total_minor, paid_at=NOW() WHERE id='$PAID';
+      INSERT INTO payment(id, order_id, user_id, channel, amount_minor, currency, status, paid_at, region)
+      SELECT 'pay-vs-' || substring(o.id from 5), o.id, o.user_id, 'wechat_jsapi',
+             o.amount_total_minor, o.currency, 'success', NOW(), o.region
+        FROM order_record o WHERE o.id='$PAID'
+      ON CONFLICT (id) DO NOTHING;" >/dev/null
 echo "  自己造一笔已付的单： $PAID"
 code=$(curl -sS -o /tmp/cancelpaid.json -w '%{http_code}' -X POST "$ADMIN/admin/commerce/orders/$PAID/cancel" \
   -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' -d '{"reason":"verify"}')
@@ -370,8 +404,13 @@ else
   PSQL "UPDATE payment SET status='success', paid_at=NOW() WHERE order_id='$ORD6';
         UPDATE order_record SET status='paid', amount_paid_minor=amount_total_minor, paid_at=NOW()
         WHERE id='$ORD6';
-        INSERT INTO shipment (id, order_id, carrier_code, tracking_no, status)
-        VALUES ('shp-v-$ORD6','$ORD6','sf','SFVERIFY001','in_transit');"
+        INSERT INTO shipment (id, order_id, carrier_code, tracking_no, status, region)
+        VALUES ('shp-v-$ORD6','$ORD6','sf','SFV-$ORD6','in_transit',
+                COALESCE((SELECT region FROM order_record WHERE id='$ORD6'),'cn'));"
+  # 单号跟着订单走，不写死 —— 2026-09-03 起 (carrier_code, tracking_no) 上有
+  # 部分唯一索引（一个承运商的一个单号只对一张运单），
+  # 固定的 `SFVERIFY001` 第二次跑就撞，而撞出来的症状是
+  # 「包裹看得见 期望 1 实际 0」，看着像接口坏了。
   SHP=$(PSQL "SELECT id FROM shipment WHERE order_id='$ORD6' LIMIT 1")
   PSQL "INSERT INTO shipment_trace_event (id, shipment_id, event_at, event_kind, location, description,
           raw_source, raw_payload_json)
@@ -564,6 +603,59 @@ else
     printf "  \033[31m✗\033[0m %-52s 换渠道之后 %s 笔待付、%s 笔标着被顶掉 —— 行为变了，台账该重写\n" \
       "换渠道：跟台账对不上" "$ZN2" "$ZEXP"; fail=$((fail+1))
   fi
+  # ── 连点两次「申请退款」只建一张（2026-09-03 加）──
+  #
+  # 【下单与支付一直要幂等键，退款不要】。实测:一模一样的退款请求
+  # 发两次，建出两张申请、合计 100 元。一次网络重试就够 ——
+  # 用户看到「已提交」两回，后台多一张永远批不下去的单子
+  # （`refund::request` 现在把在途的算进已退了，所以第二张批不动）。
+  #
+  # 这里验的是【路由真的接上了幂等】，不是幂等机制本身
+  # （那一层在 unmei-app/tests/idempotency_use_cases.rs）。
+  # 要一笔真收到过钱的单 —— 上面那张 $ZORD 是待付的，退不了，
+  # 所以另起一张走完整条真链。
+  RORD=$(curl -sS -X POST "$API/v1/orders" \
+    -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+    -H "idempotency-key: $(idem rfdidem1)" \
+    -d '{"lines":[{"sku_id":"sku-naji-deep","qty":1}],"region":"cn"}' | jq -r .order_id)
+  PSQL "UPDATE order_record SET status='paid', amount_paid_minor=amount_total_minor, paid_at=NOW()
+        WHERE id='$RORD';
+        INSERT INTO payment(id, order_id, user_id, channel, amount_minor, currency,
+                            status, paid_at, region)
+        SELECT 'pay-ri-' || substring(o.id from 5), o.id, o.user_id, 'wechat_jsapi',
+               o.amount_total_minor, o.currency, 'success', NOW(), o.region
+          FROM order_record o WHERE o.id='$RORD'
+        ON CONFLICT (id) DO NOTHING;" >/dev/null
+
+  RKEY="$(idem rfdsame)"
+  for _ in 1 2; do
+    curl -sS -o /dev/null -X POST "$API/v1/orders/$RORD/refund" \
+      -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+      -H "idempotency-key: $RKEY" \
+      -d '{"reason_code":"user_request","amount_minor":5000}'
+  done
+  RN=$(PSQL "SELECT count(*) FROM refund WHERE order_id='$RORD'")
+  if [ "$RN" = "1" ]; then
+    printf "  \033[32m✓\033[0m %-52s 同一个键发两次，库里 1 张\n" \
+      "连点两次「申请退款」只建一张"; pass=$((pass+1))
+  else
+    printf "  \033[31m✗\033[0m %-52s 库里 %s 张 —— 一次网络重试就多退一笔\n" \
+      "连点两次「申请退款」只建一张" "$RN"; fail=$((fail+1))
+  fi
+
+  # 不带键要当场拒 —— 那道守卫在业务之前，所以用哪张单都行
+  RCODE=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "$API/v1/orders/$RORD/refund" \
+    -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+    -d '{"reason_code":"user_request","amount_minor":100}')
+  if [ "$RCODE" = "400" ]; then
+    printf "  \033[32m✓\033[0m %-52s 400\n" "退款不带幂等键要当场拒"; pass=$((pass+1))
+  else
+    printf "  \033[31m✗\033[0m %-52s 期望 400，实际 %s\n" \
+      "退款不带幂等键要当场拒" "$RCODE"; fail=$((fail+1))
+  fi
+  # 收尾:这张单退过一半，取消掉免得留在库里当噪音
+  PSQL "UPDATE refund SET status='cancelled' WHERE order_id='$RORD' AND status='requested'" >/dev/null
+
   # 收尾:把这张单取消掉,别让两笔 pending 被 sweeper 推成 success ——
   # 那会在开发库里留下一张真的重复扣款单,下一次跑校验时它就是噪音。
   curl -sS -o /dev/null -X POST "$API/v1/orders/$ZORD/cancel" \
@@ -573,6 +665,21 @@ fi
 
 echo
 printf "\033[1m结果： %d 通过 / %d 失败\033[0m\n" "$pass" "$fail"
+
+# 【通过数也要有下限】（2026-09-03 第四轮评审 · 工程审计）。
+# 上一版只判 `fail` —— 而这支脚本里有四处「明说跳过，不计入通过」
+# （库里没开关 / 排盘服务没起 / 建不出盘），它们不影响退出码。
+# 也就是说排盘服务不在时，「签里得带着盘」那一整段（2026-08-18 那次
+# 80/84 空盘事故的钉子）会整段消失，而 gates.sh 记一个 ✓。
+#
+# 数按实测:今天真跑 59 条。跳过是【没验】，不是通过 —— 少了就红。
+# 跟 run-backend-tests.sh 的 `PASSED < 60` 是同一道护栏。
+LEAST=55
+if [ "$pass" -lt "$LEAST" ]; then
+  printf "\033[31m✗ 只通过 %d 条，少于 %d —— 有整段没跑到（多半是某个服务没起），\033[0m\n" "$pass" "$LEAST"
+  printf "\033[31m  这时候的「0 失败」不算数 —— 跳过跟通过在总账上长得一样\033[0m\n"
+  exit 1
+fi
 exit $([ "$fail" -eq 0 ] && echo 0 || echo 1)
 
 # ─────────────────────────────────────────────────────────────────

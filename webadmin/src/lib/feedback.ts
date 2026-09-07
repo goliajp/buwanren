@@ -1,4 +1,4 @@
-import { atom, useAtom, useSetAtom } from 'jotai';
+import { atom, useAtom, useSetAtom, getDefaultStore } from 'jotai';
 import { useMutation, type UseMutationOptions } from '@tanstack/react-query';
 import { ApiError } from './api';
 
@@ -52,6 +52,20 @@ export function useNotices() {
 
 export function useNotify() {
   return useSetAtom(pushNoticeAtom);
+}
+
+/**
+ * 从 React 之外推一条 —— 给 react-query 的 `QueryCache.onError` 用。
+ *
+ * 读失败发生在渲染之外（后台轮询、切页时的重取），那时没有组件可以调 hook。
+ * 这里走 jotai 的默认 store：整个应用没有套自定义 `<Provider>`
+ * （main.tsx 里只有 `QueryClientProvider`），所以 hook 读的就是这一个 store，
+ * 两条路推进去的通知落在同一个数组里。
+ * 哪天真加了自定义 Provider，这一处要跟着改 —— 不改的话通知会推进一个
+ * 没有人在看的 store，而屏上一声不响，跟没写这一段一模一样。
+ */
+export function pushNotice(n: { tone: ToneKind; text: string }): void {
+  getDefaultStore().set(pushNoticeAtom, n);
 }
 
 /**

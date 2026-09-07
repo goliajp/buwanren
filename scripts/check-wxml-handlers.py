@@ -13,8 +13,14 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PAGES = ROOT / 'mini/miniprogram/pages'
-BIND = re.compile(r'\bbind(?:tap|input|blur|focus|change|confirm|submit|chooseavatar|'
-                  r'scroll|load|error|longpress|touchstart|touchend)\s*=\s*"([A-Za-z_$][\w$]*)"')
+# 【`catch` 前缀也算】（2026-09-02 第四轮评审 · 工程审计）。
+# 上一版只认 `bind…`，而 `catchtap=` 没有那个前缀 —— 于是
+# `pages/village/index.wxml` 那句「谁来住你说了算 · 填出生时间 ›」
+# （`catchtap="goNatal"`）从来没被检查过。审计把 `goNatal` 改名之后
+# 这一支照样报绿，而村主屏点下去会抛 `is not a function`。
+BIND = re.compile(r'\b(?:bind|catch)(?:tap|input|blur|focus|change|confirm|submit|'
+                  r'chooseavatar|scroll|load|error|longpress|touchstart|touchend)'
+                  r'\s*=\s*"([A-Za-z_$][\w$]*)"')
 
 bad = 0
 pages = 0
@@ -34,5 +40,14 @@ for wxml in sorted(PAGES.glob('*/index.wxml')):
 
 if bad:
     print('  点下去会抛，而页面开得起来 —— 逐页扫看不出这种洞。', file=sys.stderr)
+    sys.exit(1)
+
+# 【查不到东西的核对必须失败】（2026-09-03 五路评审 · 门禁审计）。
+# 判据不是「有没有报错」，是「它够不够得着要验的东西」——
+# 路径改了、目录搬了、glob 写错了，这一支都会一个不落地全绿，
+# 而它其实一个文件都没看。下限比今天低不少，只挡「塌了」这一档。
+if pages < 15:
+    print(f'✗ 只扫到 {pages} 个页面（该有二十来个）—— 这一支够不着要验的东西，不算通过',
+          file=sys.stderr)
     sys.exit(1)
 print(f'✓ {pages} 个页面，bind 的处理器都真有')

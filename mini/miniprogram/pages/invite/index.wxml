@@ -1,6 +1,6 @@
 <view class="page">
   <view class="hd">
-    <view class="title">谁能来</view>
+    <view class="title title-lg">谁能来</view>
     <!-- 说「为什么是这几位」得【真的按它排过】。
          这一句原先是笼统的「跟你补得上」，而排序只按「在卖的排前面、
          再按 id」—— 陈述了一个不存在的因果（设计册 10.8）。
@@ -11,8 +11,13 @@
     <view class="why" wx:elif="{{lackErr}}">{{lackErr}}</view>
     <!-- 药丸写着「缺 亲人」，贴在【他】那一侧 —— 第一次看的人会读成
          「这个人缺勤」，而它说的是他补【你】哪一样。所以这里要点一句。
-         填过出生时间之后这句会换成「你缺 X · ……」，那时它自明。 -->
-    <view class="why" wx:else>填了出生时间就按你缺的排 · 右边两个字是各人自己缺的 —— 缺过才懂怎么劝人</view>
+         填过出生时间之后这句会换成「你缺 X · ……」，那时它自明。
+
+         【2026-09-01】原先写的是「右边两个字」—— 数错了。药丸上是
+         「缺勤快」「缺亲人」，三个字;「缺运」「缺静」才两个。指路的话
+         数错了数，人第一眼就会去找那个不存在的东西。改成「标签」，
+         不依赖字数，长短都指得准。 -->
+    <view class="why" wx:else>填了出生时间就按你缺的排 · 右边标签是各人自己缺的 —— 缺过才懂怎么劝人</view>
     <view class="hr"></view>
   </view>
 
@@ -45,7 +50,7 @@
       <view wx:for="{{能请}}" wx:key="id"
             class="item enter" style="animation-delay:{{index * 40}}ms"
             data-id="{{item.id}}" bindtap="onTap"
-            hover-class="item-hover" hover-stay-time="100">
+            hover-class="press-card" hover-stay-time="100">
         <!-- 脸。四十位原先是四十行文字 —— 一个靠角色立身的产品，
              最不该没有角色的就是这一屏。没有美术之前用姓名末字，
              等头像画好换这一处即可。 -->
@@ -57,8 +62,21 @@
           </view>
           <view class="item-sub" wx:if="{{item.sub}}">{{item.sub}}</view>
         </view>
-        <!-- 「请他来」对婆婆是错的 —— 四十位里男女都有。不带代词 -->
-        <text class="item-go">请回村 ›</text>
+        <!-- 「请他来」对婆婆是错的 —— 四十位里男女都有。不带代词。
+             【2026-09-01】价写在这儿。点一行直奔商品页，那是掏钱那一路，
+             而这一屏原先一个价都没有 —— 按下去要多少钱，人得先知道。
+             取不到价就只写「请回村」，不编一个数字出来。 -->
+        <!-- 已经住进来的那几位:名册上要认得出来。
+             原先它们跟没请的一样写「请回村 · ¥99」，而那个人此刻正住在
+             你的村子里 —— 同一个人在两屏里是两种身份（2026-09-01 五路评审）。 -->
+        <view class="item-go" wx:if="{{item.住着}}">
+          <text class="item-in">住着</text>
+          <text>去看看 ›</text>
+        </view>
+        <view class="item-go" wx:else>
+          <text class="item-price" wx:if="{{item.价}}">{{item.价}}</text>
+          <text>请回村 ›</text>
+        </view>
       </view>
     </view>
 
@@ -75,13 +93,32 @@
               style="margin-left:{{index === 0 ? 0 : -18}}rpx; z-index:{{3 - index}}; {{item.脸样}}"><text wx:if="{{!item.脸样}}">{{item.face}}</text></view>
       </view>
       <text class="soon-txt" wx:if="{{展开}}">收起</text>
-      <text class="soon-txt" wx:else>另外 {{没来.length}} 位还在路上</text>
+      <!-- 【说清为什么请不了】（2026-09-02 第三轮评审）。
+           最早那版是「另外 36 位，还没请」—— 而「还没请」的意思是
+           「你还没请」，读起来像点一下就能请。实际请不了。
+           人看到一个点不动的货架而不知道为什么，只会以为这 app 坏了;
+           说清了，那 36 位就从「买不到的东西」变成「会来的人」。
+           「还在路上」也不行 —— 那听着像明天就到。
+
+           【为什么不再说「屋子还没盖好」】（2026-09-06）。
+           那句话对其中两位是假的:白鹭与沈砚的屋子早就盖好了
+           （`rooms/src/rooms/bailu.js` / `shenyan.js`），他们请不回来
+           是因为村里没有他们走动的那副像素 —— 请回来也只会得到
+           一间亮着灯却永远没人出来的屋子。
+           判据是「搬不搬得进来」，三条要齐:有屋子、走得动、答得上话
+           （`scripts/check-can-move-in.py` 守着这三条）。
+           所以这一句改成说结果,不说单一原因 —— 结果对 36 位全是真的,
+           而摊开之后那一行接着说清「齐了哪几样才请得回来」。 -->
+      <text class="soon-txt" wx:else>另外 {{没来.length}} 位，还搬不进来</text>
       <text class="soon-caret {{展开 ? 'up' : ''}}">›</text>
     </view>
 
     <!-- 摊开之后是一列窄行,不是一列大卡 —— 它们按不动,给不了大卡那个
          「能点」的暗示;而做成一样大又会把能请的那几位淹掉。 -->
     <view class="soon-list" wx:if="{{展开}}">
+      <!-- 摊开之后再说一次，说得具体些:上面那行只够说「没盖好」，
+           这里能说清盖好之后会怎样 —— 那是人真正想知道的事。 -->
+      <view class="soon-note">一位一位做 —— 屋子盖好、人在村里走得动了，那位就请得回来</view>
       <view wx:for="{{没来}}" wx:key="id" class="soon-item enter"
             style="animation-delay:{{index < 12 ? index * 26 : 312}}ms">
         <view class="soon-face {{item.脸样 ? 'face-art' : ''}}" style="{{item.脸样}}"><text wx:if="{{!item.脸样}}">{{item.face}}</text></view>
@@ -91,10 +128,17 @@
       </view>
     </view>
 
-    <!-- 「请回家」按下去会发生什么。原先这里只有一行 22rpx 的灰字
-         —— 而这是第一次来的人最需要知道的一件事:这东西是实物,
-         寄到手上,扫一下人才住进村里。三步摆开,不必读那一长句。
-         摊开名单的时候它让位:那时人在看名单,不是在看怎么买。 -->
+    <!-- 「请回家」按下去会发生什么。原先这里只有一行 22rpx 的灰字，
+         而这是第一次来的人最需要知道的一件事。三步摆开，不必读那一长句。
+         摊开名单的时候它让位:那时人在看名单，不是在看怎么买。 -->
+    <!-- 【三步说的是今天真会发生的事】（2026-09-01 第二轮评审 · 转化路）。
+         上一版写的是「请一位 › 收到护身符 › 扫开它」——
+         而后端在【付款那一刻】就让他搬进村里了（fulfillment.rs 的
+         residency 分支直接 move_in，既不建包裹也不发凭据）。
+         那三步一步都不会发生:没有东西寄出，没有东西可扫，
+         订单进度条永远停在「寄出」。
+         按今天真做的事说:付完他就搬进来。
+         扫护身符那条路仍然在（村子右上角），那是线下拿到实体御守的人走的。 -->
     <view class="how" wx:if="{{能请.length > 0 && !展开}}">
       <view class="how-step">
         <view class="how-n">1</view>
@@ -104,14 +148,14 @@
       <view class="how-arrow">›</view>
       <view class="how-step">
         <view class="how-n">2</view>
-        <view class="how-t">收到御守</view>
-        <view class="how-s">实物寄到你手上</view>
+        <view class="how-t">住进村里</view>
+        <view class="how-s">付完就搬来</view>
       </view>
       <view class="how-arrow">›</view>
       <view class="how-step">
         <view class="how-n">3</view>
-        <view class="how-t">扫开它</view>
-        <view class="how-s">就住进村里</view>
+        <view class="how-t">每天说一句</view>
+        <view class="how-s">也替你看事</view>
       </view>
     </view>
 
@@ -119,6 +163,6 @@
          而「一屏不是死路」那支门禁把「有翻页」也算成出口,于是它一直绿。
          翻页不离开这一屏,那是个假出口(判据同日一并改掉)。
          真机上原生导航栏是有返回箭头的,但别的屏都摆了这一行,该一样。 -->
-    <view class="back" bindtap="onBack">回村里</view>
+    <view class="back" bindtap="onBack" hover-class="press-text" hover-stay-time="80">回村里</view>
   </block>
 </view>

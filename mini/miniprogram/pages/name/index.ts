@@ -7,7 +7,7 @@
  * ② 「我的」在最矮的机器上超出一屏 314px（web/oversize-pages.json）。
  *    把这一段搬走是往回收的一步。
  *
- * 改名对谁都开着：匿名用户也有名字（服务端给的是「过客」），
+ * 改名对谁都开着：匿名用户也有名字（服务端给的是「新来的」），
  * 而绑定微信那一刻定下的昵称此后再也改不了 —— 那是只有入口没有出口。
  */
 
@@ -35,7 +35,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
 
   onShow() {
     const u = getApp<IAppOption>().globalData.user || storage.getUser()
-    const n = (u && u.nickname) || '过客'
+    const n = (u && u.nickname) || '新来的'
     this.setData({ nickname: n, draft: n })
   },
 
@@ -56,7 +56,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
       (u) => {
         storage.setUser(u)
         getApp<IAppOption>().globalData.user = u
-        this.setData({ saving: false, nickname: u.nickname || '过客', note: '存下了' })
+        this.setData({ saving: false, nickname: u.nickname || '新来的', note: '存下了' })
       },
       (e) => this.setData({ saving: false, note: '没存上：' + (一句(e)) }),
     )

@@ -1,7 +1,11 @@
 <view class="page">
   <view class="hd">
+    <!-- 【不要副标】。原先写「账号的事都在这儿」—— 加上客服与两份文件之后
+         这句话就不准了（协议不是账号的事）；而就算准，「设置」两个字底下
+         再解释一句「这里是设置」也是同一件事说两遍。
+         这一屏加了三行之后超出一屏 136px，一屏放不下的东西要么少放，
+         要么放紧 —— 少放的第一顺位就是这种不带信息的话。 -->
     <view class="title">设置</view>
-    <view class="sub">账号的事都在这儿</view>
   </view>
 
   <!-- 绑定微信自己一屏：那是一张表单（选头像 + 填昵称 + 按钮 + 说明），
@@ -21,33 +25,50 @@
   <!-- 这五行原先在「我的」上折叠着 —— 折叠是为了让【那一屏】放得下，
        搬到这一屏之后那个理由没有了。而它们存在的唯一用途就是被人念给客服听，
        多一次「展开」等于让唯一的用途多一道手续。 -->
-  <view class="sec-k">这台设备上的账号 · 出问题时把这几行念给我们</view>
+  <view class="sec-k">出问题时，把这几行念给我们</view>
   <view class="card" wx:if="{{user}}">
-    <view class="prof-row">
+    <!-- 【2026-09-01】ID 那一行要能复制。
+         上面写着「出问题时把这几行念给我们」，而这一行被 CSS 截成
+         `u_anon_852e88dd…`（`.prof-v` 有 max-width + ellipsis），
+         既念不全也复制不了 —— 这一屏唯一的用途被自己的样式挡死了。
+         订单号那儿早就有长按复制（order/index.wxml），照搬。 -->
+    <view class="prof-row" bindlongpress="onCopyId"
+          hover-class="entry-hover" hover-stay-time="100">
       <text class="prof-k">ID</text>
       <text class="prof-v mono">{{user.id}}</text>
+      <text class="prof-copy">长按复制</text>
     </view>
+    <!-- 平台与区域并成一行 —— 念给客服时它们本来就是连着说的一句话，
+         而分两行在这一屏上就是 50px。 -->
     <view class="prof-row">
-      <text class="prof-k">平台</text>
-      <text class="prof-v">{{user.platform}}</text>
+      <text class="prof-k">平台 · 区域</text>
+      <!-- 【念得出口的说法，不是原始枚举】（2026-09-02 第四轮评审）。
+           上一版直接摆 `mini · cn · zh-CN` —— `mini` 是工程代号，
+           三个都是库里的值。这张卡的用途是「念给客服听」，
+           那就要能念:客服拿到「小程序 · 中国大陆 · 简体中文」
+           查到的是同一件事，而买家不会觉得自己看见了后台。 -->
+      <text class="prof-v">{{平台说法}}</text>
     </view>
-    <view class="prof-row">
-      <text class="prof-k">区域</text>
-      <text class="prof-v">{{user.region}} · {{user.locale}}</text>
-    </view>
-    <view class="prof-row">
-      <text class="prof-k">类型</text>
-      <text class="prof-v {{user.is_anonymous ? '' : 'ok'}}">
-        {{user.is_anonymous ? '还没绑微信' : '已绑微信'}}
-      </text>
-    </view>
-    <view class="prof-row" wx:if="{{activeNatalId}}">
-      <text class="prof-k">本命</text>
-      <text class="prof-v mono">{{activeNatalId}}</text>
-    </view>
+    <!-- 「类型：还没绑微信 / 已绑微信」那一行删了 —— 这一屏最上面那颗
+         入口已经在说同一件事（「绑定微信 · 换设备也还在」／「微信 · 昵称 · 已绑定」），
+         而它比这一行醒目得多、还点得动。同一件事说两遍，删掉重复的那一遍。 -->
+    <!-- 【出生时间那一行删了】。它摆的是一串 natal uuid ——
+         而这张卡存在的唯一用途是「念给客服听」，客服拿着上面那个账号 ID
+         就能查到这个人所有的盘，不需要买家再念一串 uuid。
+         多一行少一行本来无所谓，但这一屏加上客服与两份文件之后
+         正好放不下，而放不下的时候先删的就是这种【有它也行、没它也行】的行
+         （2026-09-02 加合规入口时量出来的）。 -->
   </view>
   <view class="card muted" wx:else>
     <text class="prof-v">还没登录上 —— 退出重来一次试试</text>
+  </view>
+
+  <!-- 【2026-09-01】警告挪到按钮【上面】。
+       原先它在按钮底下 —— 而这是一颗不可逆的按钮:匿名账号退出之后，
+       村里的人和买过的东西都回不来。放在下面等于「按完再告诉你」，
+       读到的时候手已经抬起来了。要挡住一次误按，字必须在按之前经过眼睛。 -->
+  <view class="cta-note warn" wx:if="{{user && user.is_anonymous}}">
+    你还没绑微信 —— 退出以后，村里的人、买过的东西、说明书都回不来了
   </view>
 
   <view class="cta">
@@ -56,11 +77,43 @@
     </button>
   </view>
 
-  <view class="cta-note" wx:if="{{user && user.is_anonymous}}">
-    你还没绑微信 —— 退出以后，村里的人和买过的东西都回不来了
+  <!-- 【客服与两份文件】（2026-09-01 第二轮评审 · 合规）。
+       这三样原先【一处都没有】:出了事没人可找，收了钱没有交代，
+       而小程序过审这三样是硬门槛。
+       摆在退出按钮下面 —— 它们不是常用的东西，但要找的时候找得到。 -->
+  <view class="sec-k">有事找我们</view>
+  <view class="entries">
+    <!-- 微信自带的客服会话。`open-type="contact"` 只有真机有 ——
+         网页版上它抛（web/runtime/wxml.js 里认这个属性），不假装能点。 -->
+    <button class="entry entry-btn" open-type="contact"
+            hover-class="entry-hover" hover-stay-time="100">
+      <text class="entry-k">联系我们</text>
+      <text class="entry-v">微信客服会话</text>
+      <text class="entry-arrow">›</text>
+    </button>
+    <view class="entry" bindtap="goPrivacy" hover-class="entry-hover" hover-stay-time="100">
+      <text class="entry-k">隐私政策</text>
+      <text class="entry-v">我们收什么、不收什么</text>
+      <text class="entry-arrow">›</text>
+    </view>
+    <view class="entry" bindtap="goTerms" hover-class="entry-hover" hover-stay-time="100">
+      <text class="entry-k">用户协议</text>
+      <text class="entry-v">你买的是什么、怎么退</text>
+      <text class="entry-arrow">›</text>
+    </view>
+  </view>
+
+  <!-- 【注销账号】（2026-09-05）。隐私政策上写了两遍「在「设置」里退出
+       并删除账号」，而这一屏上此前只有「退出」—— 那颗按钮清的是本机那份
+       token，服务端一行数据都不动。也就是说那两句话对谁都不成立。
+
+       摆在最底下、压成一行安静的文字，不给它按钮的分量:
+       它比退出重得多，但一屏上最重的东西不该是「离开」。 -->
+  <view class="leave" bindtap="goLeave" hover-class="press-text" hover-stay-time="80">
+    注销账号
   </view>
 
   <view class="foot-hint">
-    不完人 v{{version}} · 仅供研究与娱乐
+    不完人 v{{version}} · 仅供研究与娱乐 · 不构成人生建议
   </view>
 </view>

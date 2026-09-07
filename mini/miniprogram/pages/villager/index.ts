@@ -17,6 +17,7 @@ import { commerceApi } from '../../services/commerce'
 import type { ApiError } from '../../services/api'
 import type { VillagerInVillage } from '../../types/village'
 import { 一句 } from '../../utils/say'
+import { money } from '../../utils/money'
 
 /* 哪几间房搬进来了 —— 由 engine/rooms/index.js 报，不在这手写一份。
    手写的话：rooms/ 那边新做一间房，这里忘了加，那间房永远进不去而且不报错。
@@ -40,12 +41,25 @@ interface IData {
   sellsProduct: string
   /** 找他的御守时那一行字 */
   say: string
+  /** 请他回村要多少钱 —— 「¥99」这样一个字符串，取不到是空串。
+   *  按钮上必须写它:一个没用过的人，不知道按下去是马上扣钱还是先看看，
+   *  于是干脆不按（五路评审里三路把这条列成第一个不敢按的理由）。 */
+  价: string
+  /** 请不回来时按钮上那句话。空串 = 请得回来。
+   *  这句话里有「御守」两个字，而【挂着人不等于是御守】——
+   *  香也挂着苏合。所以这句只在筛过 `fulfillment_kind === 'residency'`
+   *  之后才拼得出来，跟那个判断写在同一处（门禁 check-omamori-sense）。 */
+  请不来: string
   inviting: boolean
   asking: boolean
+  /** 这一签让你拿到的那一枚徽章的名字。没拿到就是空串，屏上不说 */
+  拿到: string
 }
 
 Page<IData, WechatMiniprogram.IAnyObject>({
   data: { id: '', loading: true, err: '', who: null, canEnter: false, say: '', inviting: false, asking: false,
+    拿到: '',
+    价: '', 请不来: '',
     脸样: '',
           sells: false, sellsLabel: '', sellsProduct: '' },
 
@@ -92,9 +106,45 @@ Page<IData, WechatMiniprogram.IAnyObject>({
         sellsProduct: who.sells ? who.sells.product_id : '',
       })
       wx.setNavigationBarTitle({ title: who.name })
+      if (!who.at_home) this.取价(id)
     } catch (e) {
       this.setData({ loading: false, err: '取不到：' + (一句(e as { status?: number; message?: string })) })
     }
+  },
+
+  /* 请他回村要多少钱。**在按钮上写出来，不等点进去才说。**
+     价钱是列表接口给的（`from_price_minor` = 这件商品最便宜那一档），
+     跟详情页同一套 region/platform 生效规则，不是页面自己算的。
+
+     取不到分两种，说法不一样:
+       · 一件都没有 → 「御守还没上架」，按钮变灰，别让人白点一趟
+       · 有商品但没价 → 只写「请 X 回村」，不编一个数字出来
+     这两种都不该拿别人的价顶上 —— 价钱写错一次，后面写什么都没人信。 */
+  取价(id: string) {
+    commerceApi.products('omamori', id).then(
+      (all) => {
+        if (this.data.id !== id) return          // 翻页翻快了，别把上一位的价贴上来
+        /* 【挂着人 ≠ 是御守】。香也挂着苏合（`sku.villager_id`），
+           但买香是寄一盒香给你，不是请她搬进来。判据是会不会有人住进村里
+           —— `fulfillment_kind === 'residency'`，不是分类叫 omamori。 */
+        const list = all.filter((x) => x.fulfillment_kind === 'residency')
+        if (!list.length) {
+          /* 按钮上只写【为什么按不动】那半句，名字不写进去 ——
+             「桃桃的御守还没做出来」放在一颗全宽按钮上要折行，
+             而这一屏从头到尾都在说这一位是谁，名字在按钮上是重复的。 */
+          this.setData({ 请不来: '这一枚还没做出来' })
+          return
+        }
+        const 分 = list[0].from_price_minor
+        if (typeof 分 !== 'number') return
+        /* 【格式化只有一支】:`utils/money.ts` 的 `money()`。
+           这里原先自己抄了一份 —— 非 CNY 不写符号，JPY 还会被多除一次 100
+           （日元没有分）。库里 region=cn 有 202 个 sku 同时挂着两种币的在售价，
+           显示什么币种是数据说了算，不是代码说了算。 */
+        this.setData({ 价: money(分, list[0].from_currency || 'CNY') })
+      },
+      () => {},                                   // 取不到价就不写价，页面照常
+    )
   },
 
   /* 问签。注意它不是起卦 —— 起卦是罗盘（`pages/ask`，naji），
@@ -103,9 +153,16 @@ Page<IData, WechatMiniprogram.IAnyObject>({
   onAsk() {
     const { id, who } = this.data
     if (!id) return
-    this.setData({ asking: true, say: '' })
+    this.setData({ asking: true, say: '', 拿到: '' })
     villageApi.ask(id).then(
-      (r) => this.setData({ asking: false, say: r.say }),
+      (r) => this.setData({
+        asking: false,
+        say: r.say,
+        /* 一次最多报一枚。同一签同时够到两枚（第一次问签的人可能同时
+           拿到「头一回」与「七天没断」）时只念头一枚 —— 一行里塞两个书名号
+           读起来像系统通知，而这是村民说完话之后的一句添头。 */
+        拿到: (r.earned && r.earned.length) ? r.earned[0].name : '',
+      }),
       (e) => {
         /* 没请回家是 **404 不是 403** —— 那不是权限检查，是设定：御守是入住凭证。
            所以照状态码判，不去猜错误文案（文案会改，状态码是契约）。 */
@@ -114,17 +171,28 @@ Page<IData, WechatMiniprogram.IAnyObject>({
           asking: false,
           say: '',
           err: err.status === 404
-            ? (who ? who.name : '他') + '还没住进你的村子'
+            ? (who ? who.name : '这一位') + '还没住进你的村子'
             : (一句(err)),
         })
       },
     )
   },
 
+  /* 【有自己一屏的商品在这儿列名，其余走通用商品页】。
+     香有自己一屏，是因为它是三档价钱 + 苏合的口气（见 pages/incense/index.ts
+     顶上那段）；玉葫芦坠只有一档，通用商品页渲得出来，而且渲得对。
+     上一版这里【一律】跳香那一屏 —— 那时全村只有苏合一个人卖东西，
+     所以看不出问题;卢恩开始卖玉之后，点他的「他卖的东西」会跳到
+     一个按三档香写的屏，上面是别人的口气（2026-09-02）。
+
+     写成显式名单，不按 category 猜:香和玉的 category 都是 charm、
+     kind 都是 one_shot，猜不出来;而猜出来的路由会在加第三件东西时
+     悄悄把它送错地方，且不报错。 */
   goSells() {
-    if (this.data.sellsProduct) {
-      wx.navigateTo({ url: '/pages/incense/index?id=' + this.data.sellsProduct })
-    }
+    const id = this.data.sellsProduct
+    if (!id) return
+    const 自己一屏: Record<string, string> = { 'prod-suhe-incense': '/pages/incense/index' }
+    wx.navigateTo({ url: (自己一屏[id] || '/pages/product/index') + '?id=' + id })
   },
 
   onEnter() {
@@ -141,12 +209,13 @@ Page<IData, WechatMiniprogram.IAnyObject>({
       (list) => {
         this.setData({ inviting: false })
         if (!list.length) {
-          this.setData({ say: '他的御守还没上架' })
+          this.setData({ say: (this.data.who ? this.data.who.name : '这一位') + '还请不回来 —— 那一枚还没做出来' })
           return
         }
         wx.navigateTo({ url: '/pages/product/index?id=' + list[0].id })
       },
-      () => this.setData({ inviting: false, say: '一时找不到他的御守' }),
+      () => this.setData({ inviting: false,
+        say: '一时问不着' + (this.data.who ? this.data.who.name : '这一位') + '那边，回头再试' }),
     )
   },
 

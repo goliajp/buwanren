@@ -1,0 +1,33 @@
+/* 【这一屏是要读的，不是要好看的】。所以它跟别的屏不一样:
+   行距放宽、段间留白、不摆卡片 —— 卡片会把一份文件切成一堆碎块。
+   它也是全 app 唯一允许【滚】的一屏:政策就是长，把它塞进一屏
+   等于把字压到读不动（那才是真的不想让人读）。 */
+.page { padding: 40rpx 40rpx 60rpx; }
+.hd { margin-bottom: 36rpx; }
+.hd .sub { margin-top: 8rpx; }
+
+.sec { margin-bottom: 40rpx; }
+.sec-h {
+  font-size: 30rpx; font-weight: 700; color: var(--ink);
+  margin-bottom: 14rpx;
+  /* 一道短横当小节的记号 —— 比加粗更明确，也不必再加一层框 */
+  padding-left: 20rpx; border-left: 6rpx solid var(--amber); line-height: 1.3;
+}
+.sec-p { font-size: 27rpx; color: var(--ink-mid); line-height: 1.85; }
+
+.sec-list { margin-top: 6rpx; }
+.li {
+  display: flex; align-items: baseline;
+  padding: 14rpx 0; border-bottom: 2rpx solid var(--stone-line-x);
+}
+.li:last-child { border-bottom: none; }
+/* 左边那一列定宽 —— 不定宽的话「位置」两个字和「收货地址与联系方式」
+   九个字各占各的宽，右边那一列就参差成锯齿，一整页都在抖。
+   宽度按【最长的那个键】定:「收货地址与联系方式」九个字 × 13px = 117px，
+   210rpx（105px）装不下，于是它断成「收货地址与联系方 / 式」——
+   中文没有连字符，断在词中间读起来就是一次磕绊。250rpx = 125px 刚好过。 */
+.li-k { flex: none; width: 250rpx; font-size: 26rpx; font-weight: 600; color: var(--ink); }
+.li-v { flex: 1; font-size: 25rpx; color: var(--ink-mid); line-height: 1.7; }
+
+.cta { margin-top: 20rpx; display: flex; }
+.cta .btn { width: 100%; }

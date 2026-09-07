@@ -53,9 +53,21 @@
          判据来自 becomes_resident 与这一单有没有册子，不在这里猜。 -->
     <view class="nextline" wx:if="{{下一步 && !traceOf}}">{{下一步}}</view>
 
+    <!-- 【这一单有时限】。三十分钟不付，系统自己取消（order.rs 建单时写的
+         `expires_at`，payment_sweep 到点扫）。屏上原先一个字都没说 ——
+         而旁边就是「不要这一单了」那条文字链，过期之后状态变「已取消」，
+         买家最容易的理解是「我手滑点了它」（2026-09-01 第二轮评审 · 转化路）。 -->
+    <view class="ttl" wx:if="{{还有多久 && !traceOf}}">{{还有多久}}</view>
+
     <!-- 订单号。这一屏原先没有任何能报给客服的东西 ——
-         出了事人只能说「我买的那个说明书」。长按可复制。 -->
-    <view class="ordno" wx:if="{{!traceOf}}" bindlongpress="onCopyId">单号 {{id}}　长按复制</view>
+         出了事人只能说「我买的那个说明书」。长按可复制。
+
+         【只露前八位】（2026-09-02 第四轮评审 · 第一次来的人）。
+         整串是 `ord-` 加一个 uuid，四十个字符;原样摆在屏上，
+         人读到的是「开发者的东西漏出来了」，而这一屏是催他付钱的。
+         八位十六进制够客服定位到唯一一单（四十亿分之一），
+         长按复制的仍然是整串 —— 要精确的时候拿得到。 -->
+    <view class="ordno" wx:if="{{!traceOf}}" bindlongpress="onCopyId">单号 {{短单号}}　长按复制</view>
 
     <!-- 多件时才逐行列。单件的话标题已经说了是什么，再列一遍是重复。 -->
     <view class="lines" wx:if="{{lines.length > 1}}">
@@ -75,10 +87,31 @@
       <view class="sum-row"><text class="sum-k">已付</text><text class="sum-v">{{paidText}}</text></view>
     </view>
 
+    <!-- 【券把整单减完的那一单】（2026-09-06 三路验证）。屏上写着
+         「¥0 · 已付」而这个人从头到尾没掏过钱 —— 不说清楚，第一反应是
+         这一单坏了，或者以为钱还没扣、过会儿要扣。 -->
+    <view class="sum" wx:if="{{券抵完了}}">
+      <view class="sum-row">
+        <text class="sum-k">这一单</text>
+        <text class="sum-v">券抵完了 · 一分没扣</text>
+      </view>
+    </view>
+
+    <!-- 【申请完这一屏要看得见】（2026-09-06 · 五路体验走查）。
+         按完「申请退款」，这一屏此前一个字都不变:提示被随后的 `load()`
+         清掉，而订单详情接口那时不返退款单。于是屏上没有「审核中」这一态、
+         没有单号可以念给客服 —— 人只会再按一次，而第二次撞上后端的在途检查。 -->
+    <view class="sum" wx:if="{{退款.length > 0}}">
+      <view class="sum-row" wx:for="{{退款}}" wx:key="id">
+        <text class="sum-k">退款 · {{item.说}}</text>
+        <text class="sum-v">{{item.钱}} · 单号 {{item.短号}}</text>
+      </view>
+    </view>
+
     <view class="ship" wx:if="{{shipErr}}">
       <view class="ship-k">寄出</view>
       <view class="pkg-no">{{shipErr}}</view>
-      <text class="pkg-arrow" bindtap="loadShipments">再试一次</text>
+      <text class="pkg-arrow" bindtap="loadShipments" hover-class="press-text" hover-stay-time="80">再试一次</text>
     </view>
 
     <view class="ship" wx:elif="{{shipments.length}}">
@@ -90,8 +123,10 @@
           <text class="pkg-status">{{item.statusText}}</text>
           <text class="pkg-arrow">{{traceOf === item.id ? '收起' : '看轨迹'}}</text>
         </view>
+        <!-- 承运商原先打的是库里那两个字母（`sf`）。翻译在 index.ts；
+             `manual`（后台手填、没挑承运商）那一档不写承运商，只留单号。 -->
         <view class="pkg-no" wx:if="{{item.tracking_no}}">
-          {{item.carrier_code}} · {{item.tracking_no}}
+          <text wx:if="{{item.快递}}">{{item.快递}} · </text>{{item.tracking_no}}
         </view>
         <view class="pkg-no" wx:else>还没有单号</view>
 
@@ -111,21 +146,14 @@
 
     <view class="note" wx:if="{{note}}">{{note}}</view>
 
-    <!-- 「收到了，去扫开它」（设计册 M3，10.8 特别点名的一条）。
-         **订单的完成态不是「已签收」，是她住进村里** —— 包裹到了、人没住进来，
-         这一单就停在半路，而扫码率是整条链上最敏感的一个数。
-         所以它是这一屏的主按钮，排在退款前面。 -->
-    <view class="cta cta-wake" wx:if="{{toScan}}">
-      <button class="btn" bindtap="onWake" disabled="{{waking}}">
-        {{waking ? '找着……' : '收到了，去扫一下'}}
-      </button>
-      <view class="wake-alt">
-        扫不出来？
-        <input class="wake-input" placeholder="御守背面那串字"
-               value="{{code}}" maxlength="40" bindinput="onCodeInput"/>
-        <text class="wake-go" bindtap="onCodeSubmit">请出来</text>
-      </view>
-      <view wx:if="{{wakeErr}}" class="wake-err">{{wakeErr}}</view>
+    <!-- 【这一单真正完成的样子:他住进来了】（2026-09-01 第二轮评审 · 转化路）。
+         这个位置原先是「收到了，去扫一下」加一个手输编号的输入框 ——
+         两样都够不着任何东西:买御守不寄实物、不发凭据，后端在付款那一刻
+         直接让他搬进村里。那颗按钮按下去只会扫无可扫。
+         扫护身符那条路仍在村子主屏（连手输编号一起），
+         那是【线下拿到实体御守的人】走的，跟这一单无关。 -->
+    <view class="cta cta-visit" wx:if="{{住下了 && who}}">
+      <button class="btn" bindtap="onVisit">去{{who.name}}屋里看看</button>
     </view>
 
     <!-- 买的是说明书的话，主按钮是「读你的说明书」。
@@ -135,31 +163,50 @@
     <!-- 还没付钱时它降成次要：这一屏的主按钮只能有一颗，
          而那一颗永远是【下一步该做的那件事】。两颗橙的并排放着，
          等于让买家自己猜先按哪个。 -->
-    <view class="cta cta-read" wx:if="{{report}}">
-      <button class="btn {{status === 'unpaid' ? 'ghost' : ''}}" bindtap="onRead">
+    <!-- 【2026-09-01】待付的单子上不摆「读你的说明书」。
+         报告是履约之后才建的（unmei-app/src/report.rs），付款之前
+         这颗按钮按下去只会失望;而它原先【压在主按钮「去支付」的上面】,
+         次要动作排在主动作前面。付过了才摆它。 -->
+    <!-- 还要 `!住下了`：他刚住进来的时候，这一屏的主按钮是「去他屋里看看」。
+         两颗实心按钮并排，等于让人自己挑先做哪件。
+         那时这一册照样从「我的 › 我买过的」进得去，只是不占这一屏的主位。 -->
+    <view class="cta cta-read" wx:if="{{report && status !== 'unpaid' && !住下了}}">
+      <button class="btn" bindtap="onRead">
         {{report.status === 'ready' ? '读你的说明书' : '这份说明书还差你的出生时间'}}
       </button>
     </view>
 
     <view class="cta">
-      <!-- 「去支付」跟上面那颗「收到了，去扫开它」**结构上互斥**。
-           后端修过 `to_scan` 之后（待付的单子不再说「收到了」），
-           数据上两颗已经不会同时为真 —— 但那是数据在保证，不是结构在保证，
-           而下一个改 `to_scan` 的人不会知道这一屏押着它。
-           `!toScan` 写在这儿，两颗就永远只出现一颗。 -->
-      <button wx:if="{{status === 'unpaid' && !toScan}}" class="btn" bindtap="onPay" disabled="{{paying}}">
-        {{paying ? '发起中……' : '去支付'}}
+      <!-- 「去支付」跟上面那颗「去他屋里看看」**结构上互斥**:
+           没付钱的单子不可能有人住进来。数据上两颗已经不会同时为真 ——
+           但那是数据在保证，不是结构在保证，而下一个改这个判据的人
+           不会知道这一屏押着它。`!住下了` 写在这儿，两颗就永远只出现一颗。 -->
+      <button wx:if="{{status === 'unpaid' && !住下了}}" class="btn" bindtap="onPay" disabled="{{paying}}">
+        <!-- 【一个动作一个词】。确认屏、订单列表、我的·最近一笔
+             三处都写「去付」，只有这一处写「去支付」。 -->
+        {{paying ? '发起中……' : '去付'}}
       </button>
-      <button wx:if="{{status === 'unpaid'}}" class="btn ghost" bindtap="onCancel">不要了</button>
-      <button wx:if="{{status === 'paid' || status === 'fulfilling' || status === 'done'}}"
-              class="btn ghost" bindtap="onRefund" disabled="{{refunding}}">
+      <!-- 「不要了」是【不可逆】的，而它原先跟「回去」同色同宽同高，
+           并排摆着 —— 一次误触没掉一张单。破坏性动作不该长得像
+           旁边那颗无害的按钮:降成一行文字链，并且点下去有二次确认
+           （order/index.ts 的 onCancel）。 -->
+      <view wx:if="{{status === 'unpaid'}}" class="cta-drop" bindtap="onCancel" hover-class="press-text" hover-stay-time="80">不要这一单了</view>
+      <!-- 【说一套做一套的那颗按钮】（2026-09-06 · 五路体验走查）。
+           条件原先是 `paid || fulfilling || done` —— **不看买的是什么**。
+           而用户协议写着「数字内容一经交付（住进来了、说明书出好了）
+           不支持退款」:御守付完那一刻就 move_in，按协议 100% 退不了，
+           屏上照样给一颗按钮，后端也照样受理，建一张永远批不下去的单。
+           买家的体验是:按了 → 屏上什么都没变 → 若干天后被拒。
+           不是「不能退」的问题，是【不说不能退、按钮照给、结果照拒】。 -->
+      <button wx:if="{{能退}}" class="btn ghost" bindtap="onRefund" disabled="{{refunding}}">
         {{refunding ? '申请中……' : '申请退款'}}
       </button>
+      <view wx:elif="{{退不了}}" class="cta-note">{{退不了}}</view>
       <button class="btn ghost" bindtap="onBack">回去</button>
     </view>
 
     <!-- 弹性槽（设计册 M3）：说清这一单什么时候才算真的完成 -->
-    <view class="flexslot slot-done" wx:if="{{toScan}}">扫开之后就住进村里 —— 那才是这单真正完成</view>
+    <view class="flexslot slot-done" wx:if="{{住下了 && who}}">{{who.name}}已经在村里那一格住下了 —— 这单到此为止</view>
 
     <!-- 进弹性槽：这是给在网页版上验的人看的说明，不是买家要读的 -->
     <view class="foot-hint flexslot">支付要在微信里完成 · 移动网页版上到这一步为止</view>

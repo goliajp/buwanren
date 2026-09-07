@@ -108,9 +108,35 @@ impl AppError {
 }
 
 impl AppError {
-    /// 不该发给客户端、但必须进日志的那一段。只有 [`AppError::Infra`] 有。
+    /// 不该发给客户端、但必须进日志的那一段。
+    ///
+    /// `Infra` 与 `Domain(Repository(..))` 都算 —— 后者是持久化层
+    /// 把 `sqlx::Error` 转成字符串之后的样子，内容同样是库的原文。
     pub fn detail(&self) -> Option<&str> {
-        match self { Self::Infra(d) => Some(d), _ => None }
+        match self {
+            Self::Infra(d) => Some(d),
+            Self::Domain(DomainError::Repository(d)) => Some(d),
+            _ => None,
+        }
+    }
+
+    /// 发给客户端的那句话。
+    ///
+    /// 【库的原文不上屏】（2026-09-02 第四轮评审 · 工程审计）。
+    /// `AppError::Domain` 是 `#[error(transparent)]`，于是
+    /// `Domain(Repository("error returned from database: invalid byte
+    /// sequence for encoding \"UTF8\": 0x00"))` 会原样出现在响应体里 ——
+    /// 审计对 `/v1/orders` 的 `note` 塞一个 NUL 字节就复现了。
+    /// 表名、约束名、编码细节都不该给到调用方，而 `Infra` 这一支
+    /// 早就想清楚了（它的 Display 就是「internal error」）——
+    /// 只是 `Repository` 走的是另一条路，没跟上。
+    ///
+    /// 排查要的东西不丢:原文由 `detail()` 交给日志。
+    pub fn 出面(&self) -> String {
+        match self {
+            Self::Domain(DomainError::Repository(_)) => "internal error".to_string(),
+            _ => self.to_string(),
+        }
     }
 }
 

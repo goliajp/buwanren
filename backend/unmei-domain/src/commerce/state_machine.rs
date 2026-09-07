@@ -139,9 +139,56 @@ impl StateTransition for CouponState {
     }
 }
 
+// ═══════════════════════════════ 风控案子 ══════════════════════════════
+/* 【`RiskCaseState` 也一直没有转移表】——跟会计期间一样,
+   四个状态定义了，没有一条路走到终态。 */
+impl StateTransition for RiskCaseState {
+    fn allowed_next(self) -> &'static [Self] {
+        use RiskCaseState::*;
+        match self {
+            Open          => &[Investigating, Resolved, FalsePositive],
+            Investigating => &[Resolved, FalsePositive, Open],
+            // 结了的案子不回头。判错了要重开，就是一件【新】的事,
+            // 而不是把旧结论抹掉 —— 抹掉之后没人看得出它曾经被结过
+            Resolved      => &[],
+            FalsePositive => &[],
+        }
+    }
+}
+
+// ═══════════════════════════════ 会计期间 ══════════════════════════════
+/* 【`PeriodState` 定义了三个状态，却一直没有转移表】（2026-09-03）。
+   写关账用例时才发现:`open / closing / closed` 在 enums.rs 里躺了很久，
+   而没有任何一处判过「从哪能走到哪」——也没有任何一处能把期间关上，
+   所以谁都不会撞见这个缺口。
+
+   `closing` 是「正在结账」:分录不再进来，但报表还在算。
+   走到 `closed` 之后不许回头 —— 一本能重新打开的账，
+   跟没关过是一回事。真要改已关期间的账，走的是下一期的冲销分录。 */
+impl StateTransition for PeriodState {
+    fn allowed_next(self) -> &'static [Self] {
+        use PeriodState::*;
+        match self {
+            Open    => &[Closing, Closed],
+            Closing => &[Closed, Open],   // 结到一半发现有账没落，退回去补
+            Closed  => &[],               // 关了就不回头
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn 关了的账期不回头() {
+        assert!(PeriodState::Open.can_transition_to(PeriodState::Closed));
+        assert!(PeriodState::Closing.can_transition_to(PeriodState::Open),
+                "结到一半发现有账没落，要能退回去补");
+        // 【一本能重新打开的账，跟没关过是一回事】
+        assert!(!PeriodState::Closed.can_transition_to(PeriodState::Open));
+        assert!(!PeriodState::Closed.can_transition_to(PeriodState::Closing));
+    }
 
     #[test]
     fn order_normal_flow() {

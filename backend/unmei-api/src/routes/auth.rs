@@ -44,7 +44,9 @@ async fn anonymous(
      .execute(&st.db).await?;
     let user = UserPublic {
         id: id.clone(),
-        nickname: "过客".into(),
+        // 「新来的」不是「过客」——「过客」说的是你不属于这儿，而这个产品
+        // 讲的正是请人住下（2026-09-01 五路评审）
+        nickname: "新来的".into(),
         avatar_url: None,
         platform: plat.clone(),
         region: region.clone(),

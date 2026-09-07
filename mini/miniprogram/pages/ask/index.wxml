@@ -5,7 +5,7 @@
        两处说同一件事本来就多余，而页眉光这三行就占 144px。 -->
   <view class="hd">
     <view class="eyebrow">{{today}}</view>
-    <view class="title">今天</view>
+    <view class="title title-lg">今天</view>
   </view>
 
   <view class="hr"></view>
@@ -15,12 +15,23 @@
        原先是 `wx:elif`，那时上面还有 idle / spinning 两支。 -->
   <block wx:if="{{(mode === 'result' || mode === 'history-detail') && result}}">
 
-    <view class="hist-chip" wx:if="{{mode === 'history-detail'}}" bindtap="closeHist">
+    <view class="hist-chip" wx:if="{{mode === 'history-detail'}}" bindtap="closeHist" hover-class="press-card" hover-stay-time="80">
       ← 之前问的 · {{result.time_label}}
     </view>
 
     <view class="result-time mono enter" style="animation-delay:0ms" wx:if="{{mode === 'result'}}">
       {{result.time_label}}
+    </view>
+
+    <!-- 【同一小时同一件事是同一签】（2026-09-06 三路验证 · 第一次打开的人）。
+         种子 = 谁 + 哪一天哪一小时 + 问的那件事 —— 不写问题连摇两次
+         得到的是逐字相同的一句，那是设定（「不能反复摇到满意为止」）。
+         而罗盘照旧转三秒、照旧震一下，人读到的是「我又算了一次，
+         答案一模一样」，第一反应是这东西坏了。
+         说清楚它是同一签，那三秒就从「假装在算」变成「你已经问过了」。 -->
+    <view class="again-note enter" style="animation-delay:60ms"
+          wx:if="{{mode === 'result' && 又问了}}">
+      这一小时你已经问过了 —— 还是这一句
     </view>
 
     <view class="q-echo" wx:if="{{result.question}}">
@@ -76,20 +87,27 @@
       <view class="rec-k">也可以问问 <text class="rec-arrow">›</text></view>
       <view class="rec-name">{{result.recommend.name}}</view>
       <view class="rec-sub" wx:if="{{result.recommend.sub_title}}">{{result.recommend.sub_title}}</view>
+      <!-- 【2026-09-01】价。这张卡点下去直奔商品页 —— 掏钱那一路，
+           而这一屏原先一个价都没有。后端本来就给了 `price_display`
+           （ai_compose.rs 的 RecommendOut），只是没人渲染它。 -->
+      <view class="rec-price" wx:if="{{result.recommend.price_display}}">{{result.recommend.price_display}}</view>
     </view>
 
     <view class="cta">
       <!-- 「再问一次」= 回我家的罗盘。`reset` 随起卦一起搬走了，
            留一个绑到不存在的处理器上的按钮，点下去只会抛 -->
       <button wx:if="{{mode === 'result'}}" class="btn ghost" bindtap="goHome">再问一次</button>
-      <button wx:else class="btn ghost" bindtap="closeHist">返回</button>
+      <!-- 【一个动作一个词】。全 app 三十一处退出写的都是「回去」，
+           只有这一处写「返回」—— 同一个手势两种叫法，读的人得多想一下
+           它是不是别的东西（2026-09-02）。 -->
+      <button wx:else class="btn ghost" bindtap="closeHist">回去</button>
     </view>
 
     <!-- 门名与方位【一个都不留】。我先前把它们缩成注脚，以为「小字就不算」——
          而规则说的是屏上不许有，不是不许大。它们对绝大多数人不构成信息，
          对想追出处的人也只是一个词;真要给出处，该是一屏说得清怎么算的，
          不是在页脚丢两个术语。那一屏还没有，所以现在什么都不说。 -->
-    <view class="foot-hint">当个参考 · 仅供研究与娱乐</view>
+    <view class="foot-hint">仅供研究与娱乐 · 不构成人生建议</view>
   </block>
 
   <!-- 历史那一块搬到我家的弹性槽里了（REDESIGN.md · 近几次）。
@@ -100,9 +118,12 @@
        空状态永远带出口（设计 10.7）。 -->
   <block wx:if="{{!result && mode !== 'spinning'}}">
     <view class="empty-state">
-      <view class="empty-art">问</view>
+      <view class="empty-art pix" style="--pix:url('/images/empty-ask.png')"></view>
       <view class="empty-t">今天还没问过</view>
-      <view class="empty-s">心里先装着一件事，签才对得上</view>
+      <!-- 【2026-09-01】原先是「签才对得上」。这一屏从头到尾叫
+           「问一件事」，到这里忽然冒出一个「签」—— 同一件事两个名字，
+           而第二个名字用户没见过。 -->
+      <view class="empty-s">心里先装着一件事，回答才对得上</view>
       <button class="btn" bindtap="goHome">去问一件事</button>
     </view>
   </block>

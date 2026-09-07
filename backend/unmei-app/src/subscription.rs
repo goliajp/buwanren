@@ -85,7 +85,11 @@ pub enum RenewOutcome {
     Renewed { invoice_id: String, order_id: String, period_end: DateTime<Utc> },
     /// 用户之前点过「到期不续」,到点了 —— 不收钱,置 cancelled
     StoppedAtPeriodEnd,
-    /// 套餐没有激活价,收不了 —— 不再重试
+    /// 套餐没有激活价,收不了 —— **订阅到此为止**（2026-09-04 起）。
+    ///
+    /// 这一行原先写的是「不再重试」，而那句话只描述了它止住的东西：
+    /// 重试止住了，服务没止住 —— 订阅留在 active，人照用、钱不再收，
+    /// 而止住重试之后它再也不会被任何东西看到一眼。
     Unpriced,
     /// 已经不在可续费状态(并发下被别的动作改掉了)
     NotDue,
@@ -133,8 +137,17 @@ pub async fn renew_due(pool: &PgPool, subscription_id: &str) -> Result<RenewOutc
     let mut tx = pool.begin().await.db()?;
 
     // FOR UPDATE:同一笔订阅不会被两个 tick 同时续
+    /* 【续费取价要跟下单一样看区与平台】（2026-09-03 五路评审 · 资金审计）。
+       上一版这段 LATERAL 只按 sku_id 取价，不带 region、不带 platform ——
+       而下单那条路（`order::create`）两个都带。同一个 sku 在两个区
+       挂着两条在架价时，`ORDER BY effective_from DESC` 挑到哪一条
+       全看谁后生效:一笔 jp 订阅按 cn 的价扣钱，而且币种也跟着错。
+
+       今天库里订阅 sku 的在架价恰好只有 `cn`/`all` 一种，所以还没扣错过 ——
+       但那是数据碰巧，不是代码守住了。多开一个区就当场错。 */
     let row = sqlx::query(
         r#"SELECT s.user_id, s.status, s.current_period_end, s.cancel_at_period_end,
+                  s.region, s.source_channel,
                   p.billing_period, p.sku_id,
                   pb.price_minor, pb.currency
            FROM subscription s
@@ -142,6 +155,8 @@ pub async fn renew_due(pool: &PgPool, subscription_id: &str) -> Result<RenewOutc
            LEFT JOIN LATERAL (
              SELECT price_minor, currency FROM price_book
              WHERE sku_id = p.sku_id AND status='active'
+               AND region IN (s.region, 'global')
+               AND platform IN (s.source_channel, 'all')
                AND effective_from <= NOW()
                AND (effective_to IS NULL OR effective_to > NOW())
              ORDER BY effective_from DESC LIMIT 1
@@ -155,6 +170,7 @@ pub async fn renew_due(pool: &PgPool, subscription_id: &str) -> Result<RenewOutc
     .ok_or_else(|| DomainError::NotFound(format!("subscription {subscription_id}")))?;
 
     let status: String = row.get("status");
+    let 区: String = row.get("region");
     if !["active", "past_due", "trialing"].contains(&status.as_str()) {
         tx.commit().await.db()?;
         return Ok(RenewOutcome::NotDue);
@@ -198,13 +214,38 @@ pub async fn renew_due(pool: &PgPool, subscription_id: &str) -> Result<RenewOutc
 
     let amount_minor: Option<i64> = row.get("price_minor");
     let Some(amount_minor) = amount_minor.filter(|a| *a > 0) else {
-        // 清掉重试时间,否则这条会被每个 tick 重新捞出来
-        sqlx::query("UPDATE subscription SET next_billing_attempt_at=NULL WHERE id=$1")
+        /* 【无价 = 收不了钱 = 服务不能继续】（2026-09-04）。
+           上一版只清掉重试时间就返回，订阅【留在 active】——
+           而走到这一行时周期已经过了（上面那道 `current_period_end > now`
+           已经把没到期的挡掉了）。也就是说：套餐没价，而人还在用，
+           永远不再扣一分钱，也永远不会到期。
+
+           这一支原先看着是对的，因为「清掉重试时间」确实止住了每 5 分钟
+           重试到永远那个毛病 —— 止住的是重试，不是服务。
+           而止住重试之后，这条订阅就再也不会被任何东西看到一眼
+           （worker 的捞取条件同一天才补上「周期过了也捞」）。
+
+           终局是 `cancelled`:状态机里 `Active => [PastDue, Cancelled, Paused]`，
+           Active 到不了 Expired。用户已经付过的那一期照旧用完 ——
+           走到这里说明它已经用完了。
+           事件照发:「停了」这件事下游要知道，跟到期不续那一支一样。 */
+        sqlx::query(
+            "UPDATE subscription SET status='cancelled', cancelled_at=NOW(),
+               next_billing_attempt_at=NULL WHERE id=$1",
+        )
             .bind(subscription_id)
             .execute(&mut *tx)
             .await.db()?;
+        outbox::write(
+            &mut *tx,
+            &DomainEvent::SubscriptionCancelled {
+                subscription_id: subscription_id.to_string(),
+                occurred_at: Utc::now(),
+            },
+        )
+        .await?;
         tx.commit().await.db()?;
-        tracing::warn!(subscription_id, "套餐无激活价，已停止续费尝试");
+        tracing::warn!(subscription_id, "套餐无激活价，收不了钱 —— 订阅到此为止");
         return Ok(RenewOutcome::Unpriced);
     };
 
@@ -244,10 +285,12 @@ pub async fn renew_due(pool: &PgPool, subscription_id: &str) -> Result<RenewOutc
         None => {
             let id = new_id("inv");
             sqlx::query(
+                // region 从订阅取 —— 见 payment.rs 那段注释
                 r#"INSERT INTO subscription_invoice(
                      id, subscription_id, period_start, period_end, amount_minor, currency,
-                     status, attempt_count, next_attempt_at
-                   ) VALUES ($1, $2, $3, $4, $5, $6, 'open', 0, NOW())"#,
+                     status, attempt_count, next_attempt_at, region
+                   ) VALUES ($1, $2, $3, $4, $5, $6, 'open', 0, NOW(),
+                             COALESCE((SELECT region FROM subscription WHERE id=$2), 'cn'))"#,
             )
             .bind(&id)
             .bind(subscription_id)
@@ -268,22 +311,54 @@ pub async fn renew_due(pool: &PgPool, subscription_id: &str) -> Result<RenewOutc
              amount_subtotal_minor, amount_total_minor, amount_paid_minor,
              status, source_kind, source_ref_id, region, expires_at, paid_at
            ) VALUES ($1, $2, 'system', $3, $4, $4, $4, 'paid', 'subscription_renew', $5,
-                     'cn', NOW() + INTERVAL '30 minutes', NOW())"#,
+                     $6, NOW() + INTERVAL '30 minutes', NOW())"#,
+        // region 写死 'cn' 的那一版，把每一笔续费订单都记在 cn 账上 ——
+        // 分区报表里 jp 的订阅收入会整个消失在 cn 那一行下面。
+        // 订阅自己说了它属于哪个区，照它写。
     )
     .bind(&order_id)
     .bind(&user_id)
     .bind(&currency)
     .bind(amount_minor)
     .bind(&invoice_id)
+    .bind(&区)
+    .execute(&mut *tx)
+    .await.db()?;
+
+    /* 【续费订单要有行，否则这一期什么都不发】（2026-09-05 · 一味香按月送）。
+       这里原先只建 `order_record`,**一行 order_line 都不插** ——
+       于是每期扣了钱，履约那一侧无事可做:`apply_order_paid` 取的正是
+       `order_line`,取到空数组就直接去结算订单。
+       黄金会员「买了什么也不发生」的机械原因有两层，这是第二层
+       （第一层是压根没有开通，见 fulfillment.rs 那一段）。
+
+       发的就是套餐自己那个 sku —— 它的商品是 shipping，所以履约那一支
+       会给这一期开一张包裹。也正因为走的是同一个 sku，那边才需要
+       「已经订着就不再开一份」那道守卫。 */
+    let sku_id: String = row.get("sku_id");
+    sqlx::query(
+        r#"INSERT INTO order_line(id, order_id, line_no, sku_id, sku_snapshot_json,
+                                  unit_price_minor, qty, line_subtotal_minor)
+           SELECT $1, $2, 1, $3,
+                  jsonb_build_object('sku_name', s.name, 'renewal', true),
+                  $4, 1, $4
+             FROM sku s WHERE s.id = $3"#,
+    )
+    .bind(new_id("oli-renew"))
+    .bind(&order_id)
+    .bind(&sku_id)
+    .bind(amount_minor)
     .execute(&mut *tx)
     .await.db()?;
 
     let payment_id = new_id("pay-renew");
     sqlx::query(
+        // region 从订单取 —— 见 payment.rs 那段注释
         r#"INSERT INTO payment(id, order_id, user_id, channel, amount_minor, currency,
-                               status, paid_at, metadata_json)
+                               status, paid_at, metadata_json, region)
            VALUES ($1, $2, $3, 'wechat_mp', $4, $5, 'success', NOW(),
-                   '{"subscription":true}'::jsonb)"#,
+                   '{"subscription":true}'::jsonb,
+                   COALESCE((SELECT region FROM order_record WHERE id=$2), 'cn'))"#,
     )
     .bind(&payment_id)
     .bind(&order_id)
@@ -313,6 +388,20 @@ pub async fn renew_due(pool: &PgPool, subscription_id: &str) -> Result<RenewOutc
     .bind(subscription_id)
     .execute(&mut *tx)
     .await.db()?;
+
+    /* 【收了钱就要说一声】。`OrderPaid` 是履约那一侧唯一的触发器
+       （`workers/outbox.rs` 接的就是它）—— 不发，上面那行订单行就永远
+       停在 pending，这一期的香也就永远发不出去。
+       原先不发也没露馅，正是因为那时根本没有行。 */
+    outbox::write(
+        &mut *tx,
+        &DomainEvent::OrderPaid {
+            order_id: order_id.clone(),
+            payment_id: Some(payment_id.clone()),
+            occurred_at: Utc::now(),
+        },
+    )
+    .await?;
 
     // 旧实现完全不发事件,续费对 dispatcher / 财务是隐形的
     outbox::write(

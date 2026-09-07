@@ -1,0 +1,61 @@
+.hd { padding: 24rpx 0 32rpx; }
+.hd .title { font-size: 56rpx; line-height: 1; margin: 8rpx 0 16rpx; }
+/* 副标题跟「订着的」「我买过的」同一档 —— 同一组的几屏不该各写一套 */
+.hd .sub { font-size: 24rpx; color: var(--ink-faint); margin-top: 12rpx; }
+
+.loading, .err, .empty { padding: 80rpx 0; text-align: center; color: var(--stone-label); }
+.empty { display: flex; flex-direction: column; align-items: center; }
+.empty-t { font-size: 30rpx; font-weight: 600; }
+.empty-sub { font-size: 26rpx; color: var(--ink-faint); margin-top: 12rpx; }
+.err-msg { margin-bottom: 28rpx; }
+
+/* 「回去」贴底。高度不在这儿写 —— app.wxss 已经给了 `min-height: 100vh`。
+   上下两段弹性平分富余，长屏上按钮不会被顶到视口底、跟内容拉开半屏。 */
+.page { display: flex; flex-direction: column; }
+.cta { margin-top: auto; margin-bottom: auto; padding-top: 40rpx; }
+.cta .btn { width: 100%; box-sizing: border-box; }
+
+.list { display: flex; flex-direction: column; gap: 14rpx; }
+.item {
+  background: var(--paper-panel);
+  border-radius: var(--r-card);
+  box-shadow: var(--sh-card);
+  padding: 22rpx 24rpx;
+}
+/* 【券面是这张卡上最大的东西】。一张券在人眼里就是「能减多少」,
+   名字、码、日子都是它的注脚 —— 跟商品卡上价钱的地位一样。 */
+.item-face {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: var(--peach-text);
+  font-variant-numeric: tabular-nums;
+}
+.item-name { font-size: 28rpx; color: var(--ink); margin-top: 8rpx; }
+/* 码要能看见也要能认:等宽 + 拉开字距，别处收到的券靠它对号 */
+.item-code {
+  font-size: 24rpx;
+  color: var(--stone-label);
+  margin-top: 10rpx;
+  letter-spacing: 2rpx;
+  font-family: Menlo, Consolas, monospace;
+}
+.item-meta { font-size: 22rpx; color: var(--stone-label); margin-top: 12rpx; }
+
+/* 【用不了的整张压暗】，不是只把理由写成灰的 —— 压暗之后一眼就分得出
+   今天能花的是哪几张。券面那个数一起收进灰里:它是这张卡最抢眼的东西，
+   留着彩色就等于还在招手。 */
+.item.dim { box-shadow: none; background: var(--paper-inset); }
+.item.dim .item-face { color: var(--ink-faint); font-weight: 600; }
+.item.dim .item-name, .item.dim .item-code { color: var(--ink-faint); }
+
+/* 卡上那一个动作。撑到 44px 高（`check-tap-size.py` 那条线）。 */
+.item-do {
+  margin-top: 18rpx;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--peach-text);
+}
+.item-do.do-quiet { font-weight: 400; color: var(--ink-faint); }

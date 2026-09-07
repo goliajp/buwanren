@@ -23,7 +23,7 @@ use chrono::{Duration as ChronoDuration, Utc};
 use serde::Deserialize;
 use serde_json::{json, Value as J};
 use sqlx::Row;
-use unmei_app::{residency, villager};
+use unmei_app::{badge as app_badge, residency, villager};
 
 use crate::auth::{ApiError, AuthedUser};
 use crate::mingli::MingliClient;
@@ -68,8 +68,12 @@ async fn my_village(
     // 连没找回的一起返回。**空屋不消失是世界观,不是待办** ——
     // 前端要能把空屋画出来、点得到、让它说「这间空着,等人」。
     let rows = sqlx::query(
-        "SELECT v.id, v.name, v.title, v.art_key, a.name AS art_name, v.lack, v.rarity, \
-                b.direction \
+        /* `b.note` 是【这个「缺」自己那一句】——「下过山才知道停不下来是什么滋味」
+           这样的，四十个各不相同。村民那一屏原先四十位共用一句
+           「缺过才懂，所以才这样劝你」，看第二个人就露出模板
+           （2026-09-01 五路评审）。这句话本来就写好了，只是没人接。 */
+        "SELECT v.id, v.name, v.title, v.art_key, COALESCE(a.plain, a.name) AS art_name, v.lack, v.rarity, \
+                b.direction, b.note AS lack_note \
          FROM villager v \
          LEFT JOIN art a ON a.key = v.art_key \
          LEFT JOIN lack_bias b ON b.lack = v.lack \
@@ -142,6 +146,8 @@ async fn my_village(
                 "title": r.get::<Option<String>, _>("title"),
                 "art": r.get::<Option<String>, _>("art_name"),
                 "lack": r.get::<String, _>("lack"),
+                // 这个「缺」自己那一句。取不到就是 null，客户端退回通用那句
+                "lack_note": r.get::<Option<String>, _>("lack_note"),
                 // 头像配色用它 —— 见名册那一处的说明
                 "direction": r.get::<Option<String>, _>("direction"),
                 "rarity": r.get::<Option<String>, _>("rarity"),
@@ -215,7 +221,29 @@ fn 挑一句(候选: &[(&str, usize)], user_id: &str, day: &str) -> usize {
     谁们.dedup();
     let 谁 = 谁们[(日种(user_id, day) % 谁们.len() as u64) as usize];
     let 他的: Vec<usize> = 候选.iter().filter(|(w, _)| *w == 谁).map(|(_, i)| *i).collect();
-    他的[(日种(谁, day) % 他的.len() as u64) as usize]
+    /* 【按天轮转，不要每天独立取模】（2026-09-03 第四轮评审 · 产品完整性）。
+       上一版是 `日种(谁, day) % 四` —— 每天各掷各的骰子，
+       于是连着两天说同一句的概率是四分之一，一周里通常会撞上两次。
+       每人只有四条本来就紧，再撞就更像「这个人只会这一句」。
+
+       改成从日期本身算偏移:相邻两天必定不同，四天走完一轮。
+       起点仍然由那个人的种子定 —— 两个村民不会同步在同一句上。
+       屏上的承诺（「每天跟你说一句」）没有变，变的是它真的每天都不一样。 */
+    let 起点 = (日种(谁, "") % 他的.len() as u64) as usize;
+    let 第几天 = 天序(day);
+    他的[(起点 + 第几天) % 他的.len()]
+}
+
+/// 日期 → 一个单调递增的天序号。相邻两天差 1 —— 轮转要的就是这个。
+///
+/// `day` 是 `YYYY-MM-DD`。解析不出来时退回 0（那时行为跟没有轮转一样，
+/// 不至于因为一个格式问题让整块话消失）。
+fn 天序(day: &str) -> usize {
+    // `num_days_from_ce` 在 chrono 0.4.45 里是私有的 —— 用一个固定的基准日相减
+    let 基 = chrono::NaiveDate::from_ymd_opt(2026, 1, 1).unwrap();
+    chrono::NaiveDate::parse_from_str(day, "%Y-%m-%d")
+        .map(|d| (d - 基).num_days().rem_euclid(1_000_000) as usize)
+        .unwrap_or(0)
 }
 
 /// 住着的人里，今天由谁说、说哪一句。
@@ -233,7 +261,7 @@ async fn today_says(
     }
 
     let rows = sqlx::query(
-        r#"SELECT l.villager_id, l.seq, l.text, v.name, v.title, a.name AS art_name,
+        r#"SELECT l.villager_id, l.seq, l.text, v.name, v.title, COALESCE(a.plain, a.name) AS art_name,
                   b.direction
              FROM villager_line l
              JOIN villager v ON v.id = l.villager_id
@@ -268,14 +296,24 @@ struct 名册参数 {
     /// 按谁的用神排。传五行单字（木火土金水）；不传就按原来的规矩排
     #[serde(default)]
     r#for: Option<String>,
+    /* 【价按哪一格取】。原先下面那条查询写死 `region IN ('cn','global')` ——
+       也就是说繁中那一格的人在名册上看见的是人民币那个数，
+       而点进商品页看见的是台币。同一件东西两屏两个价，
+       中间隔着一次跳转，谁也不会同时看见它们、于是谁也不会报。
+       商品目录（`/v1/products`）从建库起就是收一个 `region` 参数、
+       默认 `cn` —— 这一屏跟着它，不另发明一套。 */
+    #[serde(default = "默认那一格")]
+    region: String,
 }
+
+fn 默认那一格() -> String { "cn".into() }
 
 async fn all_villagers(
     State(st): State<AppState>,
     axum::extract::Query(q): axum::extract::Query<名册参数>,
 ) -> Result<Json<J>, ApiError> {
     let rows = sqlx::query(
-        "SELECT v.id, v.name, v.title, a.name AS art_name, v.rarity, v.lack, b.direction \
+        "SELECT v.id, v.name, v.title, COALESCE(a.plain, a.name) AS art_name, v.rarity, v.lack, b.direction \
          FROM villager v \
          LEFT JOIN art a ON a.key = v.art_key \
          LEFT JOIN lack_bias b ON b.lack = v.lack \
@@ -314,24 +352,42 @@ async fn all_villagers(
        跟「我的村子」那一条的分别在【作用域】：你村里没请回来的那一格
        不说是谁（空屋那一屏），因为那是你的村子；而这是目录，
        四十位是公开的事实（设计册 11：官网放四十位档案）。 */
-    let 在卖: std::collections::HashMap<String, String> = sqlx::query(
-        "SELECT DISTINCT ON (k.villager_id) k.villager_id, p.id AS product_id \
+    /* 【价也一起带出来】。名册上点一行直奔商品页 —— 那是掏钱那一路，
+       而这一屏原先一个价都没有。「请回村 ›」按下去要多少钱？不知道就不按。
+       价在 price_book 上按区域/端生效，跟商品页同一套取法。 */
+    // price_minor 在库里是 BIGINT —— 按 i32 取会 panic（sqlx 的解码是强类型的）
+    let 在卖: std::collections::HashMap<String, (String, Option<i64>, Option<String>)> = sqlx::query(
+        "SELECT DISTINCT ON (k.villager_id) k.villager_id, p.id AS product_id, \
+                pb.price_minor, pb.currency \
          FROM sku k JOIN product p ON p.id = k.product_id \
+         LEFT JOIN LATERAL ( \
+            SELECT price_minor, currency FROM price_book \
+             WHERE sku_id = k.id AND status='active' \
+               AND region IN ($1, 'global') AND platform IN ('mini','all') \
+               AND effective_from <= NOW() \
+               AND (effective_to IS NULL OR effective_to > NOW()) \
+             ORDER BY effective_from DESC LIMIT 1 \
+         ) pb ON TRUE \
          WHERE k.villager_id IS NOT NULL AND k.status='active' \
            AND p.status='listed' AND p.category = 'omamori' \
          ORDER BY k.villager_id, p.sort_weight DESC, p.id",
     )
+    .bind(&q.region)
     .fetch_all(&st.db)
     .await?
     .iter()
-    .map(|r| (r.get::<String, _>("villager_id"), r.get::<String, _>("product_id")))
+    .map(|r| (r.get::<String, _>("villager_id"),
+              (r.get::<String, _>("product_id"),
+               r.get::<Option<i64>, _>("price_minor"),
+               r.get::<Option<String>, _>("currency"))))
     .collect();
 
     let mut out: Vec<(i16, u8, String, J)> = rows
         .iter()
         .map(|r| {
             let id: String = r.get("id");
-            let pid = 在卖.get(&id).cloned();
+            let 卖 = 在卖.get(&id).cloned();
+            let pid = 卖.as_ref().map(|x| x.0.clone());
             let dir: Option<String> = r.get("direction");
             // 主(1) 次(2) 其余(9)。没传用神时全是 9，排序就退回原来的规矩
             let (名次, 为什么) = dir
@@ -350,6 +406,9 @@ async fn all_villagers(
                 "rarity": r.get::<Option<String>, _>("rarity"),
                 // 有就是那件商品的 id；没有就是 null —— 客户端据此写「未上架」
                 "omamori_product_id": pid,
+                // 请他回村要多少钱（分）。没上架 / 没定价是 null，客户端就不写价，不编
+                "omamori_price_minor": 卖.as_ref().and_then(|x| x.1),
+                "omamori_currency": 卖.as_ref().and_then(|x| x.2.clone()),
                 "lack": r.get::<String, _>("lack"),
                 /* 他往哪个方向劝你（`lack_bias`）。客户端拿它给头像配色 ——
                    四十位共用一个琥珀圆牌时，一眼分不出谁是谁，
@@ -386,6 +445,19 @@ async fn ask_reading(
     let chart = fetch_chart(&st, &c.sub, &villager_id).await;
     let r = villager::reading(&st.db, &c.sub, &villager_id, today_shanghai(), chart).await?;
 
+    /* 【问签也算「问过一件事」】（2026-09-06 五路评审 · §七）。
+       在这之前徽章只由转盘那一条路触发，而且只数 `naji_record` ——
+       天天来村民屋里问的人，「一百次」与「七天没断」永远停在 0，
+       屏上那几枚灰徽章底下却写着「去问一件事」，指的正是这件事。
+       发不出来不让这一签失败（人已经拿到他的话了），但要留一行。 */
+    let 拿到 = match app_badge::发该发的(&st.db, &c.sub).await {
+        Ok(v) => v,
+        Err(e) => {
+            tracing::warn!(user = %c.sub, error = ?e, "徽章那一遍没跑完");
+            Vec::new()
+        }
+    };
+
     Ok(Json(json!({
         "villager_id": r.villager_id,
         "villager_name": r.villager_name,
@@ -395,6 +467,11 @@ async fn ask_reading(
         "suit": r.suit,
         "avoid": r.avoid,
         "say": r.say,
+        /* 【拿到了要有人说一声】。原先发一枚徽章【一点声音都没有】——
+           往 `user_badge` 写一行就完了，人得自己想起来去「我 → 我得到的」翻。
+           收集系统里「拿到」那一下是全部的奖励，而它此前不存在。 */
+        "earned": 拿到.iter().map(|b| json!({ "code": b.code, "name": b.name }))
+            .collect::<Vec<_>>(),
     })))
 }
 
@@ -403,14 +480,25 @@ async fn ask_reading(
 /// 拿不到就返回 `None` —— 上游挂了不该让问签整条挂掉(他还是会说话,
 /// 只是这一签背后没有真盘),但也**不能假装算过**:落档时空盘就是空盘。
 async fn fetch_chart(st: &AppState, user_id: &str, villager_id: &str) -> Option<J> {
-    let leaf: Option<String> = sqlx::query_scalar(
+    /* 【「查不出来」和「他本来就没配叶」不是一回事】（2026-09-03）。
+       上一版是 `.ok().flatten()` —— 数据库抖一下，这里返回 None，
+       跟「这门术数没有对应的叶」走同一条路，然后一声不吭地出空盘。
+       上面那段注释记的正是同一种事故:日志写着「取不到盘」，
+       读起来像运维问题，于是【每一签都是空盘】这件事没人查。
+       降级还是降级（问签不该整条挂掉），但失败要有声音。 */
+    let leaf: Option<String> = match sqlx::query_scalar(
         "SELECT a.mingli_leaf FROM villager v JOIN art a ON a.key = v.art_key WHERE v.id = $1",
     )
     .bind(villager_id)
     .fetch_optional(&st.db)
     .await
-    .ok()
-    .flatten()?;
+    {
+        Ok(v) => v,
+        Err(e) => {
+            tracing::error!(villager_id, %e, "取术数叶失败 —— 这一签会是空盘");
+            return None;
+        }
+    }?;
     // 这一列可空。没配叶就没得算 —— 旧代码把 None 直接序列化成 null 发上去了
     let leaf = leaf?;
 
@@ -429,8 +517,12 @@ async fn fetch_chart(st: &AppState, user_id: &str, villager_id: &str) -> Option<
     .bind(user_id)
     .fetch_optional(&st.db)
     .await
-    .ok()
-    .flatten();
+    .unwrap_or_else(|e| {
+        // 同上:查不出生辰跟「他还没建本命」都返回 None，
+        // 而前者是故障、后者是正常状态
+        tracing::error!(user_id, %e, "取生辰失败 —— 这一签会是空盘");
+        None
+    });
     let (y, mo, d, h, mi, tz, gender) = row?;
 
     match MingliClient::new(st)
@@ -558,5 +650,29 @@ mod tests {
         let 一个人: Vec<(&str, usize)> = vec![("popo", 0), ("popo", 1)];
         let i = 挑一句(&一个人, "u_1", "2026-08-29");
         assert!(i < 2);
+    }
+
+    /* 【连着四天不说同一句】（2026-09-03 第四轮评审 · 产品完整性）。
+       每人只有四条台词，而上一版是每天各掷各的骰子 ——
+       连着两天撞的概率是四分之一，一周里通常撞两次。
+       每人只有四条本来就紧，再撞就更像「这个人只会这一句」。 */
+    #[test]
+    fn 四天走一轮不重样() {
+        let 四条: Vec<(&str, usize)> = vec![("popo", 0), ("popo", 1), ("popo", 2), ("popo", 3)];
+        let 天 = ["2026-09-01", "2026-09-02", "2026-09-03", "2026-09-04"];
+        let 出: Vec<usize> = 天.iter().map(|d| 挑一句(&四条, "u_1", d)).collect();
+        let mut 排 = 出.clone();
+        排.sort_unstable();
+        排.dedup();
+        assert_eq!(排.len(), 4, "四天该把四条走完一轮，实际 {出:?}");
+
+        // 第五天回到第一天那一句 —— 轮转，不是随机
+        let 第五 = 挑一句(&四条, "u_1", "2026-09-05");
+        assert_eq!(第五, 出[0], "第五天该回到第一句");
+
+        // 两位村民不该同步在同一句上
+        let 另一位: Vec<(&str, usize)> = vec![("tenz", 0), ("tenz", 1), ("tenz", 2), ("tenz", 3)];
+        let 他的: Vec<usize> = 天.iter().map(|d| 挑一句(&另一位, "u_1", d)).collect();
+        assert_ne!(出, 他的, "两个人的起点该不一样");
     }
 }

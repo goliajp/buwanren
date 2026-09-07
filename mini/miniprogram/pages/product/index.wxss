@@ -14,6 +14,18 @@
   margin-bottom: 28rpx;
 }
 
+/* 商品图。像素画要 `pixelated`，尺寸取 24 格的整数倍 ——
+   源图是 24×24 的网格（导出时已经 ×5 成 120×120），
+   屏上 144rpx = 72px = 24 格 ×3，每格三个 CSS 像素、DPR2 下六个设备像素。
+   （这一条由 check-pixel-scale 盯着，它的格数表里要记一笔。） */
+.goods {
+  display: flex; justify-content: center;
+  padding: 8rpx 0 4rpx;
+}
+.goods-img {
+  width: 144rpx; height: 144rpx;
+  image-rendering: pixelated;
+}
 .price-row { margin: 8rpx 0 28rpx; }
 .price {
   font-weight: 600;
@@ -21,17 +33,9 @@
   color: var(--ink);
 }
 .price-none { font-size: 28rpx; color: var(--stone-label); }
+/* 「/ 月」跟在价钱后面，比它小一档 —— 它是价钱的一部分，不是另一行 */
+.price-cycle { font-size: 30rpx; font-weight: 600; color: var(--ink-mid); }
 
-.tags { margin-bottom: 28rpx; }
-.tag {
-  display: inline-block;
-  font-size: 24rpx;
-  color: var(--stone-label);
-  border: 1rpx solid var(--stone-line);
-  border-radius: 16rpx;
-  padding: 4rpx 14rpx;
-  margin: 0 12rpx 12rpx 0;
-}
 
 .desc {
   font-size: 28rpx;
@@ -51,13 +55,13 @@
 
 /* 按钮组跟上面留出距离 —— 加了「你会收到」三条之后它贴了上去，
    第三条的副标题被压在按钮下面（截图上看见的）。 */
-.cta { display: flex; gap: 20rpx; margin-top: 34rpx; }
+.cta { display: flex; gap: 20rpx; margin-top: 26rpx; }
 /* 「请他回家」是主，「回去」是次 —— 等宽会读成两个并列的选择。 */
 .cta .btn { flex: 2; }
 .cta .btn.ghost { flex: 1; }
 
 .foot-hint {
-  margin-top: 32rpx;
+  margin-top: 22rpx;
   text-align: center;
   font-size: 22rpx;
   color: var(--stone-label);
@@ -69,7 +73,8 @@
    底色由 `.face-<方向>`（app.wxss）给 —— 这里不写 background（门禁盯着）。 */
 .hd.who { display: flex; align-items: center; gap: 24rpx; }
 .who-face {
-  flex: none; width: 112rpx; height: 112rpx; border-radius: 999rpx;
+  /* 124rpx = 62px —— 商品页那张脸大一档，配 42px（14×3）的脸是 67.7% */
+  flex: none; width: 124rpx; height: 124rpx; border-radius: 999rpx;
   display: flex; align-items: center; justify-content: center;
   font-size: 50rpx; font-weight: 700;
   box-shadow: 0 0 0 10rpx rgba(255,154,60,.10), 0 8rpx 22rpx rgba(232,121,26,.20);
@@ -79,16 +84,48 @@
 
 /* ── 你会收到什么 ─────────────────────────────────────────
    花这笔钱的决策屏原先只有一行小灰字把三件事挤在一起，底下半屏空着。 */
-.gets { margin-top: 30rpx; padding-top: 26rpx; border-top: 1rpx solid var(--stone-line-x); }
-.gets-k { font-size: 24rpx; color: var(--ink-faint); margin-bottom: 20rpx; }
-.gets-row { display: flex; align-items: flex-start; gap: 18rpx; margin-bottom: 22rpx; }
+.gets { margin-top: 22rpx; padding-top: 20rpx; border-top: 1rpx solid var(--stone-line-x); }
+.gets-k { font-size: 24rpx; color: var(--ink-faint); margin-bottom: 14rpx; }
+.gets-row { display: flex; align-items: flex-start; gap: 18rpx; margin-bottom: 16rpx; }
 .gets-row:last-child { margin-bottom: 0; }
 .gets-n {
   flex: none; width: 40rpx; height: 40rpx; margin-top: 2rpx;
   border-radius: 999rpx; background: var(--amber-lite);
-  color: var(--amber-deep); font-size: 23rpx; font-weight: 600;
+  color: var(--amber-text); font-size: 23rpx; font-weight: 600;
   display: flex; align-items: center; justify-content: center;
 }
 .gets-b { flex: 1; min-width: 0; }
 .gets-t { font-size: 28rpx; font-weight: 600; color: var(--ink); line-height: 1.45; }
 .gets-s { font-size: 23rpx; color: var(--ink-faint); margin-top: 5rpx; line-height: 1.5; }
+
+/* 【几档就摆几档】（2026-09-06）。跟苏合那一屏同一套牌面 ——
+   两屏卖的是同一件东西，长得不一样的话人会以为是两件。 */
+.picks { display: flex; gap: 12rpx; margin-top: 20rpx; }
+/* 【边界靠卡片影，不靠一圈细线】（2026-09-06 门禁 `check-ui-outline` 报的）。
+   上一版用 `1rpx solid var(--stone-line)`（#E4DACA）—— 在纸底上只有 1.35:1,
+   而这圈线是它唯一的边界，可点的东西那条线要 3.0。
+   苏合那一屏的同一套牌子本来就没有边框:白底 + 卡片影。
+   照抄它 —— 两屏卖的是同一件东西，长得不一样人会以为是两件。 */
+.pick {
+  flex: 1;
+  min-width: 0;
+  min-height: 88rpx;
+  padding: 16rpx 12rpx;
+  border-radius: var(--r-card);
+  background: var(--paper-panel);
+  box-shadow: var(--sh-card);
+  text-align: center;
+  transition: transform .12s cubic-bezier(.34,1.56,.64,1);
+}
+.pick-hover { transform: translateY(3rpx) scale(.98); }
+.pick-n { font-size: 24rpx; color: var(--ink-mid); line-height: 1.4; }
+.pick-p { margin-top: 8rpx; font-size: 30rpx; font-weight: 700; color: var(--ink);
+          font-variant-numeric: tabular-nums; }
+/* 挑中的那一档:描一圈墨色 + 价上主色。**不靠底色** ——
+   底色一填，三张牌里那一张就比另外两张重得多，读起来像「推荐这个」，
+   而这一排是让人选，不是让人跟着走。
+   这圈线是【选中态】不是边界（没选中的那两张靠卡片影划界），
+   而且用的是 `--ink`，对比度远在 3.0 之上。 */
+.pick-on { box-shadow: 0 0 0 2rpx var(--ink), var(--sh-card); }
+.pick-on .pick-p { color: var(--peach-text); }
+

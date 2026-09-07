@@ -9,7 +9,13 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "kind", content = "payload")]
 pub enum DomainEvent {
     OrderCreated { order_id: String, user_id: String, amount_total_minor: i64, currency: String, occurred_at: DateTime<Utc> },
-    OrderPaid    { order_id: String, payment_id: String, occurred_at: DateTime<Utc> },
+    /* `payment_id` 可空:一单减到零（券把整单减完）时**没有支付**——
+       钱一分没动，也就没有一笔可指的支付。此前它是必填的 `String`,
+       于是那条路只能编一个指不到任何行的 id，或者干脆不发这条事件 ——
+       而不发就等于不履约（`workers/outbox.rs` 接的就是它）。
+       消费方本来就不看它（`OrderPaid { order_id, .. }`）。
+       已经落库的那些事件带着字符串，反序列化成 `Some`，不受影响。 */
+    OrderPaid    { order_id: String, payment_id: Option<String>, occurred_at: DateTime<Utc> },
     OrderFulfilled { order_id: String, occurred_at: DateTime<Utc> },
     OrderCancelled { order_id: String, reason: String, actor: String, occurred_at: DateTime<Utc> },
     OrderRefunded  { order_id: String, refund_id: String, full: bool, occurred_at: DateTime<Utc> },

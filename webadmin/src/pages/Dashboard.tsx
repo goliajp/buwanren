@@ -2,11 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import { commerce } from '../lib/api';
 import PageHeader from '../components/PageHeader';
-import { yuan, thou } from '../components/util';
-import {
-  TrendingUp, ShoppingCart, Clock, AlertTriangle, Undo2,
-  Truck, Repeat, BadgePercent, ShieldAlert, Package,
-} from 'lucide-react';
+import { yuan, thou, rel, briefId, statusClass, statusLabel } from '../components/util';
+import { ArrowRight } from 'lucide-react';
 
 interface Kpi {
   today_revenue_minor: number;
@@ -18,97 +15,195 @@ interface Kpi {
   active_subscriptions: number;
   active_promotions: number;
   open_risk_cases: number;
+  /** 有差异、还没结的对账批次。实测 1,023 批 —— 而这一屏此前不提它 */
+  open_recon_batches: number;
   listed_products: number;
 }
 
+/* 看板的活儿只有一件:现在有没有事，有的话是什么事。
+ *
+ * 上一版是十张一模一样的卡摆成两行 —— 「今日营收」跟「活跃促销」
+ * 同样大、同样重，于是没有一个是重点;下面还挂着两张开发者备忘录
+ * （「本会话已落地 / 下一轮」），那是写给自己看的，占的是首屏。
+ *
+ * 现在分四层，一层比一层轻:
+ *   ① 今天进了多少钱 —— 一个数，44px，别的都不跟它抢
+ *   ② 要处理的 —— 只列真有数的那几项。都没有就说都没有
+ *   ③ 刚下的单 —— 「有没有事」之后，第二眼想看的是「在动吗」
+ *   ④ 在跑着的 —— 一条摘要线，灰的，知道它还在就够了
+ */
 export default function Dashboard() {
   const nav = useNavigate();
-  const q = useQuery<Kpi>({ queryKey: ['commerce','dashboard'], queryFn: () => commerce.dashboard(), refetchInterval: 30_000 });
+  const q = useQuery<Kpi>({
+    queryKey: ['dashboard'],
+    queryFn: () => commerce.dashboard(),
+    refetchInterval: 30_000,
+  });
   const k = q.data;
+
+  /* 要处理的那几项。`n` 为 0 的不进来 —— 一个「0 笔待退款」
+     占着跟「424 笔待退款」一样大的位置，等于把后者藏起来。 */
+  const 待办 = [
+    { n: (k?.unpaid_orders ?? 0) + (k?.pending_payments ?? 0), 是: '笔订单还没付', 去: '/orders?status=unpaid', 做: '看看是卡在哪一步' },
+    { n: k?.pending_refunds ?? 0, 是: '笔退款等着批', 去: '/refunds', 做: '批一批' },
+    { n: k?.exception_shipments ?? 0, 是: '件包裹出了状况', 去: '/shipments?exception_only=true', 做: '查物流' },
+    { n: k?.open_risk_cases ?? 0, 是: '个风控案子没结', 去: '/risk?tab=cases', 做: '去看' },
+    /* 【对账是这张表上最大的一块，而它此前不在表上】
+       （2026-09-06 三路验证 · 运营那一路）:实测 1,023 批未结差异、
+       明细层 1,364 条，而早上打开后台这一屏说的是「都清完了」。
+       它排在最后 —— 差异不像退款那样有人在等，但它是真的欠着。 */
+    { n: k?.open_recon_batches ?? 0, 是: '批对账对不上', 去: '/reconciliation', 做: '去结一结' },
+  ].filter((x) => x.n > 0);
+
   return (
     <div>
       <PageHeader
-        title="总览 · Commerce KPI"
-        sub="实时 / 30s 自动刷新"
-        stats={k ? [
-          { label: '今日营收', value: yuan(k.today_revenue_minor) },
-          { label: '今日订单', value: thou(k.today_orders) },
-          { label: '在售商品', value: thou(k.listed_products) },
-        ] : undefined}
+        title="今天"
+        sub="每 30 秒自己刷新一次"
+        stats={k ? [{ label: '订单', value: thou(k.today_orders) }] : undefined}
       />
-      <div className="p-4 space-y-4">
+
+      <div className="p-5 space-y-6 max-w-5xl">
+        {/* ① 今天进了多少钱 */}
         <section>
-          <div className="uplabel text-ink-5 mb-1.5 px-1">核心指标</div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-            <KpiCard label="今日营收" sub="支付成功累计" value={yuan(k?.today_revenue_minor)}
-                     tone="ok" icon={TrendingUp} onClick={() => nav('/payments?status=success')} />
-            <KpiCard label="今日订单" sub="全部订单" value={thou(k?.today_orders)}
-                     icon={ShoppingCart} onClick={() => nav('/orders')} />
-            <KpiCard label="待支付" sub="unpaid + pending payment" value={thou((k?.unpaid_orders ?? 0) + (k?.pending_payments ?? 0))}
-                     tone="warn" icon={Clock} onClick={() => nav('/orders?status=unpaid')} />
-            <KpiCard label="待审退款" sub="requested / approved / processing" value={thou(k?.pending_refunds)}
-                     tone={k?.pending_refunds ? 'warn' : 'default'} icon={Undo2} onClick={() => nav('/refunds')} />
-            <KpiCard label="物流异常" sub="exception / returning" value={thou(k?.exception_shipments)}
-                     tone={k?.exception_shipments ? 'bad' : 'default'} icon={AlertTriangle}
-                     onClick={() => nav('/shipments?exception_only=true')} />
+          <div className="label">今天收到的钱</div>
+          <div className="n text-2xl font-semibold tracking-tight mt-1">
+            {k ? yuan(k.today_revenue_minor) : <span className="text-ink-4">—</span>}
           </div>
         </section>
 
+        {/* ② 要处理的 */}
         <section>
-          <div className="uplabel text-ink-5 mb-1.5 px-1">商业基线</div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-            <KpiCard label="在售商品" value={thou(k?.listed_products)} icon={Package} onClick={() => nav('/products')} />
-            <KpiCard label="活跃订阅" sub="active + trialing" value={thou(k?.active_subscriptions)} icon={Repeat} onClick={() => nav('/subscriptions?status=active')} />
-            <KpiCard label="活跃促销" value={thou(k?.active_promotions)} icon={BadgePercent} onClick={() => nav('/promotions?status=active')} />
-            <KpiCard label="物流在途" sub="picked_up + in_transit + out_for_delivery" value="—" icon={Truck} onClick={() => nav('/shipments')} />
-            <KpiCard label="风控案件" sub="open + investigating" value={thou(k?.open_risk_cases)} tone={k?.open_risk_cases ? 'warn' : 'default'} icon={ShieldAlert} onClick={() => nav('/risk')} />
-          </div>
+          <h2 className="text-base font-semibold mb-2">要处理的</h2>
+          {q.isLoading ? (
+            <p className="label">正在取…</p>
+          ) : q.isError ? (
+            /* 【取不到就说取不到，不许说「都清完了」】
+               （2026-09-03 五路评审 · 后台产品体验）。
+
+               上一版这里只有两支：正在取 / 待办为空。而查询【失败】时
+               `k` 是 undefined、`待办` 是空数组、`isLoading` 是 false ——
+               于是这一屏落到「都清完了」那一支，
+               **在后端连不上的时候，用肯定句告诉运营今天没有事**。
+
+               这一屏的活儿只有一件：现在有没有事。它答错的那一次，
+               恰恰是最该有人去看的那一次。 */
+            <p className="text-sm text-debt">
+              取不到 —— 这一屏说不了今天有没有事。先看后端还在不在，别当成「没事」。
+            </p>
+          ) : 待办.length === 0 ? (
+            /* 【没事的时候就说没事】。空状态是这一版的主张最直白的地方:
+               健康的一屏应该看起来近乎空白。 */
+            <p className="text-sm text-ink-2">
+              都清完了 —— 没有待付的订单、没有等着批的退款、物流也没出状况。
+            </p>
+          ) : (
+            <ul className="border border-rule rounded divide-y divide-rule bg-card">
+              {待办.map((x) => (
+                <li key={x.去}>
+                  <button
+                    type="button"
+                    onClick={() => nav(x.去)}
+                    className="group w-full flex items-baseline gap-3 px-4 py-3 text-left hover:bg-sunk transition-colors"
+                  >
+                    <span className="n text-lg font-semibold text-debt tabular-nums w-16 shrink-0 text-right">
+                      {thou(x.n)}
+                    </span>
+                    <span className="text-sm text-ink flex-1">{x.是}</span>
+                    <span className="text-xs text-ink-3 group-hover:text-ink-2 flex items-center gap-1">
+                      {x.做}
+                      <ArrowRight size={12} strokeWidth={2} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
 
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className="panel">
-            <div className="panel-head"><div className="panel-title">本会话已落地</div></div>
-            <div className="p-4 text-[12.5px] text-ink-2 space-y-1.5">
-              <div>✓ schema v2 · 47 张表 + 索引 + 触发器 + seed 全量（已 apply）</div>
-              <div>✓ unmei-domain commerce 模块 · 16 文件 ~2200 行 · 状态机 + 事件 + service trait + adapter trait</div>
-              <div>✓ admin-api · `/admin/commerce/*` 36 个端点（本页所有数据来源）</div>
-              <div>✓ webadmin · 10 工作台（本页是总览）</div>
-            </div>
-          </div>
-          <div className="panel">
-            <div className="panel-head"><div className="panel-title">下一轮</div></div>
-            <div className="p-4 text-[12.5px] text-ink-2 space-y-1.5">
-              <div>· Service trait 落地（把 routes 里的 sqlx 抽到 service struct）</div>
-              <div>· PaymentAdapter 微信 v3 完整 impl + verify_webhook</div>
-              <div>· CarrierAdapter 快递100 + Manual</div>
-              <div>· 客户端 BFF `unmei-api` 重写（订单/支付/物流/订阅）</div>
-              <div>· 后台 worker(payment_query_sweeper / shipment_trace_sweeper / billing_scheduler / outbox_dispatcher)</div>
-            </div>
-          </div>
+        {/* ③ 刚过去这一阵 —— 「有没有事」之后，第二眼想看的是「在动吗」。
+            上一版这块是两张开发者备忘录（本会话已落地 / 下一轮），
+            占着首屏最好的位置说的是写给自己看的话。 */}
+        <section>
+          <h2 className="text-base font-semibold mb-2">刚下的单</h2>
+          <RecentOrders />
+        </section>
+
+        {/* ④ 在跑着的 —— 一条摘要线。这些数不需要你做什么，
+            所以它们不占卡片、不上颜色，知道它还在就够了。 */}
+        <section>
+          <h2 className="text-base font-semibold mb-2">在跑着的</h2>
+          <dl className="flex flex-wrap gap-x-8 gap-y-2">
+            {[
+              { k: '在卖的商品', v: k?.listed_products, to: '/products' },
+              { k: '订着的人', v: k?.active_subscriptions, to: '/subscriptions?status=active' },
+              { k: '在做的促销', v: k?.active_promotions, to: '/promotions?status=active' },
+            ].map((x) => (
+              <button
+                key={x.k}
+                type="button"
+                onClick={() => nav(x.to)}
+                className="flex items-baseline gap-2 hover:text-ink text-ink-2 transition-colors"
+              >
+                <dt className="label">{x.k}</dt>
+                <dd className="n text-sm font-medium tabular-nums">{thou(x.v)}</dd>
+              </button>
+            ))}
+          </dl>
         </section>
       </div>
     </div>
   );
 }
 
-interface KCardProps { label: string; value: string | number | undefined; sub?: string; tone?: 'default'|'ok'|'warn'|'bad'; icon: any; onClick?: () => void; }
-function KpiCard({ label, value, sub, tone = 'default', icon: Icon, onClick }: KCardProps) {
-  const valueColor =
-    tone === 'ok' ? 'text-jade' :
-    tone === 'warn' ? 'text-gold-2' :
-    tone === 'bad' ? 'text-vermilion' : 'text-ink';
+/* 最近十笔。不做成表 —— 表要表头、要列宽，而这里只有三样东西:
+   谁、多少钱、什么状态。三样东西排一行就够了，摆成表反而更难扫。 */
+function RecentOrders() {
+  const nav = useNavigate();
+  const q = useQuery({
+    queryKey: ['orders', { size: 10, page: 0 }],
+    queryFn: () => commerce.listOrders({ size: 10, page: 0 }),
+    refetchInterval: 30_000,
+  });
+  const items: any[] = q.data?.items ?? [];
+
+  if (q.isLoading) return <p className="label">正在取…</p>;
+  /* 同上：`items` 在失败时也是空数组，而「今天还没有单」是一句肯定句。
+     两块都在这一屏上，一起说了两遍不真的话。 */
+  if (q.isError) return <p className="text-sm text-debt">取不到最近的单。</p>;
+  if (!items.length) return <p className="text-sm text-ink-2">今天还没有单。</p>;
+
   return (
-    <button
-      onClick={onClick}
-      className="kpi text-left hover:bg-surface-2 transition cursor-pointer"
-      type="button"
-    >
-      <div className="flex items-center justify-between">
-        <div className="kpi-label">{label}</div>
-        <Icon size={14} strokeWidth={1.75} className="text-ink-4" />
-      </div>
-      <div className={`kpi-value ${valueColor}`}>{value ?? '—'}</div>
-      {sub && <div className="text-[10.5px] text-ink-5">{sub}</div>}
-    </button>
+    <ul className="border border-rule rounded divide-y divide-rule bg-card">
+      {items.map((o) => (
+        <li key={o.id}>
+          <button
+            type="button"
+            onClick={() => nav(`/orders?keyword=${o.id}`)}
+            className="w-full flex items-center gap-4 px-4 h-9 text-left hover:bg-sunk transition-colors whitespace-nowrap"
+          >
+            {/* 【一行一行，不许折】。uuid 有四十个字符，`w-24` 装不下就折成
+                五行，一条记录占了五行高 —— 而这一块要的是十行能一眼扫完。
+                `truncate` + 定宽:短号够认，要全的去订单屏。 */}
+            <span className="text-xs font-mono text-ink-3 w-20 shrink-0 truncate">
+              {briefId(o.id)}
+            </span>
+            {/* 【定宽在外，底色在内】（2026-09-04 · 25 计划的后台逐页走）。
+                这两件事挂在同一个 span 上的时候，`st-debt` 那层底色
+                （全台唯一带底色的状态，见 index.css）会铺满整整 96px ——
+                「没付」两个字后面拖着一大条空的红，看着不像强调，
+                像哪儿渲坏了。列还是要对齐的，所以宽度留在外层，
+                底色跟着词走。 */}
+            <span className="text-xs w-24 shrink-0">
+              <span className={statusClass(o.status)}>{statusLabel(o.status)}</span>
+            </span>
+            <span className="n text-sm tabular-nums text-ink flex-1 text-right">
+              {yuan(o.amount_total_minor, o.currency)}
+            </span>
+            <span className="label w-16 text-right shrink-0">{rel(o.created_at)}</span>
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 }

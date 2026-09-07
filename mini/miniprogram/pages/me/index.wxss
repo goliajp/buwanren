@@ -1,6 +1,11 @@
-.hd { padding: 24rpx 0 20rpx; }
+/* 【这一屏的纵向是满的】（2026-09-06）。加了「你的说明书」那一行之后
+   超出一屏 42px —— 撤掉「最近一笔」那个小标题拿回 32px，
+   剩下的从这三处的空白里收:标题上下、那条分隔线上下、卡片上面。
+   一处都不动触点高度（九行菜单各 44px，`check-tap-size` 的下限）。 */
+.hd { padding: 16rpx 0 12rpx; }
 .hd .eyebrow { margin-bottom: 20rpx; }
 .hd .title { font-size: 56rpx; line-height: 1; margin: 8rpx 0 12rpx; }
+.hr { margin: 14rpx 0; }
 
 /* 那一句。设计册 M1 上它单独占一行，是这一屏唯一一句「说话」的地方 */
 .say {
@@ -11,13 +16,10 @@
   line-height: 1.7;
 }
 
-.recent-k {
-  padding: 16rpx 4rpx 12rpx;
-  font-size: 22rpx;
-  color: var(--stone-label);
-  letter-spacing: 0.02em;
-}
+/* `.recent-k`（那个「最近一笔」小标题）2026-09-06 撤了 —— 见 wxml 那一处注释。
+   样式一并拿掉:留着一条没人用的规则，下一个人会以为屏上还有那一块。 */
 .recent {
+  margin-top: 12rpx;
   background: var(--paper-panel);
   box-shadow: var(--sh-card);
   border-radius: 16rpx;
@@ -63,4 +65,4 @@
   background: var(--paper-inset); border-radius: var(--r-card);
   font-size: 25rpx; color: var(--ink-mid); line-height: 1.5;
 }
-.nothing-go { flex: none; color: var(--amber-deep); font-weight: 600; }
+.nothing-go { flex: none; color: var(--amber-text); font-weight: 600; }

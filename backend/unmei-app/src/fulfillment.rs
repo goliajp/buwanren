@@ -19,6 +19,7 @@
 
 use chrono::Utc;
 use sqlx::{PgPool, Row};
+use unmei_domain::commerce::enums::BillingPeriod;
 use unmei_domain::commerce::events::DomainEvent;
 use unmei_domain::DomainError;
 
@@ -63,7 +64,8 @@ pub async fn apply_order_paid(pool: &PgPool, order_id: &str) -> Result<Fulfillme
     // user_id 与 villager_id 一起取回来:御守行要靠它们写入住。
     // 分两次查的话,中间那段时间足够订单被改掉。
     let lines = sqlx::query(
-        r#"SELECT ol.id, p.fulfillment_kind, p.report_kind, s.villager_id, o.user_id
+        r#"SELECT ol.id, ol.sku_id, p.fulfillment_kind, p.report_kind,
+                  s.villager_id, o.user_id, o.source_kind, o.region
            FROM order_line ol
            JOIN sku s          ON s.id = ol.sku_id
            JOIN product p      ON p.id = s.product_id
@@ -128,12 +130,14 @@ pub async fn apply_order_paid(pool: &PgPool, order_id: &str) -> Result<Fulfillme
             }
             "shipping" => {
                 sqlx::query(
+                    // region 从订单取 —— 见 payment.rs 里那段注释
                     r#"INSERT INTO shipment(id, order_id, order_line_ids, carrier_code, status,
-                                            recipient_snapshot_json, shipping_method)
+                                            recipient_snapshot_json, shipping_method, region)
                        SELECT $1, $2, ARRAY[$3]::text[], 'manual', 'preparing',
                               COALESCE((SELECT shipping_address_json FROM order_meta
                                         WHERE order_id=$2), '{}'::jsonb),
-                              'standard'
+                              'standard',
+                              COALESCE((SELECT region FROM order_record WHERE id=$2), 'cn')
                        WHERE NOT EXISTS (
                          SELECT 1 FROM shipment
                          WHERE order_id=$2 AND $3 = ANY(order_line_ids)
@@ -148,18 +152,147 @@ pub async fn apply_order_paid(pool: &PgPool, order_id: &str) -> Result<Fulfillme
                     .bind(&line_id)
                     .execute(&mut *tx)
                     .await.db()?;
+
+                /* 【这个 sku 背后挂着套餐吗】——挂着就顺手把订阅开起来。
+                   （2026-09-05 · 一味香按月送）
+
+                   订阅这一块此前**没有 create**:`unmei_app::subscription` 只有
+                   cancel / renew_due / record_renewal_failure。黄金会员因此
+                   「买了什么也不发生」，最后被下架
+                   （`20260828003_delist_membership.sql`）。
+
+                   开通不另开一条履约分支，就挂在寄东西这一支上 ——
+                   因为付完钱**真实发生的事就是「一盒香寄给你」**。
+                   订阅只是「下个月还会再寄一盒」这件事的记法。
+                   这样确认屏问地址那一路也一个字都不用改:它认的正是 shipping。
+
+                   判据是 `plan.sku_id`，不是商品 kind:kind 说的是「它是订阅」,
+                   而这里要问的是「哪一份套餐」——后者只有 plan 表答得出。
+
+                   【已经订着就不再开一份】。续期订单走的是同一个 sku
+                   （见 subscription.rs `renew_due` 补的那一行），所以每续一期
+                   都会再走到这里;没有这道守卫，续一次就多一份订阅。
+                   它同时挡住「同一件按月的东西买两次」。 */
+                let sku_id: String = l.get("sku_id");
+                let user_id: String = l.get("user_id");
+                let 区: String = l.get("region");
+                let 套餐: Option<(String, String, i32)> = sqlx::query_as(
+                    "SELECT id, billing_period, trial_days FROM plan
+                      WHERE sku_id=$1 AND status='active' LIMIT 1",
+                )
+                .bind(&sku_id)
+                .fetch_optional(&mut *tx)
+                .await.db()?;
+                if let Some((plan_id, billing_period, trial_days)) = 套餐 {
+                    let 已经订着: Option<String> = sqlx::query_scalar(
+                        "SELECT id FROM subscription
+                          WHERE user_id=$1 AND plan_id=$2
+                            AND status IN ('trialing','active','past_due','grace','paused')
+                          LIMIT 1",
+                    )
+                    .bind(&user_id)
+                    .bind(&plan_id)
+                    .fetch_optional(&mut *tx)
+                    .await.db()?;
+                    if 已经订着.is_none() {
+                        /* 周期长度跟 `renew_due` 用同一张表 —— 两处各写一份必然走散,
+                           而走散的样子是「屏上说下一盒 10 月 5 日，实际 11 月才扣」。 */
+                        let 天 = match BillingPeriod::from_str_lax(&billing_period) {
+                            Some(BillingPeriod::Month) => 30,
+                            Some(BillingPeriod::Quarter) => 90,
+                            Some(BillingPeriod::Year) => 365,
+                            Some(BillingPeriod::Lifetime) => 365 * 100,
+                            /* 认不出就不开 —— 猜一个周期等于替用户决定多久扣一次钱。
+                               `plan.billing_period` 有 CHECK，所以这条路今天够不到。 */
+                            None => {
+                                tracing::error!(plan_id, billing_period,
+                                    "套餐的周期认不出，这一单不开通订阅");
+                                continue;
+                            }
+                        };
+                        // 试用天数照 plan 走。一味香那一档是 0（实物试用等于白送一盒）,
+                        // 留着这条是因为别的套餐可能要
+                        let 起 = chrono::Utc::now();
+                        let 止 = 起 + chrono::Duration::days(天 + i64::from(trial_days));
+                        sqlx::query(
+                            r#"INSERT INTO subscription(
+                                 id, user_id, plan_id, status, source_channel,
+                                 current_period_start, current_period_end,
+                                 next_billing_attempt_at, cancel_at_period_end, region)
+                               VALUES ($1, $2, $3, $4, 'wechat_mp', $5, $6, $6, false, $7)"#,
+                        )
+                        .bind(new_id("sub"))
+                        .bind(&user_id)
+                        .bind(&plan_id)
+                        .bind(if trial_days > 0 { "trialing" } else { "active" })
+                        .bind(起)
+                        .bind(止)
+                        .bind(&区)
+                        .execute(&mut *tx)
+                        .await.db()?;
+                        tracing::info!(order_id, plan_id, "订阅已开通");
+                    }
+                }
             }
             // 御守:付了钱,这位不完人就住进你的村子。走同一条履约管线,不另开一条。
             "residency" => {
                 let villager_id: Option<String> = l.get("villager_id");
                 let user_id: String = l.get("user_id");
                 let Some(villager_id) = villager_id else {
-                    // SKU 没标是谁的御守 —— 这是配置错误,不能默默把行标成 done。
-                    // 留在 pending,后台看得见,人能去把 sku.villager_id 补上。
-                    tracing::error!(order_id, line_id, "御守 SKU 没有 villager_id，行留在 pending");
+                    /* SKU 没标是谁的御守 —— 配置错误，不能默默把行标成 done。
+                       【但也不能留在 pending】（2026-09-02 第四轮评审 · 工程审计）。
+                       留 pending 的话收尾那句 `NOT IN ('done','failed')` 永远不满足，
+                       单子就永远停在 `fulfilling`:买家付了 ¥99，屏上一直写着
+                       「正在办」，而没有任何人在办。审计实测库里有 45 件这样的
+                       在架 SKU（已下架，并补了门禁 check-listed-deliverable）。
+                       标 failed 并写清原因:单子能收尾，这一笔在对账里看得见该退。 */
+                    tracing::error!(order_id, line_id, "御守 SKU 没有 villager_id —— 这一笔交付不了");
+                    sqlx::query(
+                        "UPDATE order_line SET fulfillment_status='failed',
+                           fulfillment_ref=jsonb_build_object(
+                             'kind','residency','why','sku_has_no_villager')
+                         WHERE id=$1",
+                    ).bind(&line_id).execute(&mut *tx).await.db()?;
                     continue;
                 };
                 let out = crate::residency::move_in_from_line(&mut tx, &user_id, &villager_id, &line_id).await?;
+                /* 【「已经住着」要分两种】（2026-09-02 第四轮评审 · 工程审计）。
+                   原先不管哪一种都标 done、只在 fulfillment_ref 里记个 `new:false` ——
+                   于是「同一位村民买了第二次」这件事，屏上、后台、对账全都看不见:
+                   钱收了，什么都没发生，而单子写着「已完成」。
+                   审计实测顺序建三张单买阿云，三张都发得出支付，付 ¥297 进一个人。
+
+                   分开的判据是这张住下的行【是被哪一行搬进来的】:
+                   · 就是这一行 —— 重试，幂等，照旧 done
+                   · 是别的行 —— 这一笔买的是他已经有的东西，标 failed 并写清原因。
+                     `failed` 是 order_line 的合法终态，收尾那句
+                     `NOT IN ('done','failed')` 会把它算作已结，单子不会永远挂着;
+                     而它跟 done 分得开，对账和客服看得见这一笔该退。 */
+                let 搬他进来的那一行: Option<String> = sqlx::query_scalar(
+                    "SELECT source_ref FROM villager_residency
+                      WHERE user_id=$1 AND villager_id=$2",
+                ).bind(&user_id).bind(&villager_id)
+                 .fetch_optional(&mut *tx).await.db()?.flatten();
+                let 重试 = 搬他进来的那一行.as_deref() == Some(line_id.as_str());
+                if !out.is_new() && !重试 {
+                    tracing::error!(order_id, line_id, villager_id,
+                        搬他进来的那一行 = ?搬他进来的那一行,
+                        "这位村民已经住着了，而这一笔又买了他一次 —— 该退这一笔");
+                    sqlx::query(
+                        "UPDATE order_line SET fulfillment_status='failed',
+                           fulfillment_ref=jsonb_build_object(
+                             'kind','residency','villager_id',$1,
+                             'why','already_home_via_another_line',
+                             'moved_in_by',$2)
+                         WHERE id=$3",
+                    )
+                    .bind(&villager_id)
+                    .bind(&搬他进来的那一行)
+                    .bind(&line_id)
+                    .execute(&mut *tx)
+                    .await.db()?;
+                    continue;
+                }
                 sqlx::query(
                     "UPDATE order_line SET fulfillment_status='done',
                        fulfillment_ref=jsonb_build_object('kind','residency','villager_id',$1,'new',$2)
@@ -183,9 +316,65 @@ pub async fn apply_order_paid(pool: &PgPool, order_id: &str) -> Result<Fulfillme
         }
     }
 
+    /* 【买东西那一类徽章在这儿发】。
+       在这之前全仓只有一处发徽章（unmei-api 的 naji.rs），而那一处只认
+       `action == "naji.spin"` —— 于是「闻过香」（规则 `order.paid`）
+       和「到过场」（`activity.checkin`）【永远发不出来】，
+       而「我得到的」那一屏还给了 CTA 催人去买香。
+       收了钱不兑现一条明写的承诺，是这一轮评审里对信任伤害最直接的一条。
+
+       规则支持按商品限定（`"product": "prod-suhe-incense"`）——
+       「闻过香」的名字说的是香，就只在买香时发;不写 product 的就是
+       「买过任何东西」。名字与条件必须是同一件事。 */
+    发买东西的徽章(&mut tx, order_id).await?;
+
     let outcome = settle_order_in_tx(&mut tx, order_id).await?;
     tx.commit().await.db()?;
     Ok(outcome)
+}
+
+async fn 发买东西的徽章(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    order_id: &str,
+) -> Result<(), DomainError> {
+    let 单 = sqlx::query(
+        "SELECT o.user_id, ARRAY_AGG(DISTINCT p.id) AS product_ids
+           FROM order_record o
+           JOIN order_line ol ON ol.order_id = o.id
+           JOIN sku s         ON s.id = ol.sku_id
+           JOIN product p     ON p.id = s.product_id
+          WHERE o.id = $1
+          GROUP BY o.user_id",
+    ).bind(order_id).fetch_optional(&mut **tx).await.db()?;
+    let Some(单) = 单 else { return Ok(()) };
+    let user_id: String = 单.get("user_id");
+    let 买了: Vec<String> = 单.get("product_ids");
+
+    /* `FOR SHARE`:读出来的这几枚，在这笔事务提交之前不许被删掉。
+       没有它就有一道缝 —— SELECT 之后、INSERT user_badge 之前，
+       另一头把 badge 删了，外键当场炸，整笔履约回滚，
+       而买家看到的是「订单停在处理中」，屏上没有任何线索。
+       2026-09-01 全量门禁里偶发红了一次（并行跑的另一个用例种了枚
+       临时徽章又删掉），而【偶发的红比常红更糟】:它让每一次真红
+       都能被当成噪音。这不是给测试打的补丁 —— 后台下架一枚徽章
+       跟一笔正在履约的订单撞上，是同一个竞态。 */
+    let badges = sqlx::query("SELECT id, rule_dsl FROM badge WHERE status='active' FOR SHARE")
+        .fetch_all(&mut **tx).await.db()?;
+    for b in badges {
+        let rule: serde_json::Value = b.get("rule_dsl");
+        if rule.get("action").and_then(|x| x.as_str()) != Some("order.paid") { continue }
+        if rule.get("type").and_then(|x| x.as_str()) != Some("count") { continue }
+        // 限定了商品的，只在买了那一件时发
+        if let Some(want) = rule.get("product").and_then(|x| x.as_str()) {
+            if !买了.iter().any(|p| p == want) { continue }
+        }
+        let badge_id: String = b.get("id");
+        // 已经有了就不再发 —— 这一支在 apply_order_paid 里，可能被重放
+        sqlx::query(
+            "INSERT INTO user_badge (user_id, badge_id) VALUES ($1,$2) ON CONFLICT DO NOTHING",
+        ).bind(&user_id).bind(&badge_id).execute(&mut **tx).await.db()?;
+    }
+    Ok(())
 }
 
 /// ShipmentDelivered → 该运单覆盖的行标 done,全部完成则订单翻 done。

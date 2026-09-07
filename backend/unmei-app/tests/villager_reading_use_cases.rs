@@ -362,3 +362,35 @@ async fn what_he_remembers_is_frozen_into_that_days_reading() {
         "今天他已经说过了 —— 后来又问了谁，不该改写他今天说过的话"
     );
 }
+
+/// 【他用哪一门、你有没有盘，要影响这一签】（2026-09-03 第四轮评审 · 产品完整性）。
+///
+/// 种子原先只有「谁问 + 问谁 + 哪一天」—— 盘算好了只写进 `chart_json` 存档、
+/// `art_key` 同样只落库，两者都不参与挑词。屏上写着「这一门是拨念珠」
+/// 和「这一门是翻牌」，而输出的是同一套东西。
+///
+/// 两头都要成立:变量真的进去了，而「同一天同一位说同一句」那条承诺不动
+/// （那是屏上白纸黑字写着的:`villager/index.wxml` 的「一天一次 ·
+/// 同一天再问，说的是同一句」）。
+#[test]
+fn the_art_and_the_chart_change_the_seed() {
+    use chrono::NaiveDate;
+    let 日 = NaiveDate::from_ymd_opt(2026, 9, 3).unwrap();
+    let 基 = villager::seed_of_full("u1", "popo", 日, None, None);
+
+    assert_ne!(基, villager::seed_of_full("u1", "popo", 日, Some("tarot"), None),
+               "换了门派，签该不一样");
+    assert_ne!(基, villager::seed_of_full("u1", "popo", 日, None, Some("chart-a")),
+               "有了盘，签该不一样");
+    assert_ne!(villager::seed_of_full("u1", "popo", 日, Some("tarot"), Some("chart-a")),
+               villager::seed_of_full("u1", "popo", 日, Some("tarot"), Some("chart-b")),
+               "盘变了，签也该变");
+
+    // 承诺不动:同一个人、同一位、同一天、同样的盘 —— 逐字相同
+    assert_eq!(villager::seed_of_full("u1", "popo", 日, Some("tarot"), Some("chart-a")),
+               villager::seed_of_full("u1", "popo", 日, Some("tarot"), Some("chart-a")),
+               "同一天再问，说的还是同一句");
+
+    // 老签名仍然可用，且等价于「没有门派也没有盘」
+    assert_eq!(seed_of("u1", "popo", 日), 基, "老签名不该换语义");
+}

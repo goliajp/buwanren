@@ -25,72 +25,90 @@ pub async fn run(state: AppState) {
     tick.tick().await;
     loop {
         tick.tick().await;
-        if !should_run_now() { continue; }
+        if !过了出账时间() { continue; }
         if let Err(e) = run_recon(&state).await {
             tracing::warn!("recon_scheduler failed: {e}");
         }
     }
 }
 
-/// Asia/Shanghai (UTC+8) 02:00-02:59 之间。
-/// 「当天跑没跑过」不在这里判 —— 那要问库，见 `run_recon` 里的 `already_pulled`。
-fn should_run_now() -> bool {
+/// 渠道账单最早什么时候拿得到 —— 东八区凌晨两点。
+///
+/// 【原先这里是 `hour == 2`，也就是「只在那一小时里跑」】（2026-09-04）。
+/// 于是服务那一小时不在（部署、重启、机器睡了、崩了），那一天就**永远**
+/// 不对账 —— 下一次检查已经是第二天的两点，而它只看昨天。
+/// 一整天的钱没跟渠道对过，而没有任何一处会说出来。
+///
+/// 判据改成「过了两点就该有」：跟「那一天拉过没有」一起用，
+/// 拉过的直接跳，所以放宽时间窗不会多打渠道一次。
+fn 过了出账时间() -> bool {
     let shanghai = Utc::now() + ChronoDuration::hours(8);
-    let hour = shanghai.hour();
-    hour == 2
+    shanghai.hour() >= 2
 }
 
 async fn run_recon(st: &AppState) -> anyhow::Result<()> {
-    // 计算昨日(Shanghai)
     // 同 `routes/village.rs` 的 `today_shanghai()`：写死东八区，
     // 六 cell 里只有 cn / zh_hant 是 +8，而 `RegionMeta.tz` 没人读。
     // 那边的注释写着完整来龙去脉；改的时候两处一起。
-    let shanghai_today = (Utc::now() + ChronoDuration::hours(8)).date_naive();
-    let yesterday = shanghai_today - ChronoDuration::days(1);
+    let 今天 = (Utc::now() + ChronoDuration::hours(8)).date_naive();
 
     let channels = [
         ("wechat_jsapi", st.payment_adapters.wechat_jsapi.clone()),
         ("wechat_mp",    st.payment_adapters.wechat_mp.clone()),
     ];
 
+    /* 【欠哪几天由用例层说】。这里只管「什么时候拉、跟谁拉」——
+       「还欠哪几天」是业务判断，而 worker 里的 SQL 没有任何测试够得着
+       （这个仓库对此有明写的规矩，见模块注释）。 */
+    const 回头看几天: i64 = 7;
+
     for (channel, adapter) in channels {
-        // 拉之前先问一句。`ingest_settlement` 里面也有同一道判断（那道是真正的
-        // 防重，写操作只有一份实现），这里这道是为了**别去打渠道** ——
-        // 十分钟一跳，那一小时里本来会白拉五趟账单。
-        match recon::already_pulled(&st.db, channel, yesterday).await {
-            Ok(true) => continue,
-            Ok(false) => {}
-            // 问不出来就照拉：宁可多拉一次，也不要因为读不到而整晚不对账。
-            Err(e) => tracing::warn!("recon · 查 {channel} {yesterday} 拉过没有：{e}"),
-        }
-        match adapter.pull_settlement(yesterday, "CNY").await {
-            Ok(rows) => {
-                let rows: Vec<recon::SettlementRow> = rows
-                    .into_iter()
-                    .map(|r| recon::SettlementRow {
-                        channel_txn_id: r.channel_txn_id,
-                        amount_minor: r.amount_minor,
-                        status: r.status,
-                    })
-                    .collect();
-                // 一个渠道对不上，不该让另一个渠道整晚不对账 ——
-                // 上面 `pull_settlement` 的失败本来就是各算各的，这条原先用 `?`
-                // 直接把整轮带走了，两种失败模式不一致。
-                let out = match recon::ingest_settlement(&st.db, channel, yesterday, "CNY", &rows).await {
-                    Ok(out) => out,
-                    Err(e) => {
-                        tracing::warn!("recon · {channel} {yesterday} 入库失败：{e}");
-                        continue;
-                    }
-                };
-                if out.skipped { continue; }
-                tracing::info!(
-                    "recon · {channel} {yesterday}: {} 笔 · 对上 {} · 金额不符 {} · 内部缺单 {} -> {}",
-                    out.total_count, out.matched, out.amount_mismatch,
-                    out.missing_in_internal, out.status
-                );
+        let 欠着 = match recon::days_needing_pull(&st.db, channel, 今天, 回头看几天).await {
+            Ok(v) => v,
+            // 问不出来就照旧只拉昨天：宁可少补几天，也不要因为读不到而整晚不对账。
+            Err(e) => {
+                tracing::warn!("recon · 查 {channel} 欠哪几天失败：{e}");
+                vec![今天 - ChronoDuration::days(1)]
             }
-            Err(e) => tracing::warn!("pull_settlement {channel} {yesterday}: {e}"),
+        };
+        if 欠着.len() > 1 {
+            /* 【要补的不止昨天，说明服务在那几天的出账时间不在】。
+               补上是好事，而「需要补」这件事本身是运维要知道的 ——
+               不说的话，一次三天的停机跟一切正常长得一模一样。 */
+            tracing::warn!(channel, 欠几天 = 欠着.len(),
+                "recon · 欠着不止昨天的账 —— 那几天出账时间服务不在");
+        }
+
+        for 那天 in 欠着 {
+            match adapter.pull_settlement(那天, "CNY").await {
+                Ok(rows) => {
+                    let rows: Vec<recon::SettlementRow> = rows
+                        .into_iter()
+                        .map(|r| recon::SettlementRow {
+                            channel_txn_id: r.channel_txn_id,
+                            amount_minor: r.amount_minor,
+                            status: r.status,
+                        })
+                        .collect();
+                    // 一个渠道对不上，不该让另一个渠道整晚不对账 ——
+                    // 上面 `pull_settlement` 的失败本来就是各算各的，这条原先用 `?`
+                    // 直接把整轮带走了，两种失败模式不一致。
+                    let out = match recon::ingest_settlement(&st.db, channel, 那天, "CNY", &rows).await {
+                        Ok(out) => out,
+                        Err(e) => {
+                            tracing::warn!("recon · {channel} {那天} 入库失败：{e}");
+                            continue;
+                        }
+                    };
+                    if out.skipped { continue; }
+                    tracing::info!(
+                        "recon · {channel} {那天}: {} 笔 · 对上 {} · 金额不符 {} · 内部缺单 {} -> {}",
+                        out.total_count, out.matched, out.amount_mismatch,
+                        out.missing_in_internal, out.status
+                    );
+                }
+                Err(e) => tracing::warn!("pull_settlement {channel} {那天}: {e}"),
+            }
         }
     }
     Ok(())

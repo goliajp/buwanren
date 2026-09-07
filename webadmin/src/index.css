@@ -1,64 +1,120 @@
-@import url('https://rsms.me/inter/inter.css');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* unmei 运营台
+ *
+ * 【没有 @import 字体】。上一版从 rsms.me 拉 Inter —— 一个内部工具
+ * 为了字形去开一条外部依赖，代价是首屏先渲成系统字再跳一下，
+ * 而且网络不通时整台控制台的字重全变。系统栈本来就是为界面调过的。
+ *
+ * 【12px 是地板】。上一版有 9px 的全大写等宽标签，而它占的是
+ * 「这一列是什么」这么要紧的位置 —— 小到读不出来的标签
+ * 不是克制，是把信息藏起来。
+ */
+
 @layer base {
   html {
-    font-family: 'Inter', 'PingFang SC', 'Noto Sans SC', -apple-system, sans-serif;
-    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'ss01';
-    font-size: 13px;
-    line-height: 1.45;
+    font-size: 13px;              /* 正文档 */
+    -webkit-text-size-adjust: 100%;
   }
-  body { @apply bg-canvas text-ink antialiased; }
-  table { @apply text-[12px]; }
-  code { font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace; }
+  body {
+    @apply bg-paper text-ink font-sans antialiased;
+  }
+  /* 数字一律等宽表格字形 —— 让数位对齐。
+     这是整台控制台里最要紧的一条排版规则:
+     金额右对齐 + 等宽数字，一列数才读得成一列数。 */
+  .num, table, input[type='number'] {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+  }
+  ::selection { @apply bg-ink text-paper; }
+
+  /* 键盘可达 —— 焦点看得见，且不靠颜色单独承担 */
+  :focus-visible {
+    outline: 2px solid theme('colors.ink');
+    outline-offset: 1px;
+    border-radius: 2px;
+  }
 }
 
-@layer utilities {
-  .num { font-variant-numeric: tabular-nums; }
-  .mono { font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace; }
-  .uplabel { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; }
+@layer components {
+
+  /* ── 表 ────────────────────────────────────────────────────
+     账簿的读法:横线只在行间，竖线一根都不要。
+     竖线会把眼睛切成格子，而看一行数据要的是横着扫。 */
+  .tbl { @apply w-full text-xs num; border-collapse: separate; border-spacing: 0; }
+  .tbl thead th {
+    @apply sticky top-0 z-10 bg-sunk text-ink-3 font-medium text-left
+           px-3 py-2 border-b border-rule whitespace-nowrap;
+  }
+  .tbl tbody td { @apply px-3 py-2 border-b border-rule/70 align-middle; }
+  .tbl tbody tr:hover td { @apply bg-sunk/70; }
+  .tbl tbody tr:last-child td { @apply border-b-0; }
+  /* 钱与计数右对齐 —— 只有右对齐 + 等宽，数位才真的成列 */
+  .tbl .r { @apply text-right; }
+  .tbl .c { @apply text-center; }
+  .tbl .id { @apply font-mono text-ink-3; }
+
+  /* ── 状态 ──────────────────────────────────────────────────
+     一个点加一个词，不做药丸。
+     药丸给每一种状态都刷上底色，于是【所有】状态都在喊 ——
+     而这台控制台的活儿正是让出事的那一个跳出来。
+     所以底色只留给要处理的，其余只有一个点。 */
+  .st { @apply inline-flex items-center gap-1.5 whitespace-nowrap; }
+  .st::before {
+    content: '';
+    @apply inline-block w-1.5 h-1.5 rounded-full bg-ink-4 shrink-0;
+  }
+  .st-settled { @apply text-ink-2; }
+  .st-settled::before { @apply bg-settled; }
+  .st-pending { @apply text-ink-2; }
+  .st-pending::before { @apply bg-pending; }
+  /* 要处理的那一档 —— 全台唯一带底色的状态 */
+  .st-debt {
+    @apply text-debt font-medium bg-debt-bg px-1.5 py-0.5 -mx-1.5 rounded;
+  }
+  .st-debt::before { @apply bg-debt; }
+  .st-mute { @apply text-ink-3; }
+
+  /* ── 数字 ──────────────────────────────────────────────────
+     健康的退成灰，要处理的才吃墨。这就是「缺席要有重量」。 */
+  .n { @apply num tabular-nums; }
+  .n-quiet { @apply text-ink-3; }
+  .n-debt { @apply text-debt font-medium; }
+  .n-zero { @apply text-ink-4; }
+
+  /* ── 按钮 ──────────────────────────────────────────────────
+     三档:主动作、次动作、危险。没有第四档 ——
+     一个界面里第四种按钮通常意味着有一档没想清楚。 */
+  .btn {
+    @apply inline-flex items-center gap-1.5 h-7 px-2.5 rounded text-sm
+           font-medium transition-colors disabled:opacity-40
+           disabled:pointer-events-none;
+  }
+  .btn-prim { @apply bg-ink text-paper hover:bg-ink-2; }
+  .btn-soft { @apply bg-card text-ink-2 border border-rule-2 hover:bg-sunk; }
+  .btn-ghost { @apply text-ink-3 hover:text-ink hover:bg-sunk; }
+  .btn-debt { @apply bg-debt-bg text-debt hover:bg-debt hover:text-paper; }
+
+  /* ── 输入 ──────────────────────────────────────────────────*/
+  .input, .select {
+    @apply h-7 px-2 text-sm bg-card border border-rule-2 rounded num
+           text-ink placeholder:text-ink-4;
+  }
+  .input:focus, .select:focus { @apply outline-none border-ink; }
+  .select { @apply pr-6; }
+
+  /* ── 区块 ──────────────────────────────────────────────────
+     一根线，没有影子。影子留给真的浮在上面的东西。 */
+  .panel { @apply bg-card border border-rule rounded; }
+  .panel-head {
+    @apply px-4 h-10 flex items-center justify-between border-b border-rule;
+  }
+  .panel-title { @apply text-base font-semibold text-ink; }
+
+  /* 标签 —— 句子形，不用全大写。
+     全大写加字距看着「设计过」，读起来慢一倍，
+     而这些字正是在告诉你某一列是什么。 */
+  .label { @apply text-xs text-ink-3; }
 }
-
-/* 表格密集风格 · 跟 design.html §3 同源 */
-.wa-table { @apply w-full text-[12px] num; border-collapse: separate; border-spacing: 0; }
-.wa-table thead tr { @apply bg-surface-2; }
-.wa-table th  { @apply uplabel text-ink-4 px-3 py-2 text-left font-medium border-b border-border; }
-.wa-table td  { @apply px-3 py-2 border-b border-border/60 align-middle; }
-.wa-table tr:hover td { @apply bg-surface-2/60; }
-.wa-table td.r, .wa-table th.r { @apply text-right; }
-.wa-table td.c, .wa-table th.c { @apply text-center; }
-
-/* 状态 chip */
-.chip { @apply inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] num font-medium; }
-.chip-ok      { @apply bg-jade-soft text-jade; }
-.chip-warn    { @apply bg-gold-soft text-gold-2; }
-.chip-bad     { @apply bg-vermilion-soft text-vermilion; }
-.chip-mute    { @apply bg-surface-3 text-ink-4; }
-.chip-info    { @apply bg-slate/15 text-slate; }
-
-/* 按钮 */
-.btn { @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[12px] font-medium transition; }
-.btn-prim { @apply bg-ink text-canvas hover:bg-ink-2; }
-.btn-soft { @apply bg-surface-2 text-ink-2 hover:bg-surface-3 border border-border; }
-.btn-link { @apply text-ink-4 hover:text-ink-2; }
-.btn-warn { @apply bg-vermilion-soft text-vermilion hover:bg-vermilion-soft/80; }
-
-/* 输入 / 选择 */
-.input, .select {
-  @apply h-8 px-2.5 text-[12px] bg-surface border border-border rounded num;
-}
-.input:focus, .select:focus { @apply outline-none ring-1 ring-ink/40 border-ink/40; }
-
-/* KPI 卡 */
-.kpi { @apply bg-surface border border-border rounded px-4 py-3 flex flex-col gap-1; }
-.kpi-label { @apply uplabel text-ink-4; }
-.kpi-value { @apply text-[24px] font-semibold text-ink leading-tight num tracking-tight; }
-.kpi-delta { @apply text-[11px] num; }
-
-/* 卡 / 区块 */
-.panel { @apply bg-surface border border-border rounded; }
-.panel-head { @apply px-4 py-2.5 border-b border-border flex items-center justify-between bg-surface-2/50; }
-.panel-title { @apply text-[13px] font-semibold text-ink-2; }
-.panel-sub { @apply uplabel text-ink-4; }

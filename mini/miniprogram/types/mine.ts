@@ -17,12 +17,23 @@ export interface Badge {
   points: number
   earned: boolean
   earned_at?: string | null
+  /** 离拿到还差多少。数不出来的那两枚（买东西、到过场）后端不给这一项 */
+  progress?: { have: number; need: number } | null
 }
 
 export interface Subscription {
   id: string
   plan_id?: string | null
+  /** 套餐名。后端 `SELECT p.name AS plan_name` 一直在给，
+   *  只是这个类型没声明它，于是屏上打的是 `plan-mg-month`。 */
+  plan_name?: string | null
   status: string
   current_period_end?: string | null
   cancel_at_period_end?: boolean | null
+  /** 这一份订的是哪件商品。「还能订什么」那一块靠它把重复的那件摘掉 */
+  product_id?: string | null
+  /** 这一档每期发什么（`plan.entitlements_json` 的 `ships`）。
+   *  一味香按月送是「十支一盒」—— 有它的时候屏上说的是「下一盒 X 发」，
+   *  没有的时候只能说「续到 X」。**不在页面里按 plan_id 写死** */
+  ships?: string | null
 }

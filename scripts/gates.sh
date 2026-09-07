@@ -4,25 +4,25 @@
 # 为什么要有这支：
 #
 # ★ 一支【偶尔】红的门禁，比一支常红的更坏 —— 它训练人把每次真红
-#   当噪音。2026-08-31 撞到一次:`the_voice_is_the_villagers_own` 在比
+#   当噪音。2026-08-31 撞到一次：`the_voice_is_the_villagers_own` 在比
 #   「白鹭这次抽到的句子比丹增短」，而抽哪句由随机 user id 做种子，
 #   连跑十二次全绿、门禁那趟撞上另一面。判据改成累计七天才稳。
 #
-#   顺手把同类扫了一遍（2026-08-31），当时的结论:
-#     · `assert_ne!`（「必须不同」）那几条 —— 句库按「缺」分 41 条,
+#   顺手把同类扫了一遍（2026-08-31），当时的结论：
+#     · `assert_ne!`（「必须不同」）那几条 —— 句库按「缺」分 41 条，
 #       比较的两位缺不同，结论必然不同，不靠运气
 #     · `Utc::now()` 都是当输入用（造数据），不拿来断言
 #     · 问候那条用的是涵盖所有时段的正则，不钉死某一句
 #     · 数目那几条钉的是结构常数（四柱恒 4、香恒 3 档），不随数据量漂
 #   再加断言时照这四条对一遍：**判据不许挑一个会自己翻面的量**。
-# ★ 它跑着的时候【整个工作区都别改】。变异测试要把源文件改掉再复原,
-#   复原之间那一瞬跟你的编辑撞上,报出来的是「某支没红」—— 而那一支
+# ★ 它跑着的时候【整个工作区都别改】。变异测试要把源文件改掉再复原，
+#   复原之间那一瞬跟你的编辑撞上，报出来的是「某支没红」—— 而那一支
 #   其实好好的。2026-08-30 撞过一次(75/1),什么都没动重跑就是 76/0。
-#   这种失效长得跟数据一模一样:它报的是一个真实存在的失败形态。
-# ★ 它跑着的时候【不要改这个文件】。bash 是按字节偏移往下读脚本的,
+#   这种失效长得跟数据一模一样：它报的是一个真实存在的失败形态。
+# ★ 它跑着的时候【不要改这个文件】。bash 是按字节偏移往下读脚本的，
 #   中途插几行就让它从半个词接着读 —— 报出来是「line 338: unexpected EOF」,
-#   而那一行完全正常。2026-08-30 踩到:一轮 55 支全绿的门禁，
-#   最后的总账被这个假语法错顶掉了,看着像门禁自己坏了。
+#   而那一行完全正常。2026-08-30 踩到：一轮 55 支全绿的门禁，
+#   最后的总账被这个假语法错顶掉了，看着像门禁自己坏了。
 #
 # 门禁的清单以前只是 `.claude/CLAUDE.md` 里的一行散文（「build --check /
 # regress check / portlint / ...」）。散文会过时——后来加的 check-punct、
@@ -37,7 +37,7 @@
 # 特点：**不在第一个失败处停**。全跑完再报总账 —— 只知道「第一个坏的」
 # 会让人一轮一轮地挤牙膏。
 #
-# 用法:
+# 用法：
 #   bash scripts/gates.sh              全部（要 Postgres）
 #   bash scripts/gates.sh --quick      跳过慢的那几支（引擎校验 / 变异 / cargo test）
 set -u
@@ -46,14 +46,14 @@ cd "$(dirname "$0")/.."
 QUICK=0
 [ "${1:-}" = "--quick" ] && QUICK=1
 
-# 一次只许跑一份。两份同时跑会互相踩:镜像那一支占的是固定端口,
+# 一次只许跑一份。两份同时跑会互相踩：镜像那一支占的是固定端口，
 # 引擎那几支要重建 design.html 与 mini/miniprogram/engine —— 一份跑到一半
-# 被另一份换掉了产物,量到的就是别人的东西。
+# 被另一份换掉了产物，量到的就是别人的东西。
 #
-# 2026-08-25 真踩到:一份挂住的旧run 跟新起的一份并行了一个半小时,
-# blobscan 与 web verify 报红,而两支单独跑都是绿的。
-# **看起来像产品坏了,其实是两份门禁在抢同一批文件** —— 这种红最贵:
-# 查错方向完全是反的。变异测试那支早就有锁,这支一直没有。
+# 2026-08-25 真踩到：一份挂住的旧run 跟新起的一份并行了一个半小时，
+# blobscan 与 web verify 报红，而两支单独跑都是绿的。
+# **看起来像产品坏了，其实是两份门禁在抢同一批文件** —— 这种红最贵：
+# 查错方向完全是反的。变异测试那支早就有锁，这支一直没有。
 # node 得在 PATH 里。不在的话下面那两支报的是
 # 「tsc: 类型」与「webadmin build」挂了 —— 而实际是它们【根本没跑】，
 # 报出来的话把人往「代码有类型错」的方向带，跟真相反着。
@@ -86,15 +86,32 @@ trap 'exit 130' INT TERM PIPE
 
 pass=0; fail=0; skipped=0
 FAILED=()
+# 每支跑了多少秒。收尾按秒排一遍 —— 「这一轮为什么要四十分钟」
+# 在这之前没有任何地方答得上来，于是只能靠印象猜哪一支慢。
+# 数组元素长这样:`123 名字`（秒在前，排序好排）。
+TIMES=()
 
 # gate <名字> <在哪个目录> <命令...>
 gate() {
   local name="$1" dir="$2"; shift 2
-  local out
-  if ! out=$(cd "$dir" && "$@" 2>&1); then
+  local out rc t0 t1
+  t0=$(date +%s)
+  out=$(cd "$dir" && "$@" 2>&1); rc=$?
+  t1=$(date +%s)
+  TIMES+=("$((t1 - t0)) $name")
+  # 【退 3 = 这一支自己说「我跳过了」】。
+  # 一条永远跳过的核对就是一条永远绿的核对，比没有更糟 ——
+  # 而在这之前，脚本里那种「缺依赖就 return 0」会在总账上算成「过」，
+  # 跳过计数不涨，没人知道它其实什么都没核
+  # （2026-09-01 五路评审 · 工程审计在 check-art-leaf 上抓到）。
+  if [ "$rc" = 3 ]; then
+    skip "$name" "$(printf '%s' "$out" | tail -1)"
+    return 0
+  fi
+  if [ "$rc" != 0 ]; then
     printf '  ✗ %-34s\n' "$name"
     # `LC_ALL=C` 让 sed 按【字节流】处理 —— 不然它对中文报
-    # "RE error: illegal byte sequence"，失败摘要就成了乱码:
+    # "RE error: illegal byte sequence"，失败摘要就成了乱码：
     # 门禁挂了却读不懂它在说什么，跟没挂一样糟。
     # （不用 en_US.UTF-8：那个 locale 不保证这台机器上有。
     #   `s/^/  /` 只匹配行首，字节流下完全安全。）
@@ -119,6 +136,24 @@ skip() { printf '  · %-34s %s\n' "$1" "$2"; skipped=$((skipped+1)); }
 
 echo "══ 门禁 ══"
 echo
+# ── 起手记下工作树的样子 ────────────────────────────────────
+# 【这一条我自己犯了两次】。上面 ★ 第二条写着「它跑着的时候整个工作区
+# 都别改」——写成散文挡不住:2026-09-03 一天里两轮门禁跑到一半我改了
+# 源码，两轮 25 分钟的结论都只能作废。而作废这件事**没有任何东西会说**，
+# 我是靠自己记起来才没把它当成通过。
+#
+# 所以让它自己核对:起手记指纹，收尾比一遍。不一样就把总账判红 ——
+# 一轮跑在流沙上的门禁，绿也不算数。
+# 变量名用 ASCII —— bash 的标识符不收中文（zsh 收，所以在终端里试是好的）。
+# 这个文件头一行写的是 bash，别处的中文都在字符串与注释里，
+# 只有这几个是标识符。
+_tree_fp() {
+  { git -C "$(git rev-parse --show-toplevel)" status --porcelain
+    git -C "$(git rev-parse --show-toplevel)" rev-parse HEAD
+  } 2>/dev/null | shasum | cut -d' ' -f1
+}
+TREE_FP_START="$(_tree_fp)"
+
 echo "── 房间 / 引擎 ──"
 gate "build --check"        rooms bun tools/build.js --check --src=src
 gate "hardcodelint"         rooms bun tools/hardcodelint.js design.html
@@ -130,6 +165,15 @@ gate "blobscan"             rooms bun tools/blobscan.js design.html --gate-only
 gate "portlint · 离得开浏览器吗" rooms bun tools/portlint.js design.html
 gate "winlint"              rooms python3 tools/winlint.py src
 gate "regress selfcheck"    rooms bun tools/regress.js design.html selfcheck
+# 【渲染有没有漂】。上面那一支 selfcheck 查的是【工具自己】还好不好使，
+# 不比对任何像素 —— 而基准比对（check）一直没接进来。
+# 2026-09-01 手跑了一次：村图两张早就跟基准对不上，没人知道漂了多久。
+# 漂移不一定是坏事（这一版的取景就是改过的），但它必须【有人看一眼再放行】,
+# 而不是没人看见。判完跑 `bun tools/regress.js design.html save` 重存。
+# 基准存在 `rooms/.roomwork/baseline/`，按「文档不进 git」那条留在本机 ——
+# 新克隆出来的一份没有基准，这一支会红并叫你先跑 save。那是对的：
+# 基准要由人看过当前渲染之后才算数，不能凭空生成一份。
+gate "regress check · 渲染有没有漂" rooms bun tools/regress.js design.html check
 if [ "$QUICK" = 1 ]; then
   skip "build-engine verify" "--quick"
 else
@@ -143,7 +187,7 @@ gate "check-relations · 关系网"  . python3 scripts/check-relations.py
 gate "check-api-shape · 前后端"  . python3 scripts/check-api-shape.py
 gate "check-punct · 文档标点"    . python3 scripts/check-punct.py
 gate "check-punct-ui · 界面文案" . python3 scripts/check-punct-ui.py
-# 「缺 X」是村民自己缺 X（lack_bias 表:缺过才懂，所以那样劝你）。
+# 「缺 X」是村民自己缺 X（lack_bias 表：缺过才懂，所以那样劝你）。
 # 请人那一屏曾把它说成「他补你哪一样」——村民成了工具，
 # 产品叫「不完人」的理由当场没了，而两屏各说各的谁也不会红。
 gate "「缺」说的是谁" . python3 scripts/check-lack-sense.py
@@ -165,9 +209,61 @@ gate "村民表与设计册同步" . python3 scripts/export-cast.py --check
 # 偏向表多一行，而那句「应有 41 行」要到合并之后才红（2026-08-31 真踩到）。
 gate "缺与偏向对得上" . python3 scripts/check-seed-lack.py
 # 四十位的正面像素图早就画在设计册里，小程序这一侧却一直是
-# 「圆底 + 姓名末字」—— 缺的不是画，是接线。这一支盯着别再断:
+# 「圆底 + 姓名末字」—— 缺的不是画，是接线。这一支盯着别再断：
 # 每位都有脸、每张脸解得开、用到头像的每一屏都接了 脸()。
 gate "四十位的脸都接上了吗" . python3 scripts/check-faces.py
+# 按钮上的动作要跟这个人的术对得上 —— 上一轮把塔罗的「翻牌」派给了
+# 婆婆之外的人，三路评审各自独立抓到。这一支从此盯着。
+gate "按钮的动作对得上人" . python3 scripts/check-cast-act.py
+# 界面上不许出现行话：名册页写「小道士 · 大六壬」，一个没听说过命理的人
+# 一个都不认识。说明书那一屏是行话唯一的家，其余各屏一律人话。
+gate "界面上没有行话" . python3 scripts/check-no-jargon.py
+# 通向掏钱那一步的按钮，同一屏上必须看得见价。「请婆婆回村」不写价，
+# 五路评审里三路把它列成第一个不敢按的理由。
+gate "掏钱那一屏看得见价" . python3 scripts/check-price-on-cta.py
+# 盘上八格对得上库里的方位。上一轮把盘面的方位名与八卦符都拿掉之后，
+# 「它停在哪儿」就没法用眼睛检验了 —— 四个正方向的角度查不到、
+# 每次都兜底停在正上方，活了很久没人发现。
+gate "盘停得对吗" . python3 scripts/check-dial-angles.py
+# 开机种子里有几段是 ON CONFLICT DO UPDATE —— 那几张表的源头是种子，
+# 不是迁移。在迁移里改它们，下一次重启就被写回去，而且不报错。
+# 这一支直接问库：现在重启一次，会不会有东西被改回去。
+gate "重启不会把库写回去" . python3 scripts/check-seed-overwrites.py
+# 收货地址要发在发货那一步真读的那一列上 —— 发错列的话面单是空的，
+# 而买家刚被强制选过一次地址，全程一处不报错。
+gate "地址落到发货读的那一列" . python3 scripts/check-address-lands.py
+# 屋里的台词是第三套源（rooms/src/rooms/*.js），另外两支文言门禁够不着它 ——
+# 而它恰恰是看得最久的：点进屋子，村民头顶一句一句地冒。
+gate "屋里的台词说人话" . python3 scripts/check-room-words.py
+# 在架的每一枚徽章，代码里都得真有地方发它。六枚里四枚发不出来活了很久，
+# 而屏上还给每一枚配了 CTA —— 其中一枚直接把人推去掏钱。
+gate "在架徽章发得出来" . python3 scripts/check-badges-earnable.py
+# 签词的落款上不许有古书篇名 —— 「村口的闲话 · 齐物论」两半互相拆台，
+# 而正文本身是改写干净的。
+gate "签词落款没有篇名" . python3 scripts/check-quote-source.py
+# 说明书里不许原样转发排盘写的推理 —— 行话在这一册里可以，文言不行，
+# 而上游那句「宜以助身五行扶之」两样都占。
+gate "说明书不转发上游原文" . python3 scripts/check-report-passthrough.py
+# 前端那张「状态怎么说」的表要跟后端枚举对得上 —— 差一个词，
+# `|| status` 兜底就把英文原样印在屏上，而错的跟对的看着一样。
+gate "状态说法对得上枚举" . python3 scripts/check-status-words.py
+# 线的颜色不许当文字色用；次要文字色不许低到看着像禁用。
+# 按每一屏自己的底色算 —— 点灯那一屏是深色的，浅色在那儿才是对的。
+gate "文字读得出来" . python3 scripts/check-contrast.py
+gate "底色没被图顶掉" . python3 scripts/check-bg-layering.py
+# 底栏三项都要有像素图标、选中色是主色 —— 三个纯文字标签加黑色选中，
+# 是「这是个通用小程序」那个印象最直接的来源。
+gate "底栏有图标" . python3 scripts/check-tabbar.py
+gate "徽章都有像素图"        . python3 scripts/check-badge-art.py
+# 在卖御守的那几位必须答得上话 —— 那一屏写着「有事可以问 X」，
+# 而问签走口气模板，没模板的直接报错，可买家已经付过钱了。
+gate "在卖的都答得上话" . python3 scripts/check-can-answer.py
+# 答得上话是三条里的一条。另外两条 —— 有屋子、村里走得动 ——
+# 归下面这一支。它两个方向都守:上架了却搬不进来要报,
+# 素材都齐了却没上架也要报（屋子画了没人买得到，安静地不赚钱）。
+gate "在架的御守搬得进来吗" . env \
+    PSQL_URL='postgres://unmei:unmei_dev_pwd@localhost:6032/unmei' \
+    python3 scripts/check-can-move-in.py
 if [ "$QUICK" = 1 ]; then
   # `--quick` 跳过变异测试，而变异测试是【钉在具体文件的具体字符串上】的。
   # 你改的要是它盯着的文件，这一跳就正好跳过了唯一会发现「断言漂了」的那支。
@@ -211,47 +307,135 @@ else
   skip "tsc · 类型" "PATH 里没有 npx（node 没装或 nvm 没加载）—— 这一项【没验】"
 fi
 gate "每一页都走得到吗" . python3 scripts/check-reachable-pages.py
+# 上一支管的是「页面之间的跳转目标都存在」，这一支管反向：
+# 注册了的页面有没有一条路走得到。有条件的入口算走得到 ——
+# 管的是【一条链接都没有】那种（评审把 pages/subs 报成死页，
+# 而它其实是「没东西可订就不摆入口」，那是对的）。
+gate "注册的页面都走得到吗" . python3 scripts/check-dead-screens.py
 gate "页面之间没互相 import 吧" . python3 scripts/check-page-imports.py
-# 开屏就取数的页面,都得等得到登录。匿名登录是异步的,冷启动那一次
-# 必然赶在 token 前面拿 401 —— 要紧的不是那次 401,是之后再也不取:
+# 开屏就取数的页面，都得等得到登录。匿名登录是异步的，冷启动那一次
+# 必然赶在 token 前面拿 401 —— 要紧的不是那次 401,是之后再也不取：
 # 那一屏停在「取不到」,刷新一下又好了。栽过两次(村主屏、那一册)。
 gate "开屏取数的页等得到登录吗" . python3 scripts/check-auth-ready.py
 gate "bind 的处理器都真有吗" . python3 scripts/check-wxml-handlers.py
 # 昼夜的边界摊在三个文件里(天色、问候语、村民语料的四段)。走散的样子是
 # 「屏上写着傍晚好而村子已经点起灯」,或者问候语加了一档、验证脚本的白名单没加 ——
-# 后者只在一天里的某几个钟头红,而只在某几个钟头出现的红最容易被当成噪音放过。
+# 后者只在一天里的某几个钟头红，而只在某几个钟头出现的红最容易被当成噪音放过。
 gate "昼夜的边界三处对得上吗" . python3 scripts/check-clock-bands.py
 # 一个人的头像色摊在四屏(名册 / 村主屏 / 他的主页 / 扫开那一屏)。
-# 少接一处,他在那一屏就是另一个颜色 —— 而颜色是翻四十个人时最快的线索,
-# 一处不准整条线索就不能信。页面里写 background 也会盖掉它,症状一模一样。
+# 少接一处，他在那一屏就是另一个颜色 —— 而颜色是翻四十个人时最快的线索，
+# 一处不准整条线索就不能信。页面里写 background 也会盖掉它，症状一模一样。
 gate "一个人的颜色四处一样吗" . python3 scripts/check-face-color.py
-# 真机上每页都有一条原生导航栏,而镜像不画它 —— 截图上看不见,只能靠这一支。
-# 0830 之后页面自己画了大标题,导航栏再写一遍页面名就是同一个词出现两次;
-# 空着更糟:那条栏还在,只是没有字。
+# 真机上每页都有一条原生导航栏，而镜像不画它 —— 截图上看不见，只能靠这一支。
+# 0830 之后页面自己画了大标题，导航栏再写一遍页面名就是同一个词出现两次；
+# 空着更糟：那条栏还在，只是没有字。
 gate "导航栏标题统一吗" . python3 scripts/check-nav-title.py
-# 「八月三十 · 周日」是说给人听的,「2026-08-30」是给系统读的。
-# 三屏各拼了一份,其中两屏还是并排的 tab —— 切过去一种写法,切回来另一种。
+# 「八月三十 · 周日」是说给人听的，「2026-08-30」是给系统读的。
+# 三屏各拼了一份，其中两屏还是并排的 tab —— 切过去一种写法，切回来另一种。
 gate "日期只有一种说法吗" . python3 scripts/check-day-words.py
-# 2026-08-30 用户定:「完全不允许有任何文言古书的表达,只能是在命理分析中
+# 2026-08-30 用户定：「完全不允许有任何文言古书的表达，只能是在命理分析中
 # 专业细节中有」。规则不写成代码就会漂 —— 上一版的门解、宜忌、收尾句
-# 全是文言，而三支标点门禁都是绿的:它们只管标点，不管说的是不是人话。
+# 全是文言，而三支标点门禁都是绿的：它们只管标点，不管说的是不是人话。
 gate "屏上说的是人话吗" . python3 scripts/check-plain-words.py
-# 0830 标尺（设计册 §1.5）里能机械判的那四条:沉浸 / 我在哪儿 /
+# 0830 标尺（设计册 §1.5）里能机械判的那四条：沉浸 / 我在哪儿 /
 # 一屏一件事 / 不是死路。此前每一轮都是我看着截图说「这屏成立」——
 # 那是印象不是自查。落成代码之后头一次跑就抓出两处真的
 #（一单那屏没有他的脸、两颗主按钮结构上能同时出现）。
 gate "五行色文字用 -fg"       . python3 scripts/check-wuxing-fg.py
+# 像素画不是整数倍时，`pixelated` 会把相邻两格取整成一宽一窄 ——
+# 源图左右对称，屏上却歪。判的是 CSS 像素：DPR 2 与 3 下都得整齐。
+gate "像素画都是整数倍吗" . python3 scripts/check-pixel-scale.py
+# 分隔线可以浅，圈出控件的那圈线不行 —— 它是「这能点」的唯一信号。
+# 只判可点、且没有一块看得见的底色的那些（WCAG 1.4.11 的 3:1）。
+gate "控件轮廓看得见吗" . python3 scripts/check-ui-outline.py
+# 点得动的东西按下去要有回应 —— 12 屏一处都没有，包括花 ¥398 那颗。
+# 顺带管住类名：只许那三种，不然过一阵又会长出第十四个。
+gate "点得动的都有回应吗" . python3 scripts/check-press-feedback.py
 gate "村民台词合规格"        . python3 scripts/check-villager-lines.py
+# 村主屏一天只显示一条，从住着那位的四条里挑 —— 所以要紧的不是
+# 「整批里某个句式占几成」，是【一个人身上的密度】:四条同形，
+# 你连着四天听到同一个节奏。上一支管每条本身，这一支管四条之间。
+gate "没人四条一个调吗" . env DATABASE_URL='postgres://unmei:unmei_dev_pwd@localhost:6032/unmei' python3 scripts/check-line-rhythm.py
 gate "屏上不拿指代当名字"     . python3 scripts/check-no-deixis.py
+gate "技术原文不上屏"        . python3 scripts/check-no-raw-error.py
+gate "一件事一个名字"        . python3 scripts/check-one-name.py
 gate "金额只有一支格式化"     . python3 scripts/check-money-fmt.py
-gate "22 屏对得上尺子吗" . python3 scripts/check-screen-ruler.py
+# 名字里【不写屏数】——写死的话它一加页就过期，而过期的数字看着跟真的一样
+# （截屏那一支的「33」就这么在名字里挂了很久，见上面）。屏数由脚本自己报。
+gate "每一屏对得上尺子吗" . python3 scripts/check-screen-ruler.py
 gate "开局站位对得上第一件事吗" . python3 scripts/check-room-start.py
 # 「站位对得上」不等于「看得见」——婆婆的站位一直是对的，
 # 只是正对着水晶球坐，从正面看整个人只剩一个帽尖（实测露出 41%）。
 # 这一支把主人染成品红重渲一次，数画面上还剩多少 —— 那就是没被挡住的部分。
 gate "进屋看得见主人吗" . bun web/see-host.mjs
-# 镜像自己会先组装。动线要真跑一遍浏览器,几十秒
-gate "web verify · 动线"  . bash web/run-verify.sh
+# 镜像自己会先组装。动线要真跑一遍浏览器，几十秒。
+#
+# 【后端在就打真链】（2026-09-02 第三轮评审 · 工程审计）。
+# 上一版这一行不带 `--api`，于是门禁跑的一直是【假服务端】那一档 ——
+# 按 verify.mjs 自己的记账是 111 / 323 条，**三分之二的断言写了但从不运行**。
+# 而 .claude/CLAUDE.md 白纸黑字写着「改完前端别只跑假服务端那一档 ——
+# 便宜，但它够不到真链」，唯一的判据却恰恰在跑那一档。
+#
+# 后端不在就【明说跳过】，不偷偷降档：有跳过就是没验，不是通过。
+# 排盘服务（6027）由 run-verify.sh 自己探测，探到就接上（那 17 条
+# 「建本命 → 用神」的断言只在那时才跑得到）。
+if curl -s -m 2 -o /dev/null "http://127.0.0.1:6028/v1/health" 2>/dev/null; then
+  gate "web verify · 动线（真后端）" . bash web/run-verify.sh --api=http://127.0.0.1:6028
+
+  # 【e2e 也接进来】（2026-09-02 第四轮评审 · 工程审计）。
+  # `verify-semantics.sh` 的「尚未覆盖」那一段明写着「支付 → sweep →
+  # 履约 → 退款全链路 → 见 e2e.sh」—— 而 e2e.sh 根本不在这张单子里。
+  # 实测：它自从「钱的接口要幂等键」那条规矩立起来（2026-08）就一直
+  # 卡在下单那一步的 400，而且缺一步「先建本命」（说明书要排盘才出得来）。
+  # 也就是说这一整段真链，没有人跑得通、也没有人知道跑不通。
+  #
+  # 要后端带 `UNMEI_PAY_STUB_AUTOSETTLE=1` 起（支付查询还是桩）。
+  # 没带就【明说跳过】，不偷偷降档 —— 有跳过就是没验。
+  if [ -n "$(curl -s -m 2 http://127.0.0.1:6029/ -o /dev/null -w '%{http_code}' 2>/dev/null)" ] \
+     && curl -s -m 2 -o /dev/null "http://127.0.0.1:6028/v1/health" 2>/dev/null; then
+    gate "e2e · 下单→支付→履约→后台→对账" . bash scripts/e2e.sh
+  else
+    skip "e2e · 下单→支付→履约→后台→对账" "6028/6029 上没有后端 —— 这一项【没验】"
+  fi
+else
+  skip "web verify · 动线（真后端）" "6028 上没有后端 —— 只跑假服务端那一档够不到真链，不算数"
+  gate "web verify · 动线（只前端那一侧）" . bash web/run-verify.sh
+fi
+
+# 【触达面积】。截屏那一轮顺带量下每个可点元素的外接矩形，
+# 下一支照着量数判 44px。两步分开是因为量要浏览器、判不要 ——
+# 判那一步能被单独变异测试（四种改坏方式都试过，见脚本头）。
+#
+# 截屏必须在这里【重跑】，不能用上一轮留在 /tmp 的：
+# 旧数据长得跟新数据一模一样，而它说的是上一次构建的事。
+TAPDIR=$(mktemp -d)
+# 【截屏那一支自己数够不够】（2026-09-03 五路评审 · 门禁审计）。
+# 名字里写着 33，而在这之前【没有一行代码核过它】——
+# `report` 与 `order` 是条件展开，种不出册子 / 下不成单就静静地少两屏，
+# 下游那四支判的是「已有的图里有没有问题」，不是「该有的图都在」。
+# 数由 shots.mjs 自己判（它才知道名单有多长），所以名字里不再写死数字。
+#
+# 也不再把整份输出丢进 /dev/null —— 只丢标准输出（那是三十多行「截了 x」），
+# 标准错误留着：「种不出册子」那一句以前连打印出来都看不见。
+gate "截屏 · 每一屏都要截到（顺带量触达面积）" . bash -c \
+  "bun web/build.mjs >/dev/null && bun web/shots.mjs --out=$TAPDIR $(
+     curl -s -m 2 -o /dev/null http://127.0.0.1:6028/v1/health 2>/dev/null \
+       && echo --api=http://127.0.0.1:6028) >/dev/null"
+gate "点得到的东西够 44px 吗" . env SHOTS_DIR=$TAPDIR python3 scripts/check-tap-size.py
+# 解析 wxss 那一支在「底色写在祖先上」时够不着（如实报了 7 处没量）。
+# 这一支量渲染完的事实：字色、往上第一个不透明祖先的底色、字号字重。
+gate "渲染后的字都读得出来吗" . env SHOTS_DIR=$TAPDIR python3 scripts/check-contrast-live.py
+# 钉在屏上的块各算各的位置，谁也不知道谁多高 —— 确认屏上那一行
+# 被成交栏压掉 10px，就在付款那一屏，报过两轮还在。
+gate "钉住的那几块没互相压吗" . env SHOTS_DIR=$TAPDIR python3 scripts/check-fixed-overlap.py
+# 画布的 CSS 尺寸与像素尺寸是两回事 —— 引擎没挂上时后者停在 300×150，
+# 屏上一整块空白而 err 是空的、没有任何东西会红。
+gate "画布都真的铺开了吗" . env SHOTS_DIR=$TAPDIR python3 scripts/check-canvas-mounted.py
+# 【一屏放不放得下，也照着这份实测判】。shots.mjs 一直在量、也一直在
+# 收尾打一行「⚠ 这几屏一屏放不下」—— 而上面那条 gate 把它的标准输出
+# 丢进了 /dev/null。2026-09-06 香与御守两屏各超 95px / 64px,
+# 一支门禁都没红。动线那一支照着同一份台账判，但它一个模板只开一件商品。
+gate "一屏放得下吗 · 逐屏" . env SHOTS_DIR=$TAPDIR python3 scripts/check-fold.py
 
 echo
 echo "── 部署配置 ──"
@@ -265,6 +449,31 @@ fi
 
 echo
 echo "── 后台（webadmin）──"
+# 这一支不用装依赖，纯读源码 —— 所以放在 build 前面，
+# 死类和小字号在打包【成功】的产物里一样存在。
+gate "运营台 · 令牌与字号" . python3 scripts/check-webadmin-tokens.py
+gate "运营台 · 界面说中文" . python3 scripts/check-webadmin-cn.py
+gate "库里的枚举都有中文说法" . python3 scripts/check-enum-labels.py
+# 【读失败也要有话说】。写操作那一半 2026-09-01 接上了反馈条，
+# 读这一半到 09-03 还是零个 isError —— 取不到时是一张只有表头的空表。
+gate "运营台 · 取不到时说得出来" . python3 scripts/check-console-read-error.py
+# 【三套区名同时活着】——名册六格、领域枚举六格、后台三个页面各写死一份
+# cn/hk/tw/jp/us/eu，而两边只有 cn 与 jp 对得上。挑 tw 发出去的价
+# 落进一个谁也查不到的 region，按 tw 关一个功能永远关不到人。
+gate "区名只有名册说了算" . python3 scripts/check-region-vocab.py
+# 【浏览器版本漂一次，红十支】。仓库根原先没有 package.json，
+# 而 web/ 与 scripts/ 下六个脚本都 import playwright —— bun 自己装最新的。
+# 2026-09-05 它从 1.62.1 漂到 1.63.0，新版要的浏览器本机没有，
+# 动线 / 截屏 / 触达面 / 对比度 / 三个管理员逐页走一起红，
+# 而那十句错都在浏览器那一层，看着像产品坏了。
+# 补上清单之后又撞到反面:清单一旦存在，bun 就只认清单里写的 ——
+# `pngjs` 从前靠它顺手装，当场变成 `Cannot find package`。
+gate "门禁脚本要的包都钉住了吗" . python3 scripts/check-script-deps.py
+# 【屏上摆着、点得动、而它不起作用】。2026-09-06 一天撞到两次:
+# 退款页按订单号搜不到（后端收下 `keyword` 而 SQL 不用），
+# 商品页的「类型」下拉框从建起来就没生效过（`Pg` 根本没有 `kind`）。
+# 两边都不报错 —— serde 静静丢掉，屏上只表现为「我筛了，条数没变」。
+gate "屏上的筛选框后端真用上了吗" . python3 scripts/check-query-params-used.py
 if [ -d webadmin/node_modules ]; then
   gate "webadmin build · 类型+打包" webadmin npm run build
 else
@@ -275,10 +484,42 @@ if curl -sf http://127.0.0.1:6029/admin/health >/dev/null 2>&1; then
   # 它两边都探（后台 17 条 + 用户侧 6 条），所以两个 API 都得起着。
   if curl -sf http://127.0.0.1:6028/v1/health >/dev/null 2>&1; then
     gate "幽灵 id 的写操作不许说成功" . python3 scripts/check-ghost-id.py
+    # 【留痕覆盖不全等于没有】——查不到就只能假设它没发生过。
+    # 这一支不看「写过没有」，看的是每条写路由打一次、审计里就要多一条。
+    gate "后台写操作留痕了吗" . python3 scripts/check-audit-coverage.py
+    # 【前端挡的东西不算挡】——`region_scope` 一直只发不查:
+    # 登录时写进 token、前端拿它筛下拉框，而后端一处都不校验。
+    # 这一类靠自己人的 token 测永远看不出来（super 干什么都通），
+    # 所以这一支专门造一个只管一个区的管理员去碰别的区。
+    gate "分区管理员越不越得了区" . python3 scripts/check-admin-region.py
+    # 【建好了却不生效的开关比没有更糟】——`is_banned` 这一列从建库起就在，
+    # 两头都不接:后台看着能封，封完那个人照常下单。
+    # 这一支验的是「封完真的进不来、放开又能进」，不是「有没有这个接口」。
+    gate "封了的人真进不来吗" . python3 scripts/check-ban-works.py
   else
     skip "幽灵 id 的写操作不许说成功" "业务 API（:6028）没起，跳过 —— 这一项【没验】"
   fi
-  gate "admin 控制台 · 逐页走"  . bash scripts/webadmin-verify.sh
+  # 【三个管理员各走一轮】（2026-09-05）。一个人走不出分区那一面:
+  # 阿超管全部，每一页都是满的，于是「分区管理员看到的那一屏长什么样」
+  # 一次都没被看过 —— 而那正是这套后台最容易出事的地方。
+  #
+  # 实测这一轮就抓到两处:阿港（只管一格）的顶栏区域选择器【是空的】,
+  # 而财务页给他列的是大陆的五个会计期、点进去一条分录都没有
+  # （`list_periods` 是整个财务组里唯一不看区的一条）。
+  # 阿双（管两格）此前【打开用户页只看得到一句 forbidden】。
+  #
+  # 三个人各起一次 vite（各十来秒），换来的是这一整面每轮都被走一遍。
+  gate "admin 控制台 · 逐页走 · 阿超（管全部）" . bash scripts/webadmin-verify.sh
+  gate "admin 控制台 · 逐页走 · 阿港（管一格）" . env ADMIN_EMAIL=hk@unmei.local bash scripts/webadmin-verify.sh
+  gate "admin 控制台 · 逐页走 · 阿双（管两格）" . env ADMIN_EMAIL=shuang@unmei.local bash scripts/webadmin-verify.sh
+  # 【25 计划 · 横切验收】。上面那些门禁各守一条规矩，而它守的是
+  # 「两个管理员加五个用户，这套东西整个用得起来吗」——
+  # 清零、种人、办事、逐屏走，全走真接口（见 docs/ACCEPTANCE-25.md）。
+  #
+  # 这里跑的是【不带截图那一档】：截图与逐页走要十几分钟，
+  # 而它们各自已经由上面那两支门禁守着（截屏 33 屏 / 控制台逐页走）。
+  # 完整的一轮由人手动跑:`bash scripts/plan25.sh all`。
+  gate "25 计划 · 两个管理员五个用户" . env PLAN25_NO_SHOTS=1 bash scripts/plan25.sh all
   # 通知条得在真浏览器里看才算数：它是 8 秒 TTL 的东西，接口层看不见。
   # 通知条那一支现在由 `webadmin-verify.sh` 带着跑（vite 在那儿起着），
   # 不再单独跑一遍 —— 单独跑要另起一个 vite，而它此前【只在本机】跑，
@@ -286,11 +527,36 @@ if curl -sf http://127.0.0.1:6029/admin/health >/dev/null 2>&1; then
 else
   skip "admin 冒烟 · 每条路由" "后台 API（:6029）没起，跳过 —— 这一项【没验】"
   skip "幽灵 id 的写操作不许说成功" "同上"
-  skip "admin 控制台 · 逐页走"  "同上"
+  skip "admin 控制台 · 逐页走 · 阿超（管全部）" "同上"
+  skip "admin 控制台 · 逐页走 · 阿港（管一格）" "同上"
+  skip "admin 控制台 · 逐页走 · 阿双（管两格）" "同上"
   skip "通知条 · 真浏览器"      "同上"
 fi
 
 echo
+# 库这一侧的两支 —— 【文件对了不等于跑着的系统跟上了】。
+# 一支查中文文案的标点（seed 改对了但落库那句是 DO NOTHING，
+# 于是屏幕上一直是半角）；一支查跨表的钱对不对得上
+# （运营台上一眼看见「完成、应付 ¥268、已付 ¥0」，一查 1679 笔）。
+# 两支都要真库，连不上就明说跳过 —— 跳过不算通过。
+# 【失效不许长得跟数据一样】——这一支扫的是「数据库查询挂了却回一个数」。
+# 起因:后台看板十一个 KPI 全是 `.await.unwrap_or(0)`，
+# 而那一屏的读法建立在「零是好消息」上 —— 一次抖动就说「都清完了」。
+gate "查询失败不许说成零" . python3 scripts/check-silent-zero.py
+# 【建好了两头没接上】是这个仓库里最常见的一种洞，而 rustc 看不见它 ——
+# pub 的东西对它来说「可能被外面用」。这一支数整个工作区的调用方。
+gate "导出了而没人调的" . python3 scripts/check-dead-exports.py
+# 【加门禁的时候当场想一次「怎么验它报得出红」】。
+# mutationtest 自己覆盖的是八十一支里的三十支，剩下的只在写它们那天
+# 手动验过一次 —— 而那种验证只存在于当时那次会话里。
+gate "门禁自己有人守着吗" . python3 scripts/check-mutation-coverage.py
+# 【索引存在跟用得上是两回事】——后台一半的页是「新的在最上面」，
+# 而 outbox_event 三万三千行按时间翻页曾是全表扫 + 落盘排序 12MB。
+# 这一支问 Postgres 自己怎么执行，不查 pg_indexes 里有没有那个名字。
+gate "后台列表页走不走索引" . python3 scripts/check-list-index.py
+gate "库里的中文标点" . python3 scripts/check-db-punct.py
+gate "钱的账目自洽吗" . python3 scripts/check-money-consistency.py
+
 echo "── 后端 ──"
 gate "术数指的叶真存在吗" . python3 scripts/check-art-leaf.py
 # 后台写操作有没有查角色。判的不是「角色对不对」——那要产品定分工表——
@@ -337,25 +603,31 @@ else
   gate "在售的东西给得出吗" . env \
     PSQL_URL='postgres://unmei:unmei_dev_pwd@localhost:6032/unmei' \
     python3 scripts/check-listed-deliverable.py
-  # 「你缺 X，下面这几位跟你补得上」那句话的依据。写错一个方向名这条链就断,
-  # 而断了【不报错】—— 匹配不到人,排序悄悄退回原样,那句话跟着变成假话。
+  # 「你缺 X，下面这几位跟你补得上」那句话的依据。写错一个方向名这条链就断，
+  # 而断了【不报错】—— 匹配不到人，排序悄悄退回原样，那句话跟着变成假话。
   gate "每个用神都指得着人吗" . env \
     PSQL_URL='postgres://unmei:unmei_dev_pwd@localhost:6032/unmei' \
     python3 scripts/check-yongshen-bias.py
 fi
 # ── 下面这几支 2026-08-25 之前【只在 CI 的 backend.yml 里跑】 ─────────
-# 删 CI 那天差点跟着一起没了。「只在 CI 里跑过」的东西最容易这样消失:
+# 删 CI 那天差点跟着一起没了。「只在 CI 里跑过」的东西最容易这样消失：
 # 本机从来看不见它们，于是也想不起它们。
 gate "依赖方向 · domain 不许碰基础设施" . bash scripts/check-domain-purity.sh
+# 行锁跑在连接池上是空转的 —— 锁在语句结束时就释放，而要护住的那段
+# 代码在那之后才跑。这一支不用起库，纯读源码。
+gate "行锁都在事务里吗" . python3 scripts/check-row-locks.py
+# region 那一列有默认值 cn —— 不写永远不报错，而后台按区分的账
+# 会永远只看得见一个区。实测四张表全库都只有一个值。
+gate "插行都写了 region 吗" . env DATABASE_URL='postgres://unmei:unmei_dev_pwd@localhost:6032/unmei' python3 scripts/check-region-written.py
 
 if [ "$QUICK" = 1 ]; then
   skip "cargo check · 全部 target" "--quick"
 else
-  # 比 cargo test 宽:bench / example 编不编得过,它才看得见
+  # 比 cargo test 宽：bench / example 编不编得过，它才看得见
   gate "cargo check · 全部 target" backend cargo check --workspace --all-targets --quiet
 fi
 
-# 本仓禁用 sqlx 的 query! 宏,代价是编译期完全不校验 SQL:表名、列名写错
+# 本仓禁用 sqlx 的 query! 宏，代价是编译期完全不校验 SQL:表名、列名写错
 # 都要到运行期才变成 500。这一支把那层校验补回来 —— 不自己解析 SQL,
 # 交给真的 Postgres PREPARE 一遍。
 if [ "$QUICK" = 1 ]; then
@@ -366,6 +638,12 @@ else
   gate "check-sql · 每条 SQL 过一遍 Postgres" . env \
     DATABASE_URL='postgres://unmei:unmei_dev_pwd@localhost:6032/unmei' \
     python3 scripts/check-sql.py
+  # 这个仓禁用了 `query!` 宏（编译期核对 schema），于是「读到 NULL 会 panic」
+  # 没有任何东西挡着。上一支把每条 SQL 过一遍 Postgres，这一支守的是
+  # 另一半：代码读成非 Option 的那几列，库里得有约束撑着。
+  gate "代码依赖的库约束都还在吗" . env \
+    DATABASE_URL='postgres://unmei:unmei_dev_pwd@localhost:6032/unmei' \
+    python3 scripts/check-db-invariants.py
 fi
 
 if [ "$QUICK" = 1 ]; then
@@ -376,15 +654,15 @@ elif ! pg_isready -h localhost -p 6032 >/dev/null 2>&1; then
 else
   # 测试用【自己的库】,不跟跑着的 API 共用。
   #
-  # 共用时:测试往 price_book 插的行留在库里,下一轮 `verify-semantics`
+  # 共用时：测试往 price_book 插的行留在库里，下一轮 `verify-semantics`
   # 发布的那条 JPY 价被它按 effective_from 盖过去 —— 于是「同一笔里币种不一致」
-  # 这个前提根本没造出来,下单当然是 200,那条断言就偶发地红一次。
-  # 偶发的门禁比常红的更糟:它让每一次真红都可以被当成噪音。
-  # (2026-08-22 立案,见 docs/FINDING-2026-08-22-shared-test-db.md;2026-08-23 修。)
+  # 这个前提根本没造出来，下单当然是 200,那条断言就偶发地红一次。
+  # 偶发的门禁比常红的更糟：它让每一次真红都可以被当成噪音。
+  # (2026-08-22 立案，见 docs/FINDING-2026-08-22-shared-test-db.md;2026-08-23 修。)
   #
-  # 建库放在这里,是为了 `bash scripts/gates.sh` 在新机器上直接跑得起来。
-  # 幂等:已经有了就什么都不做。测试自己会 `sqlx::migrate!`,所以空库就够。
-  # 两边跑过对照:169 通过 / 0 失败,一条不少 —— 换库没有把测试悄悄跳掉。
+  # 建库放在这里，是为了 `bash scripts/gates.sh` 在新机器上直接跑得起来。
+  # 幂等：已经有了就什么都不做。测试自己会 `sqlx::migrate!`,所以空库就够。
+  # 两边跑过对照：169 通过 / 0 失败，一条不少 —— 换库没有把测试悄悄跳掉。
   TESTDB='postgres://unmei:unmei_dev_pwd@localhost:6032/unmei_test'
   if ! psql "$TESTDB" -c 'SELECT 1' >/dev/null 2>&1; then
     psql 'postgres://unmei:unmei_dev_pwd@localhost:6032/postgres' \
@@ -397,6 +675,38 @@ else
     bash scripts/run-backend-tests.sh
 fi
 
+# 【工作树在这一轮里被动过吗】。动过的话上面那些结果说的是
+# 一个不断变化的东西 —— 哪一支对应哪个版本，事后没有人分得清。
+TREE_FP_END="$(_tree_fp)"
+if [ "$TREE_FP_START" != "$TREE_FP_END" ]; then
+  echo
+  echo "✗ 工作树在这一轮门禁跑的过程中被改过 —— 上面的结论【不算数】"
+  echo "  （变异测试要改源文件再复原，跟你的编辑撞上时报出来的"
+  echo "    是「某支没红」，而那一支其实好好的。见本文件开头 ★ 第二条）"
+  echo "  把改动理清楚，工作树稳下来再重跑一遍。"
+  fail=$((fail + 1))
+  FAILED+=("工作树中途被改过")
+fi
+
+# ── 这一轮的时间花在哪儿 ────────────────────────────────────
+#
+# 【在这之前没有任何地方答得上「为什么要这么久」】。一轮四十分钟，
+# 而哪一支占了多少，只能靠印象猜 —— 于是「能不能更快」这个问题
+# 没有证据可谈，`--quick` 跳的那三支也只是当年拍的。
+#
+# 只报【慢的那几支】与总数:一百二十三行秒数没人读，
+# 而「前十支占了几成」是真正能拿来做决定的那个数。
+{
+  local_total=0
+  for t in "${TIMES[@]}"; do local_total=$((local_total + ${t%% *})); done
+  echo
+  printf '这一轮 %d 支，合计 %d 分 %d 秒。慢的这几支：\n' \
+    "${#TIMES[@]}" "$((local_total / 60))" "$((local_total % 60))"
+  printf '%s\n' "${TIMES[@]}" | sort -rn | head -8 | while read -r sec nm; do
+    # 占比按整数算 —— bash 没有浮点，而这里要的是量级不是精度
+    printf '  %4ds  %2d%%  %s\n' "$sec" "$((sec * 100 / (local_total > 0 ? local_total : 1)))" "$nm"
+  done
+}
 echo
 echo "过 $pass · 挂 $fail · 跳过 $skipped"
 if [ "$fail" -gt 0 ]; then

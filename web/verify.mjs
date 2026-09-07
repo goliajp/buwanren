@@ -2,19 +2,19 @@
 /* 把动线在移动网页版上【跑完】—— 这是这套镜像存在的全部理由。
  *
  * 小程序那几条门禁写的是「真机」,而真机这一环没法机检。镜像把其中
- * 能在浏览器里发生的那部分变成可机检的:点一格空宅基会不会说「等人」、
+ * 能在浏览器里发生的那部分变成可机检的：点一格空宅基会不会说「等人」、
  * 点住着的那格能不能问出签、进屋进不进得去、房间画不画得出来。
  *
  * ── 关于假服务端 ────────────────────────────────────────────────
- * 后端要 Postgres,本机不一定起着,所以这里【拦掉 HTTP,喂固定响应】。
- * 这件事必须显式写在验证脚本里,不能藏进垫片:
- *   - 走的仍是页面 → services/api.ts → wx.request → fetch 这条真路,
+ * 后端要 Postgres,本机不一定起着，所以这里【拦掉 HTTP,喂固定响应】。
+ * 这件事必须显式写在验证脚本里，不能藏进垫片：
+ *   - 走的仍是页面 → services/api.ts → wx.request → fetch 这条真路，
  *     只有最后那一跳被换成固定数据
- *   - 所以这里验的是【前端这一侧】。字段与状态码对不对得上后端,
+ *   - 所以这里验的是【前端这一侧】。字段与状态码对不对得上后端，
  *     由 scripts/check-api-shape.py 另外机械核对
- * 带 --api=<base> 就不拦,打真后端。
+ * 带 --api=<base> 就不拦，打真后端。
  *
- * 用法:
+ * 用法：
  *   bun web/verify.mjs                    用假服务端
  *   bun web/verify.mjs --api=http://127.0.0.1:6028
  *   bun web/verify.mjs --shots=<目录>      顺便留截图
@@ -26,21 +26,21 @@ import { join } from 'path'
 const arg = (k, d) => (process.argv.find((a) => a.startsWith('--' + k + '=')) || '=' + d).split('=').slice(1).join('=')
 const BASE = arg('base', 'http://127.0.0.1:6031')
 const API = arg('api', '')
-// 排盘服务(另一个仓库)。给了就把「建本命」那一段真验到底,不给就明说跳过
+// 排盘服务(另一个仓库)。给了就把「建本命」那一段真验到底，不给就明说跳过
 const MINGLI = arg('mingli', '')
 const SHOTS = arg('shots', '')
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
 
-// ── 假服务端。住着 3 位:阿云(有房间)、白鹭(有房间)、陈九(没房间) ──
+// ── 假服务端。住着 3 位：阿云(有房间)、白鹭(有房间)、陈九(没房间) ──
 const HOME = ['ayun', 'bailu', 'chenjiu']
 const NAMES = {
   ayun: '阿云', tao: '桃桃', popo: '婆婆', tenz: '丹增', shenyan: '沈砚', bailu: '白鹭',
   chenjiu: '陈九', suhe: '苏合', jiangya: '姜牙', xuanming: '玄冥',
 }
 const FAKE = {
-  /* 名下的本命,空的 —— 这是「还没建过」的真实回答(真后端给 []),
+  /* 名下的本命，空的 —— 这是「还没建过」的真实回答(真后端给 []),
      不是 404。少了这条的话本命页会认为【取不到】而不是【没有】,
-     于是不给表单 —— 那正是产品该有的分寸,却让桩显得像坏了。 */
+     于是不给表单 —— 那正是产品该有的分寸，却让桩显得像坏了。 */
   '/v1/user/natals': () => [],
   /* 四十位名册（「谁能来」那一页用它）。少了这条它落到兜底的 404，
      那一页就停在「取不到」—— 而错误态只剩一行字，当然放得下，
@@ -62,6 +62,28 @@ const FAKE = {
      而 M5 那一屏的主设计就是这个空状态（设计册 10.7）。
      少了这条它停在错误态，空状态那一支反而永远验不到。 */
   '/v1/subscriptions': () => [],
+  /* 点香是几点。少了这条，不到点那一句话整条不摆（屏上那句是按它生成的），
+     于是「不到点时那一槽只是一句话」那条断言就落在一片空白上。
+     数照后端的默认值来:周四（0=周一，故 3）晚九点、二十五分钟。 */
+  '/v1/incense/schedule': () => ({ weekday: 3, hour: 21, minutes: 25 }),
+  /* 线下活动（2026-09-03 报名这条链接上之后才有这一屏）。
+     少了这两条它停在错误态 —— 而错误态只剩一行字，一屏那一支照报
+     「放得下」，实际那一页这一趟根本没量到版式（跟上面名册那条同一个坑）。
+     两场：一场还差人、一场满了 —— 满场那颗按钮按不动，
+     而「按不动的按钮长什么样」只有真有一场满了才量得到。 */
+  '/v1/activity': () => ({
+    items: [
+      { id: 'a_gw', title: '古物市集·夏至专场', sub_title: '匠心手作 · 古物古玩',
+        category: 'market', banner_url: null, city: '杭州',
+        start_at: new Date(Date.now() + 86400000 * 10).toISOString(),
+        max_participants: 100, current_count: 48, price_display: '免费', status: 'open' },
+      { id: 'a_xd', title: '香道入门课', sub_title: '三日浸修 · 从识香到调香',
+        category: 'course', banner_url: null, city: '上海',
+        start_at: new Date(Date.now() + 86400000 * 35).toISOString(),
+        max_participants: 20, current_count: 20, price_display: '¥980.00', status: 'open' },
+    ],
+  }),
+  '/v1/activity/mine': () => ({ activity_ids: [] }),
   /* 目录。「订着的」那一屏空着时要指出「哪儿能有」（设计册 10.8 的 M5），
      而那半边就是从这条来的 —— 少了它，那一屏一半停在「一时取不到能订的」。
      这里不按 category 分：桩只需要让页面走完它的路，
@@ -95,7 +117,12 @@ const FAKE = {
   reading: (id) => ({
     villager_id: id, villager_name: NAMES[id] || id, art: 'liuren', lack: '勤',
     verdict: '该动了', suit: ['问路', '会友'], avoid: ['久坐'],
-    say: '贫道看你今日该动了，宜问路、会友，忌久坐……说完了',
+    /* 【2026-09-01 跟真后端拼出来的形状对齐】。
+       原先写的是「贫道看你今日该动了，宜问路、会友，忌久坐」——
+       文言（贫道 / 今日）加黄历行话（宜 / 忌），而这两样都改掉了。
+       假服务端的响应要照着真后端【现在】拼出来的样子写，不然
+       在这一档上验的是一份早就不存在的输出。 */
+    say: '眯着眼看了一眼……该动了。眼下呢，今天适合问路、会友；先别久坐……就这样。别问了，困',
   }),
 }
 
@@ -105,9 +132,9 @@ let ran = 0
    这一支跑几百个断言、几十秒，中途浏览器要是被拖垮（机器负载高时会），
    进程直接抛异常退出 —— 而 gates.sh 只留最后六行输出，
    于是「有一条断言失败了」这件事有，「是哪一条」却拿不到。
-   2026-08-30 就卡在这儿:知道假服务端档挂了一条，三次重跑都没跑到那一步。
+   2026-08-30 就卡在这儿：知道假服务端档挂了一条，三次重跑都没跑到那一步。
 
-   写文件是【追加】的:崩在第几条，前面失败过的就都还在。 */
+   写文件是【追加】的：崩在第几条，前面失败过的就都还在。 */
 const 失败册 = process.env.VERIFY_FAILLOG || '/tmp/verify-failures.txt'
 try { writeFileSync(失败册, '') } catch { /* 写不了就算了，控制台照旧 */ }
 const ok = (cond, what, extra) => {
@@ -148,8 +175,8 @@ p.on('request', (r) => {
 })
 
 /* 数一数每秒排了多少帧。要在【任何页面加载之前】装上 ——
-   房间挂载时就把 raf 抓进闭包了,之后再包就包不到。
-   用它验「退出房间不再烧帧」:一个没停下来的渲染循环在手机上就是耗电,
+   房间挂载时就把 raf 抓进闭包了，之后再包就包不到。
+   用它验「退出房间不再烧帧」:一个没停下来的渲染循环在手机上就是耗电，
    而屏幕上什么都看不出来。 */
 await p.addInitScript(() => {
   globalThis.__raf = 0
@@ -174,8 +201,8 @@ const 坏响应 = []
 p.on('response', (r) => {
   if (r.status() >= 400) 坏响应.push(`${r.status()} ${r.url().replace(/^https?:\/\/[^/]+/, '')}`)
 })
-/* 只看【失败的】请求会漏掉最要紧的一种:**根本没发出去的那条**。
-   追登录那个 flaky 时兜了五层圈子,就因为「没有失败」被当成了「都正常」。 */
+/* 只看【失败的】请求会漏掉最要紧的一种：**根本没发出去的那条**。
+   追登录那个 flaky 时兜了五层圈子，就因为「没有失败」被当成了「都正常」。 */
 const 打过的 = []
 p.on('request', (r) => {
   const u = r.url()
@@ -190,24 +217,24 @@ p.on('requestfailed', (r) => {
 const 册们 = {}
 
 /* ── 打真后端时先备一份「住着的人」──────────────────────────────
-   走的是【真的入住路径】:在库里发一张御守凭据,再让页面调 /v1/omamori/scan。
-   不直接往 villager_residency 插一行 —— 那样绕过了入住这件事本身,
+   走的是【真的入住路径】:在库里发一张御守凭据，再让页面调 /v1/omamori/scan。
+   不直接往 villager_residency 插一行 —— 那样绕过了入住这件事本身，
    而入住正是这条链要验的一环。
 
-   凭据得进库,库在 docker 里,所以这一步用 docker exec。
-   这是【测试夹具】,写在验证脚本里、看得见,不藏在垫片或产品代码里。 */
-/* 怎么连库,两边不一样,所以这里认一个环境变量:
-     PSQL_URL 设了 —— 直接用 psql 打它(CI 里 postgres 是服务容器,
+   凭据得进库，库在 docker 里，所以这一步用 docker exec。
+   这是【测试夹具】,写在验证脚本里、看得见，不藏在垫片或产品代码里。 */
+/* 怎么连库，两边不一样，所以这里认一个环境变量：
+     PSQL_URL 设了 —— 直接用 psql 打它(CI 里 postgres 是服务容器，
                       runner 上有 psql,没有一个叫 unmei-postgres 的容器)
      没设     —— docker exec 进本机那个容器(scripts/setup-dev.sh 起的那个)
-   不认这个变量的话,同一支验证脚本在两个地方要写两份夹具,而两份会漂。 */
+   不认这个变量的话，同一支验证脚本在两个地方要写两份夹具，而两份会漂。 */
 const { execFileSync } = await import('child_process')
 const PSQL_URL = process.env.PSQL_URL || ''
 const run = (sql) => PSQL_URL
   ? execFileSync('psql', [PSQL_URL, '-v', 'ON_ERROR_STOP=1', '-c', sql], { stdio: 'pipe' })
   : execFileSync('docker', ['exec', 'unmei-postgres', 'psql', '-U', 'unmei', '-d', 'unmei',
                             '-v', 'ON_ERROR_STOP=1', '-c', sql], { stdio: 'pipe' })
-/** 只要一个值。-tA = 去表头去对齐,拿到的就是那个值本身 */
+/** 只要一个值。-tA = 去表头去对齐，拿到的就是那个值本身 */
 const sql1 = (q) => String(PSQL_URL
   ? execFileSync('psql', [PSQL_URL, '-tAc', q], { stdio: 'pipe' })
   : execFileSync('docker', ['exec', 'unmei-postgres', 'psql', '-U', 'unmei', '-d', 'unmei',
@@ -216,10 +243,10 @@ const sql1 = (q) => String(PSQL_URL
 async function mintCredential(villagerId) {
   const oid = 'oma-verify-' + villagerId
   const cred = 'VERIFY-' + villagerId.toUpperCase()
-  /* 幂等插入,【不删】。第一版是先删再插,第二次跑就撞外键:
+  /* 幂等插入，【不删】。第一版是先删再插，第二次跑就撞外键：
      上一次的入住记录还引用着那张御守。
      不删也没关系 —— 每次跑都是一个【新的匿名用户】(浏览器上下文是干净的),
-     入住记录按用户算,所以「扫完收集数变了」照样成立。 */
+     入住记录按用户算，所以「扫完收集数变了」照样成立。 */
   const sql = [
     `INSERT INTO omamori (id, villager_id) VALUES ('${oid}','${villagerId}')`
       + ` ON CONFLICT (id) DO NOTHING`,
@@ -253,7 +280,7 @@ if (!API) {
     if (!body) {
       const m = u.pathname.match(/^\/v1\/villagers\/([a-z_]+)\/reading$/)
       if (m) {
-        // 没请回家的问签是 404 —— 这条契约前端在用,假服务端也得照做,
+        // 没请回家的问签是 404 —— 这条契约前端在用，假服务端也得照做，
         // 否则「网页版上通了」通的是一条真机上不存在的路
         if (HOME.indexOf(m[1]) < 0) {
           return route.fulfill({ status: 404, contentType: 'application/json',
@@ -286,7 +313,7 @@ const 等取完 = async (route) => {
   }, route, { timeout: 8000 }).catch(() => {})
 }
 
-// 点村子画布上的某一格宅基 —— 坐标由引擎给,不在这里另算一份
+// 点村子画布上的某一格宅基 —— 坐标由引擎给，不在这里另算一份
 const tapPlot = async (id) => {
   /* 先保证【就在村主屏上】。以前卡片不跳页，点完还留在这一屏，所以这个前提
      一直白拿；R2 之后点一格会开一屏，不回来的话下一次 tapPlot 找到的
@@ -336,7 +363,7 @@ if (API) {
         method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}',
       })
       热了 = r.ok
-    } catch { /* 还没起来,再等 */ }
+    } catch { /* 还没起来，再等 */ }
     if (!热了) await new Promise((r) => setTimeout(r, 500))
   }
   if (!热了) {
@@ -348,11 +375,97 @@ if (API) {
 
 
 
-/* 打真后端时,用【真的入住路径】把两位请回家:
+/* 【取不到村子的时候，屏上不许说「还都空着」】（2026-09-02 第三轮评审）。
+   那张开场白卡原先只看 `!lived`，而取不到时 `lived` 停在 0 ——
+   断网冷启动看到的是一个「正常的空村子」，然后被引去花 ¥99;
+   已经有村民的人断网重进，屏上写的跟他昨天看到的正好相反。
+   真话被挤到画布下面、字号最小、还没有重试。 */
+async function 断网那一下() {
+  await p.route('**/v1/village*', (r) => r.abort())
+  try {
+    await open('pages/village/index')
+    await p.waitForTimeout(2200)
+    const 屏 = await text()
+    ok(!/还都空着/.test(屏), '取不到村子时，屏上不说「还都空着」—— 那是把不知道说成空的',
+       屏.slice(0, 50))
+    ok(/没连上|看不到/.test(屏), '而是说得出「一时看不到」', 屏.slice(0, 50))
+    ok(/再试一次/.test(屏), '并且给得出一颗重试 —— 不是一行读不见的小字', 屏.slice(0, 50))
+    /* 【重试真的能把村子带回来】。上面三条验的是「说了实话」，
+       这一条验的是「那颗按钮不是摆设」—— 放开拦截再点一次，
+       画布要重新挂上。不验这一条的话，一个永远点不动的重试
+       也能让上面三条全绿。 */
+    await p.unroute('**/v1/village*')
+    await p.getByText('再试一次', { exact: false }).click().catch(() => {})
+    await p.waitForFunction(() => globalThis.__router.current().data.取到过 === true,
+                            null, { timeout: 15000 }).catch(() => {})
+    const 回来了 = await p.evaluate(() => globalThis.__router.current().data.取到过)
+    ok(回来了 === true, '点那颗「再试一次」，村子真的回来了', String(回来了))
+  } finally {
+    await p.unroute('**/v1/village*').catch(() => {})
+  }
+}
+
+/* 【没有待扫单子的人，扫失败之后屏上有话吗】。
+   这是第一屏第一个按钮，而新用户的 `toScan` 是 false ——
+   而屏上唯一渲染 `codeErr` 的地方曾经挂在 `wx:if="{{toScan}}"` 里：
+   点一下、扫一个不认识的码，**什么都不发生，也没有第二条路**
+   （2026-09-02 第三轮评审 · 第一次打开的人）。
+
+   下面那一段「该扫了」走的是 toScan 为真的路径，够不着这个形状。 */
+async function 扫不出来那一下() {
+  await open('pages/village/index')
+  await p.waitForTimeout(1200)
+  const 有待扫 = await p.evaluate(() => globalThis.__router.current().data.toScan)
+  if (有待扫) {
+    console.log('    · 跳过「新用户扫失败」：这一趟这个用户手上有待扫的单子（不计入通过）')
+    return
+  }
+  /* 【村子这一块，对什么都没有的人也得画上】（2026-09-04 · 25 计划）。
+     底下那条「村子真的画上去了」跑在动线后段 —— 那时人已经买过御守、
+     村里住着人了。而**村子被画上去，靠的正是那件事**：`reload` 里
+     「开场白 → 说话卡」让 `变了` 为真，顺带把画布重挂了一次。
+     新用户没有那一跳，他的每个字段都不变，画布就停在 `setData`
+     换上来的那块空节点上，像素退回默认 300×150、一个像素都没画。
+
+     屏幕上他读到的是「四十间屋子，还都空着」，底下一间屋子也没有。
+     那不是空态 —— 空态是四十间空屋子，这是坏了，
+     而两者在截图之外没有任何东西分得开。
+
+     25 计划的逐屏走把它量了出来:同一屏、同样的 CSS 尺寸 292×398，
+     空村那位的画布是 300×150／0 个像素，住了两位的是 704×960／全画。 */
+  const 空村画布 = await p.evaluate(() => {
+    const cv = document.querySelector('canvas')
+    if (!cv) return { 有画布: false }
+    const g = cv.getContext('2d')
+    const d = g.getImageData(0, 0, cv.width, Math.min(400, cv.height)).data
+    let ink = 0
+    for (let i = 3; i < d.length; i += 4) if (d[i]) ink++
+    return { 有画布: true, ink, 像素: cv.width + 'x' + cv.height }
+  })
+  ok(空村画布.有画布 && 空村画布.ink > 100000,
+     '一个人都没有的时候，村子也画在那儿　—— 四十间空屋子，不是一片空白',
+     空村画布.有画布 ? `${空村画布.ink} 个不透明像素 · 像素 ${空村画布.像素}` : '连画布都没有')
+  await p.evaluate(() => {
+    globalThis.__wxStub('scanCode', () => Promise.resolve({ result: 'NOT-A-REAL-CODE-XYZ' }))
+  })
+  await p.getByText('扫御守', { exact: true }).click()
+  await p.waitForFunction(() => !!globalThis.__router.current().data.codeErr,
+                          null, { timeout: 15000 }).catch(() => {})
+  const 屏 = await text()
+  ok(屏.includes('对不上任何一枚御守'),
+     '没有待扫单子的人扫失败，屏上也说得出是哪一种情况',
+     屏.slice(0, 60))
+  ok(屏.includes('扫不出来'),
+     '而且给得出第二条路（手输编号）—— 扫不出来的人正是最需要它的人',
+     屏.slice(0, 60))
+  await p.evaluate(() => globalThis.__router.current().setData({ codeErr: '' }))
+}
+
+/* 打真后端时，用【真的入住路径】把两位请回家：
      发一张御守凭据(库里) → 页面点「扫御守」→ /v1/omamori/scan → 入住
-   扫码本身只有真机有,所以这里把 wx.scanCode 桩成「扫到了这串凭据」——
-   桩在【验证脚本里】,显式的一行,不是垫片替你默默成功。
-   除了这一跳,登录、入住、问签、进屋走的都是真后端与真库。 */
+   扫码本身只有真机有，所以这里把 wx.scanCode 桩成「扫到了这串凭据」——
+   桩在【验证脚本里】,显式的一行，不是垫片替你默默成功。
+   除了这一跳，登录、入住、问签、进屋走的都是真后端与真库。 */
 async function moveIn(who) {
   const cred = await mintCredential(who)
   await p.evaluate((c) => {
@@ -377,9 +490,9 @@ async function moveIn(who) {
 }
 
 // ① 每一页都开得起来 ────────────────────────────────────────────
-/* 页面清单从 app.json 读,跟 build.mjs 同一个来源。
-   写死一份的话,新加的页面【既不会被验,也不会有人说一声】——
-   而那跟「这几页都好着呢」长得一模一样。覆盖面悄悄缩,是这套门禁最怕的一种坏法。 */
+/* 页面清单从 app.json 读，跟 build.mjs 同一个来源。
+   写死一份的话，新加的页面【既不会被验，也不会有人说一声】——
+   而那跟「这几页都好着呢」长得一模一样。覆盖面悄悄缩，是这套门禁最怕的一种坏法。 */
 const routes = JSON.parse(readFileSync('mini/miniprogram/app.json', 'utf8')).pages
 if (!routes || !routes.length) { console.log('✗ app.json 里一页都没有'); process.exit(1) }
 
@@ -387,13 +500,99 @@ if (!routes || !routes.length) { console.log('✗ app.json 里一页都没有');
    最矮的机器是 iPhone SE：375 × 667，去掉状态栏 20 与 tabBar 50，
    内容区 597。一屏放不下就得滚，而小程序里「往下还有」没有任何提示。
    量的是最矮那一档 —— 它过了，别的都过。 */
+/* 【在浏览器里量对比度，不靠读 CSS】。
+
+   `scripts/check-contrast.py` 读的是 CSS 文本 —— 它算得出「这条规则的字色
+   压在这条规则自己的底上」是多少，算不出「底写在祖先节点上」的那些，
+   于是给自己开了一个免检口子（未量），而那个口子当场放走了
+   「今天」屏罗盘中心那颗按钮：白字压琥珀 2.15:1，全屏唯一的控件。
+
+   浏览器知道答案。这一支在真实渲染出来的页面上，对每一个有文字的元素：
+     · 取 getComputedStyle 的 color
+     · 往上找第一个不透明的底（transparent 就继续往上）
+     · 底是渐变的话，取渐变里【最不利】的那一站
+   够不着的（背景图 / canvas / 半透明叠加）单独计数，如实报出来，不算过。 */
+function 量对比度() {
+  const 解 = (s) => {
+    const m = String(s).match(/rgba?\(([^)]+)\)/)
+    if (!m) return null
+    const v = m[1].split(',').map((x) => parseFloat(x))
+    return { r: v[0], g: v[1], b: v[2], a: v.length > 3 ? v[3] : 1 }
+  }
+  const 亮 = (c) => {
+    const f = [c.r, c.g, c.b].map((x) => {
+      x = x / 255
+      return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4)
+    })
+    return 0.2126 * f[0] + 0.7152 * f[1] + 0.0722 * f[2]
+  }
+  const 比 = (a, b) => {
+    const [x, y] = [亮(a), 亮(b)].sort((p, q) => q - p)
+    return (x + 0.05) / (y + 0.05)
+  }
+  // 渐变串里的所有颜色站 —— 字要在整条渐变上都读得出来，所以逐站都算
+  const 站 = (s) => {
+    const out = []
+    const re = /rgba?\([^)]+\)/g
+    let m
+    while ((m = re.exec(s))) { const c = 解(m[0]); if (c && c.a > 0.9) out.push(c) }
+    return out
+  }
+
+  const 说不准 = []
+  const 错 = []
+  let 量过 = 0
+
+  for (const el of document.querySelectorAll('*')) {
+    // 只看【自己直接带文字】的元素 —— 容器的 innerText 是子孙的，字色不一定是它的
+    let 字 = ''
+    for (const n of el.childNodes) if (n.nodeType === 3) 字 += n.textContent
+    字 = 字.trim()
+    if (!字) continue
+
+    const st = getComputedStyle(el)
+    if (st.visibility === 'hidden' || st.display === 'none' || parseFloat(st.opacity) === 0) continue
+    const r = el.getBoundingClientRect()
+    if (r.width < 2 || r.height < 2) continue
+    // 屏外的不算 —— 收起来的槽、还没翻到的那一页
+    if (r.bottom < 0 || r.top > (window.innerHeight + document.documentElement.scrollHeight)) continue
+
+    const 前 = 解(st.color)
+    if (!前 || 前.a < 0.9) continue        // 半透明的字另说，这一支不判
+
+    // 往上找底
+    let p = el, 底 = null, 糊 = ''
+    while (p && p !== document.documentElement.parentNode) {
+      const s2 = getComputedStyle(p)
+      const img = s2.backgroundImage
+      if (img && img !== 'none') {
+        if (/gradient/.test(img)) { const zs = 站(img); if (zs.length) { 底 = zs; break } }
+        糊 = '背景图'; break
+      }
+      const bg = 解(s2.backgroundColor)
+      if (bg && bg.a > 0.9) { 底 = [bg]; break }
+      if (p.tagName === 'CANVAS') { 糊 = 'canvas'; break }
+      p = p.parentElement
+    }
+    if (!底) { 说不准.push({ 文: 字.slice(0, 14), 类: String(el.className).slice(0, 24), 因: 糊 || '一路透明到顶' }); continue }
+
+    量过++
+    let 差 = 21, 站色 = ''
+    for (const b of 底) { const c = 比(前, b); if (c < 差) { 差 = c; 站色 = `rgb(${b.r},${b.g},${b.b})` } }
+    if (差 < 3.2) {
+      错.push({ 文: 字.slice(0, 16), 类: String(el.className).slice(0, 28), 比: +差.toFixed(2), 底: 站色 })
+    }
+  }
+  return { 错, 说不准: 说不准.length, 说不准样本: 说不准.slice(0, 4), 量过 }
+}
+
 async function 量一屏(route, params) {
   await p.setViewportSize({ width: 375, height: 667 })
   await open(route, params)
-  /* 等版式**停下来**再量,不是等一个固定的毫秒数。
-     我家那一页会自己量高度、反复收敛罗盘直径 —— 400ms 时它还在中间态,
-     量到的高度既不是初值也不是终值,还会随机器快慢漂。
-     （跟动线里那六处固定等待同一种毛病:等时间不等状态。） */
+  /* 等版式**停下来**再量，不是等一个固定的毫秒数。
+     我家那一页会自己量高度、反复收敛罗盘直径 —— 400ms 时它还在中间态，
+     量到的高度既不是初值也不是终值，还会随机器快慢漂。
+     （跟动线里那六处固定等待同一种毛病：等时间不等状态。） */
   await p.waitForFunction(() => {
     const h = () => Math.max(document.documentElement.scrollHeight, document.body.scrollHeight)
     const w = window
@@ -401,6 +600,11 @@ async function 量一屏(route, params) {
     return (w.__same = (w.__same || 0) + 1) >= 3
   }, null, { timeout: 8000, polling: 120 }).catch(() => {})
   await p.evaluate(() => { delete window.__lastH; delete window.__same })
+  /* 顺路量一遍对比度 —— 每一屏都量，不靠我记得手动量哪几屏。
+     这一支跟 `scripts/check-contrast.py` 不重复：那一支读 CSS 文本，
+     够不着「底写在祖先节点上」的那些（罗盘中心那颗按钮就是这么漏的）;
+     这一支在真实渲染出来的页面上问浏览器，问得到就没有够不着的。 */
+  const 色 = await p.evaluate(量对比度)
   const m = await p.evaluate(() => {
     const d = document.documentElement, b = document.body
     const tab = document.getElementById('wx-tabbar')
@@ -410,12 +614,12 @@ async function 量一屏(route, params) {
       视口: window.innerHeight,
       tab: tabH,
       /* 超了的时候光有一个总数没法动手 —— 一并报出这一屏是谁占的。
-         逐块量是我先前手动做过好几轮的事,固化进来省得下次再搭一次架子。 */
+         逐块量是我先前手动做过好几轮的事，固化进来省得下次再搭一次架子。 */
       分块: Array.from((document.querySelector('#app .page') || { children: [] }).children)
         .map((el) => `${(el.className || '?').toString().split(' ')[0]}:${Math.round(el.getBoundingClientRect().height)}`)
         .filter((x) => !x.endsWith(':0')),
-      /* 顺带报出这一屏在不在错误态 —— 错误态跟正常态不是同一个版式,
-         拿错误态量出来的欠账,改正常态是改不掉的。 */
+      /* 顺带报出这一屏在不在错误态 —— 错误态跟正常态不是同一个版式，
+         拿错误态量出来的欠账，改正常态是改不掉的。 */
       出错: (document.querySelector('#app .page') || { innerText: '' }).innerText
         .split('\n').filter((l) => /取不到|失败|出错/.test(l)).join(' / '),
     }
@@ -424,9 +628,48 @@ async function 量一屏(route, params) {
   /* 问的就是「这一屏滚不滚」，所以拿文档高度直接比窗口 —— 不再另减 tabBar。
      tabBar 是固定定位的，它占的位已经由 body 的 padding-bottom 让出来、
      算在文档高度里了；再减一次就是同一笔减两遍（tab 页凭空多 50px 的欠账）。
-     非 tab 页两种算法本来一样,所以这条对所有页都成立。 */
-  return { ...m, 溢出: m.内容 - m.视口 }
+     非 tab 页两种算法本来一样，所以这条对所有页都成立。 */
+  return { ...m, 溢出: m.内容 - m.视口, 色 }
 }
+
+/* 【横着不许出界】（2026-09-04 · 25 计划的逐屏走量出来的）。
+   竖着的欠账有台账管着（上面那一段），横着的一条都没管过 ——
+   而横向溢出比纵向糟:竖着看不见的往下滑就有，
+   横着看不见的【多数人根本不知道能滑】。
+
+   25 计划把五个人各三十九屏的几何数据存下来之后，一次扫描
+   出来一处:说明书那一行页签在 375 宽的屏上是 376px，
+   最后一页「三宫」的「宫」被切掉一角。就一处，就 1px ——
+   正因为只有一处，把这条钉成【零】才有意义:
+   往后但凡多出一处，它就是新长出来的。
+
+   量的是「谁的右边越过了视口」，不是 `scrollWidth`：
+   后者被任何一个 `overflow:hidden` 的祖先吃掉，
+   而被吃掉的溢出照样是屏幕上看不全的字。
+
+   【允许表】。跟竖向欠账同一个办法:可以有例外，每个都得有名有姓、
+   写明为什么。现在只有一条 —— 说明书那一行页签是【故意】比屏宽的:
+   七个页签每个要够 44px 才按得准（苹果人机指南那条线），
+   而 375 宽的屏放不下七个 44。两件事真的冲突，
+   于是那一行 `overflow-x: auto`，横着出界是它的工作方式。
+   我一度反过来收窄内距让它放下，触达面积当场掉到 42 ——
+   为了 1px 的观感牺牲手指按得准，主次反了。 */
+const 横向允许 = {
+  report: { 类: 'tab', 为什么: '页签条本来就横滑：七个够 44px 的页签在 375 宽上放不下' },
+}
+const 横着出界的 = (屏) => p.evaluate((准) => {
+  const 宽 = document.documentElement.clientWidth
+  const 出 = []
+  for (const el of document.querySelectorAll('#app .page *')) {
+    const r = el.getBoundingClientRect()
+    if (r.width === 0 || r.height === 0) continue
+    if (r.right <= 宽 + 0.5) continue
+    const 类 = (el.className || el.tagName).toString().split(' ')[0]
+    if (准 && 类 === 准.类) continue
+    出.push(`${类}:${Math.round(r.right - 宽)}px「${(el.textContent || '').trim().slice(0, 10)}」`)
+  }
+  return 出.slice(0, 6)
+}, 横向允许[屏] || null)
 
 /* 【集齐那一句】。40/40 是这个产品情感最高的一刻，而原先屏上说的是
    「还差 0 位就集齐了」—— 语法没错，意思荒谬。
@@ -455,7 +698,7 @@ if (API) {
 /* 顶上那张卡与底下那一槽【不许说同一件事】。
    卡上写「四十间屋子，还都空着」，槽里再写一句「现在都空着」——
    一字之差的同一句（标尺 §1.5.5 第 4 条）。矮屏上看不出来：那一槽是
-   收起的;长屏（14 / ProMax）上两句一起摆着，而多数人用的是长屏。
+   收起的；长屏（14 / ProMax）上两句一起摆着，而多数人用的是长屏。
    一直只在最矮那一档看，就一直看不见它。 */
 if (API) {
   await p.setViewportSize({ width: 430, height: 932 })
@@ -501,11 +744,11 @@ if (API) {
 
 console.log(`\n── ${routes.length} 页都开得起来吗 ──`)
 console.log('  （照 app.json 读的，不是另列的一份）')
-/* 顺带一条通用的:渲出来的文字里不该有模板残片。
-   `wx:if="{{a.length > 0}}"` 里那个 `>` 曾被当成标签结束符,
-   标签从那儿断开,剩下的 `0}}">` 落成了页面上的文字 —— 不抛不报,
-   只是屏幕上多出一截乱码。是看截图看见的,没有一条检查会红。
-   属性里写比较是常见写法,所以这条对每一页都查。 */
+/* 顺带一条通用的：渲出来的文字里不该有模板残片。
+   `wx:if="{{a.length > 0}}"` 里那个 `>` 曾被当成标签结束符，
+   标签从那儿断开，剩下的 `0}}">` 落成了页面上的文字 —— 不抛不报，
+   只是屏幕上多出一截乱码。是看截图看见的，没有一条检查会红。
+   属性里写比较是常见写法，所以这条对每一页都查。 */
 /* 有些页天生要参数（商品要 id）。不给的话它如实报「没说是哪一件」——
    那是对的行为，但逐页扫会把它当成「这一页坏了」。所以这里给它真参数，
    参数从**真后端**取；打假服务端时取不到，就明说跳过这一页，不算通过。 */
@@ -539,11 +782,11 @@ if (API) {
   }
   /* 三种失败长得一模一样(都是 null),而报出来的都是「取不到真数据」——
      于是村民那一整页在真后端这一档【从没验过】,而报告上看着像后端没给。
-     2026-08-28 追这件事花了半轮,就因为这一步不说自己卡在哪。 */
+     2026-08-28 追这件事花了半轮，就因为这一步不说自己卡在哪。 */
   const 某位说法 = await p.evaluate(async (base) => {
     const raw = localStorage.getItem('unmei:buwanren:token')
     if (!raw) {
-      // 「没 token」还能再分:localStorage 是空的(登录压根没跑),
+      // 「没 token」还能再分：localStorage 是空的(登录压根没跑),
       // 还是里头有别的键(登录跑了但键名不是这个)。两种的修法完全不同
       const 键 = Object.keys(localStorage)
       return { id: null, 因为: `localStorage 里有：${键.join(' ') || '什么都没有'}；当前 ${location.href.slice(-40)}` }
@@ -563,9 +806,9 @@ if (API) {
   }, API)
   const 某位 = 某位说法.id
   if (某位) 要参数['pages/villager/index'] = { id: 某位 }
-  /* 打真后端时挑不出人来,那【不是「这一趟没有真数据」】,是这一趟没验成 ——
-     村民那一屏加它的两个状态一起落空,而报出来的是三行温和的「跳过」。
-     跳过不是通过:让它红,红了才有人去看。 */
+  /* 打真后端时挑不出人来，那【不是「这一趟没有真数据」】,是这一趟没验成 ——
+     村民那一屏加它的两个状态一起落空，而报出来的是三行温和的「跳过」。
+     跳过不是通过：让它红，红了才有人去看。 */
   else ok(false, '挑得出村民那一屏要的那一位',
           某位说法.因为
           + (控台错.length ? `\n         页面自己报的错：${控台错.slice(-3).join(' | ')}` : '\n         页面一句错也没报')
@@ -579,13 +822,47 @@ if (API) {
   await open(routes[0])
   /* 建【六张】。一张是订单页要的，六张是「我买过的」翻页要的 ——
      设计 10.3 说一页五笔、多了左右翻，而五笔以内那两个翻页处理器
-     一次也按不到：那一段就会靠「从不运行」保持绿色。 */
-  const 单们 = await p.evaluate(async (base) => {
+     一次也按不到：那一段就会靠「从不运行」保持绿色。
+
+     【每张换一件商品】。2026-09-01 起「同一个人、同一件东西、
+     已经有一笔没付的」会把那一笔原样还回来（退回上一页再进来
+     不该再建一张，库里为此攒过同一个 sku 的四笔待付）——
+     六次一模一样的请求只会得到同一张单，夹具就造不出六张了。
+
+     【2026-09-02 从「换数量」改成「换商品」】。上一版是拿同一个
+     `sku-naji-deep` 下 qty=1..6。而说明书是【一条行出一册】
+     （report.rs 的 `ensure_for_line` 从不读 qty），所以建单那一层
+     现在拒绝 async_compute 的 qty≠1 —— 收两份钱出一册那件事，
+     是第三轮评审实跑出来的。夹具跟着改：换商品，数量恒为 1。
+     六个 sku 从库里现取，不写死 —— 写死的 id 会在目录重建之后
+     指向一件不存在的东西，而那时截出来的是「取不到」那一屏。 */
+  /* 【要几件，看货架上真有几件】（2026-09-02）。
+     原先写死「六件」，而那个数是夹具方便，不是产品事实 ——
+     货架清掉一万三千件测试残留之后，非居住类的在架商品就是这几件，
+     于是这一条报「只挑到 5 件」，看着像动线坏了。
+     下面只用第一张单（`单们[0]`），多建几张是为了让订单列表不空；
+     所以判据改成【至少能建一张】，这才是它真正依赖的东西。 */
+  /* 【只挑 cn 真买得到的】（2026-09-03）。上一版只看 `p.status='listed'`——
+     而「上架」跟「这个区买得到」是两件事:`verify-semantics.sh` 的那件
+     校验商品正是「上架、但只在 verify 区上架」（它自己也是这一天
+     从 draft 换过来的，因为 draft 现在下不了单）。
+     它的 sort_weight 是默认 100，于是排在头一位；下面那个循环拿
+     `region:'cn'` 建单，第一件就 404，`break` 掉，六张单一张都没建出来。
+     报出来的是「超过五笔就分页」那一条，读起来像订单列表坏了。 */
+  const 六件 = sql1(
+    "SELECT string_agg(id, ',') FROM ("
+    + " SELECT s.id FROM sku s JOIN product p ON p.id = s.product_id"
+    + "  WHERE s.status='active' AND p.status='listed'"
+    + "    AND ('cn' = ANY(p.available_regions) OR 'global' = ANY(p.available_regions))"
+    + "    AND p.fulfillment_kind <> 'residency'"   // 御守要挑没住过的人，另一套判据
+    + "  ORDER BY p.sort_weight DESC, s.id LIMIT 6) t").split(',').filter(Boolean)
+  ok(六件.length >= 1, '夹具：货架上挑得出在售商品来建单', `挑到 ${六件.length} 件`)
+  const 单们 = await p.evaluate(async ([base, 六件]) => {
     const raw = localStorage.getItem('unmei:buwanren:token')
     if (!raw) return []
     const token = JSON.parse(raw)
     const out = []
-    for (let i = 0; i < 6; i++) {
+    for (const sku of 六件) {
       const r = await fetch(base + '/v1/orders', {
         method: 'POST',
         headers: {
@@ -593,14 +870,14 @@ if (API) {
           authorization: 'Bearer ' + token,
           'idempotency-key': 'mirror-sweep-' + Math.random().toString(36).slice(2),
         },
-        body: JSON.stringify({ lines: [{ sku_id: 'sku-naji-deep', qty: 1 }], region: 'cn' }),
+        body: JSON.stringify({ lines: [{ sku_id: sku, qty: 1 }], region: 'cn' }),
       })
       if (!r.ok) break
       const j = await r.json()
       if (j.order_id) out.push(j.order_id)
     }
     return out
-  }, API)
+  }, [API, 六件])
   const 单 = 单们[0] || null
   if (单) 要参数['pages/order/index'] = { id: 单 }
 
@@ -636,6 +913,37 @@ if (API) {
                ${有盘 ? 'NOW()' : 'NULL'}
              FROM natal_summary s WHERE s.natal_id='${盘}'
              ON CONFLICT (order_line_id) DO NOTHING`)
+        /* 【种册子的那一单也要标成已付】。
+           册子是【付款履约时】才建的（unmei-app/src/fulfillment.rs）——
+           一张 unpaid 的单子上不可能有一册 ready 的报告。
+           2026-09-01 订单屏把「读你的说明书」收进 `status !== 'unpaid'`
+           之后（待付时那颗按下去只会失望，而且它压在「去支付」上面），
+           这份只种报告、不动订单状态的夹具就跟现实对不上了：
+           断言点不到那颗按钮，而产品是对的。夹具要照着真链造。 */
+        /* 【标已付就要连钱一起标】。只改 status 会造出一个真链路
+           永远造不出的状态：已付、amount_paid_minor=0、没有任何支付记录。
+           这种单子攒在库里会让财务与看板的数对不上，
+           更要紧的是——拿这种夹具跑出来的绿灯，说的不是真链路的事。
+           `scripts/verify-semantics.sh` 里同类的两处一直是这么写的。 */
+        run(`UPDATE order_record SET status='paid',
+                    amount_paid_minor=amount_total_minor,
+                    paid_at=COALESCE(paid_at, NOW())
+             WHERE id='${oid}'`)
+        /* 【连那笔钱本身也要有】（2026-09-03 第二次修这里）。
+           上一次补的是金额 —— 订单从「已付 0 元」变成「已付 199 元」，
+           而支付表里仍旧一条记录都没有。库里因此攒着 1262 笔
+           「收到了钱、却查不到是哪一笔」的订单，从 08-16 到今天。
+
+           真实链路里订单转 paid 必然经过一笔 success 的 payment
+           （`payment.rs` 的 settle 是唯一那条路），所以夹具也要有。
+           少了它，退款、对账、财务这三条路径在夹具上全都走不通 ——
+           而它们正是这一轮补起来的东西。 */
+        run(`INSERT INTO payment(id, order_id, user_id, channel, amount_minor,
+                                 currency, status, paid_at, region)
+             SELECT 'pay-fx-' || substring(o.id from 5), o.id, o.user_id, 'wechat_mp',
+                    o.amount_total_minor, o.currency, 'success', NOW(), o.region
+               FROM order_record o WHERE o.id='${oid}'
+             ON CONFLICT (id) DO NOTHING`)
         const 真 = sql1(`SELECT id FROM report WHERE order_line_id='${line}'`)
         if (真) {
           册们[st] = { report: 真, order: oid }
@@ -660,8 +968,8 @@ for (const r of routes) {
   const 残片 = /\{\{|\}\}/.test(t)
   /* 页面自己那一行错误也要看。全屏报错遮罩查的是「抛出来的」,
      而「取不到村子：…」这类是页面【接住之后写在屏上】的 —— 两回事。
-     本命页那个冷启动竞态就长这样:遮罩干净,页面上却停着一行取不到。
-     只在打真后端时查:假服务端本来就有几条接口不给,那时候有 err 是如实的。 */
+     本命页那个冷启动竞态就长这样：遮罩干净，页面上却停着一行取不到。
+     只在打真后端时查：假服务端本来就有几条接口不给，那时候有 err 是如实的。 */
   const 页内错 = API ? await p.evaluate(() => {
     const c = globalThis.__router.current()
     return (c && c.data && c.data.err) || ''
@@ -669,7 +977,7 @@ for (const r of routes) {
   ok(!scr && !残片 && !页内错, r.replace('pages/', '').replace('/index', ''),
      scr ? scr.split('\n')[1]
          : 残片 ? '页面上渲出了模板残片 {{ 或 }}'
-         : 页内错 ? '页面上停着一行:' + 页内错.slice(0, 30) : '')
+         : 页内错 ? '页面上停着一行：' + 页内错.slice(0, 30) : '')
 }
 
 // ② 村主屏 ──────────────────────────────────────────────────────
@@ -678,6 +986,11 @@ errs.length = 0
 await open('pages/village/index')
 if (API) {
   console.log('  （打真后端：先用真的入住路径请阿云与陈九回家）')
+  /* 先验「扫不出来」那一下 —— 要趁这个用户手上还没有任何待扫的单子，
+     那正是第一次打开的人所处的状态。 */
+  await 断网那一下()
+  await 扫不出来那一下()
+  await open('pages/village/index')
   const before = await text()
   const 落到 = await moveIn('ayun')
   /* 这一下是整条链上唯一一次实物变成人 —— 它值一屏，不是一句 toast
@@ -686,7 +999,7 @@ if (API) {
   await moveIn('chenjiu')
   const after = await text()
   /* 断的是【那个数真的涨了】，不是「屏上某处文本变了」。
-     后者太松:村民今天说的那一句会自己轮换，轮到了就算收集数纹丝不动也能过。
+     后者太松：村民今天说的那一句会自己轮换，轮到了就算收集数纹丝不动也能过。
      取数用的正则要跟 index.wxml 的 `{{lived}} / {{total}}` 对上 ——
      0830 把「收集 x/40」改成了进度条，而这里原先 grep 的是旧写法，
      于是证据栏印出 `null → null`，一条真的通过看着像根本没验到。 */
@@ -713,7 +1026,7 @@ if (API) {
 
   /* 【他搬进来说的第一句】。这一屏是整条链上唯一一次「实物变成人」，
      在此之前他是一张不出声的脸 —— 不说话就还只是一件商品。
-     只给写过台词的人:婆婆有，随手编的 id 没有。 */
+     只给写过台词的人：婆婆有，随手编的 id 没有。 */
   await open('pages/moved/index', { name: '婆婆', id: 'popo', say: '吃了没？没吃先去吃' })
   await p.waitForTimeout(1200)
   ok(await p.evaluate(() => !!document.querySelector('.firstsay')),
@@ -723,7 +1036,7 @@ if (API) {
   await p.waitForTimeout(800)
   ok(!(await p.evaluate(() => !!document.querySelector('.firstsay'))),
      '没写过台词的人不编一句顶上　—— 四十位共用一句会当场露馅')
-  /* 「他住进来了」那一屏上的出口。扫完一枚御守之后最想做的就是这一下,
+  /* 「他住进来了」那一屏上的出口。扫完一枚御守之后最想做的就是这一下，
      而它从来没被真按过 —— 按钮在、点了没反应是两回事。 */
   await p.getByText('去看看', { exact: true }).click()
   await p.waitForFunction(
@@ -749,8 +1062,10 @@ if (API) {
         return { 住着: !!(d.who && d.who.at_home), 文: (document.querySelector('#app') || {}).innerText || '' }
       })
       if (!没请.住着) {
-        ok(/回家之后/.test(没请.文) && /住进村里那一间/.test(没请.文),
-           '还没请来的那一屏说得出「请他回家之后会怎样」　—— 不是四个标签加一片空白',
+        // 屏上写的是「请 X 回村之后」——「回家」是更早的说法，
+        // 术语统一那一轮改成了「回村」（全屏只留一个说法），断言当时没跟上。
+        ok(/回村之后/.test(没请.文) && /住进村里那一间/.test(没请.文),
+           '还没请来的那一屏说得出「请他回村之后会怎样」　—— 不是四个标签加一片空白',
            没请.文.replace(/\n/g, ' ').slice(0, 60))
         /* 稀有度（「常」「稀」「珍」）是运营的分档 —— 屏上摆一个「常」字，
            读的人只会当成错别字。 */
@@ -792,6 +1107,16 @@ if (API) {
         + `amount_subtotal_minor,amount_total_minor,amount_paid_minor,status,`
         + `source_kind,region,paid_at) VALUES ('ord-e2-${尾}','${我是谁}','mini','CNY',`
         + `9900,9900,9900,'paid','one_shot','cn',NOW()) ON CONFLICT (id) DO NOTHING`,
+        /* 【标了已付就要有那笔钱】（2026-09-03）。
+           上一版只插订单，不插 payment —— 造出来的是一个真实链路
+           永远造不出的状态:订单说收到 9900 分，支付表里一条记录都没有。
+           每跑一轮攒一批，库里因此攒了三千多笔;而拿一个不可能的状态
+           跑出来的绿，说的不是真链路的事。
+           `check-money-consistency` 那一支盯着这个数。 */
+        `INSERT INTO payment(id,order_id,user_id,channel,amount_minor,currency,`
+        + `status,paid_at,region) VALUES ('pay-e2-${尾}','ord-e2-${尾}',`
+        + `'${我是谁}','wechat_mp',9900,'CNY','success',NOW(),'cn')`
+        + ` ON CONFLICT (id) DO NOTHING`,
         `INSERT INTO order_line(id,order_id,line_no,sku_id,sku_snapshot_json,`
         + `unit_price_minor,qty,line_subtotal_minor) VALUES ('ol-e2-${尾}','ord-e2-${尾}',1,`
         + `'${sku}','{"sku_name":"御守"}'::jsonb,9900,1,9900) ON CONFLICT (id) DO NOTHING`,
@@ -826,16 +1151,28 @@ if (API) {
         return e.scrollHeight > e.clientHeight ? e.scrollHeight - e.clientHeight : 0
       })
       ok(滚了 === 0, '多了这一条，村子那一屏仍然放得下', 滚了 ? `超 ${滚了}px` : '不滚')
-      /* 而且是靠【槽收起】放下的，不是靠把画布缩小换来的 ——
-         两种都能让这一屏不滚，但它们是两件事：槽的判据是「删掉这一屏
-         仍然成立」，画布是这一屏的主体。分不清的话，哪天画布被悄悄缩掉
-         一半，上面那条照样绿。 */
-      const 槽收了 = await p.evaluate(() => {
-        const el = document.querySelector('.manual')
-        return !el || getComputedStyle(el).display === 'none'
+      /* 【2026-09-01 这一条反过来了】。
+         原先「手输编号」整块放在弹性槽里，靠矮屏收起来腾地方，而这一条
+         验的正是「它收起了」。可槽在 ≤699px 上整块隐藏，参照机 iPhone SE
+         正好在那以下 —— 也就是说【扫码失败之后唯一那条出路，在最需要它的
+         那台机器上不存在】。槽的判据是「删掉这一屏仍然成立」，它不满足。
+         现在它是一行入口、点开才展开：路一直在，代价是一行。
+         所以这里验的是【那一行在】而【输入框默认不占地方】。 */
+      const 手输 = await p.evaluate(() => {
+        const 块 = document.querySelector('.manual')
+        const 行 = document.querySelector('.manual-k')
+        const 框 = document.querySelector('.manual-input')
+        return {
+          在: !!块 && getComputedStyle(块).display !== 'none',
+          入口: 行 ? (行.innerText || '').slice(0, 12) : '',
+          默认展开: !!框,
+        }
       })
-      ok(槽收了, '矮屏上「手输编号」那一槽是收起的')
-      /* 画布【还在画上】。改画布尺寸的代码最容易的坏法就是把画面弄没了,
+      ok(手输.在 && /手输编号/.test(手输.入口),
+         '矮屏上「扫不出来？手输编号」那一行还在　—— 扫码失败之后唯一的出路，不能被收起来',
+         `在=${手输.在} 文=${手输.入口}`)
+      ok(!手输.默认展开, '而输入框默认不摊开　—— 一行的代价，不是整块')
+      /* 画布【还在画上】。改画布尺寸的代码最容易的坏法就是把画面弄没了，
          而「一片空白」在截图之外没有任何东西会红 —— 上面那条「村子真的
          画上去了」跑在这一段【之前】，够不着这一刻。 */
       const 还在 = await p.evaluate(() => {
@@ -864,7 +1201,15 @@ if (API) {
       await p.waitForFunction(() => globalThis.__router.current().data.toScan === true,
                               null, { timeout: 15000 }).catch(() => {})
       const 槽 = await text()
-      ok(槽.includes('扫不出来？在这儿手输编号'), '长屏上有「手输编号」那一槽')
+      ok(槽.includes('扫不出来？在这儿手输编号'), '有「手输编号」那一行')
+
+      /* 【它现在是折叠的】。整块常驻会把村主屏在 iPhone SE 上挤出屏，
+         而放回弹性槽等于在最需要它的机器上把它藏起来 —— 所以是
+         一行入口、点开才展开。先点开。 */
+      await p.getByText('扫不出来？在这儿手输编号', { exact: false }).first().click()
+      await p.waitForTimeout(300)
+      ok(await p.locator('.manual-input').count() === 1,
+         '点那一行，输入框就展开了', String(await p.locator('.manual-input').count()))
 
       /* 先填一串对不上的：话要说清是哪一种情况，不是一句「失败」。 */
       await p.locator('.manual-input').fill('NOT-A-REAL-CODE')
@@ -873,6 +1218,14 @@ if (API) {
                               null, { timeout: 15000 }).catch(() => {})
       const 错话 = await p.evaluate(() => globalThis.__router.current().data.codeErr)
       ok(/对不上任何一枚御守/.test(错话 || ''), '认不出那串字时说得清是哪一种情况', String(错话))
+      /* 【说出来了不等于看得见】（2026-09-02 第三轮评审 · 第一次打开的人）。
+         上面这一条读的是 `data.codeErr` —— 而屏上唯一渲染它的地方
+         曾经挂在 `wx:if="{{toScan}}"` 里，新用户为 false:
+         话生成了、一个字都没上屏，点第一屏第一个按钮什么都不发生。
+         所以这一条看【屏上的字】，不看 data。 */
+      ok((await text()).includes('对不上任何一枚御守'),
+         '而且那句话真的在屏上 —— 不是只在 data 里',
+         (await text()).slice(0, 40))
 
       /* 再填一串真的。这一下把婆婆请回家 —— 也就是把上面那条提示消掉。 */
       const 真码 = await mintCredential('popo')
@@ -889,51 +1242,81 @@ if (API) {
       await p.setViewportSize({ width: 375, height: 667 })
 
       /* ── 一单那一屏的主按钮（设计册 M3）───────────────────────
-         10.8 特别点名的一条：**订单的完成态不是「已签收」，是她住进村里**。
-         包裹到了、人没住进来，这一单就停在半路 —— 而催归催，
-         点进单子却没有出口的话，这条链还是断的。 */
-      /* 自己种一单，用【另一位】：上面手输那一下已经把婆婆请回家了，
-         拿同一单来验，`to_scan` 本该是 false —— 而它是 false 看着就像功能没做。 */
+         10.8 说的是：**订单的完成态不是「已付」，是他住进村里**。这条仍然成立，
+         只是「住进村里」这件事今天发生在【付款那一刻】——
+         后端 residency 分支直接 move_in，既不建运单也不发凭据
+         （2026-09-01 第二轮评审 · 转化路）。
+
+         所以这段 fixture 也跟着改。它原先直插一条 `delivered` 的运单，
+         造出「包裹到了、人还没住进来」——而那个状态真链路产生不了：
+         买御守从来不寄东西。拿一个不存在的状态验出来的绿，是假的绿。
+         现在种的是【付款之后真会有的样子】:单子 paid、行 done、人已入住。 */
       const sku2 = sql1("SELECT id FROM sku WHERE villager_id='tenz' LIMIT 1")
       run([
         `INSERT INTO order_record(id,user_id,channel_origin,currency,`
         + `amount_subtotal_minor,amount_total_minor,amount_paid_minor,status,`
         + `source_kind,region,paid_at) VALUES ('ord-m3-${尾}','${我是谁}','mini','CNY',`
         + `9900,9900,9900,'paid','one_shot','cn',NOW()) ON CONFLICT (id) DO NOTHING`,
-        `INSERT INTO order_line(id,order_id,line_no,sku_id,sku_snapshot_json,`
-        + `unit_price_minor,qty,line_subtotal_minor) VALUES ('ol-m3-${尾}','ord-m3-${尾}',1,`
-        + `'${sku2}','{"sku_name":"御守"}'::jsonb,9900,1,9900) ON CONFLICT (id) DO NOTHING`,
-        `INSERT INTO shipment(id,order_id,carrier_code,tracking_no,status,delivered_at)`
-        + ` VALUES ('shp-m3-${尾}','ord-m3-${尾}','manual','M3-${尾}','delivered',NOW())`
+        /* 【标了已付就要有那笔钱】（2026-09-03）。
+           上一版只插订单，不插 payment —— 造出来的是一个真实链路
+           永远造不出的状态:订单说收到 9900 分，支付表里一条记录都没有。
+           每跑一轮攒一批，库里因此攒了三千多笔;而拿一个不可能的状态
+           跑出来的绿，说的不是真链路的事。
+           `check-money-consistency` 那一支盯着这个数。 */
+        `INSERT INTO payment(id,order_id,user_id,channel,amount_minor,currency,`
+        + `status,paid_at,region) VALUES ('pay-m3-${尾}','ord-m3-${尾}',`
+        + `'${我是谁}','wechat_mp',9900,'CNY','success',NOW(),'cn')`
         + ` ON CONFLICT (id) DO NOTHING`,
+        `INSERT INTO order_line(id,order_id,line_no,sku_id,sku_snapshot_json,`
+        + `unit_price_minor,qty,line_subtotal_minor,fulfillment_status) VALUES `
+        + `('ol-m3-${尾}','ord-m3-${尾}',1,'${sku2}','{"sku_name":"御守"}'::jsonb,`
+        + `9900,1,9900,'done') ON CONFLICT (id) DO UPDATE SET fulfillment_status='done'`,
+        /* 列名与 source_kind 跟真代码对齐（residency.rs 的 `move_in_from_line`
+           走的是 `insert_residency(…, None, "purchase", Some(order_line_id))`）——
+           种一个跟真路径长得不一样的行，验出来的绿说明不了真路径。 */
+        `INSERT INTO villager_residency(id,user_id,villager_id,source_kind,source_ref,moved_in_at)`
+        + ` VALUES ('res-m3-${尾}','${我是谁}','tenz','purchase','ol-m3-${尾}',NOW())`
+        + ` ON CONFLICT DO NOTHING`,
       ].join('; '))
       await p.setViewportSize({ width: 390, height: 844 })   // 槽在矮屏收起，先在长屏看它
       await open('pages/order/index', { id: 'ord-m3-' + 尾 })
-      await p.waitForFunction(() => globalThis.__router.current().data.toScan === true,
+      await p.waitForFunction(() => globalThis.__router.current().data.住下了 === true,
                               null, { timeout: 15000 }).catch(() => {})
-      ok(await p.evaluate(() => globalThis.__router.current().data.toScan) === true,
-         '这一单里有没扫开的御守时，单子那一屏知道',
-         String(await p.evaluate(() => globalThis.__router.current().data.toScan)))
+      ok(await p.evaluate(() => globalThis.__router.current().data.住下了) === true,
+         '御守那一单付完之后，单子那一屏知道他已经住下了',
+         String(await p.evaluate(() => globalThis.__router.current().data.住下了)))
       const 单屏 = await text()
       await shot('12-一单')
-      ok(单屏.includes('收到了，去扫一下'), '主按钮是「收到了，去扫一下」', 单屏.slice(0, 40))
+      /* 主按钮是【真去得了的那个地方】。原先这里是「收到了，去扫一下」——
+         而这一单没有东西可扫，那颗按钮按下去只会失败。 */
+      ok(/去.+屋里看看/.test(单屏), '主按钮是「去他屋里看看」', 单屏.slice(0, 40))
 
       /* 【走到哪儿】这一条路。这一单是御守、已付、已寄、还没扫 ——
          所以四步应该是「下单·付款走过 / 寄出走过 / 住进来正等着」。
          这一页原先在最常见的情况下整屏七百多像素全空，人看不出
          这单现在怎么样；而步骤要是各判各的，会出现「没付款但算好亮着」。 */
       /* 【下一步等什么】+【单号】。进度线说得出「在哪儿」，说不出
-         「接下来会怎样」，而人点进订单就是想知道这两件;出了事还得有个
+         「接下来会怎样」，而人点进订单就是想知道这两件；出了事还得有个
          能念给客服的东西 —— 这一屏原先一样都没有。 */
       const 下步 = await p.evaluate(() => globalThis.__router.current().data.下一步)
       ok(!!下步 && 下步.length > 6, '这一单说得出下一步等什么', String(下步))
       const 单文 = await text()
-      ok(单文.includes('单号') && 单文.includes('ord-'),
-         '屏上有能念给客服的单号', (单文.match(/单号 \S+/) || ['（没有）'])[0])
+      /* 【只露前八位】（2026-09-02 第四轮评审 · 第一次来的人）。
+         整串是 `ord-` 加一个 uuid，四十个字符；原样摆在屏上，
+         人读到的是「开发者的东西漏出来了」，而这一屏是催他付钱的。
+         八位十六进制够客服定位到唯一一单，长按复制的仍然是整串 ——
+         所以这一条验的是「有一个念得出口的短号」，不再要求 `ord-`。 */
+      /* 别把它写死成十六进制 —— 种子里的单 id 是 `ord-t79678-24` 这种，
+         短号取出来是 `t7967824`，带字母。这一条要验的是「短且念得出口」，
+         不是「长得像 uuid」。 */
+      const 短号 = (单文.match(/单号\s*([0-9a-z]{6,12})(?![0-9a-z-])/) || [])[1]
+      ok(单文.includes('单号') && !!短号, '屏上有能念给客服的单号', 短号 || '（没有）')
+      ok(!/ord-[0-9a-f]{8}-/.test(单文), '整串 uuid 不上屏',
+         (单文.match(/ord-\S+/) || ['（没有，对）'])[0])
 
       const 路 = await p.evaluate(() => globalThis.__router.current().data.走到哪儿)
-      ok(Array.isArray(路) && 路.length === 4 && 路[3].t === '住进来',
-         '御守那一单的四步是「下单 · 付款 · 寄出 · 住进来」',
+      ok(Array.isArray(路) && 路.length === 3 && 路[2].t === '住进来',
+         '御守那一单是三步「下单 · 付款 · 住进来」　—— 中间没有「寄出」，因为不寄',
          Array.isArray(路) ? 路.map((x) => x.t).join(' · ') : String(路))
       if (Array.isArray(路) && 路.length === 4) {
         const 亮 = 路.findIndex((x) => x.s === 'now')
@@ -954,42 +1337,31 @@ if (API) {
          '一单的标题是买的那个东西，不是状态词', 单头.title)
       ok(/下单/.test(单头.sub) && /(待付|已付|完成|备着)/.test(单头.sub),
          '金额、日期、状态并成一行', 单头.sub)
-      ok(单屏.includes('那才是这单真正完成'), '槽里说清了这一单什么时候才算完')
+      ok(单屏.includes('这单到此为止'), '槽里说清了这一单什么时候才算完')
       /* 主按钮不在槽里 —— 它是这一屏的主按钮，矮屏上也必须在。
          把它放进槽等于说「放不下就算了」，而这一下正是整条链最要紧的一步。 */
       await p.setViewportSize({ width: 375, height: 667 })
       await p.waitForTimeout(400)
       const 矮屏 = await p.evaluate(() => {
-        const 有 = (t) => [...document.querySelectorAll('button, view, text')]
-          .some((e) => e.innerText && e.innerText.trim() === t)
         const 槽 = document.querySelector('.slot-done')
-        return { 主按钮在: 有('收到了，去扫一下'),
+        return { 主按钮在: [...document.querySelectorAll('button')]
+                             .some((e) => /去.+屋里看看/.test(e.innerText || '')),
                  槽收了: !槽 || getComputedStyle(槽).display === 'none' }
       })
       ok(矮屏.主按钮在, '矮屏上主按钮照样在　—— 它不在槽里')
       ok(矮屏.槽收了, '矮屏上那一句槽收起了')
       await p.setViewportSize({ width: 390, height: 844 })
 
-      /* 从这一屏手输编号也走得通 —— 出口不能只是一句话。
-         用的是同一支 `utils/omamori`，所以两屏说的是同一句话。 */
-      const 单码 = await mintCredential('tenz')
-      await p.locator('.wake-input').fill(单码)
-      await p.locator('.wake-go').click()
-      await p.waitForFunction(
-        () => globalThis.__router.current().__route === 'pages/moved/index',
-        null, { timeout: 15000 },
-      ).catch(() => {})
-      ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/moved/index',
-         '单子那一屏上手输编号，也开得出「他住进来了」',
-         await p.evaluate(() => globalThis.__router.current().__route))
-
-      /* 唤醒之后回到那一单：主按钮该没了 —— 这一单到这儿才算真的完成。 */
-      await open('pages/order/index', { id: 'ord-m3-' + 尾 })
-      await p.waitForFunction(() => globalThis.__router.current().data.toScan === false,
-                              null, { timeout: 15000 }).catch(() => {})
-      ok(await p.evaluate(() => globalThis.__router.current().data.toScan) === false,
-         '扫开之后单子上那颗主按钮就没了',
-         String(await p.evaluate(() => globalThis.__router.current().data.toScan)))
+      /* 【单子那一屏不许出现「扫」】（2026-09-01 第二轮评审 · 转化路）。
+         这里原先验的是「在这一屏手输编号也开得出『他住进来了』」——
+         而买御守从来不发凭据，那个输入框在真实的单子上永远填不出东西来。
+         手输那条路仍然验（在村子主屏那一段，同一支 `utils/omamori`），
+         那是线下拿到实体御守的人走的路，跟这一单无关。
+         这条断言反过来钉：这一屏不该再教人去扫任何东西。 */
+      const 单面 = await text()
+      ok(!/扫一下|扫开|扫不出来|背面那串字/.test(单面),
+         '单子那一屏不教人去扫 —— 这一单没有可扫的东西',
+         (单面.match(/扫[^\n]{0,12}/) || ['（干净）'])[0])
       await p.setViewportSize({ width: 375, height: 667 })
 
       /* ── 不是御守的东西，不许催扫 ─────────────────────────────
@@ -1012,6 +1384,16 @@ if (API) {
         + `amount_subtotal_minor,amount_total_minor,amount_paid_minor,status,`
         + `source_kind,region,paid_at) VALUES ('ord-inc-${尾}','${我是谁}','mini','CNY',`
         + `2900,2900,2900,'paid','one_shot','cn',NOW()) ON CONFLICT (id) DO NOTHING`,
+        /* 【标了已付就要有那笔钱】（2026-09-03）。
+           上一版只插订单，不插 payment —— 造出来的是一个真实链路
+           永远造不出的状态:订单说收到 2900 分，支付表里一条记录都没有。
+           每跑一轮攒一批，库里因此攒了三千多笔;而拿一个不可能的状态
+           跑出来的绿，说的不是真链路的事。
+           `check-money-consistency` 那一支盯着这个数。 */
+        `INSERT INTO payment(id,order_id,user_id,channel,amount_minor,currency,`
+        + `status,paid_at,region) VALUES ('pay-inc-${尾}','ord-inc-${尾}',`
+        + `'${我是谁}','wechat_mp',2900,'CNY','success',NOW(),'cn')`
+        + ` ON CONFLICT (id) DO NOTHING`,
         `INSERT INTO order_line(id,order_id,line_no,sku_id,sku_snapshot_json,`
         + `unit_price_minor,qty,line_subtotal_minor) VALUES ('ol-inc-${尾}','ord-inc-${尾}',1,`
         + `'sku-verify-incense','{"sku_name":"校验香"}'::jsonb,2900,1,2900)`
@@ -1022,9 +1404,9 @@ if (API) {
       ].join('; '))
       await open('pages/order/index', { id: 'ord-inc-' + 尾 })
       await p.waitForTimeout(1500)
-      ok(await p.evaluate(() => globalThis.__router.current().data.toScan) === false,
-         '买一盒香、包裹到了，单子上不说「去扫开它」　—— 香上没有码',
-         String(await p.evaluate(() => globalThis.__router.current().data.toScan)))
+      ok(await p.evaluate(() => globalThis.__router.current().data.住下了) === false,
+         '买一盒香、包裹到了，单子上不说「他住进来了」　—— 香不封人',
+         String(await p.evaluate(() => globalThis.__router.current().data.住下了)))
 
       /* 另一半：扫开之后它就该消失。只验「出现」的话，
          一个永远挂着的提示也能全绿 —— 而常驻的提示正是设计要避免的那个。 */
@@ -1051,7 +1433,7 @@ if (API) {
     await p.waitForFunction(() => !!globalThis.__router.current().data.report,
                             null, { timeout: 15000 }).catch(() => {})
     const 单上 = await text()
-    /* 这个产品有名字:【你的说明书】。原先屏上叫它「那一份」——
+    /* 这个产品有名字：【你的说明书】。原先屏上叫它「那一份」——
        一个指代，第一次看见它的人没有上下文（2026-08-31 用户指出）。 */
     ok(单上.includes('读你的说明书'), '买了说明书的单子上，主按钮是「读你的说明书」')
     await p.getByText('读你的说明书', { exact: true }).click()
@@ -1061,7 +1443,7 @@ if (API) {
        '从单子上点得进你的说明书',
        await p.evaluate(() => globalThis.__router.current().__route))
 
-    /* 二 · 头一页是【结论】,四柱在后面 —— 而且是真盘,干支不是占位符。
+    /* 二 · 头一页是【结论】,四柱在后面 —— 而且是真盘，干支不是占位符。
        原先头一页就是四柱：花钱买的说明书，开篇甩给人一张排盘图，
        一句话都没有。0830 改成先说结论（key: lead），术语页往后排。
        这三条断言原来钉着「头一页是四柱」，改完之后它们红了三轮 ——
@@ -1112,7 +1494,7 @@ if (API) {
     await p.waitForTimeout(200)
     ok(await p.evaluate(() => globalThis.__router.current().data.at) === 0,
        '「上一页」翻得回来', String(await p.evaluate(() => globalThis.__router.current().data.at)))
-    // 页签是这一页的价值所在:想看用神就点用神,不用一路翻过去
+    // 页签是这一页的价值所在：想看用神就点用神，不用一路翻过去
     const 末 = 册.tabs.length - 1
     await p.locator('.tab').nth(末).click()
     await p.waitForTimeout(200)
@@ -1132,9 +1514,9 @@ if (API) {
     }
   }
 
-  /* 另一半:册子还没出的那种。**一半的买家是这样** ——
-     量过:async_compute 的行里只有 46% 的买家下单时已经有本命。
-     所以这不是错误页,它要说清还差什么、去哪儿填。 */
+  /* 另一半：册子还没出的那种。**一半的买家是这样** ——
+     量过：async_compute 的行里只有 46% 的买家下单时已经有本命。
+     所以这不是错误页，它要说清还差什么、去哪儿填。 */
   if (册们.awaiting_natal) {
     await open('pages/order/index', { id: 册们.awaiting_natal.order })
     await p.waitForFunction(() => !!globalThis.__router.current().data.report,
@@ -1149,7 +1531,7 @@ if (API) {
     ok(!等屏.includes('取不到') && !等屏.includes('出错'),
        '它不是一张错误页　—— 是这一单真实的状态')
     await shot('21-还差生辰')
-    // 出路要真走得通:说了「去填」就得真的到得了填生辰那一屏
+    // 出路要真走得通：说了「去填」就得真的到得了填生辰那一屏
     await p.getByText('去填出生时间', { exact: true }).click()
     await p.waitForFunction(() => globalThis.__router.current().__route === 'pages/natal/index',
                             null, { timeout: 15000 }).catch(() => {})
@@ -1157,8 +1539,8 @@ if (API) {
        '「去填出生时间」真的到得了填生辰那一屏',
        await p.evaluate(() => globalThis.__router.current().__route))
   }
-  // 收拾现场:上面停在填生辰那一屏,而下一段的 moveIn 要从村子那一屏起手。
-  // 不回去的话它会等一颗不在这一屏上的按钮,三十秒后超时 —— 而报出来的
+  // 收拾现场：上面停在填生辰那一屏，而下一段的 moveIn 要从村子那一屏起手。
+  // 不回去的话它会等一颗不在这一屏上的按钮，三十秒后超时 —— 而报出来的
   // 是「点不到扫御守」,跟真的点不到长得一模一样
   await open('pages/village/index')
 
@@ -1197,11 +1579,30 @@ if (API) {
     return { 档: (d.skus || []).map((x) => x.name + ' ' + x.priceText), 那句: d.line }
   })
   ok(香.档.length === 3, '三档都在', 香.档.join(' · '))
-  ok(香.档.some((t) => /¥29\b/.test(t)) && 香.档.some((t) => /¥128\b/.test(t))
-     && 香.档.some((t) => /¥268\b/.test(t)),
-     '价钱是设计册上那三档', 香.档.join(' · '))
+  /* 【别钉死具体数字】。原先钉的是 29 / 128 / 268 —— 而 ¥128 那一档
+     2026-09-01 改成了 ¥88:三支 ¥29 是每支 9.67，十支 ¥128 是每支 12.80，
+     买得多反而单价更贵，而同屏还写着「十支约够一个月」。
+     钉数字的断言只能挡住「改了没同步」，挡不住「阶梯是反的」——
+     后者才是真问题。所以这里验的是【单价递减】。 */
+  const 单价 = 香.档.map((t) => {
+    const 支 = /三支/.test(t) ? 3 : /十支/.test(t) ? 10 : 1
+    const 元 = Number((t.match(/¥(\d+(?:\.\d+)?)/) || [0, 0])[1])
+    return { t, 每支: 元 / 支 }
+  }).filter((x) => /三支|十支/.test(x.t))
+  ok(单价.length === 2 && 单价[0].每支 > 单价[1].每支,
+     '买得多，每支更便宜　—— 价格阶梯不是反的',
+     单价.map((x) => `${x.t} = 每支 ¥${x.每支.toFixed(2)}`).join(' · '))
   const 香屏 = await text()
-  ok(香屏.includes('乳香 · 安息 · 桂'), '配方写着')
+  /* 【2026-09-01 方子只在算过之后才给】。同一屏上半苏合刚说完
+     「你缺什么，我还不知道 —— 先把出生时间填了，我才配得准」，
+     往下一行却写着一个写死的方子：填不填都是它。两行自相矛盾，
+     而底下还挂着一档 ¥268 的「按你缺的那味单配」。
+     所以现在验的是【这两件事对得上】:她说得出话时才有方子。
+     另外「安息」写全成「安息香」—— 单独两个字第一眼像丧仪用语。 */
+  const 说了话 = await p.evaluate(() => !!globalThis.__router.current().data.line)
+  ok(说了话 ? 香屏.includes('乳香 · 安息香 · 桂') : !香屏.includes('乳香'),
+     '方子跟「我还不知道你缺什么」对得上　—— 说得出话才给方子',
+     `说了话=${说了话}`)
   /* 她那一句要按【你缺什么】来。这一趟没建本命，所以她该说不知道，
      **而不是编一句** —— 说错了比不说更伤。 */
   ok(!香.那句, '没建本命时她不编一句', String(香.那句 || '(空)'))
@@ -1222,10 +1623,182 @@ if (API) {
   ).catch(() => {})
   ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/confirm/index',
      '挑一档点得进确认那一屏', await p.evaluate(() => globalThis.__router.current().__route))
+
+  /* ── 券码那一格（2026-09-03）──────────────────────────────
+     后端的优惠券这条链早就通了（锁定 → 核销 → 释放），
+     而**用户这一侧一直没有输码的地方** —— 券发得出去，没人用得上。
+     现在确认屏上有了，这一段验它真的能用。
+
+     只在打真后端时验:假服务端不认券码，它会把任何码都放过去，
+     那样「用上了」这三个字说的不是真事。 */
+  if (API) {
+    const 券码 = 'MIRROR' + Date.now()
+    run(`INSERT INTO coupon(id, code, benefit_json, state, issued_at, expires_at, audit_note, region)
+         VALUES ('cpn-mir-${Date.now()}', '${券码}',
+                 '{"pct_off_bps":2000}'::jsonb, 'issued', NOW(),
+                 NOW() + INTERVAL '30 days', '镜像验证', 'cn')`)
+
+    const 原价 = await p.evaluate(() => globalThis.__router.current().data.totalText)
+    await p.locator('.coupon-in').fill(券码)
+    await p.locator('.coupon-try').click()
+    await p.waitForFunction(
+      () => globalThis.__router.current().data.券状态 !== '在算'
+            && globalThis.__router.current().data.券状态 !== '',
+      null, { timeout: 15000 },
+    ).catch(() => {})
+    const 券状态 = await p.evaluate(() => globalThis.__router.current().data.券状态)
+    ok(券状态 === '用上了', '输一张真券，服务端认', 券状态 + '｜' + await p.evaluate(
+      () => globalThis.__router.current().data.券说))
+
+    /* 【减了多少要看得见】。这一格的全部意义就是让人在按付款之前
+       知道自己少付了多少 —— 状态对而屏幕上没数，等于没做。 */
+    const 屏 = await text()
+    ok(/− ¥/.test(屏), '屏幕上写着减了多少', (屏.match(/− ¥\S+/) || [''])[0])
+    const 实付 = await p.evaluate(() => globalThis.__router.current().data.实付文本)
+    ok(!!实付 && 实付 !== 原价, '「一共」跟着变成实付', `原价 ${原价} → 实付 ${实付}`)
+
+    /* 【试算不许动库】。它是「先算一遍」，锁券是下单那一步的事 ——
+       试完就锁的话，人只是看了一眼价，券就挂在一张不存在的单上了。 */
+    const 券态 = sql1(`SELECT state FROM coupon WHERE code='${券码}'`)
+    ok(券态 === 'issued', '试算不锁券', 券态)
+
+    // 编不出来的码要当场说清，而不是默默不动
+    await p.locator('.coupon-in').fill('NOSUCHCODE' + Date.now())
+    await p.locator('.coupon-try').click()
+    await p.waitForFunction(
+      () => globalThis.__router.current().data.券状态 === '不行',
+      null, { timeout: 15000 },
+    ).catch(() => {})
+    const 坏说 = await p.evaluate(() => globalThis.__router.current().data.券说)
+    ok(/没有这张券/.test(坏说 || ''), '编的码说得出为什么不行', 坏说)
+
+    /* ── 券把整单减完的那一单（2026-09-06 三路验证）─────────────
+       `off.clamp(0, base)` 明写着减免不能超过本单金额 —— 也就是说
+       一张够大的券就是白送，那是一张券该有的样子。
+       而在这之前那一单会卡死:`payment::start` 头一句是
+       `if due <= 0 { Err }`，于是屏上写着「一共 ¥0」、点「去付」
+       得到一句技术味的拒绝，然后这一单挂三十分钟自己取消。
+       今天在架的券最多减 ¥20、最便宜的东西 ¥29，撞不到 ——
+       所以这里自己发一张十成的，把那一天提前到现在。
+
+       走的是真链:真发券 → 真填码 → 真下单 → 看那一单的状态。 */
+    {
+      const 全免码 = 'MIRRORFREE' + Date.now()
+      run(`INSERT INTO coupon(id, code, benefit_json, state, issued_at, expires_at, audit_note, region)
+           VALUES ('cpn-free-${Date.now()}', '${全免码}',
+                   '{"pct_off_bps":10000}'::jsonb, 'issued', NOW(),
+                   NOW() + INTERVAL '30 days', '镜像验证 · 减到零那一单', 'cn')`)
+      await p.locator('.coupon-in').fill(全免码)
+      await p.locator('.coupon-try').click()
+      await p.waitForFunction(
+        () => globalThis.__router.current().data.券状态 === '用上了',
+        null, { timeout: 15000 },
+      ).catch(() => {})
+      const 实付0 = await p.evaluate(() => globalThis.__router.current().data.实付文本)
+      ok(/^[¥￥]0(\.00)?$/.test(实付0 || ''), '十成的券把「一共」减到零', 实付0 || '（没算出来）')
+
+
+      /* 【挑一件不用寄的来走这一条】。这一屏此刻挂的商品由这一趟的数据决定，
+         而实物那一档的成交按钮是「先填寄到哪儿」—— 它开微信地址簿，
+         浏览器里没有对应物（垫片照铁律抛）。头一版就是这么红的:
+         报「零元单也建得出来 · pages/confirm/index」，
+         看着像下单坏了，其实是卡在地址那一步。
+         说明书那一件是算出来的，不寄东西，没有这道坎。 */
+      await open('pages/confirm/index', { id: 'prod-naji-deep' })
+      await p.waitForTimeout(1600)
+      /* 重开一屏之后券那一格回到【券条】那一态（手里有券就摆券条，
+         2026-09-06 起还会自动用上第一张）—— 输入框这时不在。
+         先点「填码」把它换回来，再填这张十成的。 */
+      if (await p.getByText('填码', { exact: true }).count()) {
+        await p.getByText('填码', { exact: true }).click()
+        await p.waitForTimeout(400)
+      }
+      await p.locator('.coupon-in').fill(全免码)
+      await p.locator('.coupon-try').click()
+      await p.waitForFunction(
+        () => globalThis.__router.current().data.券状态 === '用上了',
+        null, { timeout: 15000 },
+      ).catch(() => {})
+      /* 确认屏那颗成交按钮写的是「去付」（不用寄的那一档）——
+         「就要这个 / 就要这份」是**商品页**那一颗，两屏不是同一句话。
+         头一版照商品页那两个词找，等了三十秒超时。 */
+      await p.getByText('去付', { exact: true }).click()
+      await p.waitForFunction(
+        () => globalThis.__router.current().__route === 'pages/order/index',
+        null, { timeout: 20000 },
+      ).catch(() => {})
+      /* 【等它取完再读】。跳到订单屏那一刻 `data.status` 还是空的 ——
+         头一版读完就断言，两条都报空值，看着像功能没做。 */
+      await p.waitForFunction(
+        () => !!globalThis.__router.current().data.status,
+        null, { timeout: 20000 },
+      ).catch(() => {})
+      const 单 = await p.evaluate(() => ({
+        路由: globalThis.__router.current().__route,
+        id: globalThis.__router.current().data.id,
+        状态: globalThis.__router.current().data.status,
+      }))
+      ok(单.路由 === 'pages/order/index', '零元单也建得出来', 单.路由)
+      if (单.路由 === 'pages/order/index') {
+        /* 【不钉死在 `paid` 上】。发了 `OrderPaid` 之后履约就跑起来了，
+           数字内容那一档当场就算完 —— 这一单在屏上多半已经是 `done`。
+           要守的事是「它没有挂在待付上等超时」，不是「它此刻停在哪一档」。 */
+        ok(单.状态 !== 'unpaid' && 单.状态 !== 'draft',
+           '一分钱都不用付的那一单，建出来就不在「待付」上　—— 不是挂在那儿等它自己超时',
+           String(单.状态))
+        ok(await p.getByText('去付', { exact: true }).count() === 0,
+           '所以屏上没有「去付」那颗按钮　—— 按了只会得到一句「应付余额 0 ≤ 0」',
+           String(await p.getByText('去付', { exact: true }).count()))
+        ok((await text()).includes('券抵完了'),
+           '而且说清了为什么是 ¥0 —— 不说的话人以为这一单坏了',
+           ((await text()).match(/[^\n]{0,10}券抵完了[^\n]{0,10}/) || [''])[0])
+        /* 履约那一侧唯一的触发器是 `OrderPaid` —— 不发的话，
+           这一单的行永远停在 pending，东西永远发不出去。 */
+        const 事件数 = Number(sql1(
+          `SELECT count(*) FROM outbox_event WHERE aggregate_id='${单.id}' AND kind='OrderPaid'`))
+        ok(事件数 === 1, '零元单也发了 OrderPaid —— 不发它就永远不会被履约',
+           `${事件数} 条`)
+      }
+      // 回到确认屏，把后面那一段的前提摆回去
+      await open('pages/confirm/index', 要参数['pages/confirm/index'])
+      await p.waitForTimeout(1400)
+    }
+
+    // 清掉，别让它影响后面那一段
+    await p.locator('.coupon-in').count() && await p.locator('.coupon-in').fill('')
+    await p.locator('.coupon-try').count() && await p.locator('.coupon-try').click()
+    await p.waitForTimeout(300)
+  }
   }
   await open('pages/incense/index', { id: 'prod-suhe-incense' })
   await p.waitForTimeout(1200)
   await shot('10-一味香')
+
+  /* 【按月送】（2026-09-05）。这一屏上三档都是买一次，而香是会烧完的 ——
+     那句注脚「十支约够一个月」本来就在说这件事，只是从前没有一条路
+     通向「每月一盒」。
+     它取不到价就整块不摆（不编一个价出来），所以这里先问它在不在。 */
+  const 按月 = await p.evaluate(() => globalThis.__router.current().data.按月)
+  ok(!!按月 && !!按月.priceText, '一味香那一屏有「按月送」这一条', JSON.stringify(按月))
+  if (按月) {
+    const 香屏 = await text()
+    ok(/按月送/.test(香屏) && /随时能停/.test(香屏),
+       '它说得出这是每月一盒、而且停得掉', (香屏.match(/按月送[^·]*·[^›]*/) || [''])[0].slice(0, 40))
+    await p.locator('.monthly').click()
+    await p.waitForTimeout(1200)
+    ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/confirm/index',
+       '点它去的是确认那一屏 —— 掏钱那一路',
+       await p.evaluate(() => globalThis.__router.current().__route))
+    /* 【它是实物，所以要问地址】。确认屏认的是 `fulfillment_kind === 'shipping'`,
+       而按月送正是走这一支开通的（见 fulfillment.rs）——
+       要是哪天它被改成 instant，这一条当场红:那时订阅照旧开得起来,
+       而每月那一盒**没有地址可寄**。 */
+    ok(await p.evaluate(() => globalThis.__router.current().data.要寄) === true,
+       '确认那一屏知道它要寄东西 —— 会问地址',
+       String(await p.evaluate(() => globalThis.__router.current().data.要寄)))
+    await open('pages/incense/index', { id: 'prod-suhe-incense' })
+    await p.waitForTimeout(900)
+  }
 
   /* ── 同步点香（设计册 E1）─────────────────────────────────────
      这一屏一周只有二十五分钟能碰上，所以后端把「几点点香」做成了可配的
@@ -1236,15 +1809,36 @@ if (API) {
      而那正是设计册 10.7 说的那一条：**不做「本周还没开始」的占位页**。
      到点那一支要另起一个把时刻设成「现在」的实例，
      `bash scripts/verify-incense-night.sh` 一条命令跑完。 */
+  /* 【屏上那个时刻要跟后端那份排期对得上】（2026-09-05）。
+     几点点香在后端是配置（`UNMEI_INCENSE_WEEKDAY` / `HOUR`），
+     而屏上那四句话曾经写死是「周四晚九点」。这一支自己就撞见过：
+     它跑在一个把窗口挪到凌晨的实例上，屏上照旧写着「今晚九点已经开始了」，
+     断言却绿着 —— 因为它对的是自己那份一模一样写死的字。
+
+     这里只取【那一天】跟【那个钟点】两个词来对。整句照抄一遍等于把
+     同一份规则写第二遍，而两份规则会各自漂。 */
+  const 周几那一词 = (w) => ['周一', '周二', '周三', '周四', '周五', '周六', '周日'][w]
+  const 钟点那一词 = (h) =>
+    ['十二', '一', '两', '三', '四', '五', '六', '七', '八', '九', '十', '十一'][h % 12] + '点'
+  const 排期 = await p.evaluate(async (base) => {
+    const raw = localStorage.getItem('unmei:buwanren:token')
+    const r = await fetch(base + '/v1/incense/schedule',
+                          raw ? { headers: { authorization: 'Bearer ' + JSON.parse(raw) } } : {})
+    return await r.json()
+  }, API || '')
   const 今晚 = await p.evaluate(() => globalThis.__router.current().data.tonight)
   const 香屏2 = await text()
   if (今晚) {
     ok(香屏2.includes('一起点一支'), '今晚开着，那一槽是入口')
+    ok(香屏2.includes(钟点那一词(排期.hour)),
+       '那一槽说的钟点就是配置里那个', 香屏2.slice(0, 40))
 
     /* 到点那一档（`scripts/verify-incense-night.sh` 走的就是这里）。
        它验的是这一屏【真的能用】：点得进、能点上、一人一次不叠加、
        没香的人有出口。 */
-    await p.getByText('今晚九点已经开始了，一起点一支', { exact: true }).click()
+    /* 点它靠的是【它是那一槽】，不是它写着哪几个字 ——
+       那几个字现在按排期生成，写死在这儿等于又造一份会漂的规则。 */
+    await p.locator('.flexslot.slot-e1.slot-on').click()
     await p.waitForFunction(
       () => globalThis.__router.current().__route === 'pages/lighting/index',
       null, { timeout: 15000 },
@@ -1254,8 +1848,30 @@ if (API) {
 
     await p.waitForTimeout(1500)
     const 夜 = await text()
-    ok(夜.includes('今晚一起点一支'), '这一屏说的是「今晚一起点一支」')
-    ok(/已烧 \d\d:\d\d/.test(夜), '烧了多久在走', (夜.match(/已烧 \S+/) || [''])[0])
+    /* 【这一条原先钉着那句写死的话】（2026-09-06 三路验证 · 第一次打开的人）。
+       上一版断言的是 `夜.includes('今晚一起点一支')` —— 而屏上那句正是
+       写死的「今晚」，实测这一场是上午九点开的。
+       几点点香在后端是配置，`/v1/incense/schedule` 专门为此做出来了，
+       村口那一槽与一味香那一屏都跟着它走，唯独仪式本身这一屏漏了。
+       **护栏钉在要被淘汰的东西上，就会替它挡住改动** ——
+       这一条这两个月一直绿着，替那句假话挡着。
+       判据换成跟那一槽同一个钟点:两屏说的是同一场，同一个来源。 */
+    ok(夜.includes('一起点一支'), '这一屏说的是「一起点一支」', 夜.slice(0, 30))
+    ok(夜.includes(钟点那一词(排期.hour)),
+       '点香那一屏说的钟点也是配置里那个 —— 不再写死「今晚」',
+       (夜.match(/[^\n]{0,12}一起点一支/) || [''])[0])
+    /* 【分钟不一定是两位】（2026-09-05）。原先写的是 `\d\d:\d\d` ——
+       而烧多久是配置（`UNMEI_INCENSE_MINUTES`，后端 clamp 到 1–240）。
+       把窗口设成两小时以上，屏上就是「已烧 127:34」，三位数，
+       这一条当场红，而那一屏一个字都没错。
+       判据比它要守的东西窄:守的是「这个数在走」，不是「它有几位」。
+
+       【2026-09-06 又窄了一次】：三位数的分钟本身就是那一屏的毛病 ——
+       「已烧 99:16 / 约 240:00」没有人知道单位是什么。
+       超过一小时现在说「1 小时 39 分」。判据同样只守「这个数在走」，
+       两种写法都收，不规定它长什么样。 */
+    ok(/已烧 (\d+:\d\d|\d+ 小时( \d+ 分)?)/.test(夜), '烧了多久在走',
+       (夜.match(/已烧 [^/]*/) || [''])[0])
     /* 没有顶栏没有 tab —— 全屏时刻（设计册 10.2）。
        这一刻给任何导航都是打断。 */
     ok(await p.evaluate(() => {
@@ -1321,7 +1937,9 @@ if (API) {
     await open('pages/incense/index', { id: 'prod-suhe-incense' })
     await p.waitForTimeout(1500)
     const 长屏香 = await text()
-    ok(长屏香.includes('周四晚九点'), '不到点时那一槽只是一句话，不是入口')
+    ok(长屏香.includes(周几那一词(排期.weekday)) && 长屏香.includes(钟点那一词(排期.hour)),
+       '不到点时那一槽只是一句话，而且说的是配置里那个时刻',
+       长屏香.slice(0, 60))
     await p.setViewportSize({ width: 375, height: 667 })
     /* 直接闯进那一屏也不该看到「大家在点」—— 这一屏不到点就不存在。 */
     await open('pages/lighting/index')
@@ -1371,7 +1989,7 @@ ok(/\d{1,2}月\d{1,2}日 · 周[一二三四五六日]/.test(槽文),
 await p.setViewportSize({ width: 375, height: 667 })
 await shot('01-village')
 
-// ③ 空宅基会说话,且不给「问」的入口 ─────────────────────────────
+// ③ 空宅基会说话，且不给「问」的入口 ─────────────────────────────
 console.log('\n── 点一格空着的（桃桃还没请回家）──')
 await tapPlot('tao')
 await p.waitForTimeout(600)
@@ -1456,9 +2074,14 @@ if (API) {
       if (!册.展开) {
         ok(await p.evaluate(() => document.querySelectorAll('.soon-item').length) === 0,
            '收着的时候没来的那些一行都不占 —— 改结构买的就是这个')
-        ok((await text()).includes(`另外 ${册.共 - 册.在卖} 位还在路上`),
-           '没来的那些收成一行，数目照实报', `${册.共 - 册.在卖} 位`)
-        await p.getByText('还在路上', { exact: false }).first().click()
+        /* 【这一行要说清为什么请不了】（2026-09-02 第三轮评审）。
+           「还没请」的意思是「你还没请」，读起来像点一下就能请；
+           而这 36 位是真的请不了 —— 没有在架的居住商品，因为屋子还没盖。
+           人看到一个点不动的货架而不知道为什么，只会以为这 app 坏了。
+           （更早那一版写的是「还在路上」，听着像明天就到，同样不行。） */
+        ok((await text()).includes(`另外 ${册.共 - 册.在卖} 位，还搬不进来`),
+           '没来的那些收成一行，数目照实报，并说清为什么请不了', `${册.共 - 册.在卖} 位`)
+        await p.getByText('还搬不进来', { exact: false }).first().click()
         await p.waitForTimeout(500)
       }
       const 摊开后 = await p.evaluate(() => ({
@@ -1468,6 +2091,10 @@ if (API) {
       ok(摊开后.展开 && 摊开后.行 === 册.共 - 册.在卖,
          '摊开之后没来的那些一位不少 —— 不是把他们永远藏起来',
          `摊开 ${摊开后.行} 行 / 应有 ${册.共 - 册.在卖}`)
+      /* 摊开之后还要说清【齐了会怎样】—— 上面那一行只够说「还搬不进来」。
+         不说的话，人的下一个问题（那我要不要等）没有答案。 */
+      ok((await text()).includes('走得动了'),
+         '摊开之后说得出什么时候请得回来 —— 不是只留一个「搬不进来」')
       // 0830:「未上架」是运营词，买家那一侧说的是「还没来」
       /* 没来的那些按不动 —— 点了再说「买不了」是先答应再反悔。
          它们连 bindtap 都没有，所以这一条验的是「真的没接」。 */
@@ -1501,7 +2128,7 @@ if (API) {
      空请.slice(0, 44))
   await open('pages/invite/index')
 
-  /* 「一屏放得下」那条约束(设计 10.3)在 0830 的落点从翻页换成了折叠:
+  /* 「一屏放得下」那条约束(设计 10.3)在 0830 的落点从翻页换成了折叠：
      默认那一屏只摆能请的几位，一屏放得下；没来的收成一行。
      翻页是旧落点 —— 它把四位能请的摊成八页，后七页全是灰的。
      摊开／收起两头在上面那段已经验过，这里只钉住【默认态不摊开】——
@@ -1578,7 +2205,13 @@ if (API) {
       const vj = await vr.json()
       for (const x of vj.villagers || []) if (!x.at_home) 在外面.add(x.id)
     }
-    for (const v of ['ayun', 'popo', 'shenyan', 'tenz']) {
+    /* 【候选跟着真目录走】（2026-09-06）。这张名单原先写着 shenyan ——
+       他那时「有货」靠的是库里的测试夹具，而夹具随每一轮门禁长出来、
+       又被下一支下架。真目录建起来之后在架的是阿云、桃桃、婆婆、丹增
+       （见 20260906001_omamori_catalogue.sql）。
+       名单跟不上目录时这一条不报错,它只是【安静地跳过】—— 而跳过
+       在这个脚本里不计入通过,于是一条从来没跑过的断言看着跟绿的一样。 */
+    for (const v of ['ayun', 'tao', 'popo', 'tenz']) {
       if (在外面.size && !在外面.has(v)) continue
       const r = await fetch(`${base}/v1/products?region=cn&platform=mini&category=omamori&villager_id=${v}`)
       if (!r.ok) continue
@@ -1595,26 +2228,42 @@ if (API) {
     console.log('  · 跳过「有货那条」：这个库里没有任何御守在卖（不计入通过）')
   }
 
-  /* 没货那一条任何库都成立：挑一个**确定没有**的。'tao' 在本机与 CI 都没有货，
-     但也别假设 —— 先问一句，真有货就换一个说法。 */
-  const tao有货 = await p.evaluate(async (base) => {
-    const r = await fetch(`${base}/v1/products?region=cn&platform=mini&category=omamori&villager_id=tao`)
+  /* 没货那一条任何库都成立：挑一个**确定没有**的。
+     【原先挑的是桃桃】,而 2026-09-06 她上架了 —— 于是这一条从那天起
+     一直在跳过,而跳过不计入通过。换成白鹭:她的屋子盖好了、口气也写了,
+     但村里没有她走动的那副像素,所以她【按定义】不上架
+     （`scripts/check-can-move-in.py` 守着这条,她一上架那一支就红）。
+     照旧先问一句,不假设。 */
+  const 白鹭有货 = await p.evaluate(async (base) => {
+    const r = await fetch(`${base}/v1/products?region=cn&platform=mini&category=omamori&villager_id=bailu`)
     if (!r.ok) return false
     const j = await r.json()
     return Array.isArray(j) && j.length > 0
   }, API)
-  if (tao有货) {
-    console.log('  · 跳过「没货那条」：桃桃这回真有货（不计入通过）')
+  if (白鹭有货) {
+    console.log('  · 跳过「没货那条」：白鹭这回真有货（不计入通过）')
   } else {
-    const 没货 = await 试('tao', '桃桃')
-    ok(没货.路由 === 'pages/villager/index' && 没货.说.includes('还没上架'),
-       '没有御守在卖的那位，照实说「还没上架」', `${没货.路由} · ${没货.说}`)
+    /* 【话挪到按钮上了】。原先要【点一下】才说「他的御守还没上架」——
+       等于让人白点一趟。现在这句直接写在按钮上，而且按钮是灰的：
+       没上架这件事在按之前就看得见。
+       所以这一条现在验两样：按钮说了这句话、并且按不动。 */
+    await open('pages/villager/index', { id: 'bailu' })
+    await 等取完('pages/villager/index')
+    await p.waitForTimeout(800)
+    const 桃 = await p.evaluate(() => {
+      const b = [...document.querySelectorAll('button.btn')]
+        .find((x) => /还没做出来|回村/.test(x.innerText))
+      return { 文: b ? b.innerText : '（没找到那颗按钮）', 灰: b ? b.disabled : false }
+    })
+    ok(桃.文.includes('还没做出来') && 桃.灰,
+       '没有御守在卖的那位，按钮上直说「还没做出来」并且按不动　—— 不让人白点一趟',
+       `${桃.文} · disabled=${桃.灰}`)
   }
 } else {
   console.log('  · 跳过「请一位来」与「请他来」：要真目录（不计入通过）')
 }
 
-// ④ 住着的那一格:问一句出签 ─────────────────────────────────────
+// ④ 住着的那一格：问一句出签 ─────────────────────────────────────
 console.log('\n── 点一格住着的（阿云）──')
 await tapPlot('ayun')
 await 等取完('pages/villager/index')
@@ -1631,8 +2280,8 @@ ok(/缺\s*\S/.test(t2), '说得出缺什么　—— 卡片放不下的正是这
 ok(/问问[^\s]/.test(t2), '住着的那位给得出「问问她」的入口', t2.slice(0, 30))
 ok(t2.includes('去屋里看看'), '给「去屋里看看」　—— 阿云那间房搬进来了', t2.slice(0, 40))
 
-/* 先按一下「回村里」再回来。下面那条同样的检查挂在「目录里有他的 sku」上,
-   而这一趟没有 sku 时它整条跳过 —— 于是从村子点进来的这一支,
+/* 先按一下「回村里」再回来。下面那条同样的检查挂在「目录里有他的 sku」上，
+   而这一趟没有 sku 时它整条跳过 —— 于是从村子点进来的这一支，
    回不回得去从来没人问过。这一支不需要 sku。 */
 {
   await p.getByText('回村里', { exact: true }).click()
@@ -1641,7 +2290,7 @@ ok(t2.includes('去屋里看看'), '给「去屋里看看」　—— 阿云那�
      '从村子点进那一位，按「回村里」回得去',
      await p.evaluate(() => globalThis.__router.current().__route))
   /* 回来之后等这一屏**真的又能用**,不是等它路由对了就算 ——
-     村子那张画布重画要一会儿,点早了这一格还没在。 */
+     村子那张画布重画要一会儿，点早了这一格还没在。 */
   for (let i = 0; i < 10; i++) {
     await tapPlot('ayun')
     await 等取完('pages/villager/index')
@@ -1662,11 +2311,47 @@ await p.waitForFunction(
 ).catch(() => {})
 const t3 = await text()
 /* 断言签的【形状】,不断言某一句话。
-   结论是从池子里按 seed 挑的,假服务端给「该动了」而真后端给「别再等了」——
-   第一版照假服务端那句写死,打真后端就红了,而红的是断言不是产品。 */
-const said = t3.slice(t3.indexOf('贫道'))
-ok(t3.includes('贫道'), '出的是阿云的口气', said.slice(0, 24))
-ok(said.includes('宜') && said.includes('忌'), '签里有宜有忌', said.slice(0, 40))
+   结论是从池子里按 seed 挑的，假服务端给「该动了」而真后端给「别再等了」——
+   第一版照假服务端那句写死，打真后端就红了，而红的是断言不是产品。 */
+/* 【2026-09-01 两条都跟着文案改了】。
+   原先钉的是「贫道」——「贫道」是文言，硬要求明令不许，改成
+   「眯着眼看了一眼……」之后这条断言就红了。
+   第二条更值得记一笔：它断言的是「签里有宜有忌」—— 也就是说
+   这条断言在【要求那句行话存在】。同一批词在罗盘那一屏早就改成了
+   「今天适合 / 先别」，而这里的断言把村民问签那一侧钉死在黄历腔上。
+   护栏钉在要被淘汰的东西上，就会替它挡住改动。 */
+const 开场 = '眯着眼看了一眼'
+/* 【找不到时别 slice(-1)】。`indexOf` 找不到返回 -1，
+   `slice(-1)` 取的是最后一个字符 —— 于是失败信息是「里」这么一个字，
+   看着像页面上真的只有那一个字，而实际是整段都不在。
+   报信错了，查起来会走到完全错的方向（2026-09-03 真花了一轮）。 */
+const 位 = t3.indexOf(开场)
+const said = 位 >= 0 ? t3.slice(位) : ''
+ok(位 >= 0, '出的是阿云的口气',
+   位 >= 0 ? said.slice(0, 24) : `没找到「${开场}」；屏上是：${t3.slice(0, 60).replace(/\s+/g, ' ')}`)
+ok(said.includes('今天适合') && said.includes('先别'),
+   '签里说得出今天适合什么、先别什么　—— 而且是人话，不是「宜/忌」', said.slice(0, 40))
+/* 【问签也算「问过一件事」】（2026-09-06 五路评审 · §七）。
+   在这之前徽章只由转盘触发、只数 `naji_record` —— 天天来村民屋里问的人，
+   「一百次」与「七天没断」永远停在 0，而屏上那几枚灰徽章底下
+   写着「去问一件事」，指的正是这件事。
+   判据钉在【数】上，不钉在某一枚：刚问过的这个人，
+   「一百次」那一枚的进度必须 ≥ 1。 */
+if (API) {
+  const 进度 = await p.evaluate(async (base) => {
+    const raw = localStorage.getItem('unmei:buwanren:token')
+    const r = await fetch(base + '/v1/user/me/badges', {
+      headers: raw ? { authorization: 'Bearer ' + JSON.parse(raw) } : {},
+    })
+    if (!r.ok) return null
+    const j = await r.json()
+    const b = (j || []).find((x) => x.code === 'hundred_naji')
+    return b ? (b.progress || null) : null
+  }, API)
+  ok(进度 && 进度.have >= 1,
+     '问了一签之后，「问过一百件事」那一枚的进度真的动了　—— 问签也算数',
+     进度 ? `${进度.have} / ${进度.need}` : '（后端没给 progress）')
+}
 await shot('03-reading')
 
 // ⑤ 住着但房间还没搬进来的 ──────────────────────────────────────
@@ -1694,7 +2379,7 @@ await shot('03-reading')
       .match(/const 说话那格高 = (\d+)/) || [])[1])
     /* 这个常量的语义是「为那一格【留够】多少」，不是「它正好多高」——
        那一格一行 90、两行 115，看签文有多长。写死一个数再要求相等，
-       就成了「内容短的时候绿、长的时候红」的断言（2026-08-31 撞到:
+       就成了「内容短的时候绿、长的时候红」的断言（2026-08-31 撞到：
        实测 115 / 写死 90，村主屏超 22px，重跑又绿，因为签文换了）。
        留够就行，多留一点只是画布小一点点。 */
     ok(写死的 > 0 && 写死的 >= 实高,
@@ -1708,7 +2393,9 @@ await tapPlot('chenjiu')
 await 等取完('pages/villager/index')
 const t4 = await text()
 ok(t4.includes('陈九'), '认出是谁')
-ok(t4.includes('屋子还没搬进来'), '明说屋子还没搬进来　—— 不装作能进')
+// 原先屏上写「屋子还没搬进来」—— 搬进来的是人不是屋子，而且它说的其实是
+// 「我们还没把这一间做出来」。改成「X 的屋子还在盖」，断言跟着改。
+ok(/屋子还在盖/.test(t4), '明说这一间还没做出来　—— 不装作能进')
 
 // ⑥ 进屋 ────────────────────────────────────────────────────────
 console.log('\n── 进屋 ──')
@@ -1749,9 +2436,9 @@ const 可点的 = await p.evaluate(() => {
 ok(可点的 && 可点的.length > 0, '屋里有点得到的物件', 可点的 ? 可点的.length + ' 件（只取前几件）' : '没有 __hitAt 钩子')
 
 /* 画布纵向是裁切的（设计 V5:「长屏往上下各露出更多房间」）,
-   所以要问裁掉的那两条里有没有点不到的东西 —— 一件物件整个落在带子外面,
-   它就等于不存在,而屋子照样画得出来、动得起来,上面每一条都绿。
-   拿最矮的机器问,因为裁得最多的就是它。 */
+   所以要问裁掉的那两条里有没有点不到的东西 —— 一件物件整个落在带子外面，
+   它就等于不存在，而屋子照样画得出来、动得起来，上面每一条都绿。
+   拿最矮的机器问，因为裁得最多的就是它。 */
 {
   await p.setViewportSize({ width: 375, height: 667 })
   await p.waitForTimeout(400)
@@ -1838,7 +2525,7 @@ if (起课前) {
 } else {
   ok(false, '按下表演按钮，文案跟着变', '这间房没有表演按钮')
 }
-/* 退出之后还烧不烧帧。屋里在动是应该的,离开之后还在动就是白耗电 ——
+/* 退出之后还烧不烧帧。屋里在动是应该的，离开之后还在动就是白耗电 ——
    页面 onUnload 要叫停 mountRoom 给的那个 handle。
    走的是【不动的那一页】(今日),否则村主屏自己的循环会混进来。 */
 await p.evaluate(() => { globalThis.__raf = 0 })
@@ -1855,12 +2542,12 @@ await open('pages/room/index', { room: 'ayun' })
 await shot('04-room')
 
 // ⑦ 冷启动那一下 ───────────────────────────────────────────────
-/* 匿名登录是异步的。页面 onShow 立刻取一次,那时 token 还没落地 —— 后端给 401;
+/* 匿名登录是异步的。页面 onShow 立刻取一次，那时 token 还没落地 —— 后端给 401;
    登录一回来 onAuthReady 再叫一次。第二次常常撞在第一次【还没走完 finally】
-   的那一瞬,而防重入的闸门会把它直接扔掉,页面从此停在「取不到本命」,
-   切一次 tab 才自愈。(实测:78ms 登录 200 → 80ms 请求 401 → 81ms onAuthReady 到。)
+   的那一瞬，而防重入的闸门会把它直接扔掉，页面从此停在「取不到本命」,
+   切一次 tab 才自愈。(实测：78ms 登录 200 → 80ms 请求 401 → 81ms onAuthReady 到。)
 
-   这一条只在打真后端时有意义:假服务端没有匿名登录,也就没有那一下。 */
+   这一条只在打真后端时有意义：假服务端没有匿名登录，也就没有那一下。 */
 if (API) {
   console.log('\n── 冷启动：第一次还在飞的时候又叫了一次 ──')
   errs.length = 0
@@ -1868,18 +2555,18 @@ if (API) {
 
   /* 直接钉【机制】,不去赌那个时序。
 
-     第一版是「打开页面,看 err 是不是空的」—— 而那条只在两件事撞上的那一瞬才红:
-     把修复删掉重跑,它照样绿。**一条只在时序对上时才红的检查比没有更糟**,
-     它平时全绿,偶尔为了没人复现得了的理由红一次。
+     第一版是「打开页面，看 err 是不是空的」—— 而那条只在两件事撞上的那一瞬才红：
+     把修复删掉重跑，它照样绿。**一条只在时序对上时才红的检查比没有更糟**,
+     它平时全绿，偶尔为了没人复现得了的理由红一次。
 
-     这里改成:趁第一次请求还没回来再叫一次,数一数总共发了几次。
-     被扔掉就是 1 次,补上了就是 2 次。 */
+     这里改成：趁第一次请求还没回来再叫一次，数一数总共发了几次。
+     被扔掉就是 1 次，补上了就是 2 次。 */
   let 请求数 = 0
   const 数请求 = (r) => { if (r.url().includes('/v1/user/natals')) 请求数++ }
   p.on('request', 数请求)
   await p.evaluate(() => {
     const c = globalThis.__router.current()
-    c.loadDefault()          // 第一次,不等它
+    c.loadDefault()          // 第一次，不等它
     c.loadDefault()          // 撞上去
   })
   await p.waitForTimeout(1500)
@@ -1892,10 +2579,10 @@ if (API) {
 
 // ⑧ 表单填得进去 ───────────────────────────────────────────────
 /* 小程序的 setData 键可以是【路径】,本命页与我页一共七处这么写。
-   垫片如果直接 Object.assign,会造出一个名字里带点的键,而 {{form.date}}
-   读的是嵌套值 —— 于是表单看着没反应,不报错也不告警。
-   镜像在这一点上骗人的话,建本命这条核心动线的验证就完全不作数,
-   所以这里连着走一遍:点下去 → 页面自己的 handler → setData 路径 → 渲染。 */
+   垫片如果直接 Object.assign,会造出一个名字里带点的键，而 {{form.date}}
+   读的是嵌套值 —— 于是表单看着没反应，不报错也不告警。
+   镜像在这一点上骗人的话，建本命这条核心动线的验证就完全不作数，
+   所以这里连着走一遍：点下去 → 页面自己的 handler → setData 路径 → 渲染。 */
 console.log('\n── 本命页的表单（setData 用的是路径写法）──')
 errs.length = 0
 await open('pages/natal/index')
@@ -1908,30 +2595,30 @@ const g = await p.evaluate(() => {
   const pg = globalThis.__router.current()
   return { 值: pg.data.form && pg.data.form.gender,
            假键: Object.keys(pg.data).filter((k) => k.includes('.')),
-           /* 【哪一个】选中,不是「有没有选中的」—— 乾/M 本来就亮着,
-              问后者的话,值根本没写进去时它照样是绿的（变异测过） */
+           /* 【哪一个】选中，不是「有没有选中的」—— 乾/M 本来就亮着，
+              问后者的话，值根本没写进去时它照样是绿的（变异测过） */
            选中: [...document.querySelectorAll('.seg-item.on')].map((e) => e.textContent.trim()).join(' ') }
 })
 ok(g.值 === 'F', '点「坤/F」写进了 form.gender', String(g.值))
 ok(g.假键.length === 0, '没造出名字里带点的假键', g.假键.join(' ') || '一个都没有')
 ok(g.选中 === '女', '亮起来的正是「坤/F」　—— 值写对了但渲染没跟上也是白搭', g.选中 || '一个都没亮')
 
-/* 真填那个选择器,不绕过它调 handler ——
-   picker 曾被渲成一个点不动的方块,而绕过去调 handler 的检查照样是绿的。
+/* 真填那个选择器，不绕过它调 handler ——
+   picker 曾被渲成一个点不动的方块，而绕过去调 handler 的检查照样是绿的。
    这一条现在从「点得动吗」一路验到「页面上看得见吗」。 */
 const dp = p.locator('input[data-picker="date"]')
 const 有选择器 = await dp.count() === 1
-ok(有选择器, 'picker 是真能点的原生选择器,不是个方块', String(await dp.count()))
+ok(有选择器, 'picker 是真能点的原生选择器，不是个方块', String(await dp.count()))
 if (有选择器) {
   await dp.fill('1998-03-05')
   await p.waitForTimeout(200)
-  ok((await text()).includes('1998-03-05'), '选了日子,页面上就看得见', '{{form.date}}')
+  ok((await text()).includes('1998-03-05'), '选了日子，页面上就看得见', '{{form.date}}')
   ok(await p.evaluate(() => globalThis.__router.current().data.form.date) === '1998-03-05',
      '选择器发的是小程序那个形状的事件', 'detail.value → form.date')
 } else {
-  // 没有选择器就别去填它 —— 那会卡满三十秒再抛一段栈,
-  // 门禁失败该看得懂,不该看着像它自己坏了
-  ok(false, '选了日子,页面上就看得见', '选择器都不在,没得填')
+  // 没有选择器就别去填它 —— 那会卡满三十秒再抛一段栈，
+  // 门禁失败该看得懂，不该看着像它自己坏了
+  ok(false, '选了日子，页面上就看得见', '选择器都不在，没得填')
   ok(false, '选择器发的是小程序那个形状的事件', '同上')
 }
 
@@ -1972,14 +2659,14 @@ if (await lab.count() === 1) {
 
 /* 建本命 —— 填完真的按下去。
 
-   这一段要的不只是真后端,还要【排盘服务】(mingli,在另一个仓库):
-   用神是它算的。CI 上没有它,所以那里跑不了这一段。
+   这一段要的不只是真后端，还要【排盘服务】(mingli,在另一个仓库):
+   用神是它算的。CI 上没有它，所以那里跑不了这一段。
 
-   不给它做个假的:假服务会按我【以为的】形状回话,
+   不给它做个假的：假服务会按我【以为的】形状回话，
    而 2026-08-18 抓到的那个 bug 恰恰是「我以为的形状」错了
    (性别发 M,它只认 male)—— 假服务会把这种错原封不动地盖住。
 
-   所以:给了 --mingli 就真验,没给就【明说跳过】,不计入通过。 */
+   所以：给了 --mingli 就真验，没给就【明说跳过】,不计入通过。 */
 if (API && MINGLI) {
   const alive = await fetch(MINGLI).then(() => true).catch(() => false)
   if (!alive) { console.log(`✗ 说了有排盘服务(${MINGLI})却连不上`); process.exit(1) }
@@ -2033,16 +2720,24 @@ if (API && MINGLI) {
       return { 齐了: c.data.齐了, 填了: c.data.填了 }
     })
     if (!空.齐了) {
-      await p.getByText('算一算', { exact: true }).click()
+      /* 【2026-09-01 改了表现】。原先这颗按钮在没填齐时是灰的（btn-wait）、
+         点了在下面冒一句「还差……」。意图对（不禁掉让人猜），
+         但灰色 + 棕字看着就是坏掉的按钮，人不会去按它，那句解释也就
+         永远读不到。现在把话写在按钮上，颜色照常 —— 它一直能按。
+         所以这里验的是【按钮自己说出还差什么】，然后按下去仍然指出栏位。 */
+      const 钮文 = await p.evaluate(() => {
+        const b = [...document.querySelectorAll('button.btn')]
+          .find((x) => /还差|算一算/.test(x.innerText))
+        return b ? b.innerText.trim() : '（没找到那颗按钮）'
+      })
+      ok(/^还差/.test(钮文), '没填齐时，按钮自己说出还差什么　—— 不是灰着让人猜', 钮文)
+      await p.getByText(钮文, { exact: true }).click()
       await p.waitForTimeout(500)
       const 按后 = await text()
-      ok(按后.includes('还差'), '没填齐时按下去，说得出还差什么', (按后.match(/还差[^—]*/) || [''])[0])
+      ok(按后.includes('还差'), '按下去也说得出还差什么', (按后.match(/还差[^—]*/) || [''])[0])
       ok(按后.includes('你是哪天出生的'), '而且表单还在　—— 不是整屏只剩一句话')
       ok(await p.evaluate(() => document.querySelectorAll('.field-miss').length > 0),
          '差的那几栏自己指出来　—— 不必回去数哪一栏是哪一栏')
-      ok(await p.evaluate(() =>
-           !!document.querySelector('button.btn-wait')),
-         '三样没齐时那颗按钮不满橙　—— 它此刻按不出结果')
     } else {
       ok(false, '验得到「没填齐」那一支', '进来时三样已经齐了')
     }
@@ -2053,13 +2748,23 @@ if (API && MINGLI) {
                   填了: { date: true, time: true, gender: true }, 齐了: true, 缺提示: '' })
     })
     await p.waitForTimeout(300)
-    ok(await p.evaluate(() => !document.querySelector('button.btn-wait')),
-       '填齐之后按钮才亮起来')
+    ok(await p.evaluate(() => {
+         const b = [...document.querySelectorAll('button.btn')]
+           .find((x) => /还差|算一算/.test(x.innerText))
+         return !!b && b.innerText.trim() === '算一算'
+       }), '填齐之后按钮就说「算一算」　—— 不再报缺哪一样')
   }
 
   await p.getByText('算一算', { exact: true }).click()
+  /* 【这一步比别处慢，余量要给够】。建本命是这条链上最重的一次：
+     写 natal → 调排盘服务 → 存 summary → 出一册报告，四件事串着。
+     本机上门禁（cargo 构建）跟镜像常常同时在跑，实测这一步整段
+     花过十几秒（API 日志里单条 UPDATE 就 10.1s）——
+     20 秒的余量于是偶发地不够，屏上停在表单，四条断言一起红。
+     而【偶发的红比常红更糟】:它教人把每一次真红都当成噪音。
+     45 秒对一次真排盘仍然是「不该超过」的量级，超了就是真慢。 */
   await p.waitForFunction(() => globalThis.__router.current().data.mode === 'summary', null,
-                          { timeout: 20000 }).catch(() => {})
+                          { timeout: 45000 }).catch(() => {})
   const n = await p.evaluate(() => {
     const d = globalThis.__router.current().data
     return { mode: d.mode, id: d.natal && d.natal.id, ys: d.summary && d.summary.primary_yongshen }
@@ -2079,21 +2784,21 @@ if (API && MINGLI) {
   ok(!!n.ys, '排出了用神', n.ys || '空的')
   await shot('06-natal')
 
-  /* 有了本命,再问一签 —— 这一签背后该有【真盘】。
-     盘不外露(响应里没有这一栏),只落档,所以这条要查库。
+  /* 有了本命，再问一签 —— 这一签背后该有【真盘】。
+     盘不外露(响应里没有这一栏),只落档，所以这条要查库。
 
-     为什么非查不可:2026-08-18 之前它一直是空的。发给排盘服务的请求带的是
-     natal_id,而它只认生辰,于是每次 422、每一签落空盘 —— 库里 84 条问签,
-     80 条的盘是 null。前端一切正常,没有任何一处会红。
+     为什么非查不可：2026-08-18 之前它一直是空的。发给排盘服务的请求带的是
+     natal_id,而它只认生辰，于是每次 422、每一签落空盘 —— 库里 84 条问签，
+     80 条的盘是 null。前端一切正常，没有任何一处会红。
 
-     先把这个用户今天的阿云签删掉:同一位同一天的签是有缓存的,不删的话
-     再问一次拿到的是刚才那一条 —— 那时候还没本命,空盘是如实的结果,
+     先把这个用户今天的阿云签删掉：同一位同一天的签是有缓存的，不删的话
+     再问一次拿到的是刚才那一条 —— 那时候还没本命，空盘是如实的结果，
      后端根本不会去取盘(日志里连一行都不会有)。删掉才是真的再问一次。
-     这是【测试夹具】,跟发御守凭据一样,写在这里、看得见。 */
+     这是【测试夹具】,跟发御守凭据一样，写在这里、看得见。 */
   const uid = sql1("SELECT user_id FROM villager_reading ORDER BY asked_at DESC LIMIT 1")
   run(`DELETE FROM villager_reading WHERE user_id='${uid}' AND villager_id='ayun'`)
   /* 建完本命，「今」那一页该有内容了 —— 它整页的意义就是「今日与本命对照」，
-     而在这之前它只会劝你去建本命。这一段以前没验:那一页开得起来就算过。 */
+     而在这之前它只会劝你去建本命。这一段以前没验：那一页开得起来就算过。 */
   await open('pages/home/index')
   const 今 = await text()
   /* 「主用神」是术语，0830 已经从日常几屏上清掉了(专业细节只留在「那一份」)。
@@ -2109,13 +2814,13 @@ if (API && MINGLI) {
   await p.waitForTimeout(1500)
   const 最近 = sql1("SELECT villager_id || ' | ' || coalesce(chart_json::text,'null') FROM villager_reading ORDER BY asked_at DESC LIMIT 1")
   const 盘 = 最近.split(' | ').slice(1).join(' | ')
-  ok(盘 !== 'null' && 盘.length > 20, '有本命之后,签背后是真盘', 最近.slice(0, 40) + '…')
+  ok(盘 !== 'null' && 盘.length > 20, '有本命之后，签背后是真盘', 最近.slice(0, 40) + '…')
 }
 
 // ⑩ 起卦 ───────────────────────────────────────────────────────
-/* 产品的核心交互,而验证以前只【打开】这一页就算过。
+/* 产品的核心交互，而验证以前只【打开】这一页就算过。
    摇手机在无头浏览器里发生不了(那台机器不会动),但这一页写的是
-   「点击中心 · 或摇手机」—— 点这条路真机与网页版是同一条,验得了。
+   「点击中心 · 或摇手机」—— 点这条路真机与网页版是同一条，验得了。
 
    打假服务端时只验到「点下去真的开始转」;打真后端时一路验到落卦。 */
 /* 今日页那个空状态上的「输入生辰」。它只在没有本命时出现，而跑到这里
@@ -2165,10 +2870,10 @@ errs.length = 0
    转完之后跳去「今天」那一页看结果 —— 落位动画在我家走完再跳。 */
 await open('pages/home/index')
 /* 罗盘不看有没有本命 —— 起卦本来就不需要它。 */
-/* 【记】状态变化,不【采样】状态。
-   doSpin 先同步把 mode 设成 spinning 再去请求后端,而假服务端那条 404
-   在一个来回里就走完了 —— 等我隔着进程去读的时候,它已经回到 idle。
-   采样采不到的东西,不等于没发生过。 */
+/* 【记】状态变化，不【采样】状态。
+   doSpin 先同步把 mode 设成 spinning 再去请求后端，而假服务端那条 404
+   在一个来回里就走完了 —— 等我隔着进程去读的时候，它已经回到 idle。
+   采样采不到的东西，不等于没发生过。 */
 await p.evaluate(() => {
   const pg = globalThis.__router.current()
   globalThis.__modes = []
@@ -2177,7 +2882,7 @@ await p.evaluate(() => {
 })
 await p.getByText('问一件事', { exact: true }).click()
 ok((await p.evaluate(() => globalThis.__modes))[0] === 'spinning',
-   '点下去立刻开始转　—— 这一下不等后端,是给人的即时反馈',
+   '点下去立刻开始转　—— 这一下不等后端，是给人的即时反馈',
    (await p.evaluate(() => globalThis.__modes)).join(' → ') || '一次都没变')
 if (API) {
   /* 转完会**跳到「今天」那一页**（起卦在我家、看卦在那一页）。
@@ -2191,12 +2896,89 @@ if (API) {
   ).catch(() => {})
   const r = await p.evaluate(() => {
     const c = globalThis.__router.current()
-    return { 路由: c.__route, mode: c.data.mode, dir: c.data.result && c.data.result.direction }
+    return { 路由: c.__route, mode: c.data.mode, dir: c.data.result && c.data.result.direction,
+             id: c.data.result && c.data.result.id }
   })
   ok(r.路由 === 'pages/ask/index', '转完跳去「今天」那一页', r.路由)
+  /* 这一签的 id 记下来 —— 下面「同一小时再转一次」要拿它比。
+     【不从库里拿最新那一条】：验证库里有别的用户的记录，
+     `ORDER BY asked_at DESC LIMIT 1` 抓到的是别人的（头一版就这么红了一次）。 */
+  const 头一签id = r.id || ''
   ok(r.mode === 'result', '看到的是刚落的那一卦（不是「翻回去看」那种）', r.mode)
   ok(!!r.dir, '这一卦有方位　—— 后端真算过', r.dir || '空的')
   ok((await text()).includes('再问一次'), '落卦之后可以再问一次')
+
+  /* 【那张推荐卡真的在屏上】（2026-09-02 第三轮评审 · 第一次打开的人）。
+     起卦那一刻后端确实回了推荐，但结果屏拿到 id 之后会用 `detail(id)`
+     把整条记录【重取一遍】（ask/index.ts 的 `showWanted`）——
+     而 detail 一直没把 `recommended_product_id` 放进响应体。
+     于是那一瞬间有、页面一渲染就没了，
+     `wx:if="{{result.recommend}}"` 永远不成立。
+
+     后果是 ¥199 的「你的说明书」【全 app 没有一条路走得到】:
+     另外三个入口指向御守与订阅，而订阅那屏说「村里现在没有可以订的东西」。
+
+     所以这一条不看接口，看【屏上渲出来没有】—— 那才是它当初漏掉的地方。 */
+  const 荐 = await p.evaluate(() => {
+    const d = globalThis.__router.current().data
+    const el = document.querySelector('.recommend')
+    return { 有数据: !!(d.result && d.result.recommend),
+             上屏: !!el, 文: el ? (el.innerText || '').replace(/\n/g, ' ').slice(0, 40) : '' }
+  })
+  ok(荐.有数据 && 荐.上屏, '一卦之后那张「也可以问问」真的渲在屏上',
+     `数据 ${荐.有数据} · 元素 ${荐.上屏} · ${荐.文}`)
+  ok(/[¥￥]\d/.test(荐.文), '那张卡上有价 —— 它是通往掏钱那一步的路', 荐.文)
+
+  /* 【问的那件事得影响答案】（2026-09-02 第四轮评审 · 产品完整性）。
+     起卦的种子原先只有「谁 + 哪一天 + 哪一小时」，问题只落库、
+     不参与任何一次挑选 —— 同一小时里问「我该结婚吗」「明天会下雨吗」
+     「这只股票能买吗」，返回的是【逐字相同】的一签。
+     而这个产品卖的正是「替你看一件事」，起卦又没有日限，
+     所以用户问第二件事就看得见。
+
+     两头都要验：不同的事给不同的答案，同一件事再问还是同一句
+     （后者是「不能反复摇到满意为止」那条，不能为了前者丢掉）。
+     这里直接打后端 —— 页面上一次只问得了一件事，而要比的是三件。 */
+  if (API) {
+    const 问 = async (q) => await p.evaluate(async ([base, q]) => {
+      // token 存在 localStorage 的 `unmei:buwanren:token`（跟这一支别处一致）
+      const raw = localStorage.getItem('unmei:buwanren:token')
+      if (!raw) return 'NO_TOKEN'
+      const r = await fetch(base + '/v1/naji/spin', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json',
+                   authorization: 'Bearer ' + JSON.parse(raw) },   // 存的是 JSON 串
+        body: JSON.stringify({ question: q }),
+      })
+      if (!r.ok) return 'HTTP_' + r.status
+      const d = await r.json()
+      return [d.gate, d.direction, (d.quote && (d.quote.text || d.quote)) || ''].join('|')
+    }, [API, q])
+    const 甲 = await 问('我该结婚吗')
+    const 甲又 = await 问('我该结婚吗')
+
+    /* 【两个问题不够判】（2026-09-03 五路评审收尾时红了一次）。
+       这一条原先是「甲 !== 乙」两个问题比一次 —— 而没有本命的用户
+       白天那一支的门只有七个候选（ai_compose.rs 的 `pool`），
+       两件事撞上同一门就是【七分之一】的事，而门一样时那一门下的
+       金句往往也只有两三条。也就是说它每跑二十来次就会红一次，
+       而红的那一次跟「问题没进种子」长得一模一样。
+
+       **偶发的红比常红更糟**：它让每一次真红都能被当成噪音
+       （docs/FINDING-2026-08-22 那条记的就是这件事）。
+
+       改成五个问题看有几种结果。问题真进了种子，五个至少出两种
+       —— 全撞在一起是 7^-4，两千四百分之一；
+       问题【没】进种子的话，五个必然全同，一次就红。 */
+    const 几种 = new Set([甲])
+    for (const q of ['明天会下雨吗', '换个工作好不好', '要不要搬家', '这笔钱该投吗']) {
+      几种.add(await 问(q))
+    }
+    ok(几种.size >= 2, '几件不同的事，给的不是同一签　—— 问题要进种子',
+       `五个问题只得到 ${几种.size} 种结果：${[...几种].map((x) => x.slice(0, 24)).join(' / ')}`)
+    ok(甲 === 甲又, '同一件事再问，还是同一句　—— 不能反复摇到满意为止',
+       `${甲.slice(0, 30)} / ${甲又.slice(0, 30)}`)
+  }
 
   /* 「再问一次」真按下去。以前只验了这四个字在不在页面上 ——
      字在、按钮点了没反应，是两回事，而后者从没验过。
@@ -2209,18 +2991,26 @@ if (API) {
      await p.evaluate(() => globalThis.__router.current().__route))
 
   /* 「想问什么」那一栏 2026-08-25 从 H1 上拿掉了（设计 10.8:
-     「起卦那颗按钮写『转一下』—— 它就是转一下」）。它原先待在弹性槽里,
+     「起卦那颗按钮写『转一下』—— 它就是转一下」）。它原先待在弹性槽里，
      而槽在矮屏上收起 —— 也就是说它在我们对着的那台参照机上根本不存在。
-     这里改成钉住【它确实不在了】：哪天有人又把一个输入框摆回主屏,
-     这一条会红,那正是该看一眼的时候。 */
+     这里改成钉住【它确实不在了】：哪天有人又把一个输入框摆回主屏，
+     这一条会红，那正是该看一眼的时候。 */
   await p.waitForTimeout(400)
   ok(await p.locator('.ask-q-input').count() === 0,
      '主屏上没有输入框 —— 转一下就是转一下',
      String(await p.locator('.ask-q-input').count()))
 
-  /* 再转一签 —— 让「近几次」真有两条。
+  /* 再转一次。
+     【同一小时同一件事是同一签】（2026-09-06 三路验证 · 第一次打开的人）:
+     种子 = 谁 + 哪一天哪一小时 + 问的那件事，主屏又不带问题，
+     所以这一次转出来的必然是刚才那一条 —— 那是设定
+     （「不能反复摇到满意为止」），而屏上照旧转三秒、照旧震一下。
+     这一段下面两条验的就是「屏上说清了它是同一签」与「库里没有多一行」。
      转完之后**跳去「今天」那一页**（起卦在我家、看卦在那一页），
      所以这里等的是路由变了，不是这一页的 mode 变成 result。 */
+  const 转之前几条 = API ? Number(sql1(
+    "SELECT count(*) FROM naji_record WHERE asked_at > NOW() - INTERVAL '2 hours'")) : 0
+  const 上一签 = 头一签id
   await open('pages/home/index')
   await p.waitForTimeout(500)
   await p.getByText('问一件事', { exact: true }).click()
@@ -2233,6 +3023,23 @@ if (API) {
      && await p.evaluate(() => globalThis.__router.current().data.mode) === 'result',
      '转完跳到「今天」那一页，看的是刚落的那一卦',
      `${await p.evaluate(() => globalThis.__router.current().__route)} · ${await p.evaluate(() => globalThis.__router.current().data.mode)}`)
+
+  if (API) {
+    const 这一签 = await p.evaluate(() => (globalThis.__router.current().data.result || {}).id)
+    ok(这一签 === 上一签,
+       '同一小时再转一次，落到的是刚才那一签　—— 那是设定，不是缓存',
+       `${上一签} → ${这一签}`)
+    ok(await p.evaluate(() => globalThis.__router.current().data.又问了) === true,
+       '而且屏上说清了它是同一签　—— 不是假装刚算出来的',
+       String(await p.evaluate(() => globalThis.__router.current().data.又问了)))
+    ok((await text()).includes('这一小时你已经问过了'),
+       '那句话真的渲在屏上', ((await text()).match(/这一小时[^\n]{0,20}/) || [''])[0])
+    const 转之后几条 = Number(sql1(
+      "SELECT count(*) FROM naji_record WHERE asked_at > NOW() - INTERVAL '2 hours'"))
+    ok(转之后几条 === 转之前几条,
+       '库里没有因此多一行　—— 同一签就是同一条记录',
+       `${转之前几条} → ${转之后几条}`)
+  }
 
   /* 「看更多」那一段删了：近签整块搬到了我家的弹性槽（REDESIGN.md）。
      两处各留一份就是同一件事写两遍，而且会分头漂。
@@ -2311,21 +3118,21 @@ if (API) {
   }
 } else {
   /* 假服务端没有 /v1/naji/spin,给的是 404 —— 于是这里走的是【失败那条路】。
-     那条路也该验:落回 idle、弹「没转成」,而不是卡在转圈上转到天荒地老。 */
+     那条路也该验：落回 idle、弹「没转成」,而不是卡在转圈上转到天荒地老。 */
   await p.waitForFunction(() => globalThis.__router.current().data.mode !== 'spinning', null,
                           { timeout: 8000 })
   ok(await p.evaluate(() => globalThis.__router.current().data.mode) === 'idle',
-     '后端不给卦时落回原样,不卡在转圈上')
+     '后端不给卦时落回原样，不卡在转圈上')
   ok(await p.evaluate(() => document.getElementById('wx-toast').textContent).then((t) => t.includes('没转成')),
      '并且说了一声「没转成」', await p.evaluate(() => document.getElementById('wx-toast').textContent))
 }
 
 // ⑪ 版式对不对 ─────────────────────────────────────────────────
-/* 这三条钉的是【外观】,而外观出问题时,行为检查一条都不会红 ——
+/* 这三条钉的是【外观】,而外观出问题时，行为检查一条都不会红 ——
    镜像照样「动线全通」,只是每一页都长得不对。
-   两处都真踩过:app.wxss 从来没被读过(于是全页贴边渲);
-   `page` 是小程序的根元素、浏览器里没这个标签(于是整套颜色变量落空,
-   而落空的 var() 不报错,页面只是「素了点」)。 */
+   两处都真踩过：app.wxss 从来没被读过(于是全页贴边渲);
+   `page` 是小程序的根元素、浏览器里没这个标签(于是整套颜色变量落空，
+   而落空的 var() 不报错，页面只是「素了点」)。 */
 console.log('\n── 版式（全局样式真的生效了吗）──')
 errs.length = 0
 await open('pages/home/index')
@@ -2336,22 +3143,32 @@ await p.evaluate(() => globalThis.__router.current().setData({ summary: null, er
 await p.waitForTimeout(300)
 const look = await p.evaluate(() => {
   const pg = document.querySelector('.page')
-  const btn = document.querySelector('button.btn')
+  /* 【要取【主】按钮，不是屏上第一颗按钮】。
+     2026-09-01 这一屏的主次调过来了：主动作是盘中心那颗（每天要做的事），
+     「填出生时间」降成了 ghost —— 而 `button.btn` 选到的正是后者，
+     于是这条断言开始报「主按钮不是琥珀」，而它其实是对的。
+     `:not(.ghost)` 选不到（这一屏没有实心 .btn）就退回盘中心那颗，
+     它才是这一屏的主按钮。 */
+  const btn = document.querySelector('button.btn:not(.ghost)')
+             || document.querySelector('button.compass-btn')
   const cs = pg && getComputedStyle(pg)
   return {
     左留白: cs ? parseFloat(cs.paddingLeft) : 0,
     墨色: getComputedStyle(document.body).getPropertyValue('--ink').trim(),
-    按钮底: btn ? getComputedStyle(btn).backgroundColor : '没有按钮',
+    // 盘中心那颗的琥珀在渐变里（backgroundImage），实心按钮在 backgroundColor 上
+    按钮底: btn
+      ? (getComputedStyle(btn).backgroundColor + ' ' + getComputedStyle(btn).backgroundImage)
+      : '没有按钮',
   }
 })
 ok(look.左留白 > 10, 'app.wxss 生效了　—— .page 的左右留白来自它', look.左留白 + 'px')
 /* 0830 版换了整套色板 —— 这两条钉的是【当前设计色】，改设计就要改这里。
-   它们钉的东西没变:样式真的生效了。落空的 `var()` 不报错，
+   它们钉的东西没变：样式真的生效了。落空的 `var()` 不报错，
    页面只是「素了点」，而那种失效长得跟设计一模一样。 */
 ok(look.墨色 === '#2B2620', '`page` 上的颜色变量映到了根元素', look.墨色 || '落空了')
-// 只问「透不透明」的话,浏览器默认那个灰底 #efefef 照样算过 ——
+// 只问「透不透明」的话，浏览器默认那个灰底 #efefef 照样算过 ——
 // 而那正是 app.wxss 没生效时的样子(变异测出来的)
-ok(look.按钮底 === 'rgb(255, 154, 60)', '主按钮是 0830 的琥珀', look.按钮底)
+ok(/rgb\(255,\s*154,\s*60\)/.test(look.按钮底), '主按钮是 0830 的琥珀', look.按钮底.slice(0, 70))
 
 // ⑪-b 一条完整用例 · 我 → 铺 → 一件 ────────────────────────────
 /* 「所有资源都要有出入口」：商品详情原先只有问签那张推荐卡一个入口，
@@ -2394,14 +3211,23 @@ if (!API) {
      比名字的话，比的是村民名与商品名，那两个本来就不该相等。 */
   /* 找第一个【在卖的】,还要知道它排第几 —— 按用神排之后头一位不一定在卖
      （缺金的人头三位都还没上架）,而点一个「未上架」的行本来就该按不动。
-     原先这里点的是 `.item` 的第一个,那是在假设「第一位一定在卖」。 */
+     原先这里点的是 `.item` 的第一个，那是在假设「第一位一定在卖」。 */
   /* 「只看在卖的」那条弹性槽 0830 撤了 —— 它是为「四十位平级混排八页」
-     打的补丁,而那个结构已经换成「能请的在前、没来的折叠」。
+     打的补丁，而那个结构已经换成「能请的在前、没来的折叠」。
      它当初要验的「不是把没上架的永远藏起来」,现在由上面折叠那段验。 */
 
+  /* 【还要「没住进来」】（2026-09-03）。上一版只挑 `onSale` 的第一位 ——
+     而已经住进来的那一位点下去去的是【他本人那一屏】，不是商品页
+     （invite/index.ts 的 onTap 第一支，那是对的:他已经在你村里了）。
+     于是断言拿到 `pages/villager/index`，报「点一件进不去详情」，
+     读起来像页面坏了，实际是这一条挑错了行。
+
+     这一支只在【没有排盘服务】那一档露面 —— 有本命时按用神排，
+     住进来的那位排不到头里。而那一档在这台机器上从来自动接着，
+     所以它一直没被跑到（同一天把三档基准拆开时才露出来）。 */
   const 头一件 = await p.evaluate(() => {
     const c = globalThis.__router.current()
-    const i = (c.data.能请 || []).findIndex((x) => x.onSale)
+    const i = (c.data.能请 || []).findIndex((x) => x.onSale && !x.住着)
     const v = i >= 0 ? c.data.能请[i] : null
     return v ? { name: v.name, product: v.product, 第几: i } : null
   })
@@ -2439,6 +3265,57 @@ console.log('\n── 一屏放得下吗（iPhone SE · 内容区 597）──')
     const m = await 量一屏(r, 要参数[r])
     const 名 = r.replace('pages/', '').replace('/index', '')
     量到[名] = m.溢出
+    /* 横着出界的，一处都不许有 —— 见上面 `横着出界的` 那段。
+       这一条在 390 宽上量（`量一屏` 收尾时把视口设回 390）,
+       比 375 宽松一点;375 那一档由逐屏走的几何数据兜着。 */
+    const 出界 = await 横着出界的(名)
+    ok(出界.length === 0,
+       `${名} 横着没出界${横向允许[名] ? '（除了记着的那一处）' : ''}`,
+       出界.join(' · '))
+    /* 【每一屏的字都要读得出来】。判据 3.2:1 跟 `check-contrast.py` 同一条。
+       这一支量的是【真实渲染】:底写在祖先上、写在渐变里、写在按钮上的，
+       它一律问得到浏览器。2026-09-02 接线当天它抓到三处，
+       其中两处是读 CSS 那一支的免检口子放走的：
+       罗盘中心那颗按钮（1.76:1，「今天」屏唯一的控件）、
+       以及 tabBar 选中态那个色（2.86:1，真机上告诉你「你在哪儿」的那行字）。 */
+    if (m.色) {
+      const 坏 = m.色.错
+      ok(坏.length === 0, `${名} 上的字都读得出来（浏览器实测 ${m.色.量过} 处）`,
+         坏.length
+           ? 坏.map((e) => `${e.比}:1 「${e.文}」 .${e.类} 压在 ${e.底}`).join('\n         ')
+           : (m.色.说不准 ? `另有 ${m.色.说不准} 处底够不着（背景图/canvas），没量` : '一处都不欠'))
+      if (m.色.说不准 > 0) {
+        console.log(`    · ${名} 有 ${m.色.说不准} 处底够不着没量：`
+          + m.色.说不准样本.map((x) => `「${x.文}」(${x.因})`).join(' '))
+      }
+    }
+    /* 【多页的那一屏，每一页都要量】。说明书有六页，而这里只开了第一页
+       （说在前面）—— 它放得下，最后一页（三宫）却超出去 80px，
+       翻页那一整行落在折线之外：读到最后的人屏上没有出口。
+       全 app 只有它要滚，而且滚得静默，靠人翻截图才发现
+       （2026-09-01 五路评审）。一页放得下不等于六页都放得下。 */
+    if (r === 'pages/report/index') {
+      const 页数 = await p.evaluate(() => (globalThis.__router.current().data.tabs || []).length)
+      for (let i = 1; i < 页数; i++) {
+        await p.evaluate((k) => globalThis.__router.current().show(k), i)
+        await p.waitForTimeout(350)
+        const 这一页 = await p.evaluate(() => {
+          const d = document.documentElement, b = document.body
+          return Math.max(d.scrollHeight, b.scrollHeight) - window.innerHeight
+        })
+        const 页名 = await p.evaluate(() => (globalThis.__router.current().data.page || {}).title || '?')
+        if (这一页 > 8) 量到[名] = Math.max(量到[名], 这一页)
+        /* 【收了钱的那一册也要有免责】（2026-09-02 第三轮评审 · 文案）。
+           免费的三屏都挂着「仅供研究与娱乐 · 不构成人生建议」，而这一册
+           —— 全 app 唯一真下判断的地方（「身强是持家有方，身弱容易被
+           事情推着走」）—— 一个字都没有。逐页验：它该整册都在。 */
+        ok((await text()).includes('仅供研究与娱乐'),
+           `说明书第 ${i + 1} 页也挂着免责 —— 这是全 app 唯一真下判断的地方`,
+           (await text()).slice(-40))
+        ok(这一页 <= 8, `说明书第 ${i + 1} 页「${页名}」也放得下`,
+           这一页 > 8 ? `超 ${这一页}px —— 翻页那一行会掉到折线外` : '放得下')
+      }
+    }
     const 记着 = 台账[名] ? 台账[名].超 : null
     if (m.溢出 > 8) {
       if (记着 === null) {
@@ -2492,13 +3369,16 @@ console.log('\n── 一屏放得下吗（iPhone SE · 内容区 597）──')
       凭据: '会得到这些',
       为什么: '第一次来的人看到的是表单，不是盘面' },
     { 页: 'pages/order/index', 名: '待付',
-      切: () => globalThis.__router.current().setData({ status: 'unpaid', toScan: false, err: '' }),
-      凭据: '去支付',
-      为什么: '待付给的是「去支付 / 不要了」，跟已付那组按钮不一样' },
-    { 页: 'pages/order/index', 名: '该扫了',
-      切: () => globalThis.__router.current().setData({ status: 'paid', toScan: true, err: '' }),
-      凭据: '收到了，去扫一下',
-      为什么: 'M3 那颗主按钮加一槽话，是这一屏最高的一种形态' },
+      切: () => globalThis.__router.current().setData({ status: 'unpaid', 住下了: false, err: '' }),
+      凭据: '去付',
+      为什么: '待付给的是「去付」加一行「不要这一单了」，跟已付那组按钮不一样' },
+    { 页: 'pages/order/index', 名: '住下了',
+      切: () => globalThis.__router.current().setData({
+        status: 'paid', 住下了: true, err: '',
+        who: { name: '丹增', face: '增', direction: 'ne', id: 'tenz', 脸样: '' },
+      }),
+      凭据: '屋里看看',
+      为什么: '付完之后那颗主按钮加一槽话，是这一屏最高的一种形态' },
     { 页: 'pages/order/index', 名: '轨迹很长',
       切: () => {
         /* 塞十二条 —— 比设计定的八条上限多四条。轨迹是承运商推来的，
@@ -2510,9 +3390,22 @@ console.log('\n── 一屏放得下吗（iPhone SE · 内容区 597）──')
         /* 顺便把这一单切成【已付】。一张能有十二条轨迹的单不可能还没付钱 ——
            没付钱不会发货。不切的话「已付≠合计」那一块会一起显示，
            而这一屏量到的就成了一个现实中不存在的组合。 */
+        /* 【造出来的那一态得是真实存在的一种】（2026-09-06）。
+           上一版只切 status 与 shipments —— 而这一趟拿到的那一单是
+           【说明书】那一单（`report` 非空）。于是量到的是
+           「一张报告单挂着十二条物流轨迹」:报告是算出来的，从不发货,
+           这个组合真实链路造不出来。它凭空多出一颗「读你的说明书」的
+           主按钮（`.cta-read`，49px）和一整块用不上的高度。
+           这个仓在这一屏上栽过同一件事:上一版直插一条 `delivered` 的运单
+           造出「包裹到了、人还没住进来」，而买御守从来不寄东西 ——
+           那段注释就写在这个文件里，「拿一个不存在的状态验出来的绿，是假的绿」。
+
+           十二条轨迹属于【实物那一单】。所以一并把它切成实物的样子:
+           没有册子、能申请退款（实物签收前可以退，协议这么写的）。 */
         c.setData({ traceOf: 'shp-x', trace: 条.slice(0, 8), traceMore: 条.length - 8,
                     shipments: [{ id: 'shp-x', statusText: '在路上', tracking_no: 'X1' }],
-                    status: 'paid', statusText: '已付', paidText: c.data.totalText, err: '' })
+                    status: 'paid', statusText: '已付', paidText: c.data.totalText, err: '',
+                    report: null, 能退: true, 退不了: '' })
       },
       凭据: '更早还有 4 条',
       为什么: '10.3：一屏八条，超了折叠 —— 全渲的话这一屏会被轨迹顶出去' },
@@ -2522,14 +3415,14 @@ console.log('\n── 一屏放得下吗（iPhone SE · 内容区 597）──')
       /* 0830：空的时候不再摆一个粗虚线框写「还没买过什么」——
          上面菜单里已经写着「我买过的 · 还没有」，同一件事一屏说三遍，
          而且最重的位置给了「什么都没有」。现在只留这一行指出哪儿能有。 */
-      凭据: '去村里看看谁能来',
+      凭据: '村里每位都带着自己的东西',
       为什么: '空状态是这一屏的一半 —— 它要指出「哪儿能有」（设计册 10.7）' },
     { 页: 'pages/orders/index', 名: '一单都没有',
       切: () => globalThis.__router.current().setData({
         loading: false, err: '', total: 0, items: [], page: [], pageCount: 0 }),
       // 0830:这一屏的空状态从「还没买过什么」（一句陈述）改成了「钱包还是满的呢」
       凭据: '钱包还是满的',
-      为什么: 'M2 的空状态：不说「没有订单」，说东西长在人身上、去村里看看' },
+      为什么: 'M2 的空状态：不说「没有订单」，指出东西在谁那儿、去村里看看' },
     { 页: 'pages/subs/index', 名: '一个都没订',
       切: () => globalThis.__router.current().setData({ loading: false, err: '', items: [] }),
       凭据: '还没有订着的',
@@ -2700,17 +3593,61 @@ if (!API) {
     ok(await p.evaluate(() => globalThis.__router.current().data.message) === '镜像留一句',
        '留言写进去留得住', 'bindinput → message')
 
-    /* 收货地址簿只有真机有 —— 网页版上它抛，这一屏要如实说，不假装填好了 */
-    await p.getByText('还没填', { exact: false }).click()
-    await p.waitForTimeout(500)
-    const 地址话 = await p.evaluate(() => globalThis.__router.current().data.addrNote)
-    ok(!!地址话 && !await p.evaluate(() => !!globalThis.__router.current().data.contact),
-       '选地址在网页上如实说做不到，不假装填好', String(地址话))
+    /* 【地址只在真要寄的那一件上问】（2026-09-01 第二轮评审 · 转化路）。
+       这一趟挑中的是香还是御守由目录决定，所以问页面它自己是哪一种，
+       不写死一支 —— 写死的那一支会在挑中另一种时挂满三十秒再抛。
+       两种都验：寄的那种要问地址（且在网页上如实说做不到），
+       不寄的那种连「寄到」两个字都不该有。 */
+    const 要寄 = await p.evaluate(() => globalThis.__router.current().data.要寄)
+    if (要寄) {
+      await p.getByText('还没填', { exact: false }).click()
+      await p.waitForTimeout(500)
+      const 地址话 = await p.evaluate(() => globalThis.__router.current().data.addrNote)
+      ok(!!地址话 && !await p.evaluate(() => !!globalThis.__router.current().data.contact),
+         '选地址在网页上如实说做不到，不假装填好', String(地址话))
+    } else {
+      const 这屏 = await text()
+      ok(!这屏.includes('寄到'), '不寄的那一件不问地址　—— 御守付完人就搬进来，没有包裹',
+         (这屏.match(/寄到[^\n]{0,10}/) || ['（没问）'])[0])
+    }
+
+    /* 另一半单独验：【御守那一屏】不问地址、按钮直接是「去付」。
+       上面那一支只走到目录当天挑中的那一种，而这条是转化路上最贵的一处，
+       不能靠「刚好挑中了」来覆盖。 */
+    {
+      const 御守商品 = sql1(
+        "SELECT p.id FROM product p WHERE p.fulfillment_kind='residency'"
+        + " AND p.status='listed' LIMIT 1")
+      if (御守商品) {
+        await open('pages/confirm/index', { id: 御守商品 })
+        await p.waitForFunction(
+          () => globalThis.__router.current().data.loading === false,
+          null, { timeout: 15000 },
+        ).catch(() => {})
+        const 御守屏 = await text()
+        ok(await p.evaluate(() => globalThis.__router.current().data.要寄) === false,
+           '御守那一屏知道自己不用寄',
+           String(await p.evaluate(() => globalThis.__router.current().data.要寄)))
+        ok(!御守屏.includes('寄到') && !御守屏.includes('先填寄到哪儿'),
+           '御守那一屏不问地址、按钮不是「先填寄到哪儿」',
+           (御守屏.match(/寄到[^\n]{0,10}/) || ['（没问）'])[0])
+        ok(御守屏.includes('去付'), '御守那一屏的主按钮直接就是「去付」')
+        ok(/搬进|住下/.test(御守屏), '底下那句说的是付完会发生什么',
+           (御守屏.match(/付完[^\n]{0,20}/) || ['（没说）'])[0])
+        await open('pages/confirm/index', 要参数['pages/confirm/index'])
+        await p.waitForFunction(
+          () => globalThis.__router.current().data.loading === false,
+          null, { timeout: 15000 },
+        ).catch(() => {})
+      } else {
+        ok(false, '库里找不到一件 residency 的在售商品 —— 这一段验不成')
+      }
+    }
 
     /* 确认那一屏的「回去」只长在**出错**那一支上 ——
        正常态没有它（真机上有原生返回箭头，所以不是死路）。
        所以要验它就得把这一屏打进出错态：拿一个不存在的商品进去。
-       在正常态上找这颗按钮找不到,而那不是 bug,是我找错了地方。 */
+       在正常态上找这颗按钮找不到，而那不是 bug,是我找错了地方。 */
     {
       await open('pages/confirm/index', { id: 'p_不存在的商品' })
       await p.waitForFunction(
@@ -2719,6 +3656,18 @@ if (!API) {
       ).catch(() => {})
       const 说了啥 = await p.evaluate(() => globalThis.__router.current().data.err || '')
       ok(!!说了啥, '确认那一屏取不到商品时说得出话　—— 不是空着一屏', String(说了啥).slice(0, 40))
+      /* 【技术原文不许上屏】（2026-09-02）。
+         `utils/say.ts` 原先的判据是「有汉字就是写给人看的，原样显示」——
+         而用户自己输的字被回显进错误串时它当场失效：
+         上面这一屏开的是 `p_不存在的商品`，后端回的是
+         `{"error":"not found: product","code":"not_found"}`;
+         把 id 换成中文的（真实用户输的名字、地址、问的那句话全是中文），
+         回的就是 `not found: sku 没这个` —— 整句推到屏上。
+         判据换成后端明确给的 `code`。这条断言钉住结果：
+         屏上那一句里不许出现英文技术词。 */
+      ok(!/not found|unauthorized|forbidden|validation|conflict|internal|[a-z_]{4,}:/i
+           .test(String(说了啥)),
+         '出错那一句是人话，不是后端原文', String(说了啥))
       await p.getByText('回去', { exact: true }).click()
       await p.waitForTimeout(600)
       ok(await p.evaluate(() => globalThis.__router.current().__route) !== 'pages/confirm/index',
@@ -2735,21 +3684,36 @@ if (!API) {
     }
 
     /* 没填【寄到哪】的时候「去付」是按不出单的 —— 这是实物，
-       没有地址寄不出去，而订单那一屏也没有补填的地方。先验这一条。 */
-    {
+       没有地址寄不出去，而订单那一屏也没有补填的地方。先验这一条。
+       【只对真要寄的那一件成立】:御守 / 说明书没有包裹，它们的按钮
+       从一开始就该是「去付」（2026-09-01 第二轮评审 · 转化路）。 */
+    if (!要寄) {
+      const 钮文 = await p.evaluate(() => {
+        const b = [...document.querySelectorAll('button.btn')]
+          .find((x) => /去付|寄到哪/.test(x.innerText))
+        return b ? b.innerText.trim() : '（没找到那颗按钮）'
+      })
+      ok(钮文 === '去付', '不寄的那一件，按钮一上来就是「去付」　—— 不横一道地址', 钮文)
+    } else {
       const 有 = await p.evaluate(() => globalThis.__router.current().data.有地址)
       if (!有) {
-        await p.getByText('去付', { exact: true }).click()
-        await p.waitForTimeout(700)
-        const 拦 = await p.evaluate(() => ({
-          route: globalThis.__router.current().__route,
-          note: globalThis.__router.current().data.note || '',
-        }))
-        ok(拦.route === 'pages/confirm/index' && /寄到哪/.test(拦.note),
-           '没填【寄到哪】就按「去付」，它拦住并说清差什么　—— 实物没地址寄不出去',
-           `${拦.route} · ${拦.note.slice(0, 24)}`)
-        ok(await p.evaluate(() => !!document.querySelector('button.btn-wait')),
-           '而且那颗按钮本来就没满橙　—— 它此刻按不出单')
+        /* 【2026-09-01 这颗按钮改成直接做那件该做的事】。
+           原先没地址时它写「去付」、是灰的（btn-wait），按下去在下面
+           冒一句「还差寄到哪」—— 而整屏唯一的成交按钮长得跟禁用一样、
+           只有 87px 宽，人会按几次然后退出去。
+           现在它写着「先填寄到哪儿」，按下去直接弹地址簿。 */
+        const 钮文 = await p.evaluate(() => {
+          const b = [...document.querySelectorAll('button.btn')]
+            .find((x) => /去付|寄到哪/.test(x.innerText))
+          return b ? b.innerText.trim() : '（没找到那颗按钮）'
+        })
+        ok(钮文 === '先填寄到哪儿',
+           '没填【寄到哪】时，成交那颗按钮自己说出下一步　—— 不是灰着让人猜', 钮文)
+        ok(await p.evaluate(() => {
+             const b = [...document.querySelectorAll('button.btn')]
+               .find((x) => /寄到哪/.test(x.innerText))
+             return !!b && !b.disabled
+           }), '而且它是能按的　—— 按下去弹地址簿，不是按了没反应')
       } else {
         ok(false, '验得到「没填寄到哪」那一支', '进来时地址已经有了')
       }
@@ -2758,21 +3722,24 @@ if (!API) {
     /* 地址簿只有真机有（`wx.chooseAddress`，垫片会抛）。
        所以这里【显式桩掉那一跳】—— 跟扫御守那一步同一个做法：
        夹具写在明处，验的仍是这一屏自己的逻辑（拿到地址之后按钮亮起、
-       建单带着 contact 走）。 */
-    await p.evaluate(() => {
-      globalThis.__wxStub('chooseAddress', () => Promise.resolve({
-        userName: '镜像', telNumber: '13000000000',
-        provinceName: '浙江省', cityName: '杭州市', countyName: '西湖区',
-        detailInfo: '某条路 1 号',
-      }))
-    })
-    await p.getByText('还没填', { exact: false }).first().click()
-    await p.waitForFunction(() => globalThis.__router.current().data.有地址 === true,
-                            null, { timeout: 8000 }).catch(() => {})
-    ok(await p.evaluate(() => globalThis.__router.current().data.有地址) === true,
-       '选完地址，这一屏记下了它')
-    ok(await p.evaluate(() => !document.querySelector('button.btn-wait')),
-       '有了地址，「去付」才亮起来')
+       建单带着 contact 走）。
+       不寄的那一件没有这一行，整段跳过。 */
+    if (要寄) {
+      await p.evaluate(() => {
+        globalThis.__wxStub('chooseAddress', () => Promise.resolve({
+          userName: '镜像', telNumber: '13000000000',
+          provinceName: '浙江省', cityName: '杭州市', countyName: '西湖区',
+          detailInfo: '某条路 1 号',
+        }))
+      })
+      await p.getByText('还没填', { exact: false }).first().click()
+      await p.waitForFunction(() => globalThis.__router.current().data.有地址 === true,
+                              null, { timeout: 8000 }).catch(() => {})
+      ok(await p.evaluate(() => globalThis.__router.current().data.有地址) === true,
+         '选完地址，这一屏记下了它')
+      ok(await p.evaluate(() => !document.querySelector('button.btn-wait')),
+         '有了地址，「去付」才亮起来')
+    }
 
     await p.getByText('去付', { exact: true }).click()
     await p.waitForFunction(
@@ -2797,12 +3764,41 @@ if (!API) {
          `商品页 ${标价} · 单子 ${单.合计}`)
       ok(单.行数 === 1, '单子上有一行', String(单.行数))
 
+      /* 【这一单有三十分钟的时限，屏上要说】（2026-09-02）。
+         建单时后端写 `expires_at = NOW() + 30 分钟`，到点 payment_sweep
+         把它取消掉。屏上原先一个字都没说 —— 而「不要这一单了」那条
+         文字链就在旁边，过期之后状态变「已取消」，买家最容易的理解是
+         「我手滑点了它」。 */
+      const 时限 = await p.evaluate(() => globalThis.__router.current().data.还有多久)
+      ok(/分钟/.test(String(时限)), '待付的单子说得出还有多久会自己取消', String(时限))
+
+      /* 另一半：【超时取消要说清是超时】。都写「已取消」的话，
+         买家会以为是自己点的。判据是后端给的 `cancel_reason`。
+         这一态造不出来（要等三十分钟），所以直接改库 —— 夹具写在明处。 */
+      {
+        const 单号 = await p.evaluate(() => globalThis.__router.current().data.id)
+        run(`UPDATE order_record SET status='cancelled', cancel_reason='expired',`
+          + ` cancel_actor='system', cancelled_at=NOW() WHERE id='${单号}'`)
+        await p.evaluate(() => globalThis.__router.current().load())
+        await p.waitForFunction(() => globalThis.__router.current().data.status === 'cancelled',
+                                null, { timeout: 15000 }).catch(() => {})
+        const 说的 = await p.evaluate(() => globalThis.__router.current().data.下一步)
+        ok(/超过三十分钟没付/.test(String(说的)),
+           '超时取消的单子说得出是超时，不是「你取消了」', String(说的))
+        ok(!/你取消|已取消这一单/.test(String(说的)),
+           '而且不把它说成买家自己做的', String(说的))
+        run(`UPDATE order_record SET status='unpaid', cancel_reason=NULL,`
+          + ` cancel_actor=NULL, cancelled_at=NULL WHERE id='${单号}'`)
+        await p.evaluate(() => globalThis.__router.current().load())
+        await p.waitForTimeout(600)
+      }
+
       /* 「去支付」：打后端拿 prepay 参数（真跑），然后 requestPayment 抛。
          **抛到哪儿去看**：`deviceOnly` 是故意不走整屏红的 —— 「这一步只有真机有」
          跟「镜像坏了」不是一回事，它落在底部那条提示上，并记进 `__DEVICE_ONLY`。
-         这条断言原先查的是整屏红那一块，查错了地方:真抛了也看不见，
+         这条断言原先查的是整屏红那一块，查错了地方：真抛了也看不见，
          而真的没抛（比如哪天被人 catch 掉、悄悄当成功）同样看不见 —— 两头都盲。 */
-      await p.getByText('去支付', { exact: true }).click()
+      await p.getByText('去付', { exact: true }).click()
       await p.waitForFunction(
         () => (globalThis.__DEVICE_ONLY || []).length > 0
               || (globalThis.__router.current().data.note || '').includes('失败')
@@ -2842,14 +3838,35 @@ if (!API) {
          '还没付的单子不给「申请退款」',
          String(await p.locator('text=申请退款').count()))
 
-      /* 「不要了」—— 待付的单子要退得掉，不然它就是个只能进不能出的东西。 */
+      /* 「不要这一单了」—— 待付的单子要退得掉，不然它就是个只能进不能出的东西。
+         【2026-09-01 加了二次确认】。取消是不可逆的，而它原先跟旁边的
+         「回去」同色同宽同高，并排摆着，一次误触没掉一张单
+         （同一个仓库里「退出」是有确认的，只有这一处漏了）。
+         所以先验【说「再想想」时它不取消】—— 那才是二次确认的全部意义；
+         再验点确认之后真取消得掉。
+         镜像里 wx.showModal 走的是浏览器 confirm（web/runtime/wx.js），
+         playwright 默认自动关掉它，所以两次都要显式接管。 */
       errs.length = 0
       await open('pages/order/index', { id: await p.evaluate(() => globalThis.__router.current().data.id) })
-      await p.getByText('不要了', { exact: true }).click()
+
+      const 关掉 = (d) => d.dismiss()
+      p.on('dialog', 关掉)
+      await p.getByText('不要这一单了', { exact: true }).click()
+      await p.waitForTimeout(900)
+      ok(await p.evaluate(() => globalThis.__router.current().data.statusText) !== '已取消',
+         '在确认框上说「再想想」，单子还在　—— 取消是不可逆的，不该一按就没',
+         await p.evaluate(() => globalThis.__router.current().data.statusText))
+      p.off('dialog', 关掉)
+
+      const 点头 = (d) => d.accept()
+      p.on('dialog', 点头)
+      await p.getByText('不要这一单了', { exact: true }).click()
       await p.waitForTimeout(1200)
       ok(await p.evaluate(() => globalThis.__router.current().data.statusText) === '已取消',
-         '「不要了」真的把单子取消了',
+         '确认之后真的把单子取消了',
          await p.evaluate(() => globalThis.__router.current().data.statusText))
+      p.off('dialog', 点头)
+
       await p.getByText('回去', { exact: true }).click()
       await p.waitForTimeout(600)
     }
@@ -2866,7 +3883,7 @@ if (!API) {
     /* 再建一份：按「再填一份」→ 三样都填 → 算一算。
        **三样是必须真填的** —— 表单原先预填 1995-06-15 / 14:30 / 男，
        谁不改就直接按下去，算出来的是别人的命而且一路不报错（0830 修掉）。
-       这一段原先正是靠那份预填过的:它按完「再填一份」直接点「算一算」，
+       这一段原先正是靠那份预填过的：它按完「再填一份」直接点「算一算」，
        也就是说它验的是「不填也能建」，而那正是要修掉的行为。 */
     await p.getByText('再填一份', { exact: true }).click()
     await p.waitForTimeout(400)
@@ -2874,7 +3891,17 @@ if (!API) {
     await p.locator('input[type=time]').first().fill('09:15')
     await p.getByText('女', { exact: true }).first().click()
     await p.waitForTimeout(200)
-    await p.getByText('算一算', { exact: true }).click()
+    /* 【三样填齐了，按钮才写「算一算」】。2026-09-01 起没填齐时它写的是
+       「还差哪一天出生」这类 —— 所以这里【先断言它已经变成「算一算」】:
+       如果 fill() 没让页面记下「填过了」，从前这一步是静默点不到、
+       整段动线在这儿卡死；现在它会红在一条说得清的断言上。 */
+    const 建钮 = await p.evaluate(() => {
+      const b = [...document.querySelectorAll('button.btn')]
+        .find((x) => /还差|算一算/.test(x.innerText))
+      return b ? b.innerText.trim() : '（没找到那颗按钮）'
+    })
+    ok(建钮 === '算一算', '三样真填过之后，那颗按钮才写「算一算」', 建钮)
+    await p.getByText(建钮, { exact: true }).click()
     /* 建本命要打排盘服务，慢；固定等几秒会时灵时不灵。轮询到档案变长为止，
        等不到就把页面自己那一行错误读出来 —— 「没变长」和「报错了」不是一回事。 */
     let 现有 = 原有
@@ -2896,7 +3923,16 @@ if (!API) {
     await p.getByText('再填一份', { exact: true }).click()
     await p.waitForTimeout(300)
     const 建之前 = await p.evaluate(() => globalThis.__router.current().data.archive.length)
-    await p.getByText('算一算', { exact: true }).click()
+    /* 一个字都没填时按钮上写的是「还差哪一天出生」—— 那本身就是这一条
+       要验的一半：不填不给建，而且【在按之前】就说得出差什么。
+       按下去仍然指出栏位，档案也不该变长。 */
+    const 空钮 = await p.evaluate(() => {
+      const b = [...document.querySelectorAll('button.btn')]
+        .find((x) => /还差|算一算/.test(x.innerText))
+      return b ? b.innerText.trim() : '（没找到那颗按钮）'
+    })
+    ok(/^还差/.test(空钮), '一个字没填时，按钮就写着还差什么', 空钮)
+    await p.getByText(空钮, { exact: true }).click()
     await p.waitForTimeout(800)
     /* 读的是 `缺提示` 不是 `err`：校验错误搬了家 ——
        `err` 会把表单整块顶掉（`wx:elif="{{!err}}"`），而「你回去填」
@@ -2997,7 +4033,7 @@ if (!API) {
      '重开还是新名字（不是只改了屏上那一份）',
      String(await p.evaluate(() => globalThis.__router.current().data.nickname)))
 
-  /* 改完名字那一屏的「回去」。改了名之后最自然的下一下就是它,
+  /* 改完名字那一屏的「回去」。改了名之后最自然的下一下就是它，
      而它一直没被真按过。 */
   await open('pages/name/index')
   await p.waitForTimeout(600)
@@ -3007,9 +4043,43 @@ if (!API) {
      '名字那一屏上的「回去」真的退得出去',
      await p.evaluate(() => globalThis.__router.current().__route))
 
+  /* 【¥199 那一件，填完生辰之后从整个 app 里消失】（2026-09-06 三路验证 ·
+     第一次打开的人）。通往商品页的路全仓只有四条，而说明书唯一那条是
+     摇卦之后的推荐位 —— 而 `ai_compose.rs` 在 `has_natal` 为真时
+     候选类目只剩御守与配饰（那是有理由的产品决定，见那一段注释）。
+     于是链路成了:没填生辰 → 推荐说明书；填了生辰（而 app 到处都在催你填）
+     → 说明书再也找不到在哪儿卖。
+     而它自己最后一页写着「这一册一直在「我的」里」，
+     「我的」那八行里当时一行都没有。
+     这一条钉住那一行:在，而且点得到那一件（或者那一单）。 */
+  await open('pages/me/index')
+  await p.waitForTimeout(1200)
+  {
+    const 册 = await p.evaluate(() => ({
+      文: globalThis.__router.current().data.book价,
+      单: globalThis.__router.current().data.bookOrder,
+    }))
+    ok(!!册.文, '「我的」上有「你的说明书」这一行 —— 它自己说它在这儿',
+       册.文 || '（这一行不在）')
+    if (册.文) {
+      const 之前 = await p.evaluate(() => globalThis.__router.current().__route)
+      /* 点【那一行】，不点那几个字。`getByText(..., exact)` 在这一屏上
+         够不着:同一串字在别处也出现（订单屏的按钮「读你的说明书」），
+         而这一行的键与值是两个 `<text>`，整行才是可点的那个元素。
+         头一版就是这么写的，等了三十秒超时。 */
+      await p.locator('.entry').filter({ hasText: '你的说明书' }).first().click()
+      await p.waitForTimeout(1400)
+      const 之后 = await p.evaluate(() => globalThis.__router.current().__route)
+      ok(之后 !== 之前 && (之后 === 'pages/product/index' || 之后 === 'pages/order/index'),
+         册.单 ? '买过的那一份，点进去是那一单' : '还没买的，点进去是卖它的那一页',
+         `${之前} → ${之后}`)
+      await open('pages/me/index')
+      await p.waitForTimeout(900)
+    }
+  }
+
   /* 「我」→「徽」：得了徽章要有人告诉你。后端一直在发（库里几百个），
      而 2026-08-19 之前没有任何客户端读它。 */
-  await open('pages/me/index')
   const 徽摘要 = await p.evaluate(() => globalThis.__router.current().data.badgeText)
   ok(/^\d+ \/ \d+ 枚徽章$/.test(徽摘要 || ''), '「我」上写着得了几个徽章', String(徽摘要))
   await p.getByText('我得到的', { exact: true }).click()
@@ -3034,7 +4104,7 @@ if (!API) {
          六枚里有四枚指的是同一件事（问一件事），四张卡都写同一句的话，
          屏上就是四行一样的橙字，看不出先做哪个 —— 那不是「说得出去哪儿拿」，
          是把一句话说了四遍。后面那几枚留着各自的解锁条件当目录，本来就够。
-         这条要守的是原来那件事:这一屏不能是点不动的清单。 */
+         这条要守的是原来那件事：这一屏不能是点不动的清单。 */
       ok(有去处 >= 1 && 有去处 <= 没拿到,
          '还没拿到的里头有走得动的路　—— 不是一张点不动的清单',
          `${有去处}/${没拿到} 枚给了去处`)
@@ -3050,6 +4120,28 @@ if (!API) {
       ok(之后 !== 之前, '点一枚没拿到的，真的走得到那儿', `${之前} → ${之后}`)
       await open('pages/badges/index')
       await p.waitForTimeout(900)
+      /* 【差多少也要说】（2026-09-06 五路评审 · §七）。原先只有「拿到了 /
+         没拿到」两态 ——「连着三十天」这一枚，第 29 天看到的跟第 1 天一样。 */
+      const 有进度 = await p.evaluate(() =>
+        (globalThis.__router.current().data.items || []).filter((x) => x.进度).length)
+      ok(有进度 >= 1, '还没拿到的那几枚，屏上写得出还差多少',
+         `${有进度} 枚写着进度`)
+      /* 【那条路指的是最容易的那一枚】。六枚里四枚指同一件事，页面
+         「同一条路只留最近的那一枚」，取的是后端返回的顺序 ——
+         而在 20260906002 之前六枚 points 全是 10，也就是没有定序，
+         实测那条「去问一件事 ›」指给了「一个月 · 连着三十天」，
+         而一次都没问过的人，一步之遥的「头一回」什么出口都没有。 */
+      const 指给谁 = await p.evaluate(() => {
+        const xs = (globalThis.__router.current().data.items || []).filter((x) => !x.earned && x.去)
+        return xs.length ? xs[0].points : null
+      })
+      const 最容易 = await p.evaluate(() => {
+        const xs = (globalThis.__router.current().data.items || []).filter((x) => !x.earned)
+        return xs.length ? Math.min(...xs.map((x) => x.points)) : null
+      })
+      ok(指给谁 !== null && 指给谁 === 最容易,
+         '那条「去哪儿拿」指的是还没拿到里最容易的那一枚',
+         `指的是 ${指给谁} 分那枚 · 最容易的是 ${最容易} 分`)
     } else {
       ok(false, '验得到「还没拿到」那一支', '这个库里六枚全拿到了')
     }
@@ -3057,12 +4149,20 @@ if (!API) {
   await p.getByText('回去', { exact: true }).click()
   await p.waitForTimeout(800)
 
-  /* 「订」：库里一条订阅都没有，所以这一行显示「还没有订阅」，
-     点它去铺 —— **没有的时候，出口就是「去哪儿能有」**。 */
+  /* 「订」这一行【村里有可订的东西时才在】。
+     2026-09-01 之前它的门闩是「你订过没有」—— 而「订着的」那一屏的
+     空状态正是唯一在卖订阅的地方，两个条件互为反面，
+     卖订阅那一半永远到不了（五路评审 · 工程审计）。
+     现在看的是「有没有可订的」:一件都没上架时这一行整个不出现，
+     那是「需要的东西在，不需要的东西不在」，不是缺口。 */
   await open('pages/me/index')
-  const 订摘要 = await p.evaluate(() => globalThis.__router.current().data.subText)
-  ok(订摘要 === '还没有' || /个订着$/.test(订摘要 || ''),
-     '「我」上写着订阅的状况', String(订摘要))
+  const 订 = await p.evaluate(() => ({
+    文: globalThis.__router.current().data.subText,
+    在: globalThis.__router.current().data.hasSubs,
+  }))
+  ok(订.在 ? (订.文 === '还没有' || /个订着$/.test(订.文 || '')) : 订.文 === '',
+     '「订着的」那一行：有可订的才摆，摆出来就说得清状况',
+     `在=${订.在} 文=${JSON.stringify(订.文)}`)
   /* 账号明细搬去「设置」了（M1 只放设计册列的那五条）。
      它是账号的维护面，不是「我」的内容 —— 但**搬走不等于藏起来**：
      从「我的」点得到「设置」，进去展得开，五行还在。 */
@@ -3074,7 +4174,7 @@ if (!API) {
   ).catch(() => {})
   ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/settings/index',
      '「我的」点得进「设置」', await p.evaluate(() => globalThis.__router.current().__route))
-  /* 折叠没有了：折叠是为了让【「我的」那一屏】放得下,这五行搬走之后
+  /* 折叠没有了：折叠是为了让【「我的」那一屏】放得下，这五行搬走之后
      那个理由就不成立了。它们唯一的用途是被人念给客服听 ——
      多一次「展开」等于给唯一的用途加一道手续。所以这里验的是
      **不点任何东西就看得见**。 */
@@ -3082,23 +4182,435 @@ if (!API) {
   const 明细 = await text()
   // 0830:标签里的疏排空格收掉了（「I D」「平 台」是 v1 的排版手法）
   ok(明细.includes('ID') && 明细.includes('平台'),
-     '账号那五行不用点就在 —— 念给客服听的东西不该再藏一层', 明细.slice(0, 40))
+     '账号那几行不用点就在 —— 念给客服听的东西不该再藏一层', 明细.slice(0, 40))
+
+  /* ── 客服与两份文件（2026-09-02 加）─────────────────────────
+     这三样原先一处都没有：出了事没人可找，收了钱没有交代，
+     而小程序过审这三样是硬门槛。 */
+  ok(明细.includes('联系我们') && 明细.includes('隐私政策') && 明细.includes('用户协议'),
+     '设置里找得到客服、隐私政策、用户协议', 明细.slice(-60))
+
+  /* 【客服那颗按钮在网页版上必须抛】。它靠的是微信的 `open-type="contact"`，
+     浏览器里没有对应物 —— 静默无反应就是「空实现」，而三条铁律的第二条
+     写着：只有真机才有的能力，抛，不给空实现。
+     上一版垫片不认 `open-type`，属性原样落到 DOM 上，浏览器当没有，
+     于是那是一颗【长得完全正常、点了什么都不发生】的按钮。 */
+  {
+    const 之前 = await p.evaluate(() => (globalThis.__DEVICE_ONLY || []).length)
+    await p.getByText('联系我们', { exact: true }).click().catch(() => {})
+    await p.waitForTimeout(400)
+    const 记下 = await p.evaluate(() => globalThis.__DEVICE_ONLY || [])
+    const 提示 = await p.evaluate(() => {
+      const n = document.getElementById('wx-note')
+      return n && n.style.display === 'block' ? n.textContent : ''
+    })
+    ok(记下.length > 之前 || /真机/.test(提示),
+       '「联系我们」在网页版上如实抛 —— 不是一颗点了没反应的按钮',
+       `记下的 ${JSON.stringify(记下.slice(-2))} · 提示条「${提示.slice(0, 30)}」`)
+  }
+
+  /* 两份文件真的打得开、真的有内容、也走得出去。
+     一个「点进去是空白页」的隐私政策比没有更糟 —— 它看着像有。 */
+  for (const [叫, 参, 要有] of [['隐私政策', 'privacy', '我们收什么'],
+                                 ['用户协议', 'terms', '退款']]) {
+    await open('pages/settings/index')
+    await p.waitForTimeout(500)
+    await p.getByText(叫, { exact: true }).click()
+    await p.waitForFunction(
+      () => globalThis.__router.current().__route === 'pages/policy/index',
+      null, { timeout: 15000 },
+    ).catch(() => {})
+    ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/policy/index',
+       `设置里点得开「${叫}」`, await p.evaluate(() => globalThis.__router.current().__route))
+    const 文 = await text()
+    ok(文.includes(叫) && 文.includes(要有),
+       `「${叫}」里真的有内容 —— 不是一页空白`, 文.slice(0, 40))
+    ok(await p.evaluate(() => globalThis.__router.current().data.kind) === 参,
+       `「${叫}」开的是它自己那一份，不是另一份`,
+       String(await p.evaluate(() => globalThis.__router.current().data.kind)))
+    await p.getByText('回去', { exact: true }).click()
+    await p.waitForTimeout(600)
+    ok(await p.evaluate(() => globalThis.__router.current().__route) !== 'pages/policy/index',
+       `「${叫}」不是死路 —— 退得出去`,
+       await p.evaluate(() => globalThis.__router.current().__route))
+  }
+
+  /* ── 收钱那一屏不许瞒着自动续费（2026-09-06）───────────────
+     一味香按月送的 `fulfillment_kind` 是 `shipping`（迁移注释写着
+     「这样确认屏问地址那一路一个字都不用改」），而确认屏**从不读 `kind`**
+     （实测 grep 计数 0）—— 于是它把每月扣一次的东西画成了买一盒香：
+     合计写「一共 ¥78」没有「/ 月」、底下是一次性买卖的话术、
+     还摆着一个数量加减器（订阅填 2 是什么意思？屏上答不了）。
+
+     一个怕被套牢的人在那一屏上找不到一个字告诉他这是自动续费。 */
+  {
+    await open('pages/confirm/index', { id: 'prod-incense-monthly' })
+    await p.waitForTimeout(1600)
+    const 订文 = await text()
+    ok(await p.evaluate(() => globalThis.__router.current().data.订阅) === true,
+       '确认屏认得出这是一件订阅', String(await p.evaluate(() => globalThis.__router.current().data.订阅)))
+    ok(/一共\s*¥?\d+(\.\d+)?\s*\/\s*月/.test(订文),
+       '合计带着「/ 月」—— 少了这两个字，那个数看起来就是这一单的全部代价',
+       (订文.match(/一共[^·]{0,14}/) || [''])[0])
+    ok(/每月扣一次/.test(订文), '底下说的是「每月扣一次」，不是一次性买卖那套话',
+       (订文.match(/每月[^·]{0,30}/) || [''])[0])
+    /* 【订阅不摆数量】。填 2 是每月两盒还是订两份 —— 这个问题屏上答不了，
+       而后端 `renew_due` 每期就发一件。 */
+    ok(await p.locator('.stepper').count() === 0,
+       '订阅那一档不摆数量加减器', String(await p.locator('.stepper').count()))
+    /* 【「随时能停」得说准】。`plan.cancel_policy` 是 `end_of_period` ——
+       真实语义是「按得下不再续，但这一期照走完」。 */
+    await open('pages/incense/index')
+    await p.waitForTimeout(1400)
+    const 香文 = await text()
+    ok(!/随时能停(?!，)/.test(香文.replace('到期前随时能停，这一期照走完', '')),
+       '卖它的那一屏不写光秃秃的「随时能停」', (香文.match(/[^·]{0,10}随时能停[^·]{0,10}/) || [''])[0])
+    ok(/这一期照走完/.test(香文),
+       '把退订那一屏那句准的话搬到了决定要不要订的这一屏',
+       (香文.match(/每月扣一次[^·]{0,24}/) || [''])[0])
+  }
+
+  /* ── 一件东西有几档就摆几档（2026-09-06）───────────────────
+     香有三档（试香三支 ¥29 / 一盒十支 ¥88 / 单配 ¥268）。商品页原先只挑
+     「第一个有价的」、`onBuy` 跳确认屏又不带 sku，确认屏再挑一次 ——
+     于是屏上永远是 ¥29，而正文写着「一支烧二三十分钟，十支约够一个月」。
+     **¥29 买到的是三支**，而「试香 · 三支」这五个字整条掏钱的路上
+     一次都没出现过（两屏显示的都是 `product.name`）。 */
+  {
+    const 档数 = Number(sql1(
+      `SELECT count(*) FROM sku s JOIN price_book pb ON pb.sku_id=s.id`
+      + ` AND pb.status='active' AND pb.region='cn'`
+      + ` WHERE s.product_id='prod-suhe-incense'`))
+    await open('pages/product/index', { id: 'prod-suhe-incense' })
+    await p.waitForTimeout(1500)
+    ok(await p.locator('.pick').count() === 档数,
+       '几档就摆几档', `屏上 ${await p.locator('.pick').count()} 张 · 库里 ${档数} 档`)
+    /* 【多档的时候屏顶那个大价钱撤了】（2026-09-06 当天改了两回）。
+       上一版的判据是「标价旁边要说清这是哪一档」（`档名`），
+       为的是不让一个光秃秃的 ¥29 被读成整件东西的价。
+       同一天量出这一屏超出一屏 95px，回头看才发现:
+       那一排牌本身就已经把三档三个价都摆出来了，选中的那张描着墨边、
+       价是主色 —— 屏顶再摆一个「¥29 试香 · 三支」是同样两条信息隔着
+       300px 出现第二次。所以撤的是重复的那一份，判据跟着换成:
+       多档时【没有】那个大价钱，而选中的那张牌上名与价都在。 */
+    ok(await p.locator('.price-row').count() === 0,
+       '多档的时候屏顶不再摆一个大价钱 —— 那一排牌就是价钱',
+       `.price-row ${await p.locator('.price-row').count()} 个`)
+    const 选中 = (await p.locator('.pick-on').first().innerText()).replace(/\n/g, ' ')
+    const 头一张 = await p.evaluate(() => (globalThis.__router.current().data.档 || [])[0])
+    ok(头一张 && 选中.includes(头一张.name) && 选中.includes(头一张.priceText),
+       '选中那一张牌上，名与价都在 —— 一个光秃秃的 ¥29 说不清买到的是什么',
+       选中)
+    /* 【挑了哪一档就带哪一档过去】。原先不带 sku —— 人挑的那一档
+       在跳转的那一下丢了，确认屏自己又挑回「第一个有价的」。 */
+    const 第二档 = await p.evaluate(() => (globalThis.__router.current().data.档 || [])[1])
+    if (第二档) {
+      await p.locator('.pick').nth(1).click()
+      await p.waitForTimeout(500)
+      ok(await p.evaluate(() => globalThis.__router.current().data.skuId) === 第二档.id,
+         '挑第二档，标价跟着变', await p.evaluate(() => globalThis.__router.current().data.price))
+      await p.getByText('就要这个', { exact: true }).click()
+      await p.waitForTimeout(1600)
+      ok(await p.evaluate(() => globalThis.__router.current().data.skuId) === 第二档.id,
+         '跳到确认屏，挑的还是那一档 —— 不是又挑回第一个有价的',
+         第二档.name)
+      ok((await text()).includes(第二档.name),
+         '明细写的是这一档的名字，不是商品名', 第二档.name)
+    }
+  }
+
+  /* ── 要去一场活动的人（2026-09-06）─────────────────────────
+     【这一屏此前一条断言都没有】。它在 `app.json` 里、在截屏名单里、
+     一屏放得下那一支也量过它 —— 而这一趟从没打开过它，
+     `activity·onSignUp` 一直挂在末尾那份「没碰过的」清单上。
+
+     报名是【线下真会发生的事】：报上了就有人在某个城市某一天等你。
+     它不是买东西，撤销也不退钱 —— 正因为不涉及钱，它更容易被漏掉，
+     而漏掉的后果是有人白跑一趟。 */
+  {
+    await open('pages/activity/index')
+    await p.waitForTimeout(1500)
+    const 场次 = await p.evaluate(() => globalThis.__router.current().data.场次 || [])
+    ok(场次.length > 0, '活动那一屏列得出场次', `${场次.length} 场`)
+    if (场次.length > 0) {
+      const 活文 = await text()
+      /* 【库里那些字段的原文一个都不许上屏】——`open` / `full` / ISO 时间戳。
+         这一屏此前没人验过，而它跟「订着的」是同一个形状:
+         后端把人话 join 出来了，屏那一头读不读是另一回事。 */
+      ok(!/\bopen\b|\bfull\b|\d{4}-\d{2}-\d{2}T/.test(活文),
+         '场次说的是人话，不是库里那个字段',
+         (活文.match(/\bopen\b|\bfull\b|\d{4}-\d{2}-\d{2}T\S*/) || [''])[0])
+      ok(/还剩|满了|位/.test(活文), '说得出还剩几位 —— 报名前最要紧的那个数',
+         (活文.match(/[^·]{0,12}位[^·]{0,6}/) || [''])[0])
+
+      const 我 = await p.evaluate(() => JSON.parse(localStorage.getItem('unmei:buwanren:user') || '{}').id)
+      const 报了几场 = () => sql1(`SELECT count(*) FROM activity_registration WHERE user_id='${我}' AND status='registered'`)
+      const 之前 = Number(报了几场())
+      const 能报的 = await p.locator('button.btn:not(.ghost):not([disabled])').filter({ hasText: '报名' })
+      if (await 能报的.count() > 0) {
+        await 能报的.first().click()
+        for (let i = 0; i < 20; i++) {
+          if (Number(报了几场()) > 之前) break
+          await p.waitForTimeout(400)
+        }
+        ok(Number(报了几场()) === 之前 + 1, '按「报名」真的报上了', 报了几场() + ' 场')
+        await p.waitForTimeout(800)
+        ok((await text()).includes('不去了'),
+           '报上之后那颗按钮改口说「不去了」—— 「已报名」是状态不是动作',
+           (await text()).slice(0, 60))
+        /* 【撤得掉】。报名是线下的事，去不了是常态 ——
+           一个报得上、撤不掉的名额比没有更麻烦:它占着别人的位子。 */
+        await p.getByText('不去了', { exact: true }).first().click()
+        for (let i = 0; i < 20; i++) {
+          if (Number(报了几场()) === 之前) break
+          await p.waitForTimeout(400)
+        }
+        ok(Number(报了几场()) === 之前, '按「不去了」真的撤了 —— 名额还给别人',
+           报了几场() + ' 场')
+      }
+    }
+  }
+
+  /* ── 要退款的人（2026-09-05）───────────────────────────────
+     用户协议上写着：「任何一单都能在「我的 › 我买过的」里申请，我们逐单看」。
+     那颗按钮在订单屏上（`status` 是 paid / fulfilling / done 时才摆），
+     **而它从来没有被按过一次** —— 这一趟末尾那份处理器清单里，
+     `order·onRefund` 一直在「没碰过的」那一行上，理由写着
+     「要一笔真的成功支付」。
+
+     那个理由对【走 UI 付款】成立（浏览器里没有微信收银台，垫片如实抛），
+     对这一段不成立:上面几段已经种过两张真的已付单（`ord-m3-*` / `ord-inc-*`,
+     订单、支付两张表都齐）。拿其中一张按那颗真按钮就是了。
+
+     退款这条是【钱往回走】的路 —— 全 app 最不该只有接口有人验的地方。
+     申请完把那一行删掉，下一轮跟这一轮看到的库是同一个。 */
+  {
+    const 我 = await p.evaluate(() => JSON.parse(localStorage.getItem('unmei:buwanren:user') || '{}').id)
+    const 已付的 = 我 ? sql1(
+      `SELECT id FROM order_record WHERE user_id='${我}' AND status='paid'`
+      + ` AND amount_paid_minor > 0 ORDER BY created_at DESC LIMIT 1`) : ''
+    if (已付的) {
+      await open('pages/order/index', { id: 已付的 })
+      await p.waitForTimeout(1200)
+      ok((await text()).includes('申请退款'),
+         '已付的那一单上摆得出「申请退款」', (await text()).slice(0, 60))
+      await p.getByText('申请退款', { exact: true }).click()
+      let 说 = ''
+      for (let i = 0; i < 20; i++) {
+        说 = await p.evaluate(() => globalThis.__router.current().data.note || '')
+        if (说) break
+        await p.waitForTimeout(400)
+      }
+      /* 【说的是「等审核」，不是「已退款」】。协议上写的是「我们逐单看」——
+         按完就说「已退款」的话，人会去银行卡上等一笔今天不会到的钱。 */
+      ok(/等审核/.test(说), '按完说的是「已申请，等审核」，不是「已退款」', 说)
+      const 落了 = sql1(`SELECT status FROM refund WHERE order_id='${已付的}' ORDER BY created_at DESC LIMIT 1`)
+      ok(落了 === 'requested', '库里真多了一张待审的退款单', 落了 || '（一条都没有）')
+      /* 【申请完这一屏要看得见】（2026-09-06）。此前按完一个字都不变:
+         那句提示被紧接着的 `load()` 清掉，而订单详情接口不返退款单。
+         人这时只会做一件事 —— 再按一次。 */
+      await p.waitForTimeout(1200)
+      const 退后 = await text()
+      ok(/退款 · 审核中/.test(退后), '屏上摆得出「退款 · 审核中」',
+         (退后.match(/退款[^·]{0,8}·[^·]{0,10}/) || [''])[0])
+      ok(/单号 [0-9a-z]{6,10}/.test(退后), '给得出一个念得给客服听的退款单号',
+         (退后.match(/单号 \S+/) || [''])[0])
+      /* 【在途的时候不给第二颗按钮】。后端的在途检查会拒，
+         而屏上此刻已经写着「审核中」—— 按第二次的唯一结果是一句错话。 */
+      ok(await p.getByText('申请退款', { exact: true }).count() === 0,
+         '已经在审核里的时候，不再摆一颗按了必被拒的按钮',
+         String(await p.getByText('申请退款', { exact: true }).count()))
+      const 几张 = sql1(`SELECT count(*) FROM refund WHERE order_id='${已付的}'`)
+      ok(几张 === '1', '只建了一张退款单', 几张 + ' 张')
+      run(`DELETE FROM refund WHERE order_id='${已付的}'`)
+
+      /* 【数字内容交付之后不给这颗按钮，给一句话】。用户协议写着
+         「数字内容一经交付（住进来了、说明书出好了）不支持退款」,
+         而那颗按钮此前的条件是 `paid || fulfilling || done`——不看买的是什么。
+         买家的体验是:按了 → 屏上什么都没变 → 若干天后被拒。 */
+      const 住下的单 = sql1(
+        `SELECT o.id FROM order_record o JOIN order_line ol ON ol.order_id=o.id`
+        + ` JOIN sku k ON k.id=ol.sku_id JOIN product pr ON pr.id=k.product_id`
+        + ` WHERE o.user_id='${我}' AND o.status IN ('paid','fulfilling','done')`
+        + ` AND pr.fulfillment_kind='residency' AND ol.fulfillment_status='done' LIMIT 1`)
+      if (住下的单) {
+        await open('pages/order/index', { id: 住下的单 })
+        await p.waitForTimeout(1400)
+        const 住文 = await text()
+        ok(await p.getByText('申请退款', { exact: true }).count() === 0,
+           '已经住进来的那一单不摆「申请退款」—— 协议说它退不了',
+           String(await p.getByText('申请退款', { exact: true }).count()))
+        ok(/这一单不退/.test(住文),
+           '而是说清为什么退不了 —— 不是按钮消失了没人知道',
+           (住文.match(/[^·]{0,12}这一单不退[^·]{0,4}/) || [''])[0])
+      }
+    }
+  }
+
+  /* ── 买过很多东西的人（2026-09-05）─────────────────────────
+     「我买过的」那一屏原先是【取一次，本地切片】：`commerceApi.orders()`
+     不带参数，后端默认给 20 条，而这一屏把拿到的东西按每页五笔切成四页,
+     `pageCount` 也是按【拿到几条】算的。
+
+     于是买过 30 单的人看到标题写着「30 笔」，翻到第四页就到头了 ——
+     剩下十笔他一辈子也够不着，而屏上没有一处说得出为什么。
+     四页翻得干干净净、内部完全自洽:**这种缺口不会自己喊**。
+     库里单子最多的人只有十单，所以谁也没撞上过。
+
+     这一段自己造够二十笔，把那条边界走过去。造完就删。 */
+  {
+    const uid = await p.evaluate(() => JSON.parse(localStorage.getItem('unmei:buwanren:user') || '{}').id)
+    if (uid) {
+      const 有几单 = Number(sql1(`SELECT count(*) FROM order_record WHERE user_id='${uid}'`))
+      // 凑到二十五单 —— 后端一页默认二十，这个数必须真的越过它
+      const 还差 = Math.max(0, 25 - 有几单)
+      for (let i = 0; i < 还差; i++) {
+        run(`INSERT INTO order_record(id, user_id, channel_origin, currency,
+               amount_subtotal_minor, amount_total_minor, status, region, created_at)
+             VALUES('vord-${i}','${uid}','web','CNY',100,100,'done','cn',
+                    NOW() - INTERVAL '${i + 1} hours')
+             ON CONFLICT (id) DO NOTHING`)
+      }
+      await open('pages/orders/index')
+      await p.waitForTimeout(1600)
+      const 账 = await p.evaluate(() => {
+        const d = globalThis.__router.current().data
+        return { total: d.total, pageCount: d.pageCount, 本页: d.page.length }
+      })
+      ok(账.total >= 25, '造够了二十五单', JSON.stringify(账))
+      /* 【翻得到的页数要按「一共几笔」算】。按「这一次拿到几条」算的话，
+         它永远是四页 —— 而标题上写的是二十五笔。 */
+      ok(账.pageCount === Math.ceil(账.total / 5),
+         '页数按「一共几笔」算，不是按「这一次拿到几条」', JSON.stringify(账))
+      /* 【最后一页真的翻得到，而且上面有东西】。这是那条缺口的判据本身:
+         第五页在旧代码里根本不存在。 */
+      const 头一页 = await p.evaluate(() => globalThis.__router.current().data.page.map((r) => r.id).join(','))
+      for (let i = 0; i < 4; i++) {
+        await p.getByText('下一页 ›', { exact: true }).click().catch(() => {})
+        await p.waitForTimeout(700)
+      }
+      const 末页 = await p.evaluate(() => {
+        const d = globalThis.__router.current().data
+        return { pageNo: d.pageNo, 本页: d.page.length, ids: d.page.map((r) => r.id).join(',') }
+      })
+      ok(末页.pageNo === 4 && 末页.本页 > 0,
+         '第五页翻得到，而且上面真的有单子', JSON.stringify(末页))
+      ok(末页.ids !== 头一页, '第五页上的不是第一页那几笔', 末页.ids.slice(0, 40))
+      run(`DELETE FROM order_record WHERE id LIKE 'vord-%'`)
+    }
+  }
+
+  /* ── 注销账号（2026-09-05）───────────────────────────────────
+     隐私政策上写了两遍「在「设置」里退出并删除账号」：
+
+       「存多久：账号在，数据就在。你退出并删除账号，出生时间与盘会一起
+         删掉；订单与支付记录按法律要求保留，那部分只留金额与时间」
+
+     而「设置」上此前只有一颗「退出」—— 它是本机的 `logout()`，
+     清掉这台手机上的 token，服务端一行数据都不动。绑了微信的人下次
+     登录回来东西全在；匿名的人只是再也够不着自己那个号。
+     **屏上那两句话对谁都不成立。**
+
+     这一段验两件事：那一屏说得清楚（先看清楚再按），以及那一下
+     真的删得掉（拿一个【用完就丢的身份】走，不能拿这一趟的主用户）。 */
+  {
+    await open('pages/settings/index')
+    await p.waitForTimeout(600)
+    ok((await text()).includes('注销账号'), '设置那一屏上找得到「注销账号」',
+       (await text()).slice(-90))
+    await p.getByText('注销账号', { exact: true }).click()
+    await p.waitForTimeout(1000)
+    ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/leave/index',
+       '点得进注销那一屏', await p.evaluate(() => globalThis.__router.current().__route))
+    const 注销文 = await text()
+    /* 【删什么、留什么、之后怎样 —— 三样都要说】。少说一样，
+       人是在信息不全的情况下按下一个不可逆的按钮。 */
+    ok(注销文.includes('会删掉') && 注销文.includes('会留下') && 注销文.includes('之后'),
+       '那一屏说清了删什么、留什么、之后怎样', 注销文.slice(0, 80))
+    ok(注销文.includes('出生时间') && 注销文.includes('再也进不来'),
+       '删的那一条跟隐私政策上写的是同一句', 注销文.slice(0, 120))
+    ok(注销文.includes('金额与时间'),
+       '留下的那一半也照政策说清 —— 不是含糊一句「部分数据保留」',
+       (注销文.match(/[^·]{0,20}金额与时间[^·]{0,10}/) || [''])[0])
+    await shot('leave')
+    /* 【这一屏不许自己就把人注销了】。垫片的 `showModal` 走浏览器
+       confirm，Playwright 默认 dismiss —— 也就是说这一下【等于点了「先不」】。
+       它仍然是有意义的一条:按下去之后如果什么都没发生，说明那道
+       二次确认真的挡在前面（挡不住的话这一趟的主用户当场就没了）。 */
+    await p.getByText('注销这个账号', { exact: true }).click()
+    await p.waitForTimeout(1200)
+    ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/leave/index',
+       '不确认就什么都不发生 —— 二次确认真的挡在前面',
+       await p.evaluate(() => globalThis.__router.current().__route))
+
+    /* 那一下真做起来是什么样 —— 用一个【用完就丢】的身份走。
+       不能拿这一趟的主用户:他后面还有一百多条断言要跑。 */
+    if (API) {
+      const 结果 = await p.evaluate(async (base) => {
+        const 登 = await fetch(base + '/v1/auth/anonymous', {
+          method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}',
+        })
+        if (!登.ok) return { 步: '登录', 码: 登.status }
+        const { token } = await 登.json()
+        const 头 = { authorization: 'Bearer ' + token, 'content-type': 'application/json' }
+        const 我 = await (await fetch(base + '/v1/user/me', { headers: 头 })).json()
+        const 删 = await fetch(base + '/v1/user/me/delete', { method: 'POST', headers: 头, body: '{}' })
+        const 再问 = await fetch(base + '/v1/user/me', { headers: 头 })
+        // 幂等:手抖点两下不该报错
+        const 再删 = await fetch(base + '/v1/user/me/delete', { method: 'POST', headers: 头, body: '{}' })
+        return { id: 我.id, 删: 删.status, 再问: 再问.status, 再删: 再删.status }
+      }, API)
+      ok(结果.删 === 200, '注销那一下真的成了', JSON.stringify(结果))
+      /* 【401 不是 403】。403 是「你不能做这件事」，而注销之后这个号
+         已经不存在 —— 而且客户端对 401 的处置是清掉 token 重新匿名登录，
+         那正是一个刚注销完的人该落到的地方。 */
+      ok(结果.再问 === 401, '注销之后旧 token 一律 401 —— 这个号真的进不来了',
+         JSON.stringify(结果))
+      /* 【这一条挡住过一次真缺口】。守卫按 `deleted_at` 把注销过的 token
+         一律打成 401，于是应用层那份幂等（再调一次各项都是 0）
+         **在 HTTP 上一次都到不了** —— 网络超时之后人再点一次，
+         那一下其实已经成了，屏上却报「没登录」。现在注销那一条自己放行。 */
+      ok(结果.再删 === 200, '再点一次不报错 —— 报错会让人以为头一次没成',
+         JSON.stringify(结果))
+      if (结果.id) {
+        ok(sql1(`SELECT count(*) FROM app_user WHERE id='${结果.id}' AND deleted_at IS NOT NULL`) === '1',
+           '库里那一行落了注销时间',
+           sql1(`SELECT nickname, deleted_at FROM app_user WHERE id='${结果.id}'`))
+        ok(sql1(`SELECT nickname FROM app_user WHERE id='${结果.id}'`) === '已注销',
+           '名字换成「已注销」—— 后台那张表上一个空名字读起来像数据坏了',
+           sql1(`SELECT nickname FROM app_user WHERE id='${结果.id}'`))
+      }
+    }
+  }
+
   await open('pages/me/index')
 
-  /* 【一个都没订的时候，那一行不摆出来】。村里现在没有可订的东西，
-     点进去只会说「等有了会摆在这儿」—— 它唯一传达的信息是产品没做完，
-     而它跟另外四行并排挂着，会把那四行的可信度一起拉低。
-     有货那天 `hasSubs` 自己就把它带回来。 */
+  /* 【有货那天，那一行自己回来】（2026-09-05 · 一味香按月送上架）。
+     这一条原先反着写:「一个都没订就不摆那一行」—— 那时村里一件可订的
+     东西都没有，点进去只会说「等有了会摆在这儿」，一句「产品没做完」
+     挂在另外四行旁边，会把那四行的可信度一起拉低。
+     而那段注释自己写着「有货那天 `hasSubs` 自己就把它带回来」——
+     今天就是那天，所以断言跟着翻面。
+
+     判据仍然是一句话:**这一行只在它通向某个东西的时候才摆**。
+     变的不是规矩，是货架上有没有东西。 */
   const 我屏文 = await text()
   const 有订 = await p.evaluate(() => globalThis.__router.current().data.hasSubs)
-  ok(有订 === false && !我屏文.includes('订着的'),
-     '一个都没订的时候，「我的」上不摆那一行', `hasSubs=${有订}`)
+  ok(有订 === true && 我屏文.includes('订着的'),
+     '有可订的东西了，「我的」上那一行就摆出来', `hasSubs=${有订}`)
 
-  // 那一页本身照旧走得通（有货那天入口回来，链路不能是断的）
-  await open('pages/subs/index')
-  await p.waitForTimeout(1200)
+  /* 【从入口走进去，不直接开那一页】。这一段原先是 `open('pages/subs/index')` ——
+     那时入口是收起来的，只能绕过它。现在入口在了，就该走它:
+     「那一页打得开」跟「从我的点得进那一页」是两件事，
+     而后者才是人真的会做的动作。 */
+  await p.getByText('订着的', { exact: true }).click()
+  await p.waitForFunction(
+    () => globalThis.__router.current().__route === 'pages/subs/index',
+    null, { timeout: 15000 },
+  ).catch(() => {})
   ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/subs/index',
-     '「订」那一页本身还在，只是入口先收起来了', await p.evaluate(() => globalThis.__router.current().__route))
+     '从「我的」点得进「订着的」', await p.evaluate(() => globalThis.__router.current().__route))
+  await p.waitForTimeout(1200)
   /* 出口那一条没变，只是搬进了那一页里面：空的时候要说清哪儿能有。 */
   await p.waitForTimeout(900)
   const 空文 = await text()
@@ -3126,6 +4638,284 @@ if (!API) {
        '「哪儿能有」真的走得过去 —— 出口不是一句话',
        await p.evaluate(() => globalThis.__router.current().__route))
     await open('pages/subs/index')
+  }
+
+  /* ── 真的订着的时候，这一屏长什么样（2026-09-05）────────────────
+     上面那几条验的全是【一个都没订】那一支 —— 而这一趟走的是一个
+     刚建的匿名用户，他永远一份都没有。也就是说 `subs.length > 0`
+     那一支在这支门禁里**从来没有渲染过**，页面注释里也是这么写的：
+     「这一屏从来没有一位真的订着的人来过」。
+
+     它藏住过三样：套餐名打的是 `plan-mg-month`、状态打的是 `active`、
+     日子打的是带微秒的时间戳。这三样是这一轮才修的，而修完之后
+     仍然没有任何东西盯着它们 —— 所以这里自己造两份订阅。
+
+     两份都是【死的】（到期 / 退了），为的是同时验第二件事：
+     一份都不在续的时候，这一屏不能是几张读不动的卡片加一颗「回去」。
+     造完就删，后面那一段照旧走在「一个都没订」上。 */
+  {
+    const uid = await p.evaluate(() => JSON.parse(localStorage.getItem('unmei:buwanren:user') || '{}').id)
+    if (uid) {
+      const 两份 = ['vsub-dead-y', 'vsub-dead-m']
+      run(`INSERT INTO subscription(id, user_id, plan_id, status, source_channel,
+             current_period_start, current_period_end, cancel_at_period_end, region)
+           VALUES('${两份[0]}','${uid}','plan-mg-year','expired','wechat_jsapi',
+                  NOW() - INTERVAL '400 days', NOW() - INTERVAL '35 days', false, 'cn'),
+                 ('${两份[1]}','${uid}','plan-mg-month','cancelled','wechat_jsapi',
+                  NOW() - INTERVAL '60 days', NOW() - INTERVAL '30 days', true, 'cn')
+           ON CONFLICT (id) DO NOTHING`)
+      await open('pages/subs/index')
+      await p.waitForTimeout(1400)
+      const 订文 = await text()
+      ok(await p.evaluate(() => (globalThis.__router.current().data.subs || []).length) === 2,
+         '订着的那一屏这次真渲了列表那一支', 订文.slice(0, 40))
+      /* 【库里那个字段的原文一个都不许上屏】。名、状态、日子三样
+         原先打的就是 `plan-mg-year` / `expired` / 带微秒的时间戳。 */
+      ok(!/plan-mg-|expired|cancelled/.test(订文),
+         '套餐名与状态都是人话，不是库里那个字段', (订文.match(/plan-mg-\S+|expired|cancelled/) || [''])[0])
+      ok(订文.includes('已经到期') && 订文.includes('已经退了'),
+         '两份的状况各说各的', 订文.slice(0, 80))
+      /* 【一份都不在续，这一屏不能是死路】。它长得像「有东西」，
+         其实跟空的一样 —— 而空状态早就说清了去处，这一态没人管过。 */
+      const 有出路 = 订文.includes('可以订') || 订文.includes('等有了会摆在这儿')
+        || await p.evaluate(() => (globalThis.__router.current().data.offers || []).length > 0)
+      ok(有出路, '一份都不在续的时候，它说得出下一步去哪儿', 订文.slice(-60))
+      /* 【还在续的那一份，卡上要有一个按得动的东西】（2026-09-05）。
+         上面两份是死的，死的不给动作是对的;而活着的那一份从前也一样
+         什么都不给 —— 后端 `cancel` 一直在，用户没有任何办法用到它。
+         这里只验「屏上给不给得出」;那颗按钮真按下去会发生什么，
+         由 25 计划打真接口验（`scripts/plan25.sh` 的 U4）。 */
+      run(`INSERT INTO subscription(id, user_id, plan_id, status, source_channel,
+             current_period_start, current_period_end, cancel_at_period_end, region)
+           VALUES('vsub-alive','${uid}','plan-incense-monthly','active','wechat_mp',
+                  NOW() - INTERVAL '2 days', NOW() + INTERVAL '28 days', false, 'cn')
+           ON CONFLICT (id) DO NOTHING`)
+      await open('pages/subs/index')
+      await p.waitForTimeout(1400)
+      const 活文 = await text()
+      ok(活文.includes('不再续了'), '还在续的那一份给得出「不再续了」', 活文.slice(0, 70))
+      ok(await p.locator('.item-do').count() === 1,
+         '一张卡上只给一个动作 —— 死的那两份不给',
+         String(await p.locator('.item-do').count()))
+      /* 【会寄东西的那一档说的是东西】。`plan.entitlements_json` 里写着
+         每期发什么;有它的时候屏上该是「下一盒 X 发」，不是「续到 X」。 */
+      ok(/下一盒 .* 发/.test(活文), '它说的是「下一盒几号发」，不是「续到几号」',
+         (活文.match(/下一盒[^·]{0,16}/) || [''])[0])
+
+      /* 【那颗按钮真按下去会怎样】（2026-09-06）。上面那一条只验了
+         「屏上给不给得出」，而注释里写着「真按下去由 25 计划打真接口验」——
+         也就是说 `subs·onStop` 这个处理器【一次都没被按过】，
+         它一直挂在这一趟末尾那份「没碰过的」清单上。
+
+         退订是「花钱的反面」，按错了要等一个月才发现，所以它有二次确认;
+         镜像里 `wx.showModal` 走浏览器 confirm，playwright 默认关掉它 ——
+         两边都要显式接管，跟上面取消订单那一段同一个手法。 */
+      const 还续着 = () => sql1(`SELECT cancel_at_period_end FROM subscription WHERE id='vsub-alive'`)
+      const 关掉退订 = (d) => d.dismiss()
+      p.on('dialog', 关掉退订)
+      await p.getByText('不再续了', { exact: true }).click()
+      await p.waitForTimeout(900)
+      ok(还续着() === 'f', '在确认框上说「再想想」，它还续着 —— 不该一按就停',
+         还续着())
+      p.off('dialog', 关掉退订)
+
+      const 点头退订 = (d) => d.accept()
+      p.on('dialog', 点头退订)
+      await p.getByText('不再续了', { exact: true }).click()
+      await p.waitForTimeout(1400)
+      ok(还续着() === 't', '确认之后真的不再续了', 还续着())
+      p.off('dialog', 点头退订)
+
+      /* 【标记打上之后，屏上要跟着改口】。`cancel_at_period_end` 为 true 时
+         状态仍然是 `active` —— 而这一屏原先只打状态，
+         一位已经点过「到期不续」的人，看到的跟没退的人一个字不差
+         （docs/ACCEPTANCE-25.md 先决条件五里记着这件事）。 */
+      await open('pages/subs/index')
+      await p.waitForTimeout(1400)
+      const 退后文 = await text()
+      /* 【会寄东西的那一档说法改了】（2026-09-06）。原先这一句是
+         「最后一盒 {到} 发 —— 之后不再续」，而那是假的:那一盒是
+         **扣款那一刻**建的，周期末那天 `renew_due` 认出取消标记
+         只置 `cancelled`，不建订单、不建运单 —— 什么都不会来。
+         所以断言从「有没有『不再续』三个字」换成两条:
+         屏上说得出到期之后会怎样，且**不再答应还有一盒**。 */
+      ok(/不再续|不再扣钱/.test(退后文),
+         '点完之后那一屏跟着改口 —— 不是仍旧写着「订着」',
+         (退后文.match(/一味香[^·]{0,40}/) || [''])[0])
+      ok(!/最后一盒还会发|最后一盒 [0-9]/.test(退后文),
+         '不再答应「最后一盒还会发」—— 那一天什么都不会寄',
+         (退后文.match(/[^·\n]{0,24}最后一盒[^·\n]{0,24}/) || ['（没提最后一盒）'])[0])
+      run(`DELETE FROM subscription WHERE id IN ('${两份[0]}','${两份[1]}','vsub-alive')`)
+    }
+  }
+
+  /* ── 发到手的券，他自己看得见吗（2026-09-05）───────────────────
+     `docs/ACCEPTANCE-25.md` 第六条：后台发得出绑人的券，库里
+     `coupon.owner_user_id` 从建库起就是为「这一张是谁的」留的 ——
+     而用户那一侧【没有一个「我的券」】。客户端唯一跟券有关的东西是
+     确认页上那个「有券码就填这儿」的格子，也就是**他得先知道那串码**。
+     运营给一位用户补一张，用户打开 app 什么都看不到。
+
+     跟上面订阅那一段同一个手法：造三张（能用 / 过期 / 用过），
+     验完就删，后面几段照旧走在「手里一张都没有」上。 */
+  {
+    const uid = await p.evaluate(() => JSON.parse(localStorage.getItem('unmei:buwanren:user') || '{}').id)
+    if (uid) {
+      const 码 = 'VCPN' + String(Date.now()).slice(-6)
+      /* 四张:两张能用（先到期的排前面）、一张过期、一张用过。
+         两张能用是为了让「换一张」那一支【真的渲染出来】——
+         这个仓栽过一次同样的事:「订着的」那一屏 `subs.length > 0`
+         那一支从来没有一位真订着的人来过，于是它把库里的字段原文
+         打了三样上屏而没人发现。红着的分支不会自己喊。 */
+      run(`INSERT INTO coupon(id, code, owner_user_id, benefit_json, state,
+             issued_at, expires_at, audit_note, region)
+           VALUES('vcpn-ok','${码}','${uid}','{"pct_off_bps":2000,"max_off_minor":10000}'::jsonb,
+                  'issued', NOW(), NOW() + INTERVAL '10 days', '镜像验证', 'cn'),
+                 ('vcpn-ok2','${码}Z','${uid}','{"amount_off_minor":1000}'::jsonb,
+                  'issued', NOW(), NOW() + INTERVAL '30 days', '镜像验证', 'cn'),
+                 ('vcpn-old','${码}X','${uid}','{"amount_off_minor":2000}'::jsonb,
+                  'issued', NOW() - INTERVAL '9 days', NOW() - INTERVAL '1 day', '镜像验证', 'cn'),
+                 ('vcpn-used','${码}Y','${uid}','{"pct_off_bps":1000}'::jsonb,
+                  'redeemed', NOW() - INTERVAL '9 days', NOW() + INTERVAL '9 days', '镜像验证', 'cn')
+           ON CONFLICT (id) DO NOTHING`)
+
+      await open('pages/coupons/index')
+      await p.waitForTimeout(1400)
+      const 券文 = await text()
+      ok(await p.evaluate(() => (globalThis.__router.current().data.券 || []).length) === 4,
+         '手里的券那一屏渲得出列表', 券文.slice(0, 50))
+      /* 【库里那几个字段的原文一个都不许上屏】。券面在库里是
+         `{"pct_off_bps":2000}`，状态是 `issued` / `redeemed` ——
+         照打的话这一屏是四行读不懂的 JSON。 */
+      ok(!/pct_off_bps|amount_off_minor|issued|redeemed/.test(券文),
+         '券面与状态都是人话，不是库里那个字段',
+         (券文.match(/pct_off_bps|amount_off_minor|issued|redeemed/) || [''])[0])
+      ok(券文.includes('八折') && 券文.includes('最多减 ¥100'),
+         '券面说的是「八折 · 最多减 ¥100」', 券文.slice(0, 60))
+      /* 【能不能用是后端算的，屏上要照实说】。过期那张与用过那张
+         都得说出自己为什么用不了 —— 不说的话它们跟能用的长得一样。 */
+      ok(券文.includes('已经过期') && 券文.includes('用过了'),
+         '用不了的两张各说各的理由', 券文.slice(0, 90))
+      ok(券文.includes('4 张') && 券文.includes('2 张能用'),
+         '副标题分得清「有几张」与「能用几张」',
+         (券文.match(/\d+ 张[^·]{0,12}/) || [''])[0])
+      /* 【能用的排前面，先到期的又排在前】。人点进来找的是
+         「我现在有什么能花」，而该先花掉的是快过期那张。 */
+      ok(await p.evaluate(() => (globalThis.__router.current().data.券 || [])
+           .slice(0, 2).map((x) => x.id).join(',')) === 'vcpn-ok,vcpn-ok2',
+         '能用的排前面，先到期的又排在最前',
+         await p.evaluate(() => (globalThis.__router.current().data.券 || []).map((x) => x.id).join(',')))
+      /* 【一张卡上只给一个动作】——跟「订着的」同一条规矩。
+         能用的指向哪儿能花掉它;过期、用过的什么都不给（确实无事可做）。 */
+      ok(await p.locator('.item-do').count() === 2,
+         '两张能用的各给一个动作，用不了的不给', String(await p.locator('.item-do').count()))
+      await shot('coupons')
+
+      /* 【「我的」上那一行要摆出来】。它挂着 `wx:if="{{hasCoupons}}"`，
+         跟「订着的」「去得了的」同一条规矩：一行要么通向一件真事，要么不在。 */
+      await open('pages/me/index')
+      await p.waitForTimeout(1400)
+      ok((await text()).includes('手里的券'), '手里有券的时候，「我的」上那一行摆出来',
+         (await text()).slice(0, 120))
+      await p.getByText('手里的券', { exact: true }).click()
+      await p.waitForTimeout(1200)
+      ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/coupons/index',
+         '从「我的」点得进「手里的券」',
+         await p.evaluate(() => globalThis.__router.current().__route))
+
+      /* 【结账那一格得让他点得到自己的券】。这一格原先只收码 ——
+         而运营发的券绑在他账号上，系统一直知道有哪几张，只是从没说过。
+         这一条验的是那半截缺口：不只「看得见」，还要「用得上」。
+
+         【券条占的是输入框那个位子，不另起一块】。这一屏的纵向是满的:
+         实测内容 633px、一屏 667px，用上券之后那一行「这张券减」
+         就已经把它顶出去 11px（那 11px 这一轮一并修了:下留白
+         220rpx → 196rpx）。另起一块要 69px，一块都放不下。 */
+      if (要参数['pages/confirm/index']) {
+        await open('pages/confirm/index', 要参数['pages/confirm/index'])
+        await p.waitForTimeout(1400)
+        ok(await p.locator('.coupon-pick').count() === 1,
+           '结账那一格摆的是他手里那张券，不是一个空输入框',
+           String(await p.locator('.coupon-pick').count()))
+        ok((await text()).includes('八折'), '摆出来的是先到期那张的券面',
+           (await text()).slice(0, 80))
+        /* 【摆出来还不够，得替他用上】（2026-09-06 三路验证 · 第一次打开的人）。
+           上一版只把券摆出来、要点一下才减 —— 而那个 chip 没有边框、
+           没有底色，跟旁边「运费 · 包邮」那种纯展示的值同色同形。
+           实测那一屏:券条写着「八折 · 最多减 ¥100」，而「一共」还是 ¥29。
+           唯一看着能点的是旁边那个橙色的「填码」，
+           于是人以为要有码才用得上，然后原价付了。 */
+        {
+          let 自动减 = 0
+          for (let i = 0; i < 20; i++) {
+            自动减 = await p.evaluate(() => globalThis.__router.current().data.减了)
+            if (自动减 > 0) break
+            await p.waitForTimeout(500)
+          }
+          ok(自动减 > 0,
+             '进这一屏就替他把第一张券用上了 —— 不是摆着让他自己发现',
+             自动减 > 0 ? `减了 ${自动减}` : '（进来时一分没减，那张券白摆着）')
+        }
+        /* 【掏钱这条路上够得着协议】。全仓通往协议的入口此前只有
+           「设置」里那两条，而自动续费那三问的答案全写在协议里 ——
+           人在按下成交按钮之前看不到它们。 */
+        ok(await p.locator('.terms-a').count() === 2,
+           '成交按钮上面摆得出《用户协议》与《隐私政策》两条链',
+           `${await p.locator('.terms-a').count()} 条`)
+        await p.locator('.terms-a').first().click()
+        await p.waitForTimeout(1200)
+        ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/policy/index',
+           '点《用户协议》真的打得开那一屏',
+           await p.evaluate(() => globalThis.__router.current().__route))
+        await open('pages/confirm/index', 要参数['pages/confirm/index'])
+        await p.waitForTimeout(1400)
+        await p.locator('.coupon-pick').first().click()
+        const 等减 = async () => {
+          for (let i = 0; i < 20; i++) {
+            const v = await p.evaluate(() => globalThis.__router.current().data.减了)
+            if (v > 0) return v
+            await p.waitForTimeout(500)
+          }
+          return 0
+        }
+        const 头一张减 = await 等减()
+        ok(头一张减 > 0, '点一下就当场算出减了多少 —— 不用他再按一次「试试」',
+           String(头一张减) + ' · ' + (await text()).slice(0, 60))
+        /* 【不止一张时换得动，而且换完那个数跟着变】。换一张而屏上
+           那个数不动的话，人不知道换过去到底是多少，还得再按一次。 */
+        await p.getByText('换一张').click()
+        await p.waitForTimeout(300)
+        let 第二张减 = 0
+        for (let i = 0; i < 20; i++) {
+          第二张减 = await p.evaluate(() => globalThis.__router.current().data.减了)
+          if (第二张减 > 0 && 第二张减 !== 头一张减) break
+          await p.waitForTimeout(500)
+        }
+        ok(第二张减 > 0 && 第二张减 !== 头一张减,
+           '「换一张」换过去之后，减的那个数跟着变',
+           `头一张 ${头一张减} → 第二张 ${第二张减}`)
+        /* 【别处拿到的码还得填得进来】。券条占了输入框那个位子，
+           所以必须留一条切回去的路;切过去【不切回来】—— 切回来会把
+           他打了一半的字吃掉。 */
+        await p.getByText('填码').click()
+        await p.waitForTimeout(600)
+        ok(await p.locator('.coupon-in').count() === 1,
+           '点「填码」换回那个输入框 —— 别处拿到的码还填得进来',
+           String(await p.locator('.coupon-in').count()))
+        ok(await p.evaluate(() => globalThis.__router.current().data.减了) === 0,
+           '换回输入框时把上一张的折扣一起撤掉 —— 屏上不留一个算不出来的数',
+           String(await p.evaluate(() => globalThis.__router.current().data.减了)))
+        /* 【手里只剩一张时不摆「换一张」】—— 一颗按下去什么都不变的按钮，
+           比没有更糟。删掉一张再开一次，验的是这条判断真跟着数据走。 */
+        run(`DELETE FROM coupon WHERE id='vcpn-ok2'`)
+        await open('pages/confirm/index', 要参数['pages/confirm/index'])
+        await p.waitForTimeout(1400)
+        ok(await p.getByText('换一张').count() === 0,
+           '只剩一张的时候不摆「换一张」', String(await p.getByText('换一张').count()))
+      }
+
+      run(`DELETE FROM coupon WHERE id IN ('vcpn-ok','vcpn-ok2','vcpn-old','vcpn-used')`)
+    }
   }
 
   /* 「我」→「单」：花过的钱要能找回来。这是订单这个资源的常设入口 ——
@@ -3201,7 +4991,7 @@ if (!API) {
   for (const 条 of ['名字', '我买过的', '我得到的', '设置']) {
     ok(我屏.includes(条), `「我的」上有「${条}」这一条`, 条)
   }
-  /* 搬走的三块不该还在这一屏上。留一块在这儿,这一屏就又放不下了 ——
+  /* 搬走的三块不该还在这一屏上。留一块在这儿，这一屏就又放不下了 ——
      而「放不下」在真机上的样子是【底下那一截看不见】,不是报错。 */
   for (const 不该有 of ['退出', '这台设备上的账号']) {
     ok(!我屏.includes(不该有), `「${不该有}」已经不在这一屏上`, 不该有)
@@ -3209,7 +4999,7 @@ if (!API) {
 
   /* 最近一笔写的是【买的那个东西】,不是订单号。
      后端 my_orders 的 title 取自下单那一刻的 sku 快照 ——
-     没有它,这一块只显示得出一串 UUID,读的人认不出自己买了什么。 */
+     没有它，这一块只显示得出一串 UUID,读的人认不出自己买了什么。 */
   await shot('08-me')
   const 最近 = await p.evaluate(() => globalThis.__router.current().data.recent)
   ok(!!最近, '「我的」上有「最近一笔」', 最近 ? String(最近.title) : '没有')
@@ -3228,8 +5018,8 @@ if (!API) {
 }
 
 // ⑫ 底下那条 tab ─────────────────────────────────────────────
-/* app.json 里声明了它,而垫片以前整个忽略 —— 真机上它一直占着底下那一条,
-   镜像里既不显示也没人能点。切 tab 这个动作因此完全验不到,
+/* app.json 里声明了它，而垫片以前整个忽略 —— 真机上它一直占着底下那一条，
+   镜像里既不显示也没人能点。切 tab 这个动作因此完全验不到，
    而页面看着是完整的。 */
 console.log('\n── 底下那条 tab ──')
 errs.length = 0
@@ -3239,16 +5029,16 @@ const tabs = await p.evaluate(() => {
   return bar ? { 显示: getComputedStyle(bar).display, 字: [...bar.children].map((c) => c.textContent) } : null
 })
 ok(tabs !== null, 'tab 条在')
-/* 期望值从 app.json 读,不写死。写死过一次:村加进 tab 那天这一条报红,
-   红的是断言不是产品,而报告长得跟产品坏了一模一样。 */
+/* 期望值从 app.json 读，不写死。写死过一次：村加进 tab 那天这一条报红，
+   红的是断言不是产品，而报告长得跟产品坏了一模一样。 */
 const 期望字 = (JSON.parse(readFileSync('mini/miniprogram/app.json', 'utf8')).tabBar?.list || [])
   .map((t) => t.text)
 ok(tabs && tabs.字.join('') === 期望字.join(''),
    `${期望字.length} 个 tab 照 app.json`, tabs ? tabs.字.join(' ') : '没有')
 if (tabs) {
   await shot('05-tabbar')
-  /* tab 的字同样从 app.json 读。写死过一次:「我」改名叫「我的」那天这一条
-     报的是 30 秒超时,长得像产品坏了,其实只是断言没跟着改名。 */
+  /* tab 的字同样从 app.json 读。写死过一次：「我」改名叫「我的」那天这一条
+     报的是 30 秒超时，长得像产品坏了，其实只是断言没跟着改名。 */
   const 字 = (路径) => (期望字[(JSON.parse(readFileSync('mini/miniprogram/app.json', 'utf8'))
     .tabBar.list).findIndex((t) => t.pagePath === 路径)])
   const 我字 = 字('pages/me/index')
@@ -3256,8 +5046,8 @@ if (tabs) {
   await p.waitForTimeout(400)
   ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/me/index',
      `点「${我字}」真的切过去了`, await p.evaluate(() => globalThis.__router.current().__route))
-  // 村现在是 tab 页(2026-08-19 之前它谁也进不去,全应用唯一的扫码入口就在上面)。
-  // 这里【点过去】而不是直开 —— 直开一直都行,不行的正是「从底下点得到」这件事,
+  // 村现在是 tab 页(2026-08-19 之前它谁也进不去，全应用唯一的扫码入口就在上面)。
+  // 这里【点过去】而不是直开 —— 直开一直都行，不行的正是「从底下点得到」这件事，
   // 而那才是当时缺的东西。
   const 村字 = 字('pages/village/index')
   await p.getByText(村字, { exact: true }).click()
@@ -3336,7 +5126,7 @@ if (tabs) {
   await open('pages/home/index')
   /* 通往生辰那一页的入口在两个状态下是两颗不同的东西：
      还没建过 → 「填出生时间」；建过了 → 「看完整的那一份 ›」。
-     守的是同一条性质:命不再是 tab 之后的新路,从我家一下就到。
+     守的是同一条性质：命不再是 tab 之后的新路，从我家一下就到。
      原先只点「填出生时间」,而**有本命那一支只在接上排盘服务时才走得到**,
      于是它一直没红过。 */
   /* 一屏只该有一件要你做的事（标尺 §1.5.4 第二问）。
@@ -3365,14 +5155,14 @@ if (tabs) {
   ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/natal/index',
      `我家「${有盘 ? '展开看盘' : '填出生时间'}」进得去生辰　—— 命不再是 tab 之后的新路`,
      await p.evaluate(() => globalThis.__router.current().__route))
-  // 反过来那一半:不在 tab 上的页,底下不该有这条。少了这一条的话,
+  // 反过来那一半：不在 tab 上的页，底下不该有这条。少了这一条的话，
   // 「tab 条永远显示」这种垫片退化也能全绿。
   await open('pages/room/index')
   ok(await p.evaluate(() => getComputedStyle(document.getElementById('wx-tabbar')).display) === 'none',
-     '屋里没有 tab 条　—— 它不是 tab 页,真机上那里也没有')
+     '屋里没有 tab 条　—— 它不是 tab 页，真机上那里也没有')
 } else {
-  // tab 条都不在,就别去点它 —— 那会卡满三十秒再抛栈,看着像门禁自己坏了
-  ok(false, '点「我」真的切过去了', 'tab 条都不在,没得点')
+  // tab 条都不在，就别去点它 —— 那会卡满三十秒再抛栈，看着像门禁自己坏了
+  ok(false, '点「我」真的切过去了', 'tab 条都不在，没得点')
   ok(false, '村主屏有 tab 条', '同上')
   ok(false, '屋里没有 tab 条', '同上')
 }
@@ -3389,10 +5179,10 @@ for (const api of ['login', 'scanCode', 'getUserProfile']) {
   const r = await p.evaluate((name) => {
     try { globalThis.wx[name]({}); return '没抛' } catch (e) { return String(e.message || e) }
   }, api)
-  ok(r !== '没抛' && /真机|device/i.test(r), `wx.${api} 抛了,而且说清是真机的事`, r.slice(0, 34))
+  ok(r !== '没抛' && /真机|device/i.test(r), `wx.${api} 抛了，而且说清是真机的事`, r.slice(0, 34))
 }
-/* 顺带验一次它在页面里的样子:点「绑定微信」不该看起来成功了。
-   这条与上面互补 —— 上面查垫片,这里查【页面拿到之后没把它糊过去】。 */
+/* 顺带验一次它在页面里的样子：点「绑定微信」不该看起来成功了。
+   这条与上面互补 —— 上面查垫片，这里查【页面拿到之后没把它糊过去】。 */
 /* 表单搬去自己一屏了（M1 上它一块 372px，没有一台机器放得下那一屏）。
    所以这里先按【真实走法】走进去：我的 → 设置 → 绑定微信。 */
 await open('pages/me/index')
@@ -3419,7 +5209,7 @@ if (await nk.count() >= 1) {
   await p.evaluate(() => globalThis.__router.current().setData({ 'draft.nickname': '试试' }))
 }
 /* 按【按钮】,不是按文字 —— 这一屏的标题也叫「绑定微信」,
-   按文字会同时选中标题与按钮,Playwright 直接判违规。 */
+   按文字会同时选中标题与按钮，Playwright 直接判违规。 */
 await p.getByRole('button', { name: '绑定微信' }).click()
 await p.waitForTimeout(800)
 ok(await p.evaluate(() => !globalThis.__router.current().data.isWx),
@@ -3431,7 +5221,7 @@ ok(await p.evaluate(() => globalThis.__router.current().__route) !== 'pages/bind
    '绑定那一屏上的「回去」退得出去',
    await p.evaluate(() => globalThis.__router.current().__route))
 
-/* 只在打真后端时验:假服务端没有 /v1/auth/anonymous,那边根本没有「人」可换。 */
+/* 只在打真后端时验：假服务端没有 /v1/auth/anonymous,那边根本没有「人」可换。 */
 if (API) {
   /* 「退出并重新登录」对匿名用户是【换一个人】：清掉 token 之后 ensureLogin
      拿不到 token 就发一个全新的匿名身份，村子和本命一起没。
@@ -3442,7 +5232,7 @@ if (API) {
   await p.waitForTimeout(900)
   const 退出前 = await p.evaluate(() => globalThis.__router.current().data.user && globalThis.__router.current().data.user.id)
 
-  /* 【先验它拦不拦】。这颗按钮对没绑微信的人是不可逆的:换一个新的匿名号，
+  /* 【先验它拦不拦】。这颗按钮对没绑微信的人是不可逆的：换一个新的匿名号，
      村里的人和买过的东西都留在旧号里。所以按下去必须先问一句。
 
      危险的那一头故意放在 confirm(而不是 cancel):浏览器的 confirm 显示不出
@@ -3462,7 +5252,16 @@ if (API) {
   const 答应 = (d) => d.accept()
   p.on('dialog', 答应)
   await p.getByText('退出', { exact: true }).click()
-  await p.waitForTimeout(2200)
+  /* 【等到位再判，不按秒数猜】。原先是固定等 2.2 秒 ——
+     而「退出之后重新匿名登录」是一趟网络往返，机器忙一点就还没回来，
+     读到的是 null，报出来像「退出后没有身份」。
+     实测偶发红过一次（2026-09-02）。而偶发的红比常红更糟：
+     它让每一次真红都能被当成噪音。等【有了新身份】或者超时，
+     超时也如实说是超时，不混进结论里。 */
+  await p.waitForFunction(
+    () => { const u = globalThis.__router.current().data.user; return !!(u && u.id) },
+    null, { timeout: 12000 },
+  ).catch(() => {})
   p.off('dialog', 答应)
   const 退出后 = await p.evaluate(() => globalThis.__router.current().data.user && globalThis.__router.current().data.user.id)
   ok(!!退出前 && !!退出后 && 退出前 !== 退出后,
@@ -3485,14 +5284,14 @@ if (API) {
 }
 
 // ⑭ 后端不响应时，页面说不说得出话 ───────────────────────────────
-/* 手机上网络抖一下是常态,而这条从没验过。
+/* 手机上网络抖一下是常态，而这条从没验过。
 
-   本命页原先把【任何】一次请求失败都渲成建本命的表单 —— 用户明明建过,
-   照着填下去就多一条重复记录,起因只是一次网络抖动。
+   本命页原先把【任何】一次请求失败都渲成建本命的表单 —— 用户明明建过，
+   照着填下去就多一条重复记录，起因只是一次网络抖动。
    今日页把「取不到盘」和「你还没建本命」显示成同一件事。
    两处都是 fallback 把「数据不存在」这个信号吃掉了。
 
-   这里把 /v1/** 全打成 500(登录放行,否则连页面都进不去),
+   这里把 /v1/** 全打成 500(登录放行，否则连页面都进不去),
    看每一页说不说得出「取不到」,以及【不再】劝你去建一个已经有的东西。 */
 console.log('\n── 后端不响应时，页面说不说得出话 ──')
 await p.route('**/v1/**', (r) => (r.request().url().includes('/auth/')
@@ -3512,10 +5311,10 @@ for (const [route, 该说, 不该说] of [
   ['pages/home/index', '近几次取不到', null],
 ]) {
   await open(route)
-  /* 我家那一屏要的前提是「app 认为你有本命,而服务端不给盘」。
-     这个前提【不能靠环境凑】:打真后端时那个匿名用户本来就没有本命,
-     于是它显示引导是对的,检查却会红 —— 本机绿、CI 红,而红的是检查不是产品。
-     所以这里自己把前提摆好,再让它重取一次。 */
+  /* 我家那一屏要的前提是「app 认为你有本命，而服务端不给盘」。
+     这个前提【不能靠环境凑】:打真后端时那个匿名用户本来就没有本命，
+     于是它显示引导是对的，检查却会红 —— 本机绿、CI 红，而红的是检查不是产品。
+     所以这里自己把前提摆好，再让它重取一次。 */
   if (route.includes('home')) {
     await p.evaluate(() => {
       getApp().globalData.activeNatalId = 'n_x'
@@ -3566,24 +5365,24 @@ await p.unroute('**/v1/**')
 
 // ⑮ 一帧要多久 ─────────────────────────────────────────────────
 /* 第 09 步那条门禁写的是「真机 30fps 以上」。真机进不了 CI,而【一帧的开销】
-   在浏览器里量得到,它正是那条门禁真正问的事:画得过来吗。
+   在浏览器里量得到，它正是那条门禁真正问的事：画得过来吗。
 
-   量的是什么,说清楚:
-     · 这是浏览器,不是手机。真机那条门禁仍然要人拿手机跑
+   量的是什么，说清楚：
+     · 这是浏览器，不是手机。真机那条门禁仍然要人拿手机跑
      · 它抓得住「某次改动让某间房慢了十倍」,而那正是最容易溜过去的那种回归
 
    ── 为什么比【倍数】不比毫秒 ──────────────────────────────────
-   第一版用的是绝对阈值(12ms),在开发机上全绿,推上 CI 全红 ——
+   第一版用的是绝对阈值(12ms),在开发机上全绿，推上 CI 全红 ——
    CI 的机器慢 10 到 50 倍(这台 popo 3.13ms,CI 上 30.85ms)。
-   绝对毫秒是【绑机器】的,这仓库在视觉基准上已经栽过同一种坑:
-   基准绑那台笔记本,拿到 CI 全红,所以 CI 改用 selfcheck / compare。同一课重上一遍。
+   绝对毫秒是【绑机器】的，这仓库在视觉基准上已经栽过同一种坑：
+   基准绑那台笔记本，拿到 CI 全红，所以 CI 改用 selfcheck / compare。同一课重上一遍。
 
-   现在的做法:同一次运行里先量一个【标定负载】(一片同尺寸画布上做定量的
+   现在的做法：同一次运行里先量一个【标定负载】(一片同尺寸画布上做定量的
    fillRect + drawImage,与房间走同一套 canvas 2D 路径),再把每间房的开销
    换算成它的倍数。
 
-   ── 倍数并不是恒定的,实测如此,别当成恒定 ──────────────────
-   开发机与 CI 各量一遍(CI 慢 7.3 倍:标定 1.77ms vs 12.92ms):
+   ── 倍数并不是恒定的，实测如此，别当成恒定 ──────────────────
+   开发机与 CI 各量一遍(CI 慢 7.3 倍：标定 1.77ms vs 12.92ms):
 
                 标定倍数
                 本机    CI
@@ -3596,17 +5395,17 @@ await p.unroute('**/v1/**')
        popo      1.7×   2.4×
 
    轻的那几间在慢机器上倍数明显变大 —— 一帧里有一部分是【每次调用的固定开销】,
-   它不随机器线性缩放,而标定负载是吞吐主导的。所以倍数只是【有界】,不是相等。
+   它不随机器线性缩放，而标定负载是吞吐主导的。所以倍数只是【有界】,不是相等。
 
-   这决定了这道门禁能抓什么、不能抓什么,说清楚:
-     · 能抓:某间房慢一个数量级(最重的 popo 现在 2.4×,阈值 12×)
-     · 抓不住:三倍级的退化 —— 那落在两台机器的自然差异里
-   要抓更细的,得先把「同一台机器上的历史值」存下来比,那是另一件事。 */
+   这决定了这道门禁能抓什么、不能抓什么，说清楚：
+     · 能抓：某间房慢一个数量级(最重的 popo 现在 2.4×,阈值 12×)
+     · 抓不住：三倍级的退化 —— 那落在两台机器的自然差异里
+   要抓更细的，得先把「同一台机器上的历史值」存下来比，那是另一件事。 */
 console.log('\n── 一帧要多久（开发机浏览器，不是手机）──')
 await open('pages/village/index')
 const cost = await p.evaluate(() => {
   const out = {}
-  // 房间每帧要那颗表演按钮(引擎的保护)。这里是离开页面单独量开销,给个桩。
+  // 房间每帧要那颗表演按钮(引擎的保护)。这里是离开页面单独量开销，给个桩。
   const origBtn = globalThis.ENGINE_HOST.button
   let label = '起卦'
   globalThis.ENGINE_HOST.button = () => ({ onTap() {}, getLabel: () => label, setLabel: (s) => { label = s } })
@@ -3616,11 +5415,11 @@ const cost = await p.evaluate(() => {
     for (let i = 0; i < n; i++) fn()
     return +((performance.now() - t0) / n).toFixed(2)
   }
-  /* 标定负载:与房间同尺寸的画布上做定量的 fillRect + drawImage。
-     刻意走【同一套 canvas 2D 路径】—— 换成算数或字符串操作的话,
-     机器之间的比例关系跟画画不一样,标定就不成立了。
-     量级也要跟一帧【差不多】:第一版只画 400 个矩形,本机上 0.07ms,
-     于是婆婆房算出 47 倍 —— 分母太小,倍数没有分辨率,也放大了抖动。 */
+  /* 标定负载：与房间同尺寸的画布上做定量的 fillRect + drawImage。
+     刻意走【同一套 canvas 2D 路径】—— 换成算数或字符串操作的话，
+     机器之间的比例关系跟画画不一样，标定就不成立了。
+     量级也要跟一帧【差不多】:第一版只画 400 个矩形，本机上 0.07ms,
+     于是婆婆房算出 47 倍 —— 分母太小，倍数没有分辨率，也放大了抖动。 */
   const cal = document.createElement('canvas'); cal.width = 1440; cal.height = 2560
   const cg = cal.getContext('2d')
   const stamp = document.createElement('canvas'); stamp.width = 64; stamp.height = 64
@@ -3651,8 +5450,8 @@ const cost = await p.evaluate(() => {
   globalThis.ENGINE_HOST.button = origBtn
   return out
 })
-/* 阈值 12 倍标定负载。两台机器上最重的都是婆婆房,本机 1.7×、CI 2.4×,
-   留五倍余量 —— 够宽,不会因为机器快慢而红;又抓得住数量级的回归。 */
+/* 阈值 12 倍标定负载。两台机器上最重的都是婆婆房，本机 1.7×、CI 2.4×,
+   留五倍余量 —— 够宽，不会因为机器快慢而红；又抓得住数量级的回归。 */
 const CAL = cost.__calib
 const RATIO = 12
 console.log(`  标定负载 ${CAL} ms（这台机器的基准，倍数就是按它算的）`)
@@ -3669,12 +5468,86 @@ if (!(CAL > 0)) {
 /* 断言【这一趟真的验了东西】。
    这仓库已经为 cargo test 装过同一道护栏(backend.yml 的
    「assert the db-backed tests actually ran」)—— 起因是本地出现过
-   「15 passed,其实一个没跑」。一支什么都没做也印「动线全通」的脚本,
+   「15 passed,其实一个没跑」。一支什么都没做也印「动线全通」的脚本，
    比没有脚本更糟。
 
-   条数:六页 + 村主屏 4 + 空屋 3 + 住着 3 + 出签 2 + 没搬进来 2 + 进屋 3
-   + 一帧开销 7,再加打真后端时的入住 1。少于 30 说明有整段没跑到。 */
-const LEAST = 30
+   【2026-09-01 抬门槛】。这个数原先是 30，而文件里 `ok(` 有三百多处 ——
+   实测：假服务端那一档跑 111 条，打真后端跑 312 条。也就是说整段整段
+   没跑到（比如「谁能来 → 商品 → 确认 → 下单」十几条一起丢），
+   剩下的仍然远超 30，照样印「✓ 动线全通」。
+   这是全仓唯一防「验证脚本自己没跑」的护栏，而它的倍率差了十倍。
+
+   门槛跟着【这一档实际该跑多少】走，各留一成余量：
+     · 假服务端：整条真链挂在「有真后端」上，只跑得到前端那一侧
+     · 真后端：匿名登录 → 扫御守入住 → 问签 → 进屋，全链
+   改断言数的时候这两个数要跟着改 —— 它们是账，不是魔法数。
+
+   【但「要人记得改」本身就是个洞】（2026-09-02 第四轮评审 · 工程审计）。
+   这两个数自从写下就没动过：实跑已经是 130 / 379，而账上还是 111 / 323。
+   也就是说两档各能凭空少掉 31 条（24%）和 85 条（23%）仍然印「动线全通」——
+   护栏的量级已经回到了它当初要防的那次事故的水平。
+
+   所以除了对账，再加一条【反向】的：实跑数比账高出一成以上时也报出来，
+   要求把账更新。它不拦（多验不是错），但它让账不会再悄悄过期。 */
+/* 【三档，不是两档】（2026-09-03 五路评审 · 门禁审计）。
+
+   上一版只分「假服务端 / 真后端」两档，而真后端那一档的账（385）
+   是【带排盘服务】跑出来的数 —— 建本命那一段有十七条断言全挂在
+   `if (API && MINGLI)` 里。没有排盘服务时那十七条一条都不跑，
+   实跑 368，而下限是 floor(385×0.9)=346：**整整一段静静地没跑，
+   而屏上印的是「动线全通」**。
+
+   十七比三百八十五小，所以它藏在一成松量底下 —— 这正是「按总数判」
+   的通病：一整段消失，总数只掉了一点点。
+   分成三档之后，每一档的账对的是【那一档实际该跑的条数】。 */
+// 三档的数都是【实测】的，不是从另一档减出来的：
+// 2026-09-03 同一台机器上分别跑了三趟 —— 假 130 / 真 358 / 真带排盘 384。
+// 建本命那一段是 26 条，不是当初以为的 17 条。
+/* 「真带排盘」这一档 2026-09-07 第十四次改，516 → 522（实跑）——
+   券减到零那一单加了六条（减得到零 / 建得出来 / 不在待付 /
+   没有「去付」/ 说清为什么是 ¥0 / 也发了 OrderPaid）。 */
+/* 「真带排盘」这一档 2026-09-06 第十三次改，514 → 516（实跑）——
+   「我的」上补了说明书那一行，加了两条（它在 / 点得到那一件或那一单）。 */
+/* 「真带排盘」这一档 2026-09-06 第十二次改，509 → 514（实跑）——
+   点香那一屏加了一条（钟点也按排期，不再写死「今晚」），
+   罗盘加了四条（同一小时是同一签 / 屏上说清 / 那句话真渲出来 / 库里不多一行）。 */
+/* 「真带排盘」这一档 2026-09-06 第十一次改，505 → 509（实跑）——
+   订着的那一屏加了一条（不再答应「最后一盒还会发」），
+   结账屏加了三条（自动用上第一张券 / 协议两条链 / 点得开）。 */
+/* 「真带排盘」这一档 2026-09-06 第十次改，502 → 505（实跑）——
+   徽章那一路加了三条（问签也算数 / 屏上写得出还差多少 / 那条路指最容易的一枚）。 */
+/* 「真带排盘」这一档 2026-09-06 第九次改，501 → 502（实跑）——
+   商品屏多档那一段的一条判据换成了两条（大价钱撤了 / 牌上名价都在）。 */
+/* 「真带排盘」这一档 2026-09-06 第八次改，496 → 501（实跑）——
+   退款那一路加了 5 条（申请完看得见 / 有单号 / 不给第二颗按钮 /
+   只建一张 / 数字内容说清为什么退不了）。 */
+/* 「真带排盘」这一档 2026-09-06 第七次改，485 → 496（实跑）——
+   「收钱那一屏不许瞒着自动续费」5 条、「一件东西有几档就摆几档」6 条。 */
+/* 「真带排盘」这一档 2026-09-06 第六次改，476 → 485（实跑）——
+   「要去一场活动的人」（整屏此前一条断言都没有）加 6 条，
+   「不再续了」那颗按钮真按一次加 3 条。 */
+/* 「真带排盘」这一档 2026-09-06 第五次改，472 → 476（实跑）——
+   「要退款的人」那一段加了 4 条（那颗按钮此前一次都没被按过）。 */
+/* 「真带排盘」这一档 2026-09-05 第四次改，468 → 472（实跑）——
+   「买过很多东西的人」那一段加了 4 条（翻页翻不翻得到第五页）。 */
+/* 「真带排盘」这一档 2026-09-05 第三次改，454 → 468（实跑）——
+   注销账号那一屏与它那一段 API 走查加了 14 条。 */
+/* 「真带排盘」这一档 2026-09-05 再从 429 改成 454（实跑）——
+   「手里的券」那一屏与结账页那格券条加了 25 条断言，
+   上一版记的 429 是加它们之前那一趟量的。
+   下面这段讲的是 386 → 429 那一次，道理一样。 */
+/* 「真带排盘」这一档 2026-09-05 从 386 改成 429（实跑）。
+   下限是 `该有 × 0.9`，所以账落后的时候下限跟着失效 ——
+   386 那个账对应的下限是 347，而这一档真实规模已经是 429:
+   凭空少掉八十条仍然报「全通」。
+   另外两档没有在这一轮实测过，不动 —— 改一个没量过的数，
+   等于把「下限」变成「我猜的数」。 */
+const 基准 = { 假: 132, 真: 360, 真带排盘: 522 }
+// 名字不叫 `档`：978 行有个同名的局部变量（村民稀有度），
+// 两个都在这个文件里，读起来会以为是同一个东西
+const 这一档 = !API ? '假' : (MINGLI ? '真带排盘' : '真')
+const 该有 = 基准[这一档]
+const LEAST = Math.floor(该有 * 0.9)
 
 /* 这一趟到底碰了多少交互。页面上用 bindtap 之类声明的处理器是分母，
    运行时记下真被调用过的是分子（web/runtime/page.js 的 markFired）。
@@ -3701,15 +5574,15 @@ const 归一 = (x) => {
   }
   return null
 }
-/* 孤儿名单从台账读,不在这里另抄一份。
+/* 孤儿名单从台账读，不在这里另抄一份。
    **参数名要抹掉再比**:台账里写的是 `/v1/payments/:x`,路由上是 `:id` ——
-   两边指同一条路,照字面比就对不上,然后它常驻在「没打过」那一行里。 */
+   两边指同一条路，照字面比就对不上，然后它常驻在「没打过」那一行里。 */
 const 抹参 = (path) => path.replace(/:[a-z_]+/g, ':x')
 const 孤儿 = new Set(Object.keys(
   JSON.parse(readFileSync('scripts/orphan-routes.json', 'utf8'))['后端有前端没人调']['小程序 → unmei-api'] || {},
 ).map(抹参))
-/* 另一节:封装在、没有页面用它。台账那里按【封装名】记，
-   所以这里把它对应的那条路由列出来 —— 一行一条,理由仍旧在台账。
+/* 另一节：封装在、没有页面用它。台账那里按【封装名】记，
+   所以这里把它对应的那条路由列出来 —— 一行一条，理由仍旧在台账。
    2026-08-27 起是空的：`village.all` 有了调用方（「谁能来」列四十位）。 */
 const 只有封装 = new Set([])
 const 命中 = new Set([...打过].map(归一).filter(Boolean))
@@ -3724,9 +5597,9 @@ const 打不到规则 = [
      挂在同一个 handler 上（见 services/mine.ts 那段注释）。
      也就是说这条**这个客户端永远发不出**,不是这一趟漏了。 */
   [(r) => r === 'PATCH /v1/user/me', 'wx.request 没有 PATCH，客户端走的是同一 handler 的 POST'],
-  /* 孤儿:后端有、没有任何客户端调它。理由不在这里重写一遍 ——
-     它们各自记在 `scripts/orphan-routes.json` 里,那份台账自己有门禁守着。
-     从那里读,两处才不会分头漂。 */
+  /* 孤儿：后端有、没有任何客户端调它。理由不在这里重写一遍 ——
+     它们各自记在 `scripts/orphan-routes.json` 里，那份台账自己有门禁守着。
+     从那里读，两处才不会分头漂。 */
   [(r) => 孤儿.has(抹参(r.split(' ')[1])), '没有客户端调它（孤儿台账里记着理由）'],
   [(r) => 只有封装.has(r), '封装在、没有页面用它（孤儿台账「封装在没有页面用」那一节）'],
   [(r) => r === 'GET /v1/health', '存活探针，不属于任何页面的动线'],
@@ -3784,12 +5657,12 @@ if (真漏的.length === 0 && missed.length) {
 }
 
 
-/* ── 冷启动那两条,放在最后 ─────────────────────────────────────
+/* ── 冷启动那两条，放在最后 ─────────────────────────────────────
    它们各开一个 context 且【不 close】(close 会把主页面一起带走),
-   而不 close 的 context 会拖垮后面的主流程 —— 实测:放在开头时
-   主流程跑 28 条就崩,旁路掉能跑 203 条。放到最后,两个毛病都躲开。
+   而不 close 的 context 会拖垮后面的主流程 —— 实测：放在开头时
+   主流程跑 28 条就崩，旁路掉能跑 203 条。放到最后，两个毛病都躲开。
 
-   放最后不影响它们要验的东西:窗口是【注入延迟】造出来的,
+   放最后不影响它们要验的东西：窗口是【注入延迟】造出来的，
    不靠「浏览器还冷」。 */
 /* ── 冷启动那一下，登录不许被自己人清掉 ───────────────────────
    （SKIP_COLD=1 可临时旁路 —— 用来定位它跟主流程的相互影响） 
@@ -3869,14 +5742,14 @@ if (API && !process.env.SKIP_COLD) {
   const 新2 = await b.newContext({ viewport: { width: 375, height: 667 } })
   const 冷2 = await 新2.newPage()
   await 冷2.addInitScript((base) => { globalThis.__API_BASE = base }, API)
-  // 把登录拖慢,保证页面那一次取数【一定】赶在 token 前面
+  // 把登录拖慢，保证页面那一次取数【一定】赶在 token 前面
   await 冷2.route('**/v1/auth/anonymous', async (r) => {
     await new Promise((res) => setTimeout(res, 700))
     await r.continue()
   })
   try {
     await 冷2.goto(BASE + '/index.html?' + new URLSearchParams({ page: 'pages/badges/index' }))
-    // 等到登录落地之后再看:重取该在这之后发生
+    // 等到登录落地之后再看：重取该在这之后发生
     await 冷2.waitForTimeout(2500)
     const 屏 = await 冷2.evaluate(() => {
       const d = globalThis.__router.current().data
@@ -3886,15 +5759,23 @@ if (API && !process.env.SKIP_COLD) {
        '登录慢的时候开一页，它等得到登录再取　—— 不是停在「取不到」',
        屏.err ? `停在错误态：${屏.err}` : (屏.还在转 ? '一直转着，没重取' : ''))
   } finally {
-    // 同上:不 close，否则主页面跟着没
+    // 同上：不 close，否则主页面跟着没
   }
 }
 
 console.log('')
 console.log(`共验了 ${ran} 条`)
 if (ran < LEAST) {
-  console.log(`✗ 只验了 ${ran} 条，少于 ${LEAST} —— 有整段没跑到，这时候的「全通」不算数`)
+  console.log(`✗ 只验了 ${ran} 条，少于 ${LEAST}（${这一档} 这一档该有 ${该有}）`
+    + ` —— 有整段没跑到，这时候的「全通」不算数`)
   failed++
+}
+/* 【账过期了也要说】。上限这一侧不拦 —— 多验不是错；
+   但账一旦落后，下限就跟着失效，而那正是它悄悄发生过的事：
+   账上 111/323，实跑 130/379，两档各能凭空少掉两成多仍报「全通」。 */
+if (ran > Math.ceil(该有 * 1.1)) {
+  console.log(`⚠ 实跑 ${ran} 条，而账上记的是 ${该有}（${这一档} 这一档）—— 把 verify.mjs 里的`
+    + ` \`基准.${这一档}\` 改成 ${ran}，不然下限跟着一起过期`)
 }
 console.log(failed ? `✗ ${failed} 条不过` : '✓ 动线全通')
 if (errs.length) console.log('页面错误：', [...new Set(errs)].slice(0, 5))

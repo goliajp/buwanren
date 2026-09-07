@@ -36,7 +36,7 @@
 .quote-mark {
   font-weight: 600;
   font-size: 48rpx;
-  color: var(--stamp);
+  color: var(--amber-text);
   opacity: 0.7;
   line-height: 1;
 }
@@ -49,13 +49,6 @@
   letter-spacing: 0.04em;
 }
 
-.foot-hint {
-  padding: 40rpx 0 20rpx;
-  text-align: center;
-  font-size: 25rpx;
-  color: var(--ink-faint);
-  letter-spacing: 0.01em;
-}
 
 /* empty · 无本命 */
 .empty {
@@ -82,7 +75,7 @@
 }
 
 /* 取不到时说一句，别渲成「你还没建」—— 那是另一件事 */
-.err { padding: 24rpx 0; color: var(--peach); font-size: 26rpx; line-height: 1.7; }
+.err { padding: 24rpx 0; color: var(--peach-text); font-size: 26rpx; line-height: 1.7; }
 
 /* 没本命时「转一下」不是消失，是灰着 —— 空状态要看得见出口。 */
 /* `.btn-off`（opacity .42）删了：一颗【能按】的按钮长得像禁用的，
@@ -142,7 +135,11 @@
   width: 0; height: 0;
   border-left: 16rpx solid transparent;
   border-right: 16rpx solid transparent;
-  border-top: 30rpx solid var(--ink);
+  /* 【2026-09-01】从暖黑改成琥珀深:黑三角是罗盘针的形状与颜色，
+     而这一屏要读成村里的转盘。压在盘沿（同为琥珀）上会糊，
+     所以用更深的一档 + 一圈纸色描边把它托出来。 */
+  border-top: 30rpx solid #C25E0A;
+  filter: drop-shadow(0 0 2rpx var(--paper)) drop-shadow(0 1rpx 3rpx rgba(120,70,20,.35));
   z-index: 6;
   filter: drop-shadow(0 3rpx 3rpx rgba(43,38,32,.28));
 }
@@ -192,13 +189,23 @@
     0 10rpx 0 rgba(232,121,26,.22),
     0 6rpx 0 rgba(255,255,255,.5) inset;
 }
-/* 八等分扇格。`repeating-conic-gradient` 一条规则画完 ——
-   交替的两档米色，缝隙不画线:线又会把它拉回刻度盘。 */
+/* 【2026-09-01 从八等分改成五格不等分】。
+   原先是 `repeating-conic-gradient` 的八等分 —— 而「指针 + 八等分 +
+   同心圆」这套几何本身就是罗盘，跟盘面上写不写卦名无关:
+   上一轮把八卦符和方位名都删掉，反而更像一个没有刻度标注的式盘。
+   而那八格用的两档米色对比只有 1.03:1，截图上根本看不见 ——
+   也就是说「像抽奖盘」的证据不可见，「像罗盘」的证据最醒目。
+
+   五格、不等分、看得见的琥珀深浅:等分加八 = 方位，不等分加五 = 转盘。
+   这是把它拉回游戏那一侧最省事的一刀。 */
 .ring-2 {
   top: 12rpx; left: 12rpx; right: 12rpx; bottom: 12rpx;
-  background: repeating-conic-gradient(from -22.5deg,
-    var(--paper) 0deg 45deg,
-    #FFF3E4 45deg 90deg);
+  background: conic-gradient(from -18deg,
+    #FFF0DC   0deg  62deg,
+    var(--paper)  62deg 140deg,
+    #FFE7CC  140deg 203deg,
+    var(--paper) 203deg 288deg,
+    #FFF0DC  288deg 360deg);
 }
 /* 内圈那道浅槽 —— 把中心按钮跟扇格隔开，
    按钮才不是「贴在花纹上」，而是「嵌在盘心里」。 */
@@ -255,10 +262,15 @@
   text-align: center;
 }
 
-/* 中心那句「问一件事」。原先没有自己的规则，靠 button 的默认色 ——
-   球换成琥珀之后它必须是白的，否则读不出来 */
+/* 中心那句「问一件事」。原先没有自己的规则，靠 button 的默认色。
+   【2026-09-02:白的读不出来，正好反了】。上一版这里写着「球换成琥珀之后
+   它必须是白的，否则读不出来」—— 而实测白字压在这条渐变上是 1.76 ~ 2.92:1，
+   最亮那一站（#FFB463）最糟。它是「今天」那一屏【唯一】的控件。
+   `--on-amber` 压同一条渐变是 7.08 / 5.88 / 4.25，三站全过。
+   这一条是【在浏览器里量出来的】:读 CSS 那一支够不着它 ——
+   底写在祖先节点 `.compass-btn` 上，字在子节点 `.cb-cn` 上。 */
 .compass-btn .cb-cn {
-  color: #fff;
+  color: var(--on-amber);
   font-size: 30rpx;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -303,29 +315,21 @@
   box-shadow: 0 0 0 3rpx var(--paper);
   z-index: 2;
 }
-/* 指针停的那一格（正上方）实心且大一档 —— 一眼看得出停在哪儿 */
-.dot-0 {
-  width: 26rpx; height: 26rpx; margin: -13rpx 0 0 -13rpx;
-  background: var(--amber-deep);
-  box-shadow: 0 0 0 4rpx var(--paper), 0 0 0 10rpx rgba(255,154,60,.20);
-}
+/* 【八颗点删掉了】。两个理由，各自都够:
+   一、它们均布在 45° 上，就是八方位 —— 罗盘感的主要来源。
+   二、`.dot-0` 被单独加大加深、注释写着「指针停的那一格」，
+      而它在 `.compass-face` 里，跟着盘一起转;指针是它的兄弟节点，不转。
+      落位时盘反向转 dirAngle，于是那颗又大又深的点被转到别处，
+      指针底下反而是一颗小的浅色点 —— 八个方位里有七个指错，
+      而读的人自然会认为「停在大点那儿」（2026-09-01 五路评审）。
+   转到哪儿这件事对用户不构成信息（方位在结果屏是明令不显示的），
+   要看得出「在转」，靠的是那五格不等分的深浅在走。 */
 
-.dot-0 { left: 50.00%; top: 13.00%; }
-.dot-1 { left: 76.16%; top: 23.84%; }
-.dot-2 { left: 87.00%; top: 50.00%; }
-.dot-3 { left: 76.16%; top: 76.16%; }
-.dot-4 { left: 50.00%; top: 87.00%; }
-.dot-5 { left: 23.84%; top: 76.16%; }
-.dot-6 { left: 13.00%; top: 50.00%; }
-.dot-7 { left: 23.84%; top: 23.84%; }
-
-/* 还没填出生时间时，中心那颗让位 —— 那时屏上写着「转出来的还不算你的」，
-   而底下有一颗满橙的「填出生时间」。两颗一样重的按钮摆在一屏上，
-   人不知道该按哪颗。仍然点得动，只是不抢主色。
-   写成 `button.compass-btn.…`：单类压不过上面那条同样是 `.compass-btn` 的规则，
-   而它带 radial-gradient，覆盖不掉就等于这条没写。 */
-button.compass-btn.compass-btn-quiet {
-  background: radial-gradient(circle at 50% 28%, #F3E7D6 0%, #E9DBC6 52%, #DCCBB2 100%);
-  box-shadow: 0 2rpx 10rpx rgba(120, 96, 64, .12);
-}
-button.compass-btn.compass-btn-quiet .cb-cn { color: #9A8A72; }
+/* 【2026-09-01 让位这条撤了】。原意是「没填出生时间时，中心那颗让位给
+   底下的『填出生时间』，免得两颗一样重的按钮摆在一屏上」。
+   实测下来代价更大:中心那颗是米灰渐变 + #9A8A72 的字，对比 2.46:1 ——
+   全屏最亮、最大、最像按钮的成了「去填表」，而这个产品每天唯一要人做的
+   那件事躺在中间，看着像个已禁用的仪表盘旋钮（五路评审里两路都点了这条）。
+   现在中心那颗恒是主色 —— 它照样能转，wxml 里那段注释自己也这么写着;
+   「填出生时间」降成次一档（它现在是一块实底木牌，不会消失）。 */
+button.compass-btn.compass-btn-quiet { /* 留着类名，样式跟常态一致 */ }

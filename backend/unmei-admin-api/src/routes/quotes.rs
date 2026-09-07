@@ -44,8 +44,18 @@ async fn list(
            ORDER BY created_at DESC LIMIT $5 OFFSET $6"#,
     ).bind(&book).bind(&status).bind(&search).bind(&like).bind(size).bind(off)
      .fetch_all(&st.db).await?;
-    let total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM quote")
-        .fetch_one(&st.db).await?;
+    /* 【全后台唯一一条不带 WHERE 的计数】（2026-09-06 三路验证 ·
+       运营那一路）。其余十七处都跟着筛选走，只有这一条数的是整张表 ——
+       实测 `status=zzzz` 回 `items=0 total=24`：筛完了页头还写着
+       「一共 24」，分页器给出不存在的页。
+       条件跟上面那条 SELECT 一字不差 —— 两份条件会漂，所以是同一份。 */
+    let total: i64 = sqlx::query_scalar(
+        r#"SELECT COUNT(*) FROM quote
+           WHERE ($1 = '' OR book = $1)
+             AND ($2 = '' OR status = $2)
+             AND ($3 = '' OR text LIKE $4)"#,
+    ).bind(&book).bind(&status).bind(&search).bind(&like)
+     .fetch_one(&st.db).await?;
     let items: Vec<serde_json::Value> = rows.into_iter().map(|r| json!({
         "id": r.get::<String, _>("id"),
         "book": r.get::<String, _>("book"),

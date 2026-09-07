@@ -49,9 +49,9 @@
         <text class="arch-label">{{item.label || '没写名'}}</text>
         <text class="arch-when">{{item.year}}·{{item.month}}·{{item.day}}</text>
         <text wx:if="{{item.id === natal.id}}" class="arch-now">在用</text>
-        <text wx:else class="arch-act" data-id="{{item.id}}" bindtap="onUse">换成它</text>
+        <text wx:else class="arch-act" data-id="{{item.id}}" bindtap="onUse" hover-class="press-text" hover-stay-time="80">换成它</text>
         <text wx:if="{{item.id !== natal.id}}" class="arch-act arch-del"
-              data-id="{{item.id}}" bindtap="onDrop">删</text>
+              data-id="{{item.id}}" bindtap="onDrop" hover-class="press-text" hover-stay-time="80">删</text>
       </view>
       <view class="archive-note">在用的那一份删不掉 —— 先换成别的</view>
     </view>
@@ -112,9 +112,15 @@
            哪天问清楚了再建一份准的、切过去就行。
 
            说清它影响什么，人才知道这个「大概」有多大代价 ——
-           八个字里的最后两个，不是全部。 -->
+           几点出生只是四份里的一份，不是全部。
+
+           【2026-09-01】原先写的是「八个字里的最后两个」—— 拿一个用户
+           不知道的概念（八个字）去解释另一件事，等于没解释。时柱确实是
+           八个字里的两个，那就直接说四分之一:不需要任何前置知识，
+           而且分量感一样准。
+           （「时辰」也不行 —— 门禁当场抓到:它同样是个行话词。） -->
       <view class="field-note">
-        不知道就先填个大概 —— 它只影响八个字里的最后两个，问清楚了再建一份准的换过来
+        不知道就先填个大概 —— 几点出生只决定推算里的四分之一，问清楚了再建一份准的换过来
       </view>
 
       <view class="field {{缺了.gender ? 'field-miss' : ''}}">
@@ -123,26 +129,39 @@
           <!-- 原先是「乾/M」「坤/F」—— 拿卦名当性别选项，把一个最普通的
                表单字段变成了术数考试，而它也不准确。排盘那一侧照旧收 M/F -->
           <!-- 没选过时两边都不高亮 —— 预选一个等于替他答了 -->
-          <view class="seg-item {{填了.gender && form.gender === 'M' ? 'on' : ''}}" bindtap="setMale">男</view>
-          <view class="seg-item {{填了.gender && form.gender === 'F' ? 'on' : ''}}" bindtap="setFemale">女</view>
+          <view class="seg-item {{填了.gender && form.gender === 'M' ? 'on' : ''}}" bindtap="setMale" hover-class="press-btn" hover-stay-time="80">男</view>
+          <view class="seg-item {{填了.gender && form.gender === 'F' ? 'on' : ''}}" bindtap="setFemale" hover-class="press-btn" hover-stay-time="80">女</view>
         </view>
       </view>
 
       <view class="field">
         <!-- 「备注」是表单话。这一栏的用处是【留几份时分得清谁是谁】，
              所以直接说那件事，占位也给个真例子。 -->
-        <text class="field-k">给它起个名</text>
+        <!-- 【2026-09-01】原先写「给它起个名」——「它」指什么？这一屏从头到尾
+             没有一个叫「它」的东西，读的人得自己猜一次（而这一屏可以留几份，
+             名字正是用来分辨它们的）。说清楚是给哪一份起名。 -->
+        <text class="field-k">这一份叫什么</text>
         <input class="field-input" placeholder="比如 我自己" value="{{form.label}}" bindinput="onLabel"/>
       </view>
     </view>
 
     <view class="cta">
-      <!-- 三样没齐时按钮【不满橙】。满橙的大按钮长得跟能按一样，
-           而此刻按下去只会得到一句「还差……」——「需要的东西在，
-           不需要的东西不在」的反面。仍然可以按：按了就地指出差哪几样，
-           而不是把它禁掉让人猜为什么按不动。 -->
-      <button class="btn {{齐了 ? '' : 'btn-wait'}}" bindtap="submit" disabled="{{submitting}}">
-        {{submitting ? '算着…' : '算一算'}}
+      <!-- 三样没齐时，按钮【自己说还差什么】。
+           原先它是灰的（btn-wait），仍然点得动、点了在下面冒一句
+           「还差……」—— 意图是对的（不禁掉让人猜），但表现成了
+           「坏掉的按钮」:灰色 + 棕字，看着就是不能按，人不会去按它，
+           那句解释也就永远读不到（2026-09-01 五路评审里两路都点了这条）。
+           现在把那句话写在按钮上，颜色照常 —— 它一直是能按的。 -->
+      <button class="btn" bindtap="submit" disabled="{{submitting}}">
+        <block wx:if="{{submitting}}">算着…</block>
+        <block wx:elif="{{齐了}}">算一算</block>
+        <!-- 看的是 `填了`，不是 `form` —— picker 的初始值（1995-06-15）
+             不算答案，那正是这一屏一开始就分成两份状态的理由（见 index.ts）。
+             照 `form` 判的话，空表上按钮会说「还差性别」，
+             而日期和时间同样空着。 -->
+        <block wx:elif="{{!填了.date}}">还差哪一天出生</block>
+        <block wx:elif="{{!填了.time}}">还差几点出生</block>
+        <block wx:else>还差性别</block>
       </button>
       <!-- 差什么就说什么，【表单留在原地】。原先这句写进 `err`,
            而表单整块挂在 `wx:elif="{{!err}}"` 上 —— 按一下，
@@ -170,7 +189,14 @@
          正合槽的判据「删掉这一屏仍然成立」。而「会得到这些」不能进槽 ——
          它是 10.8 点名的那一块，收起来就等于没有。 -->
     <view class="foot-hint flexslot">
-      时区默认东八区(+8) · 真太阳时校正暂关
+      <!-- 【这一句原先是写给自己看的】（2026-09-02 第四轮评审 · 文案）。
+           上一版是「时区默认东八区(+8) · 真太阳时校正暂关」，一句踩三条:
+           全 app 唯一一处半角括号;「真太阳时校正」是术语，而这是
+           主路径第二屏、不是「那一份」;「暂关」是文言省略式。
+           更要紧的是它说的那件事用户无从判断 —— 只会让人想
+           「关了会不会算不准」，而他没有任何办法回答自己。
+           留下来的只有他真用得上的那一件:按哪个时区算。 -->
+      按北京时间算 —— 在国外出生的，填当地钟面上的时间就行
     </view>
   </block>
 

@@ -1,7 +1,9 @@
 <view class="page">
   <view class="hd">
     <view class="title">苏合配的那一味</view>
-    <view class="sub">调香的 · 岭南 · 苏合缺「暖」</view>
+    <!-- 「配香」不是「调香」:库里她的身份是「配香的姑娘」，
+         商品名是「苏合配的那一味」—— 同一屏标题写「配」副标写「调」。 -->
+    <view class="sub">配香的 · 岭南 · 苏合缺「暖」</view>
   </view>
 
   <!-- 她按你缺的那一味说话。没有本命时不编一句 ——
@@ -17,14 +19,21 @@
       <block wx:if="{{line}}">{{line}}</block>
       <block wx:else>
         你缺什么，我还不知道 —— 先把出生时间填了，我才配得准
-        <text class="say-go" bindtap="goNatal">去填出生时间 ›</text>
+        <text class="say-go" bindtap="goNatal" hover-class="press-text" hover-stay-time="80">去填出生时间 ›</text>
       </block>
     </view>
   </view>
 
-  <view class="recipe">
+  <!-- 【没填出生时间就不给方子】。
+       这一屏上半苏合刚说完「你缺什么，我还不知道 —— 先把出生时间填了，
+       我才配得准」，往下一行却写着一个写死的方子「乳香 · 安息 · 桂」——
+       填不填都是它，填完了也不变。同一屏上下两行自相矛盾，
+       而下面还挂着一档 ¥268 的「按你缺的那味单配」（2026-09-01 五路评审）。
+       填过之后 `line` 有值 —— 那时她说得出话，方子才算数。
+       顺带:「安息」两个字单独摆着第一眼像丧仪用语，写全「安息香」。 -->
+  <view class="recipe" wx:if="{{line}}">
     <text class="recipe-k">这一味</text>
-    <text class="recipe-v">乳香 · 安息 · 桂</text>
+    <text class="recipe-v">乳香 · 安息香 · 桂</text>
   </view>
 
   <view class="sk-rows" wx:if="{{loading}}">
@@ -40,30 +49,56 @@
   <!-- 三档是【选一个】，不是一张目录。做成牌，价格跟名字一样大 ——
        它就是这一屏要你做的那个决定 -->
   <view class="picks" wx:else>
-    <view wx:for="{{skus}}" wx:key="id" class="pick enter"
+    <view wx:for="{{skus}}" wx:key="id" class="pick enter {{item.荐 ? 'pick-rec' : ''}}"
           style="animation-delay:{{index * 45}}ms"
           data-id="{{item.id}}" bindtap="onPick"
           hover-class="pick-hover" hover-stay-time="100">
+      <!-- 【2026-09-01】三档要分出主次。三条一样的实心橙「买」等于
+           没有主动作 —— 眼睛无处落，而选一档正是这一屏的全部内容。
+           荐的那一档（最便宜的，见 index.ts 里为什么）留实心橙，
+           另外两档退成安静的一档:仍然点得动，但不抢。 -->
+      <view class="pick-tag" wx:if="{{item.荐}}">第一次选它</view>
       <view class="pick-n">{{item.name}}</view>
       <view class="pick-p">{{item.priceText}}</view>
-      <!-- 点一档直接进确认屏（等于开始下单）。这条动作带做成实心的:
-           原先是一行 21rpx 的橙字，比屏底那颗「回去」还轻 ——
-           而这一屏最要紧的事是买。三张牌上写同一句「买这一档」也没必要，
-           上面已经写着这一档是什么、多少钱。 -->
       <view class="pick-go">买</view>
     </view>
   </view>
 
   <view class="note">一支烧二三十分钟 · 十支约够一个月</view>
 
+  <!-- 【按月送】就摆在那句注脚底下 —— 那句话本身就是它的论据:
+       「十支约够一个月」。上面三张牌是买一次，这一条是每月收到一盒，
+       两种形状不同，所以它不做成第四张牌。
+       「停不停得掉」是这一档唯一会让人犹豫的事，所以它写在第一屏 ——
+       【但得说准】（2026-09-06 · 五路体验走查）。原先写的是「随时能停」，
+       而 `plan-incense-monthly` 的 `cancel_policy` 是 `end_of_period`:
+       真实语义是「你随时按得下不再续，但这一期的钱扣了就是扣了、
+       这一期照走完」。读到「随时能停」的人想的是「现在停、剩下的退我」,
+       那不是一回事。
+       讽刺的是退订那一屏的二次确认把这件事说得完全准确
+       （`subs/index.ts` 的那句二次确认；2026-09-06 它自己也改了 ——
+       「最后一盒还会发」是假的，手里那盒就是最后一盒）——
+       而它长在「已经订了之后」的屏上。把那句准的搬到这儿来。
+       取不到价就整块不摆（见 index.ts 的 `load按月`）。 -->
+  <view wx:if="{{按月}}" class="monthly" bindtap="onPick按月"
+        hover-class="press-card" hover-stay-time="100">
+    <view class="m-top">
+      <text class="m-k">按月送 · 每月十支</text>
+      <text class="m-p">{{按月.priceText}} / 月</text>
+    </view>
+    <view class="m-sub">每月扣一次 · 到期前随时能停，这一期照走完<text class="m-go">›</text></view>
+  </view>
+
   <!-- 弹性槽 · 矮屏收起。**到点了才是入口** —— 不到点它只是一句话。
        一条常年可点、点进去说「还没开始」的链接，等于把设计册明说不要做的
        那张占位页换个地方摆出来。 -->
   <view wx:if="{{tonight}}" class="flexslot slot-e1 slot-on"
         bindtap="goTonight" hover-class="entry-hover" hover-stay-time="100">
-    <text>今晚九点已经开始了，一起点一支</text><text class="slot-arrow">›</text>
+    <text>{{今口}}已经开始了，一起点一支</text><text class="slot-arrow">›</text>
   </view>
-  <view wx:else class="flexslot slot-e1">周四晚九点，村里一起点一支</view>
+  <!-- 时刻由后端那份排期生成（`utils/incense-when.ts`）。取不到就整句不摆 ——
+       屏上那句话曾经写死是「周四晚九点」，而它在后端是配置。 -->
+  <view wx:elif="{{当口}}" class="flexslot slot-e1">{{当口}}，村里一起点一支</view>
 
   <view class="acts">
     <button class="btn ghost" bindtap="onBack">回去</button>

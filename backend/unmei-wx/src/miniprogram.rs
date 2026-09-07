@@ -55,18 +55,16 @@ impl WxSdk {
         }
     }
 
-    /// 解密手机号 / 用户敏感数据(AES-128-CBC,PKCS#7)
-    ///
-    /// 见微信文档「加密数据解密算法」
-    /// <https://developers.weixin.qq.com/miniprogram/dev/framework/open-ability/signature.html>
-    ///
-    /// TODO: 接 aes / cbc / Pkcs7 实现(Beta 1.0 必做)
-    pub fn mp_decrypt(
-        &self,
-        _session_key_b64: &str,
-        _encrypted_b64: &str,
-        _iv_b64: &str,
-    ) -> Result<serde_json::Value> {
-        Err(WxError::Internal("mp_decrypt: TODO Beta1".into()))
-    }
+    /* 【这里【没有】解手机号那个函数，是故意的】（2026-09-03）。
+       原本挂着一个 `mp_decrypt`（AES-128-CBC 解微信的敏感数据）+
+       一句「TODO Beta 1.0 必做」，没有任何调用方。
+
+       而绑定页上写的是:
+         「我们不读取你的手机号或其它信息 · 只换一个微信给的匿名编号，
+           再存你自己填的头像和昵称」
+
+       留着那个待办事项跟这句承诺是矛盾的。更要紧的是:
+       **一条 TODO 读起来像是「该做」** —— 下一个人会去把它实现掉，
+       而不会先回头问产品答不答应。要读手机号是产品决定，
+       那天再连同这段注释一起改。 */
 }

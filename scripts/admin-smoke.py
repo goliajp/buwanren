@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """后台 API 的冒烟 —— 每条路由真打一遍，看它答不答得出话。
 
-后台有 58 条路由，管的是订单、退款、定价、订阅这些跟钱有关的事，
-而 CI 此前只知道它**编得过**。一条查询写错在编译期是看不出来的，
+后台有 58 条路由,管的是订单、退款、定价、订阅这些跟钱有关的事,
+而 CI 此前只知道它**编得过**。一条查询写错在编译期是看不出来的,
 它表现成运行期 500 —— 而运营那边看到的是一张空表格。
 
-**路由从源码里数出来**，不另列一份：另列的那份会漏掉新加的路由，
+**路由从源码里数出来**,不另列一份:另列的那份会漏掉新加的路由,
 而漏掉的样子跟「全都验过了」一模一样。
 
-带 `:参数` 的路由这里不打（没有现成的 id 可填），但**会报出来跳过了几条**——
+带 `:参数` 的路由这里不打（没有现成的 id 可填）,但**会报出来跳过了几条**——
 默默少验一片比少验本身更糟。
 
 用法:
@@ -49,7 +49,7 @@ def http(path, method='GET', body=None, token=None):
             return r.status, r.read().decode('utf-8', 'replace')
     except urllib.error.HTTPError as e:
         return e.code, e.read().decode('utf-8', 'replace')
-    except Exception as e:                      # 连不上也是结论,不是异常
+    except Exception as e:                      # 连不上也是结论，不是异常
         return 0, str(e)
 
 
@@ -131,8 +131,8 @@ for r in plain:
 
 print()
 skipped = []
-# 带 :参数的,去对应的列表端点借一个真 id 来填。
-# 借不到就跳过并【报出来】—— 库里没有这类数据是实话,默默少验一片才是问题。
+# 带 :参数的，去对应的列表端点借一个真 id 来填。
+# 借不到就跳过并【报出来】—— 库里没有这类数据是实话，默默少验一片才是问题。
 for r in withid:
     prefix = r[:r.index('/:')]
     rid = first_id(prefix)
@@ -182,10 +182,10 @@ print(f'  ✓ {guarded} 条都要 token（放行的只有 {" ".join(FREE)}）')
 print()
 print('── 角色守卫真挡得住吗 ──')
 """种子管理员 super / operator / content / support / finance 五个全带 ——
-也就是说【守卫坏掉了它也照样通过】。所以这里另起一个只有 support 的管理员，
+也就是说【守卫坏掉了它也照样通过】。所以这里另起一个只有 support 的管理员,
 拿他去撞一条 finance 的路由。
 
-密码哈希直接抄种子那一条（admin123），不另生成 —— 生成要 argon2，
+密码哈希直接抄种子那一条（admin123）,不另生成 —— 生成要 argon2,
 而这支脚本只有标准库。用完就删。"""
 import subprocess
 
@@ -242,9 +242,67 @@ else:
     psql("DELETE FROM admin_user WHERE id='admin_roleprobe'")
 
 print()
-print(f'GET 路由 {len(plain) + len(withid) - len(skipped)} 条真打过 · 挂 {bad} 条 · '
-      f'跳过 {len(skipped)} 条')
+真打过 = len(plain) + len(withid) - len(skipped)
+print(f'GET 路由 {真打过} 条真打过 · 挂 {bad} 条 · 跳过 {len(skipped)} 条')
 if skipped:
     print('  跳过的（列表端点里没有可借的 id，库里就没有这类数据）:')
     print('  ' + ' '.join(skipped))
+
+# 【跳过太多就不算数】（2026-09-03 第四轮评审 · 工程审计）。
+# 上一版只把跳过数打印出来，不判 —— 借不到 id 的 `:id` 路由直接 continue，
+# 而「不带 token 挡不挡得住」那一圈的 `guarded` 也只累加、从不判。
+# 库里一空，这一支就变成「打了几个列表端点」，仍然报绿。
+#
+# 数按实测：今天真打过这么多条，跳过 2 条。
+下限 = 30
+if 真打过 < 下限:
+    print(f'✗ 只真打过 {真打过} 条，少于下限 {下限} —— 库里多半没数据，'
+          f'这一支现在什么都没验到')
+    sys.exit(1)
+if guarded < 下限:
+    print(f'✗ 只验了 {guarded} 条「不带 token 要挡住」，少于下限 {下限} —— '
+          f'那一圈跳过太多，结论不算数')
+    sys.exit(1)
+
+# 【解不出来的类型不许悄悄变成 null】（2026-09-03）。
+# 起因：财务页 1,078 条分录的借贷合计全是「—」。根因不在页面，在
+# `pg_value_to_json` 的兜底 —— 它把「这个类型我解不出来」和「这一格
+# 真的是空的」都写成 null 送给前端。SUM(bigint) 返回 NUMERIC，
+# 于是每一处没在 SQL 里显式 cast 的聚合都无声地丢了数。
+#
+# 现在解不出来的会送一个「<解不出 类型名>」的记号上屏。这一支扫所有
+# GET 响应找那个记号 —— 记号出现 = 有一条 SQL 少了 cast。
+# 顺带钉死分录的借贷合计不能是 null:那两个数是复式记账的全部意义，
+# 它们变回 null 的那天必须有人喊，而不是等谁哪天打开财务页看见两排破折号。
+print()
+print('── 有没有解不出来的列 ──')
+记号 = 0
+for 路 in plain:
+    码, 体 = http(路, token=token)
+    if 码 == 200 and '<解不出 ' in 体:
+        print(f'  ✗ {路} 里有解不出来的列 —— 那条 SQL 少了一个 ::int8 之类的 cast')
+        记号 += 1
+if 记号:
+    bad += 记号
+else:
+    print(f'  ✓ {len(plain)} 条响应里没有解不出来的列')
+
+码, 体 = http('/admin/commerce/finance/entries?size=20', token=token)
+条 = (json.loads(体).get('items') or []) if 码 == 200 else []
+if 码 != 200 or not 条:
+    print('  ✗ 取不到会计分录 —— 这一条钉不住，库里得有分录才算数')
+    bad += 1
+else:
+    # 【不是数就算没有】。少了 cast 的时候这两格是「<解不出 NUMERIC>」字符串，
+    # 只判 None 会报「都有数」—— 又一次把失效说成通过。
+    有数 = lambda v: isinstance(v, int)
+    空 = [x for x in 条 if not 有数(x.get('total_debit')) or not 有数(x.get('total_credit'))]
+    if 空:
+        print(f'  ✗ {len(空)}/{len(条)} 条分录的借贷合计是 null —— 复式记账页上会显示成两排破折号')
+        bad += 1
+    else:
+        不平 = [x for x in 条 if x['total_debit'] != x['total_credit']]
+        print(f'  ✓ {len(条)} 条分录的借贷合计都有数' +
+              (f'，其中 {len(不平)} 条借贷不等（数据问题，不是这一支的事）' if 不平 else '，且都借贷相等'))
+
 sys.exit(1 if bad else 0)

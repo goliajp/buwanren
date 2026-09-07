@@ -8,6 +8,7 @@
 //! access_token / jsapi_ticket 等用 [`redis`] 缓存,key 前缀 `unmei:wx:`。
 
 pub mod config;
+pub mod crypto;
 pub mod error;
 pub mod miniprogram;
 pub mod oauth;

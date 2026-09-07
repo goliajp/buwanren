@@ -1,0 +1,45 @@
+.hd { padding: 24rpx 0 20rpx; }
+.hd .title { font-size: 56rpx; line-height: 1; margin: 8rpx 0 16rpx; }
+.hd .sub { font-size: 24rpx; color: var(--ink-faint); margin-top: 12rpx; }
+
+.page { display: flex; flex-direction: column; }
+
+.blk { margin-bottom: 20rpx; }
+.blk-k { font-size: 26rpx; color: var(--ink-faint); margin-bottom: 12rpx; }
+.li {
+  font-size: 27rpx;
+  color: var(--ink);
+  line-height: 1.75;
+  padding-left: 26rpx;
+  position: relative;
+}
+/* 【行距与块距压过一档】（2026-09-05）。这一屏是三张单子加两颗按钮，
+   在最矮那一档（375×667）上超出 18px —— 而这个仓里除了政策那两份文件，
+   没有一屏是滚的，何况这一屏正是「按之前先看清楚」的那一屏:
+   看不全就等于没看清。压的是留白，一行字都没删。 */
+/* 圆点用伪元素 —— 拿真字符做点会跟着字号漂，而这一屏全是列表 */
+.li::before {
+  content: '';
+  position: absolute;
+  left: 6rpx; top: 22rpx;
+  width: 8rpx; height: 8rpx;
+  border-radius: 50%;
+  background: var(--stone-line-ui);
+}
+.blk-note { font-size: 23rpx; color: var(--ink-faint); margin-top: 10rpx; line-height: 1.7; }
+
+/* 两颗按钮贴底。上下弹性平分富余 —— 跟别的几屏同一套（长屏上不拉开半屏） */
+.cta { margin-top: auto; margin-bottom: auto; padding-top: 28rpx; }
+.cta .btn { width: 100%; box-sizing: border-box; }
+.cta .btn + .btn { margin-top: 16rpx; }
+
+/* 【注销那颗不给主色】。主色在这个产品里是「掏钱」的颜色,
+   拿它去标一个离开的动作，等于把两件相反的事画成同一件。
+   描边 + 红字:看得见、按得动，而不招手。 */
+.btn.danger {
+  background: transparent;
+  color: var(--peach-text);
+  border: 1rpx solid var(--peach-text);
+}
+
+.note { margin-top: 20rpx; font-size: 24rpx; color: var(--peach-text); text-align: center; }

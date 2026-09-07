@@ -165,7 +165,7 @@
     }
   })
   def("tao_dart_target", {
-    clickable: true, say: '练准头，跟起局一个道理',
+    clickable: true, say: '练准头，跟摆盘一个道理',
     name: "飞镖靶", cat: "墙面", tags: ["靶","练"],
     scope: "generic", fromRoom: 'tao',
     w: 112, h: 112, base: 0, foot: [0, 0, 0, 0],
@@ -1179,7 +1179,7 @@
     }
   })
   def("tao_table_qimen", {
-    clickable: true, say: '起局要静，你站远点，哼',
+    clickable: true, say: '摆盘要静，你站远点，哼',
     fx(g, t, X, Y, o, room) {
       // 局桌星芒(粉金)。是光,不被站在桌前的人遮挡。room 由引擎传入 —— 素材不绑房间。
       const cast = !!((room && room.state || {}).casting)

@@ -25,8 +25,12 @@
 //! 它们两边不重叠(客户端按 `user_id` 过滤,后台按筛选条件),不存在双写,
 //! 收进来只是搬运。P2 连同 SQL 一起处理。
 
+pub mod account;
+pub mod activity;
 pub mod actor;
+pub mod badge;
 pub mod catalog;
+pub mod coupon;
 pub mod finance;
 pub mod fulfillment;
 pub mod idempotency;

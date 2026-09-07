@@ -20,8 +20,8 @@ export default function Notices() {
           className={
             'flex items-start gap-2 rounded border px-3 py-2 text-[12px] shadow-lg ' +
             (n.tone === 'bad'
-              ? 'bg-vermilion-soft border-vermilion/30 text-vermilion'
-              : 'bg-jade-soft border-jade/30 text-jade')
+              ? 'bg-debt-bg border-debt/30 text-debt'
+              : 'bg-settled-bg border-settled/30 text-settled')
           }
         >
           <span className="flex-1 leading-relaxed break-words">{n.text}</span>

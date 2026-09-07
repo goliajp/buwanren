@@ -20,6 +20,7 @@
  */
 
 import { villageApi } from '../../services/village'
+import { money } from '../../utils/money'
 import { 一列脸纹, 脸 } from '../../utils/face'
 import { natalApi } from '../../services/natal'
 import type { ApiError } from '../../services/api'
@@ -27,7 +28,7 @@ import type { VillagerCard } from '../../types/village'
 import { 轻 } from '../../utils/feel'
 import { 一句 } from '../../utils/say'
 
-type 位 = { id: string; name: string; sub: string; onSale: boolean; product: string | null; face: string; lack: string; direction: string;
+type 位 = { id: string; name: string; sub: string; onSale: boolean; product: string | null; 价: string; 住着: boolean; face: string; lack: string; direction: string;
             /** 同色之内的脸纹 —— 缺「近人」那一路有十一位，不然十一张一模一样。
                 在【切段之后】发，所以映射那一步它还没有 */
             纹?: string
@@ -76,6 +77,17 @@ Page<IData, WechatMiniprogram.IAnyObject>({
   async load() {
     this.setData({ loading: true, err: '' })
     const 用神 = await this.loadLack()
+    /* 【谁已经住进来了】。这一屏读的是【公开目录】（/v1/villagers），
+       它不认得你 —— 于是婆婆已经住在你村里，名册上照样写「请回村 · ¥99」，
+       而她那一屏上是绿点加「问问婆婆」。同一个人在两屏里是两种身份，
+       第一次用的人会以为自己买错了、或者要再买一次
+       （2026-09-01 五路评审 · 第一次打开的人）。
+       住户名单在「我的村子」那条上，多问一次就知道。
+       问不到就当都没住 —— 那是原来的样子，不会更糟。 */
+    const 住着 = await villageApi.mine().then(
+      (v) => new Set(v.villagers.filter((x) => x.at_home).map((x) => x.id)),
+      () => new Set<string>(),
+    )
     villageApi.all(用神).then(
       (list: VillagerCard[]) => {
         /* 顺序由后端定 —— 按用神排要用 `lack_bias` × `yongshen_bias`
@@ -87,6 +99,19 @@ Page<IData, WechatMiniprogram.IAnyObject>({
           sub: [v.title, v.art].filter(Boolean).join(' · '),
           onSale: !!v.omamori_product_id,
           product: v.omamori_product_id,
+          住着: 住着.has(v.id),
+          /* 请他回村多少钱。后端按 price_book 算好给的（分）——
+             页面不自己换算区域/端，那会拿到别的区的价。
+             【格式化只有一支】:`utils/money.ts` 的 `money()`。
+             这里原先自己抄了一份 `/100 + toFixed(2)`，跟它有两处真分歧 ——
+             非 CNY 一个符号都不写，而 JPY 还会被多除一次 100（日元没有分）。
+             库里 region=cn 有 202 个 sku 同时挂着 CNY 与 JPY 的在售价，
+             谁赢由生效时间定 —— 也就是说显示什么币种是数据说了算
+             （2026-09-01 五路评审 · 工程审计）。
+             取不到就是空串:名册上不写价，也不编。 */
+          价: typeof v.omamori_price_minor === 'number'
+            ? money(v.omamori_price_minor, v.omamori_currency || 'CNY')
+            : '',
           // 头像占位:姓名末字。等 40 张画好换成图片地址,版式不动
           face: v.name.slice(-1),
           脸样: 脸(v.id),
@@ -159,6 +184,11 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     轻()
     const id = (e.currentTarget.dataset as { id?: string }).id
     const 那位 = this.data.能请.find((x) => x.id === id)
+    // 已经住进来的:点进去是他本人那一屏，不是商品页 —— 他已经在你村里了
+    if (那位 && 那位.住着) {
+      wx.navigateTo({ url: '/pages/villager/index?id=' + 那位.id })
+      return
+    }
     /* 没上架的点不动。**不是点了再说「买不了」** —— 那是先答应再反悔；
        行上已经写着「未上架」，它就该按不动。 */
     if (那位 && 那位.onSale && 那位.product) {

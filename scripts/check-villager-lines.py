@@ -23,7 +23,28 @@ import pathlib
 迁移 = 根 / 'backend' / 'migrations'
 
 术语 = ['日主', '用神', '格局', '藏干', '纳音', '印星', '比劫', '身强', '身弱',
-        '流年', '大运', '十神', '旺衰']
+        '流年', '大运', '十神', '旺衰',
+        # 【古时间单位】。「时辰」在 check-plain-words 的术语表里【有】，
+        # 但那一支不扫 villager_line；这一支扫 villager_line，词表里却【没有】。
+        # 两支各差一半，于是「一天醒不了几个时辰」「还能烧两个时辰」
+        # 一路报绿（2026-09-02 第四轮评审 · 文案）。
+        '时辰', '一刻', '半炷香', '一炷香', '三更', '五更']
+
+# 【文言】。硬要求写着「完全不允许有任何文言古书的表达，只能在命理分析的
+# 专业细节里」—— 台词是气泡，不是说明书。阿云说了两版「贫道不算命」，
+# 门禁一路绿灯，最后靠人读出来（2026-09-01 五路评审）。
+文言 = ['贫道', '老衲', '小生', '在下', '足下', '尔等', '汝', '吾', '岂',
+        '矣', '哉', '焉', '乎也', '莫非', '何须', '不才', '愚以为']
+# 【行话】。跟界面同一条规矩:说明书里可以，人嘴里不行。
+# 阿云那句「起局要静」还错了门 —— 起局是奇门的说法，他会的是大六壬。
+# 【单个词也要在表里】。第一版只列了「紫微斗数」这样的全称，于是
+# 白鹭那句「紫微在午」大摇大摆过去了 —— 而那一句会印在村子首页
+# 最大的气泡上（2026-09-01 变异测试当场发现:把它写回去，门禁是绿的）。
+# 屋里那支门禁（check-room-words.py）的词表更全，两边对齐。
+行话 = ['起局', '起课', '排盘', '本命盘', '大六壬', '奇门遁甲', '紫微斗数',
+        '梅花易数', '藏历密算', '六爻', '八字', '卦象', '爻辞',
+        '紫微', '天府', '命盘', '断语', '值符', '三奇六仪',
+        '休门', '生门', '伤门', '杜门', '景门', '死门', '惊门', '开门']
 
 条 = re.compile(r"\(\s*'([a-z_]+)'\s*,\s*(\d+)\s*,\s*'((?:[^']|'')*)'\s*\)")
 错, 人 = [], {}
@@ -45,6 +66,23 @@ if not 文件:
     print('✗ 找不到台词迁移 —— 这一支够不着要验的东西，不算通过')
     sys.exit(1)
 
+# 【UPDATE 也要读】。台词改错了不是重写整份迁移，是补一支
+# `UPDATE villager_line SET text=...` —— 已经跑过的迁移不能再动
+# （sqlx 记了校验和）。而这一支原先只读 INSERT，于是库里改过之后，
+# 它读到的还是【旧文本】:改好的报错、改坏的报绿，两头都不对。
+# 2026-09-01 修阿云那两句时当场撞上。按文件名顺序，后面的覆盖前面的 ——
+# 跟数据库真正发生的事一致。
+# 两种写法都要认。`AND seq = N` 是按位置改;`AND text LIKE '旧话%'`
+# 是按旧文本改 —— 后者更早就在用了（20260830009 把沈砚的三句文言换掉），
+# 而只认前一种的话，那一份就整份读不到:门禁会照着【被改掉的旧文本】
+# 报错，人去看库却是好的，于是这一支从可信变成噪音。
+覆盖 = re.compile(
+    r"UPDATE\s+villager_line\s+SET\s+text\s*=\s*'((?:[^']|'')*)'"
+    r"\s*\n?\s*WHERE\s+villager_id\s*=\s*'([a-z_]+)'\s+AND\s+"
+    r"(?:seq\s*=\s*(\d+)|text\s+LIKE\s*'((?:[^']|'')*)')", re.I)
+覆盖文件 = sorted(f for f in 迁移.glob('*.sql')
+                  if 'UPDATE villager_line' in f.read_text(encoding='utf-8'))
+
 for f in 文件:
     s = f.read_text(encoding='utf-8')
     # 只看 INSERT 进 villager_line 的那些段
@@ -53,18 +91,44 @@ for f in 文件:
     # 门禁照样报绿，而它其实一条都没读到。空解析长得跟「全都合规」一样。
     for 段 in re.findall(r'INSERT INTO villager_line.*?\n\s*ON CONFLICT[^;]*;', s, re.S):
         for who, seq, text in 条.findall(段):
-            t = text.replace("''", "'")
-            人.setdefault(who, {})[int(seq)] = t
-            标 = f'{f.name} · {who}#{seq}'
-            if len(t) > 30:
-                错.append(f'{标} 太长（{len(t)} 字）—— 台词不是独白：{t[:20]}…')
-            if re.search(r'[一-龥][,?!;:]|[,?!;:][一-龥]', t):
-                错.append(f'{标} 半角标点：{t}')
-            if t.endswith('。'):
-                错.append(f'{标} 结尾带句号 —— 非正式文本不加：{t}')
-            for 词 in 术语:
-                if 词 in t:
-                    错.append(f'{标} 出现术语「{词}」—— 台词是他在说话，不是报盘：{t}')
+            人.setdefault(who, {})[int(seq)] = (text.replace("''", "'"), f.name)
+
+for f in 覆盖文件:
+    for text, who, seq, 旧话 in 覆盖.findall(f.read_text(encoding='utf-8')):
+        新话 = text.replace("''", "'")
+        条们 = 人.get(who, {})
+        if seq:
+            打中 = [int(seq)] if int(seq) in 条们 else []
+        else:
+            前缀 = 旧话.replace("''", "'").rstrip('%')
+            打中 = [n for n, (t, _) in 条们.items() if t.startswith(前缀)]
+        if not 打中:
+            # 打空了的 UPDATE 在库里是静默无事发生 —— 最难发现的那种错:
+            # 台词没改成，而门禁与库各说各话
+            标的 = f'#{seq}' if seq else f'「{旧话}」'
+            错.append(f'{f.name} 改的是 {who}{标的}，可现有台词里没这一条 —— 这句改动落空了')
+            continue
+        for n in 打中:
+            人[who][n] = (新话, f'{条们[n][1]} → {f.name}')
+
+for who, 条们 in sorted(人.items()):
+    for seq, (t, 出处) in sorted(条们.items()):
+        标 = f'{出处} · {who}#{seq}'
+        if len(t) > 30:
+            错.append(f'{标} 太长（{len(t)} 字）—— 台词不是独白：{t[:20]}…')
+        if re.search(r'[一-龥][,?!;:]|[,?!;:][一-龥]', t):
+            错.append(f'{标} 半角标点：{t}')
+        if t.endswith('。'):
+            错.append(f'{标} 结尾带句号 —— 非正式文本不加：{t}')
+        for 词 in 术语:
+            if 词 in t:
+                错.append(f'{标} 出现术语「{词}」—— 台词是他在说话，不是报盘：{t}')
+        for 词 in 文言:
+            if 词 in t:
+                错.append(f'{标} 文言「{词}」—— 气泡里不许有文言，硬要求：{t}')
+        for 词 in 行话:
+            if 词 in t:
+                错.append(f'{标} 行话「{词}」—— 说明书里可以，人嘴里不行：{t}')
 
 for who, 条们 in sorted(人.items()):
     if sorted(条们) != [1, 2, 3, 4]:
@@ -86,7 +150,7 @@ for who, 条们 in sorted(人.items()):
     '破折号转折': lambda t: ' —— ' in t,
 }
 for 名, 判 in 招式.items():
-    用的人 = sorted(w for w, cs in 人.items() if sum(1 for t in cs.values() if 判(t)) >= 2)
+    用的人 = sorted(w for w, cs in 人.items() if sum(1 for t, _ in cs.values() if 判(t)) >= 2)
     # 一个人四条里用两次以上算「这是他的招式」;三个人以上共用就是趋同
     if len(用的人) >= 3:
         错.append(f'「{名}」这一招 {len(用的人)} 个人在用（{"、".join(用的人)}）'

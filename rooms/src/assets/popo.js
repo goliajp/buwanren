@@ -322,6 +322,67 @@
     name: "新的那副牌", cat: "器物", tags: ["塔罗","牌"],
     scope: "character", fromRoom: 'popo',
     w: 150, h: 76, base: 76, foot: [0, 0, 0, 0], zLayer: 'sort',
+    /* 【表演态点亮的是牌，不是球】（2026-09-01 第二轮评审 · 文案）。
+       按钮上写着「请婆婆翻张牌」、她的卡片写着「占卜的老太太 · 翻牌」、
+       名册上也是「翻牌」—— 而按下去亮起来的是桌角那颗水晶球，
+       九句台词说的全是「雾散得慢」「球里的人在笑呢」。
+       四个信号里三个说牌，一个说球，玩家读到的是一屋子对不上的话。
+       牌就在她手边（这一件），让它在表演时一张一张亮过去 ——
+       球留着当氛围（下面那一支已经收细了）。 */
+    fx(g, t, X, Y, o, room) {
+      if (!(room && room.state && room.state.casting)) return
+      g.save(); g.translate(X, Y); g.scale(0.5, 0.5)
+      // 三张依次「翻过来」:一张 1.1 秒，走完再从头。不是三张一起闪 ——
+      // 一张一张才像有人在读，而且小屏上看得出顺序。
+      //
+      // 【光晕不够，要位移】。第一版只给被读的那张加一圈暖光 ——
+      // 实测（待机帧与表演帧逐像素相减）牌这一块的强变化只有 1081 个像素，
+      // 而地上那颗五芒星是 6473:按钮上写着「翻张牌」，眼睛看到的却是地毯。
+      // 在这个像素尺度上，【动】比【亮】读得清得多 —— 让那一张真的抬起来。
+      // 【从牌堆里抽出来，划一道弧落到位】。上一版是把那张【就地抬起来】——
+      // 而原位那张还在（静态 draw 画的），于是屏上是「多了一张浮着」，
+      // 读不出「翻牌」。抽牌这个动作本身才是要画的东西:
+      // 从右边那一摞（x≈106，牌背朝上）飞到左边三张里的某一格，
+      // 半路翻面 —— 落到位时刚好跟静态那张重合，看着就是它刚被摆下去。
+      const 谁 = Math.floor(t / 1100) % 3
+      const 进 = ((t % 1100) / 1100)
+      const 落 = Math.min(1, 进 / 0.78)               // 后 22% 留给「停一下」
+      const 缓 = 落 * 落 * (3 - 2 * 落)                // smoothstep,起落都不生硬
+      const 目x = 谁 * 34, 目y = 10 + (谁 % 2) * 7
+      const x = 106 + (目x - 106) * 缓
+      const y = 6 + (目y - 6) * 缓 - Math.sin(缓 * Math.PI) * 26   // 弧
+      // 半路翻面:前半段还是牌背，后半段是正面。宽度跟着收放，像真的转过来
+      const 面 = 缓 < 0.5 ? 0 : 1
+      const w = Math.max(4, Math.abs(Math.cos(缓 * Math.PI)) * 40)
+      const cx = x + 20 - w / 2
+      g.fillStyle = 'rgba(26,22,32,' + (0.30 * Math.sin(缓 * Math.PI)).toFixed(3) + ')'
+      g.fillRect(目x + 6, 目y + 54, 28, 5)
+      g.fillStyle = '#1a1620'; g.fillRect(cx, y, w, 58)
+      if (面) {
+        g.fillStyle = '#f6ead0'; g.fillRect(cx + w * 0.08, y + 3, w * 0.84, 52)
+        g.fillStyle = ['#c04888', '#48a0c0', '#e8a030'][谁]
+        g.fillRect(cx + w * 0.22, y + 11, w * 0.56, 28)
+        g.fillStyle = '#e8b23d'; g.fillRect(cx + w * 0.34, y + 43, w * 0.30, 5)
+      } else {
+        g.fillStyle = '#3a1e5e'; g.fillRect(cx + w * 0.08, y + 3, w * 0.84, 52)
+        g.fillStyle = '#e8b23d'
+        g.fillRect(cx + w * 0.2, y + 10, w * 0.6, 3)
+        g.fillRect(cx + w * 0.2, y + 48, w * 0.6, 3)
+      }
+      // 一圈暖金描边，落到位之后淡出 —— 屋子的色温一格都不动
+      const al = 0.55 * (1 - Math.max(0, (缓 - 0.7) / 0.3))
+      g.fillStyle = 'rgba(255,214,120,' + al.toFixed(3) + ')'
+      g.fillRect(cx - 2, y - 2, w + 4, 2); g.fillRect(cx - 2, y + 58, w + 4, 2)
+      // 牌堆顶上飘起来的一点星火 —— 说明这一摞正在被抽
+      for (let k = 0; k < 3; k++) {
+        const ph = ((t / 1700 + k * 0.33) % 1)
+        const al = 0.5 * (1 - ph)
+        if (al <= 0.02) continue
+        g.fillStyle = 'rgba(255,228,156,' + al.toFixed(3) + ')'
+        g.fillRect(118 + Math.sin(ph * 5 + k) * 7, 4 - ph * 30, 3, 3)
+      }
+      g.restore()
+    },
     draw(g) {
       g.save(); g.scale(0.5, 0.5)
       // 摊开三张 + 一摞
@@ -846,13 +907,18 @@
   // ── 占卜与器物 ───────────────────────────────────────────────
   def("popo_crystal_ball", {
     fx(g, t, X, Y, o, room) {
-      // 待机时球里只是慢慢转的雾。点了「请婆婆看水晶球」才真的醒过来 ——
-      // 这个动作的主角是球，不是她走过去这一段路。球不亮，玩家就会觉得
-      // 按钮没反应（她其实每次都走到了，是没有东西告诉玩家「开始了」）。
+      // 待机时球里只是慢慢转的雾。
+      //
+      // 【2026-09-01:主角让给牌】。这一段原先写着「这个动作的主角是球」——
+      // 而她的术是塔罗，按钮上写的是「请婆婆翻张牌」，卡片与名册上都是
+      // 「翻牌」。球一亮，全屋唯一说「球」的东西就成了最响的那个信号。
+      // 现在表演时亮的是她手边那副牌（popo_cards_new 的 fx），
+      // 球只跟着热一点点 —— 它是这张桌子的氛围，不是这件事的主语。
+      // `热` 从 1 收到 0.34:上面那些流动/星火/牵引都乘着它。
       const R = room
       const on = !!(R && R.state && R.state.casting)
       const b = 0.5 + Math.sin(t / 900) * 0.22
-      const heat = on ? 1 : 0
+      const heat = on ? 0.34 : 0
 
       // 醒着时球里起能量波动 —— 变化全在【球内】，不改屋子的亮度。
       // 先前做成开关式的爆亮加光锥，在小屏上就是闪一下，看着难受;
@@ -864,7 +930,7 @@
           const a0 = t / 1500 + k * 1.26
           for (let j = 0; j < 4; j++) {
             const aa = a0 + j * 0.17
-            const al = 0.34 - j * 0.06 + Math.sin(t / 330 + k) * 0.10
+            const al = (0.34 - j * 0.06 + Math.sin(t / 330 + k) * 0.10) * heat
             if (al <= 0) continue
             g.fillStyle = 'rgba(206,242,255,' + al.toFixed(3) + ')'
             g.fillRect(X + 58 + Math.cos(aa) * rr, Y + 50 + Math.sin(aa) * rr * 0.86, 5, 5)
@@ -881,7 +947,7 @@
         // 不是球自己在发光。用暖金而不是冷白:屋子的色温一格都不许动。
         for (let k = 0; k < 14; k++) {
           const aa = t / 2900 + k * (6.283 / 14)
-          const al = 0.16 + Math.sin(t / 520 + k * 0.8) * 0.13
+          const al = (0.16 + Math.sin(t / 520 + k * 0.8) * 0.13) * heat
           if (al <= 0) continue
           g.fillStyle = 'rgba(255,214,120,' + al.toFixed(3) + ')'
           g.fillRect(X + 58 + Math.cos(aa) * 31, Y + 50 + Math.sin(aa) * 27, 3, 3)
@@ -891,14 +957,14 @@
         // 而且不会在小屏上「闪一下」
         for (let k = 0; k < 7; k++) {
           const ph = ((t / 2400 + k * 0.143) % 1)
-          const al = 0.46 * (1 - ph) * (ph < 0.12 ? ph / 0.12 : 1)
+          const al = 0.46 * heat * (1 - ph) * (ph < 0.12 ? ph / 0.12 : 1)
           if (al <= 0.02) continue
           g.fillStyle = 'rgba(255,228,156,' + al.toFixed(3) + ')'
           g.fillRect(X + 30 + k * 8 + Math.sin(ph * 5.2 + k) * 9, Y + 42 - ph * 92, 3, 3)
         }
 
         // 她与球之间的一线牵引 —— 读牌的人和被读的东西连着
-        const pull = 0.20 + Math.sin(t / 430) * 0.10
+        const pull = (0.20 + Math.sin(t / 430) * 0.10) * heat
         g.fillStyle = 'rgba(255,222,150,' + pull.toFixed(3) + ')'
         for (let j = 0; j < 5; j++) g.fillRect(X + 56, Y + 6 - j * 11 - (t / 90 % 11), 3, 5)
       }
@@ -1103,14 +1169,23 @@
       pxE(290, 280, 288, 278, '#2e2440')
       pxE(290, 280, 274, 264, '#38304e')
       pxE(290, 280, 248, 238, '#3e3556')
+      /* 【静态时是一块织毯，不是一个亮着的法阵】（2026-09-03 第四轮评审）。
+         上一版静态就画着 13px 宽的 `#ffd76a`（全屋最亮的色），
+         而这块地毯 580×560 是屋里最大的图形 —— 主人放大之后仍然只有
+         它的四分之一宽。评审两路都说「屏上视觉最重的是地毯上那颗星」，
+         而按钮上写的是「翻张牌」:眼睛先看到的不是那件事。
+
+         金线整体降一档（亮金 → 旧金、白高光去掉），它就退回成
+         「织在毯子上的图案」;`fx` 那一层做法时照旧点亮，
+         那时它本来就该是主角 —— 亮与不亮的对比反而更强了。 */
       // 金边双环
-      for (const [rx, ry, lw, col] of [[262, 252, 9, '#a87820'], [262, 252, 4, '#e8b23d'],
-                                        [236, 226, 5, '#a87820'], [236, 226, 2, '#ffd76a']]) {
+      for (const [rx, ry, lw, col] of [[262, 252, 9, '#7a5618'], [262, 252, 4, '#a87820'],
+                                        [236, 226, 5, '#7a5618'], [236, 226, 2, '#c89a3c']]) {
         g.strokeStyle = col; g.lineWidth = lw
         g.beginPath(); g.ellipse(290, 280, rx, ry, 0, 0, 7); g.stroke()
       }
       // 六芒星（双三角）
-      for (const [lw, col] of [[13, '#a87820'], [8, '#ffd76a'], [3, 'rgba(255,250,220,0.7)']]) {
+      for (const [lw, col] of [[13, '#7a5618'], [8, '#a87820'], [3, 'rgba(200,170,110,0.5)']]) {
         g.strokeStyle = col; g.lineWidth = lw; g.lineJoin = 'miter'
         for (const off of [0, Math.PI]) {
           g.beginPath()
@@ -1126,7 +1201,7 @@
       for (let k = 0; k < 6; k++) {
         const a = -Math.PI / 2 + k * Math.PI / 3
         const x = 290 + Math.cos(a) * 226, y = 280 + Math.sin(a) * 218
-        pxE(x, y, 11, 10, '#ffd76a'); pxE(x, y, 5, 5, '#8a5aba')
+        pxE(x, y, 11, 10, '#a87820'); pxE(x, y, 5, 5, '#6a4a8a')
       }
       // 外圈符文 12 枚
       g.fillStyle = '#c8a0e8'
@@ -1993,9 +2068,15 @@
     }
   })
   def("popo_portal", {
+    /* 【亮度压一档】（2026-09-03 第四轮评审 · 视觉）。
+       主人放大、地毯压暗之后，全屏最亮的成了这个旋涡 ——
+       同一个毛病换了个位置:一屋之主不该是屏上最不起眼的东西。
+       它是她那只猫进出的门，是个梗，该在，只是不该比人还响。
+       整层乘一个 0.62 的透明度:形状、动势、颜色全不动，只是退后一档。 */
     fx(g, t, X, Y) {
       const cx = X + 100, cy = Y + 200
       g.save()
+      g.globalAlpha *= 0.62
 
       // ① 暗底:旋涡要发光，得先有暗的东西衬。没有这层，亮部就浮不出来
       const bg = g.createRadialGradient(cx, cy, 6, cx, cy, 150)

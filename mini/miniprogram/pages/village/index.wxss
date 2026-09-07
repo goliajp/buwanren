@@ -8,6 +8,19 @@
 /* 画布按可用高度等比铺，窄屏上两侧会留一点白 —— 圆角让那点留白
    读起来是【画框】而不是「没铺满」。
 
+   【2026-09-01 为什么不做满宽】。五路评审 · 视觉那一路提过:地图占屏宽
+   292/375（78%），左右各 41px 纸色，建议满宽出血、把 UI 浮在地图上，
+   视觉面积 +28%。这条没做，理由是它要拿一条别的约束去换 ——
+     · 满宽之后地图高 511px，加上头部 68 就到 579，
+       而可用只有 617（667 减去原生 tabBar 50）:
+       每天那句（90）与收集条（28）放不下，必须【浮在地图上】，
+       也就是遮住几间房。而「四十格一次看完」是这一屏的设计前提。
+     · 上下留的那点空是刻意的保守值（说话那格按两行 115 留，实测多半 90）——
+       2026-08-31 按 90 写死过一次，长一点的签文当场把整屏顶出去 22px。
+       把它省下来换宽度，等于把那个 bug 请回来。
+   三条约束（一屏不滚 / 四十格一次看完 / 顶上每天那句）都成立时，
+   这个宽度就是解。要满宽，得先决定放弃哪一条 —— 那是产品决定，不是版式决定。 */
+
    **阴影不加在 canvas 上。** 村子每帧都在重画，而阴影要跟着每一帧
    重新合成 —— 2026-08-30 加上之后，动线跑到一百条上下浏览器就被拖垮，
    报出来是「browser has been closed」，看着像脚本的问题。
@@ -19,9 +32,9 @@
 .acts { margin-left: auto; display: flex; gap: 16rpx; }
 .act { padding: 12rpx 32rpx; border-radius: 16rpx;
        background: var(--ink); color: var(--paper); font-size: 28rpx; }
-.err { padding: 32rpx; color: var(--peach); font-size: 26rpx; line-height: 1.7; }
-.scan { margin-left: 16rpx; padding: 8rpx 20rpx; border-radius: 16rpx;
-        border: none; background: var(--amber-lite); color: var(--amber-deep);
+.err { padding: 32rpx; color: var(--peach-text); font-size: 26rpx; line-height: 1.7; }
+.scan { margin: -17rpx 0 -17rpx 16rpx; padding: 25rpx 20rpx; border-radius: 16rpx;
+        border: none; background: var(--amber-lite); color: var(--amber-text);
         font-size: 24rpx; font-weight: 600; border-radius: 999rpx; }
 .hint { color: var(--ink-faint); font-size: 26rpx; }
 .say { margin: 0 32rpx 32rpx; padding: 24rpx 28rpx; border-radius: 20rpx;
@@ -46,9 +59,12 @@
 .nudge-s { font-size: 24rpx; color: var(--ink-faint); margin-top: 4rpx; }
 
 /* E2 的弹性槽：手输编号。矮屏收起（app.wxss 里那条 max-height 规则） */
-.manual { width: 100%; box-sizing: border-box; padding: 20rpx 32rpx 24rpx; }
-.manual-k { font-size: 24rpx; color: var(--ink-faint); margin-bottom: 12rpx; }
-.manual-row { display: flex; align-items: center; gap: 16rpx; }
+/* 折叠着的时候要【压到一行的价钱】。实测:20/24 的内边距加上
+   `.manual-k` 的下边距，整块 47px，村主屏在 iPhone SE 上超 20px。
+   展开之后再把下边距加回来（`.manual-row` 自己带上边距）。 */
+.manual { width: 100%; box-sizing: border-box; padding: 8rpx 32rpx 10rpx; }
+.manual-k { font-size: 24rpx; color: var(--ink-faint); }
+.manual-row { display: flex; align-items: center; gap: 16rpx; margin-top: 12rpx; }
 .manual-input {
   flex: 1; background: var(--paper); 
   border-radius: 16rpx; padding: 14rpx 20rpx; font-size: 26rpx; color: var(--ink);
@@ -58,7 +74,14 @@
   background: var(--ink); color: var(--paper); font-size: 26rpx;
 }
 .manual-go-hover { opacity: .75; }
-.manual-err { margin-top: 12rpx; font-size: 24rpx; color: var(--peach); line-height: 1.6; }
+/* 扫失败那一句 —— 挂在「扫御守」底下，不进手输那一块。
+   用桃色字（报错那一档），比手输里那一句醒目一档:
+   它是这一屏此刻唯一的反馈。 */
+.scan-err {
+  margin: 0 32rpx 8rpx; font-size: 24rpx; line-height: 1.6;
+  color: var(--peach-text);
+}
+.manual-err { margin-top: 12rpx; font-size: 24rpx; color: var(--peach-text); line-height: 1.6; }
 
 /* 问候语 + 日期（设计册 V1）。两行，占的是原先那一行副标的位置 */
 .greet { flex: 1; }
@@ -92,11 +115,46 @@
 /* 收集进度 —— 从「住着 9 位 · 还空 31 间」那种运营口径改成图鉴条。
    星露谷式:一眼看得出「我集了多少」，不用读数字。
    **常驻，不放弹性槽** —— 它是这个产品的核心反馈，不是可有可无的补充。 */
-.bar { display: flex; align-items: center; gap: 16rpx; padding: 12rpx 32rpx 2rpx; width: 100%; box-sizing: border-box; }
+.bar { display: flex; align-items: center; gap: 16rpx;
+       padding: 28rpx 32rpx 18rpx; margin: -16rpx 0;
+       width: 100%; box-sizing: border-box; }
 .bar-track { flex: 1; height: 18rpx; border-radius: 999rpx; background: var(--paper-inset);
              overflow: hidden; box-shadow: inset 0 1rpx 3rpx rgba(43,38,32,.08); }
 .bar-fill { height: 100%; border-radius: 999rpx; background: linear-gradient(90deg, var(--moss), #62C795);
             transition: width .5s cubic-bezier(.34,1.2,.64,1); }
-.bar-n { flex: none; font-size: 26rpx; font-weight: 700; color: var(--moss); font-variant-numeric: tabular-nums; }
+/* 「住下」贴着数字走 —— `.bar` 的 gap 是 16rpx，够两块之间用，
+   但标签跟它说的那个数之间不该有那么宽的缝。 */
+.bar-k { flex: none; font-size: 22rpx; color: var(--ink-faint); margin-right: -8rpx; }
+.bar-n { flex: none; font-size: 26rpx; font-weight: 700; color: var(--moss-text); font-variant-numeric: tabular-nums; }
 /* 一位都没有时进度条是空的 —— 空条比没有条更让人想填满它 */
 .bar-fill { min-width: 0; }
+
+/* 收集数那一条现在可点（住进第一位之后，它是这一屏唯一通向「谁能来」的路）。
+   右边给一条明说的出路 —— 一条能点却看不出能点的进度条等于不能点。 */
+.bar-go { flex: none; margin-left: 16rpx; font-size: 24rpx; font-weight: 600; color: var(--amber-text); }
+.bar-hover { opacity: .72; }
+
+/* 手输编号:一行入口 + 展开。常驻的是那一行，不是整块。 */
+.manual-caret { margin-left: 6rpx; font-size: 20rpx; color: var(--stone-label); }
+.manual-k-hover { opacity: .66; }
+
+/* 【御守是什么】。只对一个村民都没住下、又刚关掉相机的人说。
+   摆在扫码那一行底下，跟 `.scan-err` 同一个位置 —— 它回答的是同一个
+   动作之后的「然后呢」。两颗都按触点定高（88rpx = 44px）。 */
+.noscan {
+  margin: 0 32rpx 8rpx;
+  padding: 20rpx 24rpx;
+  border-radius: 20rpx;
+  background: var(--paper);
+}
+.noscan-t { font-size: 27rpx; font-weight: 600; color: var(--ink); line-height: 1.5; }
+.noscan-s { margin-top: 6rpx; font-size: 23rpx; color: var(--ink-faint); line-height: 1.6; }
+.noscan-acts { display: flex; align-items: center; justify-content: space-between; }
+.noscan-go {
+  min-height: 88rpx; display: flex; align-items: center;
+  font-size: 25rpx; font-weight: 600; color: #9a4f1e;
+}
+.noscan-x {
+  min-height: 88rpx; display: flex; align-items: center;
+  font-size: 25rpx; color: var(--stone-label);
+}

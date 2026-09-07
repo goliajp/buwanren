@@ -2,11 +2,14 @@ import { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApiMutation } from '../lib/feedback';
 import { commerce } from '../lib/api';
+import { 从网址读筛选 } from '../lib/urlfilter';
 import PageHeader from '../components/PageHeader';
+import TableError from '../components/TableError';
+import CopyId from '../components/CopyId';
 import FilterBar from '../components/FilterBar';
 import Pagination from '../components/Pagination';
 import Drawer from '../components/Drawer';
-import { rel, ts, yuan, shortId, statusChip, carrierLabel } from '../components/util';
+import { rel, ts, yuan, shortId, statusClass, statusLabel, carrierLabel, enumLabel } from '../components/util';
 import { Eye, Edit3, AlertTriangle, RefreshCw, Truck } from 'lucide-react';
 
 const SHIPMENT_STATUSES = ['preparing','picked_up','in_transit','out_for_delivery','delivered','exception','returning','returned','cancelled'];
@@ -14,8 +17,12 @@ const CARRIERS = ['sf','jd','zto','yto','yunda','sto','ems','manual'];
 
 export default function Shipments() {
   const qc = useQueryClient();
-  const [filt, setFilt] = useState<Record<string, any>>({ size: 50, page: 0 });
-  const [draft, setDraft] = useState<Record<string, any>>({});
+  /* 【筛选条件从网址上读】（2026-09-03 五路评审 · 后台产品体验）——
+     看板与用户页跳过来时带着 `?status=…` / `?keyword=…`，
+     而在这之前没有一页读它，那几跳全都落到不带筛选的全量列表上。
+     `draft` 也要一起带上，不然筛选栏显示的跟真在用的对不上。 */
+  const [filt, setFilt] = useState<Record<string, any>>(从网址读筛选({ size: 50, page: 0 }));
+  const [draft, setDraft] = useState<Record<string, any>>(从网址读筛选({}));
   const [detailId, setDetailId] = useState<string | null>(null);
 
   const list = useQuery({
@@ -35,20 +42,20 @@ export default function Shipments() {
     return [
       { label: '当前页', value: items.length },
       { label: '总数', value: list.data?.total ?? 0 },
-      { label: '异常', value: exc, tone: exc ? 'bad' as const : undefined },
+      { label: '异常', value: exc, tone: exc ? 'debt' as const : undefined },
     ];
   }, [list.data]);
 
   return (
     <div>
-      <PageHeader title="物流 · Shipments" sub="commerce v2 · shipment + shipment_trace_event · 只 trace 不仓储" stats={stats} />
+      <PageHeader title="物流" sub="寄出去的实物走到哪儿了。我们不管仓库，只跟单号" stats={stats} />
       <div className="p-4">
         <FilterBar
           fields={[
-            { kind: 'text',   key: 'keyword', label: 'keyword', placeholder: 'id / 单号 / order_id', width: 240 },
-            { kind: 'select', key: 'status', label: 'status', options: SHIPMENT_STATUSES.map(v => ({ v, label: v })) },
-            { kind: 'select', key: 'carrier_code', label: 'carrier', options: CARRIERS.map(v => ({ v, label: carrierLabel(v) })), width: 130 },
-            { kind: 'text',   key: 'order_id', label: 'order_id', width: 180 },
+            { kind: 'text',   key: 'keyword', label: '找', placeholder: 'id / 单号 / order_id', width: 240 },
+            { kind: 'select', key: 'status', label: '状态', options: SHIPMENT_STATUSES.map(v => ({ v, label: v })) },
+            { kind: 'select', key: 'carrier_code', label: '快递公司', options: CARRIERS.map(v => ({ v, label: carrierLabel(v) })), width: 130 },
+            { kind: 'text',   key: 'order_id', label: '哪一单', width: 180 },
             { kind: 'bool',   key: 'exception_only', label: '只看异常+退货' },
           ]}
           values={draft}
@@ -58,30 +65,36 @@ export default function Shipments() {
           right={<button className="btn btn-soft" onClick={() => list.refetch()}><RefreshCw size={13}/> 刷新</button>}
         />
         <div className="panel">
-          <table className="wa-table">
+          <table className="tbl">
             <thead><tr>
-              <th>id</th><th>order</th><th>承运商</th><th>单号</th><th>状态</th><th>方式</th>
+              <th>编号</th><th>订单</th><th>承运商</th><th>单号</th><th>状态</th><th>方式</th>
               <th className="r">成本</th><th>取件</th><th>送达</th><th>更新</th>
               <th className="c">动作</th>
             </tr></thead>
             <tbody>
               {(list.data?.items ?? []).map((s: any) => (
-                <tr key={s.id} className={s.status === 'exception' ? 'bg-vermilion-soft/30' : ''}>
-                  <td className="mono">{shortId(s.id)}</td>
-                  <td className="mono text-ink-3">{shortId(s.order_id)}</td>
+                <tr key={s.id} className={s.status === 'exception' ? 'bg-debt-bg/30' : ''}>
+                  <td className="id"><CopyId id={s.id}>{shortId(s.id)}</CopyId></td>
+                  <td className="font-mono text-ink-3"><CopyId id={s.order_id}>{shortId(s.order_id)}</CopyId></td>
                   <td>{carrierLabel(s.carrier_code)}</td>
-                  <td className="mono">{s.tracking_no ?? <span className="text-ink-5">未录入</span>}</td>
-                  <td><span className={statusChip(s.status)}>{s.status}</span></td>
-                  <td className="text-ink-4">{s.shipping_method}</td>
+                  <td className="id">{s.tracking_no ?? <span className="text-ink-4">未录入</span>}</td>
+                  <td><span className={statusClass(s.status)}>{statusLabel(s.status)}</span></td>
+                  <td className="text-ink-4">{enumLabel(s.shipping_method)}</td>
                   <td className="r">{s.cost_minor ? yuan(s.cost_minor, s.cost_currency || 'CNY') : '—'}</td>
                   <td title={ts(s.picked_up_at)}>{rel(s.picked_up_at)}</td>
                   <td title={ts(s.delivered_at)}>{rel(s.delivered_at)}</td>
                   <td title={ts(s.updated_at)} className="text-ink-4">{rel(s.updated_at)}</td>
-                  <td className="c"><button className="btn btn-link" onClick={() => setDetailId(s.id)}><Eye size={13}/></button></td>
+                  <td className="c"><button className="btn btn-ghost" onClick={() => setDetailId(s.id)}><Eye size={13}/></button></td>
                 </tr>
               ))}
-              {list.data && list.data.items.length === 0 && (
-                <tr><td colSpan={11} className="text-center py-10 text-ink-5">— 暂无包裹 —</td></tr>
+              {/* 【取不到跟「一条都没有」不是一回事】（2026-09-03 五路评审 · 后台产品体验）。
+                  上一版只有空态那一行，而它的条件是 `X.data && …length === 0` ——
+                  查询失败时 `data` 是 undefined，两行都不渲染，
+                  屏上剩一张只有表头的空表。带着筛选条件的页面上，
+                  运营会以为是自己把条件筛空了。 */}
+                <TableError 出错={list.isError} 列数={11} />
+                {list.data && list.data.items.length === 0 && (
+                <tr><td colSpan={11} className="text-center py-10 text-ink-4">— 暂无包裹 —</td></tr>
               )}
             </tbody>
           </table>
@@ -128,10 +141,37 @@ function ShipActions({ s, onChanged }: { s: any; onChanged: () => void }) {
           });
         }}><Edit3 size={13}/> 录入运单号</button>
       )}
-      <button className="btn btn-warn" onClick={() => { const r = prompt('异常原因？'); if (r) exc.mutate(r); }}>
+      <button className="btn btn-debt" onClick={() => { const r = prompt('异常原因？'); if (r) exc.mutate(r); }}>
         <AlertTriangle size={13}/> 标异常
       </button>
     </>
+  );
+}
+
+/* 收件人快照怎么显示。
+ *
+ * 【形状不止一种】：下单那一路存的是 `{name, phone, address}`
+ * （`confirm/index.ts` 的 `chooseAddr` 拼的），而库里还躺着一批
+ * 只有 `{city, detail}` 的旧行（种子与验收夹具）。
+ * 所以不写死字段名 —— 认得的先按顺序摆，认不得的原样跟在后面。
+ * 空的就说空:一个 `—` 比一行看不懂的 JSON 有用。 */
+function 收件人(v: any) {
+  if (!v || typeof v !== 'object') return '—';
+  const 名 = [v.name, v.phone].filter(Boolean).join(' · ');
+  const 地 = v.address
+    ?? [v.province, v.city, v.district, v.detail].filter(Boolean).join('');
+  const 别的 = Object.entries(v)
+    .filter(([k]) => !['name', 'phone', 'address', 'province', 'city', 'district', 'detail'].includes(k))
+    .map(([k, x]) => `${k}: ${String(x)}`)
+    .join(' · ');
+  const 行 = [名, 地, 别的].filter(Boolean);
+  if (!行.length) return '—';
+  return (
+    <span>
+      {行.map((t, i) => (
+        <span key={i} className={i ? 'block text-ink-3' : 'block'}>{t}</span>
+      ))}
+    </span>
   );
 }
 
@@ -142,12 +182,20 @@ function ShipmentBody({ data }: { data: any }) {
       <section>
         <h3 className="font-semibold mb-2 flex items-center gap-1.5"><Truck size={13}/> 基本</h3>
         <KvGrid kv={[
-          ['id', <span className="mono">{shipment.id}</span>],
-          ['order_id', <span className="mono">{shipment.order_id}</span>],
+          ['id', <CopyId id={shipment.id}><span className="id">{shipment.id}</span></CopyId>],
+          ['订单', <CopyId id={shipment.order_id}><span className="id">{shipment.order_id}</span></CopyId>],
+          /* 【寄到哪儿，这一页此前一个字都不显示】（2026-09-06 三路验证 ·
+             运营那一路）。`get_shipment` 是 `SELECT *`，
+             `recipient_snapshot_json` 一直在响应里 —— 而这张字段表
+             十二项里没有它。客服接到「我的包裹没到」的电话，
+             能报出物流状态却报不出寄到哪儿，核对不了地址。
+             这一页的副标题写着「我们不管仓库，只跟单号」——
+             收件人不是仓库的事，是这一单的事。 */
+          ['收件人', 收件人(shipment.recipient_snapshot_json)],
           ['承运商', carrierLabel(shipment.carrier_code)],
-          ['运单号', <span className="mono font-semibold">{shipment.tracking_no ?? '—'}</span>],
-          ['状态', <span className={statusChip(shipment.status)}>{shipment.status}</span>],
-          ['运输方式', shipment.shipping_method],
+          ['运单号', <span className="font-mono font-semibold">{shipment.tracking_no ?? '—'}</span>],
+          ['状态', <span className={statusClass(shipment.status)}>{statusLabel(shipment.status)}</span>],
+          ['运输方式', enumLabel(shipment.shipping_method)],
           ['重量', shipment.weight_g ? `${shipment.weight_g} g` : '—'],
           ['成本', shipment.cost_minor ? yuan(shipment.cost_minor, shipment.cost_currency || 'CNY') : '—'],
           ['取件时间', ts(shipment.picked_up_at)],
@@ -161,21 +209,21 @@ function ShipmentBody({ data }: { data: any }) {
         <h3 className="font-semibold mb-2">物流轨迹 ({trace?.length ?? 0})</h3>
         <div className="space-y-0">
           {(trace ?? []).map((e: any, i: number) => (
-            <div key={e.id} className="flex gap-3 py-2 border-b border-border/50">
-              <div className={`w-1.5 mt-1 h-1.5 rounded-full flex-shrink-0 ${i === 0 ? 'bg-jade' : 'bg-ink-5'}`} />
+            <div key={e.id} className="flex gap-3 py-2 border-b border-rule/50">
+              <div className={`w-1.5 mt-1 h-1.5 rounded-full flex-shrink-0 ${i === 0 ? 'bg-settled' : 'bg-ink-4'}`} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-[12px]">{e.event_kind}</span>
-                  {e.location && <span className="text-ink-4 text-[11px]">{e.location}</span>}
-                  <span className="uplabel text-ink-5 ml-auto">{e.raw_source}</span>
+                  {e.location && <span className="text-ink-4 text-xs">{e.location}</span>}
+                  <span className="label text-ink-4 ml-auto">{e.raw_source}</span>
                 </div>
                 <div className="text-ink-3 text-[12px] mt-0.5">{e.description}</div>
-                <div className="text-ink-5 text-[11px] mono mt-0.5">{ts(e.event_at)}</div>
+                <div className="text-ink-4 text-xs font-mono mt-0.5">{ts(e.event_at)}</div>
               </div>
             </div>
           ))}
           {(!trace || trace.length === 0) && (
-            <div className="py-6 text-center text-ink-5">— 暂无 trace，需录入运单号 + 等 sweeper 拉取 —</div>
+            <div className="py-6 text-center text-ink-4">— 暂无 trace，需录入运单号 + 等 sweeper 拉取 —</div>
           )}
         </div>
       </section>
@@ -187,8 +235,8 @@ function KvGrid({ kv }: { kv: [string, React.ReactNode][] }) {
   return (
     <div className="grid grid-cols-2 gap-x-6 gap-y-1">
       {kv.map(([k, v], i) => (
-        <div key={i} className="flex items-center justify-between border-b border-border/50 py-1">
-          <span className="uplabel text-ink-5">{k}</span>
+        <div key={i} className="flex items-center justify-between border-b border-rule/50 py-1">
+          <span className="label text-ink-4">{k}</span>
           <span className="text-ink-2">{v}</span>
         </div>
       ))}

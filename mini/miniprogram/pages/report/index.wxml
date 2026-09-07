@@ -2,8 +2,14 @@
   <!-- 标题是这一册算的是谁，不是「八字深度报告」——
        买家知道自己买了什么，他想确认的是「这算的是我吗」 -->
   <view class="hd">
-    <view class="title">{{whose || '你的说明书'}}</view>
-    <view class="sub" wx:if="{{birthLine}}">{{birthLine}}</view>
+    <!-- 【2026-09-01】标题是这一册自己的名字，不是那份档案叫什么。
+         原先大字写的是 `whose` —— 用户给出生时间起的名，默认就是「我」。
+         于是一份 ¥199 的东西，页顶写着一个「我」字，而「我」还是底部
+         那个 tab 的名字（五路评审 · 第一次打开的人）。
+         档案名退到副标里跟生辰并排 —— 它回答的是「这是谁的那一份」，
+         那正是副标该干的事。 -->
+    <view class="title">你的说明书</view>
+    <view class="sub" wx:if="{{birthLine}}">{{whose ? whose + ' · ' : ''}}{{birthLine}}</view>
     <view class="hr"></view>
   </view>
 
@@ -30,6 +36,22 @@
     </view>
     <view class="acts">
       <button class="btn" bindtap="onFill">去填出生时间</button>
+      <button class="btn ghost" bindtap="onBack">回去</button>
+    </view>
+  </block>
+
+  <!-- 【退干净了的单，说明书收回】（2026-09-06）。不写这一档的话，
+       一个退过款的人在这儿看到的是一册空白的说明书（`pages` 是空数组）——
+       屏上什么都没有，而没有任何一句话说为什么。
+       说清楚是谁做的、什么时候做的:钱退了，所以它收回了。 -->
+  <block wx:elif="{{status === 'revoked'}}">
+    <view class="wait">
+      <view class="wait-line">这一单退了，说明书跟着收回了</view>
+      <view class="wait-note">
+        钱已经退回你的付款方式。想再要一份的话，重新下一单就行
+      </view>
+    </view>
+    <view class="acts">
       <button class="btn ghost" bindtap="onBack">回去</button>
     </view>
   </block>
@@ -105,25 +127,48 @@
 
       <view class="src">{{page.source}}</view>
 
+
       <!-- 【结尾】。读到最后一页只剩一个灰掉的「下一页」，
            花钱买的东西读到底没有落点。这里做两件事:
            告诉他册子不会丢，再给他下一步。 -->
+      <!-- 【2026-09-01 收进结尾这一行里】。这一块原先是一段话加一颗
+           整行的按钮，最后一页因此比别页高 80px —— 实测:标签条落在 619，
+           翻页那一行 656 到 699，而屏高 667，也就是
+           【「‹ 上一页　回去　下一页 ›」整行看不见】。
+           全 app 只有这一页要滚，而且滚得静默:读到最后一页的人
+           屏上没有出口，除非他知道要往下滑，可这一页看着已经到底了
+           （2026-09-01 五路评审 · 第一次打开的人）。
+           一句话加一条文字链，一行的高度，出口就回到了折线以内。 -->
       <view class="fin" wx:if="{{at === tabs.length - 1}}">
-        <view class="fin-p">后面没有了 —— 看不明白的地方，村里人照着这份说明书给你讲</view>
-        <button class="btn fin-b" bindtap="onAskVillage">去问问村里人</button>
+        <!-- 【2026-09-01】原先写「村里人照着这份说明书给你讲」，按钮跳村子主屏。
+             村民问签走的是另一条接口，从头到尾不引用这一册的任何一个字 ——
+             花 199 读到最后一页，产品给的最后一句话是做不到的。
+             接得上那天再写它;现在说的是这一册在哪儿、随时能翻。 -->
+        <!-- 【说清是「我的」里的哪一行】（2026-09-06 三路验证 ·
+             第一次打开的人）。原先只说「一直在「我的」里」，
+             而「我的」那八行里当时没有一行叫说明书 ——
+             读完的人去翻一圈找不着。那一行同日补上了（me/index.wxml）,
+             这里把名字念出来，省他一次翻找。 -->
+        <view class="fin-p">读完了 —— 这一册在「我的 › 你的说明书」里<text
+              class="fin-go" bindtap="onAskVillage" hover-class="press-text" hover-stay-time="80">回我的 ›</text></view>
       </view>
     </view>
 
     <!-- 页名一排。想看用神就点「用神」—— 比一路翻过去快 -->
     <view class="tabs">
-      <text wx:for="{{tabs}}" wx:key="*this" class="tab {{index === at ? 'tab-on' : ''}}"
-            data-i="{{index}}" bindtap="onTab">{{item}}</text>
+      <view wx:for="{{tabs}}" wx:key="*this" class="tab {{index === at ? 'tab-on' : ''}}"
+            data-i="{{index}}" bindtap="onTab" hover-class="press-card" hover-stay-time="80">{{item}}</view>
     </view>
 
     <view class="acts">
-      <text class="turn {{at === 0 ? 'turn-off' : ''}}" bindtap="onPrev">‹ 上一页</text>
-      <text class="turn-back" bindtap="onBack">回去</text>
-      <text class="turn {{at === tabs.length - 1 ? 'turn-off' : ''}}" bindtap="onNext">下一页 ›</text>
+      <text class="turn {{at === 0 ? 'turn-off' : ''}}" bindtap="onPrev" hover-class="press-text" hover-stay-time="80">‹ 上一页</text>
+      <text class="turn-back" bindtap="onBack" hover-class="press-text" hover-stay-time="80">回去</text>
+      <text class="turn {{at === tabs.length - 1 ? 'turn-off' : ''}}" bindtap="onNext" hover-class="press-text" hover-stay-time="80">下一页 ›</text>
     </view>
+
+    <!-- 摆在【翻页那一行之后】，整册一次:放进 `.pg` 里就是六页各一份，
+         而且会把每一页都撑高 —— 这一屏本来就是刚好放得下的
+         （放在页内当场超出 30px，实测）。 -->
+    <view class="foot-hint">仅供研究与娱乐 · 不构成人生建议</view>
   </block>
 </view>

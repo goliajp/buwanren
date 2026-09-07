@@ -36,11 +36,30 @@ async fn sweep_once(st: &AppState) -> anyhow::Result<()> {
     // 只取 id。剩下的字段用例层自己在事务里带 FOR UPDATE 读 ——
     // 在这里读出来再传进去,中间那段时间足够别人把订阅改掉。
     let ids: Vec<String> = sqlx::query(
+        /* 【没有下次扣款时间的那些，周期一走完就没人再看它一眼】
+           （2026-09-04）。上一版的条件里有 `next_billing_attempt_at IS NOT NULL`，
+           而全仓【没有任何一处】拿 `current_period_end` 跟现在比来判到期 ——
+           于是那一列是 NULL 的活跃订阅是不死的：
+
+             · 194 笔会在周期走完之后【白给服务】，不再扣一分钱
+             · 另 201 笔点过「到期不续」，而「停」这件事只发生在
+               `renew_due` 里 —— 它只对被这里捞到的行跑，所以它们
+               永远不会真的停
+
+           实测这 395 笔的 `current_period_end` 全落在 2026-09-15 到 09-22：
+           十一天后【同时】掉到边上，而今天一条也看不出来
+           （「周期早过了却仍在服务」现在是 0）。
+
+           `renew_due` 里每一支判断本来都是对的（认取消标记、认周期、
+           认无价），缺的只是有人把这些行喂给它。
+           排序用 `COALESCE`:两条路的「该轮到它了」是同一个意思。 */
         r#"SELECT id FROM subscription
            WHERE status IN ('active','past_due','trialing')
-             AND next_billing_attempt_at IS NOT NULL
-             AND next_billing_attempt_at <= NOW()
-           ORDER BY next_billing_attempt_at ASC
+             AND (
+                   (next_billing_attempt_at IS NOT NULL AND next_billing_attempt_at <= NOW())
+                OR (next_billing_attempt_at IS NULL     AND current_period_end     <= NOW())
+                 )
+           ORDER BY COALESCE(next_billing_attempt_at, current_period_end) ASC
            LIMIT $1"#,
     )
     .bind(BATCH)

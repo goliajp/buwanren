@@ -62,12 +62,38 @@ const VERDICTS: &[(&str, &[&str])] = &[
 /// 几个 bit,相邻的 seed 从同一个池子里挑出来的往往是同一条 —— 那就没有
 /// 「换个村民就换个答案」了。
 pub fn seed_of(user_id: &str, villager_id: &str, on: NaiveDate) -> i64 {
+    seed_of_full(user_id, villager_id, on, None, None)
+}
+
+/// 带上【他用哪一门】与【你的盘】的那一版。
+///
+/// 【门派与盘要进种子】（2026-09-03 第四轮评审 · 产品完整性）。
+/// 原先种子只有「谁问 + 问谁 + 哪一天」—— 盘算好了只写进 `chart_json` 存档、
+/// `art_key` 同样只落库，两者都不参与挑词。也就是说屏上写着
+/// 「这一门是拨念珠」和「这一门是翻牌」，输出的是同一套东西，
+/// 而四十个人的差别只剩 opener / closer / joiner 三个词。
+///
+/// 加进去之后:
+/// · 同一个人同一天问同一位，还是同一句（「一天一次·同一天再问说的是同一句」
+///   那条承诺不动）
+/// · 换一位村民、或者换了本命，说的就不一样 —— 因为那本来就是两件事
+pub fn seed_of_full(
+    user_id: &str,
+    villager_id: &str,
+    on: NaiveDate,
+    art_key: Option<&str>,
+    yongshen: Option<&str>,
+) -> i64 {
     let mut h = Sha256::new();
     h.update(user_id.as_bytes());
     h.update(b"\x00");
     h.update(villager_id.as_bytes());
     h.update(b"\x00");
     h.update(on.to_string().as_bytes());
+    h.update(b"\x00");
+    h.update(art_key.unwrap_or("").as_bytes());
+    h.update(b"\x00");
+    h.update(yongshen.unwrap_or("").as_bytes());
     let d = h.finalize();
     let mut b = [0u8; 8];
     b.copy_from_slice(&d[..8]);
@@ -134,7 +160,18 @@ pub async fn reading(
         )));
     };
 
-    let seed = seed_of(user_id, villager_id, on);
+    /* 【盘与门派进种子】。盘的形状随门派而异（塔罗是 cards、六壬是 leaf…），
+       所以不去解读它的结构，取它的【文本指纹】—— 盘变了指纹就变，
+       这正是要的性质，而且不必替每一门写一份解析。
+       没有盘时（还没建本命）传空串，行为跟以前一模一样。 */
+    let 盘纹 = chart.as_ref().map(|c| {
+        use sha2::Digest;
+        let mut h = Sha256::new();
+        h.update(c.to_string().as_bytes());
+        format!("{:x}", h.finalize())
+    });
+    let seed = seed_of_full(user_id, villager_id, on,
+                            art_key.as_deref(), 盘纹.as_deref());
 
     // ── 偏向层:缺决定方向,seed 在该方向的几种说法里挑一句
     let says = VERDICTS
@@ -159,8 +196,13 @@ pub async fn reading(
     // ── 声音层:同一个结论,不同的人说出来不一样
     // 记得那一句放在【开场之后】:开场是这个人的招牌
     // (丹增的「嘿哈」、婆婆的「来,坐下说呀」),挪到它前面就不像他开口了。
+    /* 【说人话】。原先拼的是「宜X，忌Y」——「宜/忌」是黄历行话。
+       同一批词在罗盘那一屏被认真改成了「今天适合 / 今天先别」
+       （pages/ask/index.wxml），到村民问签这儿又变回行话:
+       同一个数据、同一个产品，一屏说人话一屏说行话，
+       而村民这一屏是【请回家之后】才进得来的。 */
     let say = format!(
-        "{opener}{memory}{verdict}{joiner}宜{}，忌{}{closer}",
+        "{opener}{memory}{verdict}{joiner}今天适合{}；先别{}{closer}",
         suit.join("、"),
         avoid.join("、"),
     );

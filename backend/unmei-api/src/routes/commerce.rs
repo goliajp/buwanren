@@ -17,8 +17,7 @@ use serde_json::{json, Value as J};
 use sqlx::{Column as _, Row, TypeInfo};
 use unmei_app::{
     order as app_order, payment as app_payment, refund as app_refund, shipment as app_shipment,
-    Actor,
-};
+    Actor, coupon as app_coupon};
 use unmei_domain::commerce::adapters::{CreatePaymentParam, WebhookEvent, WebhookHeaders};
 use unmei_domain::AppError;
 
@@ -34,6 +33,7 @@ pub fn router() -> Router<AppState> {
         .route("/v1/products/:id",                        get(get_product))
         // 订单 · 必须登录
         .route("/v1/orders",                              get(my_orders).post(create_order))
+        .route("/v1/orders/preview",                      post(preview_order))
         .route("/v1/orders/:id",                          get(get_my_order))
         .route("/v1/orders/:id/cancel",                   post(cancel_my_order))
         .route("/v1/orders/:id/pay",                      post(pay_my_order))
@@ -43,8 +43,12 @@ pub fn router() -> Router<AppState> {
         // 物流
         .route("/v1/orders/:id/shipments",                get(my_shipments))
         .route("/v1/orders/:id/shipments/:sid/trace",     get(my_shipment_trace))
+        // 券 · 他名下的那些
+        .route("/v1/coupons",                             get(my_coupons))
         // 订阅
         .route("/v1/subscriptions",                       get(my_subscriptions))
+        .route("/v1/subscriptions/:id/cancel",            post(cancel_my_subscription))
+        .route("/v1/subscriptions/:id/pay",               post(pay_my_subscription))
         // Webhook
         .route("/v1/webhooks/wechat",                     post(wx_webhook))
         .route("/v1/webhooks/carrier/:provider",          post(carrier_webhook))
@@ -101,21 +105,40 @@ fn default_platform() -> String { "web".into() }
 async fn list_products(
     State(st): State<AppState>, Query(q): Query<ProductsQ>,
 ) -> Result<Json<Vec<J>>, ApiError> {
+    /* 【2026-09-01】列表也带上价钱。
+       村民页那颗「请 X 回村」是掏钱的入口，而它之前【不写价】——
+       五路评审里有三路把它列成第一条不敢按的理由:一个没用过的人，
+       不知道按下去是马上扣钱还是先看看，于是干脆不按。
+       价钱在 price_book 上、按 region/platform 生效，跟详情页同一套取法;
+       这里取这件商品最便宜的那一档，够按钮写「¥99 起」。
+       取不到（没上架、没定价）就是 null，页面据此说「还没上架」，
+       不假装有货。 */
     let rows = sqlx::query(
-        r#"SELECT id, code, name, sub_title, category, kind, fulfillment_kind,
-                  hero_image_url, tags, description_md
-           FROM product
-           WHERE status='listed'
-             AND $1 = ANY(available_regions)
-             AND ($2 = 'all' OR $2 = ANY(available_platforms))
-             AND ($3::text IS NULL OR category = $3)
-             AND ($4::text IS NULL OR kind = $4)
+        r#"SELECT p.id, p.code, p.name, p.sub_title, p.category, p.kind, p.fulfillment_kind,
+                  p.hero_image_url, p.tags, p.description_md,
+                  lo.price_minor AS from_price_minor, lo.currency AS from_currency
+           FROM product p
+           LEFT JOIN LATERAL (
+              SELECT pb.price_minor, pb.currency
+                FROM sku s
+                JOIN price_book pb ON pb.sku_id = s.id AND pb.status='active'
+                 AND pb.region IN ($1, 'global') AND pb.platform IN ($2, 'all')
+                 AND pb.effective_from <= NOW()
+                 AND (pb.effective_to IS NULL OR pb.effective_to > NOW())
+               WHERE s.product_id = p.id AND s.status='active'
+               ORDER BY pb.price_minor ASC LIMIT 1
+           ) lo ON TRUE
+           WHERE p.status='listed'
+             AND $1 = ANY(p.available_regions)
+             AND ($2 = 'all' OR $2 = ANY(p.available_platforms))
+             AND ($3::text IS NULL OR p.category = $3)
+             AND ($4::text IS NULL OR p.kind = $4)
              AND ($5::text IS NULL OR EXISTS (
-                   SELECT 1 FROM sku s
-                   WHERE s.product_id = product.id
-                     AND s.status = 'active'
-                     AND s.villager_id = $5))
-           ORDER BY sort_weight DESC, created_at DESC"#,
+                   SELECT 1 FROM sku s2
+                   WHERE s2.product_id = p.id
+                     AND s2.status = 'active'
+                     AND s2.villager_id = $5))
+           ORDER BY p.sort_weight DESC, p.created_at DESC"#,
     ).bind(&q.region).bind(&q.platform).bind(&q.category).bind(&q.kind).bind(&q.villager_id)
      .fetch_all(&st.db).await.map_err(map_db)?;
     Ok(Json(map_rows(rows)))
@@ -155,7 +178,7 @@ async fn get_product(
        村民绑在 sku 上（`sku.villager_id`），所以这里顺着 sku 把人取出来。
        不是御守的商品（香、报告）取不到，就是 null —— 页面据此决定说不说。 */
     let 是谁 = sqlx::query(
-        r#"SELECT v.id, v.name, v.title, a.name AS art_name, b.direction
+        r#"SELECT v.id, v.name, v.title, COALESCE(a.plain, a.name) AS art_name, b.direction
              FROM sku s
              JOIN villager v ON v.id = s.villager_id
              LEFT JOIN art a ON a.key = v.art_key
@@ -192,6 +215,86 @@ struct CreateOrderBody {
 fn default_channel_origin() -> String { "web".into() }
 #[derive(Deserialize, Serialize)]
 struct CreateLine { sku_id: String, qty: i32 }
+
+#[derive(Deserialize, Serialize)]
+struct PreviewBody {
+    lines: Vec<CreateLine>,
+    #[serde(default)]
+    coupon_codes: Vec<String>,
+    region: Option<String>,
+    channel_origin: Option<String>,
+}
+
+/// 下单之前先算一遍：这些东西加上这些券，一共多少。
+///
+/// 【券的折扣只有服务端算得准】——封顶、余额、活动有效期、
+/// 多张券按余额依次算。客户端自己算一遍必然跟服务端不一致，
+/// 而不一致的那一刻，用户是在看着客户端那个数按下付款的。
+///
+/// 不动库、不锁券。校验一条不少 —— 试算说得通、下单却被拒，
+/// 跟试算说减 40、下单扣 50 是同一种欺骗。
+async fn preview_order(
+    State(st): State<AppState>, AuthedUser(claims): AuthedUser,
+    Json(b): Json<PreviewBody>,
+) -> Result<Json<J>, ApiError> {
+    if b.lines.is_empty() {
+        return Err(ApiError::bad("没说买什么"));
+    }
+    /* 小计要跟下单那一步【用同一条 SQL】——取价看区、看平台、看时段，
+       抄一份简化版的话，试算与实扣就会在某些组合下对不上，
+       而那种不一致只有在特定区 / 特定平台才显形。 */
+    let region = b.region.clone().unwrap_or_else(|| "cn".to_string());
+    let 平台 = b.channel_origin.clone().unwrap_or_else(|| "web".to_string());
+    let mut subtotal: i64 = 0;
+    let mut currency: Option<String> = None;
+    for l in &b.lines {
+        if l.qty <= 0 {
+            return Err(ApiError::bad("数量要大于 0"));
+        }
+        let row = sqlx::query(
+            r#"SELECT pb.price_minor, pb.currency
+                 FROM sku s
+                 LEFT JOIN LATERAL (
+                   SELECT price_minor, currency FROM price_book
+                   WHERE sku_id = s.id AND status='active'
+                     AND region IN ($2, 'global')
+                     AND platform IN ($3, 'all')
+                     AND effective_from <= NOW()
+                     AND (effective_to IS NULL OR effective_to > NOW())
+                   ORDER BY effective_from DESC LIMIT 1
+                 ) pb ON TRUE
+                WHERE s.id=$1 AND s.status='active'"#,
+        )
+        .bind(&l.sku_id)
+        .bind(&region)
+        .bind(&平台)
+        .fetch_optional(&st.db)
+        .await?
+        .ok_or_else(|| ApiError::bad(format!("sku {} 现在买不了", l.sku_id)))?;
+        let unit: i64 = row
+            .try_get("price_minor")
+            .map_err(|_| ApiError::bad(format!("sku {} 现在没有价", l.sku_id)))?;
+        let cur: String = row
+            .try_get("currency")
+            .map_err(|_| ApiError::bad(format!("sku {} 的价没有币种", l.sku_id)))?;
+        match &currency {
+            None => currency = Some(cur),
+            Some(c) if *c != cur => return Err(ApiError::bad("这几件的币种不一样")),
+            Some(_) => {}
+        }
+        subtotal += unit * l.qty as i64;
+    }
+    let (券们, discount) =
+        app_coupon::preview(&st.db, &claims.sub, &region, subtotal, &b.coupon_codes).await?;
+
+    Ok(Json(json!({
+        "amount_subtotal_minor": subtotal,
+        "amount_discount_minor": discount,
+        "amount_total_minor": subtotal - discount,
+        "currency": currency.unwrap_or_else(|| "CNY".into()),
+        "coupons": 券们,
+    })))
+}
 
 async fn create_order(
     State(st): State<AppState>, AuthedUser(claims): AuthedUser,
@@ -278,14 +381,50 @@ async fn my_orders(
         r#"SELECT o.id, o.channel_origin, o.currency, o.amount_total_minor,
                   o.amount_paid_minor, o.amount_refunded_minor, o.status,
                   o.source_kind, o.expires_at, o.paid_at, o.fulfilled_at, o.created_at,
-                  l.title, l.line_count
+                  /* 取消的原因也要给。列表上每一行都写着「已取消」——
+                     而超时取消跟买家自己点「不要了」是两件事，
+                     混成一个词，买家会以为是自己做的（2026-09-02）。
+                     详情那一条走 `SELECT *`，本来就带着它;
+                     两处共用同一个前端类型，少给一个键就是声明落空。 */
+                  o.cancel_reason,
+                  l.title, l.line_count, sh.status AS ship_status
            FROM order_record o
            LEFT JOIN LATERAL (
-             SELECT (array_agg(ol.sku_snapshot_json->>'sku_name'
-                               ORDER BY ol.line_no))[1] AS title,
+             /* 【护身符那一笔要说出是谁】（2026-09-02 第三轮评审 · 转化路）。
+                快照名是「护身符 · 单枚」，于是从商品页的「丹增」、
+                确认屏的「丹增的护身符」、订单详情的「丹增的护身符」，
+                一走到清单就变回一件匿名货 —— 买满三位之后
+                「我买过的」是三行一模一样的「护身符 · 单枚 ¥99」。
+                详情那一条早就为此专门解析了村民名（本文件下面那段），
+                列表没有。
+
+                名字取【现在库里的】而不是快照:村民改名是极少的事，
+                而认不出是谁的代价比名字晚一天更新大得多 ——
+                这跟详情那一处的取舍是同一句话。
+                只对【会有人住进来】的那种拼（`fulfillment_kind='residency'`）:
+                香也挂着苏合，但买香不是请她搬进来。 */
+             SELECT (array_agg(
+                       CASE WHEN p.fulfillment_kind = 'residency' AND v.name IS NOT NULL
+                            THEN v.name || '的护身符'
+                            ELSE ol.sku_snapshot_json->>'sku_name' END
+                       ORDER BY ol.line_no))[1] AS title,
                     COUNT(*)::int AS line_count
-             FROM order_line ol WHERE ol.order_id = o.id
+             FROM order_line ol
+             LEFT JOIN sku k ON k.id = ol.sku_id
+             LEFT JOIN product p ON p.id = k.product_id
+             LEFT JOIN villager v ON v.id = k.villager_id
+             WHERE ol.order_id = o.id
            ) l ON TRUE
+           /* 【包裹走到哪儿了，列表上也要说得出】（2026-09-05 · 25 计划）。
+              `fulfilling` 在屏上是「备着」，而包裹可能早就在路上 ——
+              点进去详情写的是「在路上了」，同一单两屏两个说法。
+              一单多件包裹时取最近建的那一件:一单一包是常态，
+              多包的那一档这一列本来也说不全，详情页才说得清。 */
+           LEFT JOIN LATERAL (
+             SELECT sp.status FROM shipment sp
+              WHERE sp.order_id = o.id
+              ORDER BY sp.created_at DESC LIMIT 1
+           ) sh ON TRUE
            WHERE o.user_id=$1 AND ($2::text IS NULL OR o.status=$2)
            ORDER BY o.created_at DESC OFFSET $3 LIMIT $4"#,
     ).bind(&c.sub).bind(&q.status).bind(off).bind(lim)
@@ -354,6 +493,18 @@ async fn get_my_order(
            WHERE ol.order_id = $1 AND r.user_id = $2
            ORDER BY ol.line_no"#,
     ).bind(&id).bind(&c.sub).fetch_all(&st.db).await.map_err(map_db)?;
+    /* 【申请完退款，这一屏此前什么都不变】（2026-09-06 · 五路体验走查）。
+       客户端按完只 `setData({ note: '退款已申请，等审核' })`，
+       而紧接着的 `load()` 把 note 清掉 —— 那句话在屏上活不过一秒。
+       而这个接口从前只返一个 `amount_refunded_minor`（审批之后才增加），
+       所以屏上没有「审核中」这一态、没有退款单号可以念给客服。
+
+       人这时只会做一件事:**再按一次**。 */
+    let refunds = sqlx::query(
+        r#"SELECT id, amount_minor, currency, status, reason_code,
+                  approved_at, completed_at, created_at
+           FROM refund WHERE order_id=$1 ORDER BY created_at DESC"#,
+    ).bind(&id).fetch_all(&st.db).await.map_err(map_db)?;
 
     Ok(Json(json!({
         "order": map_rows(vec![o]).into_iter().next().unwrap_or(J::Null),
@@ -400,6 +551,7 @@ async fn get_my_order(
         "shipments": map_rows(shipments),
         "to_scan": to_scan,
         "reports": map_rows(reports),
+        "refunds": map_rows(refunds),
     })))
 }
 
@@ -481,14 +633,15 @@ async fn pay_my_order_inner(
         serde_json::to_value(&outcome)?,
     ).await?;
 
-    Ok(Json(json!({
-        "payment_id": pending.payment_id,
-        "outcome": outcome,
-    })))
+    /* 【回给客户端的形状只声明一处】（2026-09-03 五路评审 · 架构审计）。
+       `app_payment::outcome_payload` 早就在，而【没有任何人调它】——
+       这里手写了同一份 JSON。两份各自演进的话，改了一处不改另一处
+       没有任何东西会红，而客户端读的是这一处。 */
+    Ok(Json(app_payment::outcome_payload(&pending.payment_id, &outcome)?))
 }
 
 // ─── Order · refund ─────────────────────────────────────────────
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 struct RefundBody {
     payment_id: Option<String>,
     amount_minor: Option<i64>, // 缺省 = 全额
@@ -498,14 +651,98 @@ struct RefundBody {
 
 async fn refund_my_order(
     State(st): State<AppState>, AuthedUser(c): AuthedUser, Path(id): Path<String>,
+    headers: HeaderMap,
     Json(b): Json<RefundBody>,
+) -> Result<Response, ApiError> {
+    /* 【退款也是钱】（2026-09-03）。下单与支付都要幂等键，这一条一直不要 ——
+       实测:一模一样的退款请求发两次，建出两张申请、合计 100 元。
+       一次网络重试就够。用户看到「已提交」两回，
+       后台多一张要处理的单子，而第二张永远批不下去
+       （`request` 现在把在途的算进已退了）。
+
+       路径带上订单 id，跟支付那一处同一个道理:
+       同一个键用在两张单上没有意义，该被当成参数不同拒掉。 */
+    let fp_body = serde_json::to_value(&b).unwrap_or(json!({}));
+    let path = format!("/v1/orders/{id}/refund");
+    let guard = match idem::begin_required(&st, &headers, Some(&c.sub), &path, &fp_body).await? {
+        idem::Begin::Replay(resp) => return Ok(resp),
+        idem::Begin::Proceed(g) => g,
+    };
+    let out = refund_my_order_inner(&st, &c.sub, &id, b).await;
+    guard.settle(&st, &out).await;
+    out.map(IntoResponse::into_response)
+}
+
+async fn refund_my_order_inner(
+    st: &AppState, user: &str, id: &str, b: RefundBody,
 ) -> Result<Json<J>, ApiError> {
     let refund_id = app_refund::request(
-        &st.db, &id, &c.sub,
+        &st.db, id, user,
         b.payment_id, b.amount_minor,
         &b.reason_code, b.reason_text.as_deref(),
     ).await?;
     Ok(Json(json!({ "refund_id": refund_id, "status": "requested" })))
+}
+
+/// 这份订阅是不是他的。**每一条订阅接口都要先问这一句** ——
+/// 订阅 id 是可猜的（`p25-sub-…`），不问就等于谁都能退别人的订。
+async fn 是他的订阅(st: &AppState, sub_id: &str, user: &str) -> Result<(), ApiError> {
+    let 主人: Option<String> =
+        sqlx::query_scalar("SELECT user_id FROM subscription WHERE id=$1")
+            .bind(sub_id)
+            .fetch_optional(&st.db)
+            .await
+            .map_err(map_db)?;
+    match 主人 {
+        None => Err(ApiError::not_found("subscription")),
+        Some(u) if u != user => Err(ApiError(AppError::Forbidden)),
+        Some(_) => Ok(()),
+    }
+}
+
+/// 不再续了。
+///
+/// **到期不续，不是立刻停** —— 这一期的钱已经付过，香也该照发。
+/// 后端 `subscription::cancel(immediate=false)` 一直在，只是从来没有入口:
+/// 屏上那句「用到 X 为止 —— 到期不再续」说得出这个状态，
+/// 而用户没有任何办法把自己变成这个状态。
+async fn cancel_my_subscription(
+    State(st): State<AppState>, AuthedUser(c): AuthedUser, Path(id): Path<String>,
+) -> Result<Json<J>, ApiError> {
+    是他的订阅(&st, &id, &c.sub).await?;
+    unmei_app::subscription::cancel(
+        &st.db, &id, false, Some("用户自己在小程序里停的"),
+        &unmei_app::Actor::user(&c.sub),
+    ).await?;
+    Ok(Json(json!({ "ok": true, "cancel_at_period_end": true })))
+}
+
+/// 补上这一期。
+///
+/// 扣不成的那两种（past_due / grace）屏上写着「再不补就断了」，
+/// 而在这之前**屏上没有任何一个按得动的东西** —— 说了要紧的事，
+/// 却不给做那件事的办法，比不说更差。
+///
+/// 它走的就是续期那一条路（`renew_due`）:那支复用「还开着的那张发票」,
+/// 收上钱之后把周期推下去、状态推回 active，并给这一期开一张包裹。
+/// 换句话说「补一期」跟「续一期」本来就是同一件事，只是谁触发的不同。
+///
+/// **收款仍是 mock**（跟 worker 那一侧一样，直接建一条 success 的 payment）——
+/// 真机上的微信收银台在浏览器里根本不存在，这一步只有真机验得到。
+async fn pay_my_subscription(
+    State(st): State<AppState>, AuthedUser(c): AuthedUser, Path(id): Path<String>,
+) -> Result<Json<J>, ApiError> {
+    是他的订阅(&st, &id, &c.sub).await?;
+    let 结果 = unmei_app::subscription::renew_due(&st.db, &id).await?;
+    Ok(Json(match 结果 {
+        unmei_app::subscription::RenewOutcome::Renewed { period_end, .. } =>
+            json!({ "ok": true, "paid": true, "current_period_end": period_end }),
+        // 还没到期就来补，那是没事可补 —— 说清楚，不假装收了钱
+        unmei_app::subscription::RenewOutcome::NotDue =>
+            json!({ "ok": true, "paid": false, "why": "还没到期，这一期不用补" }),
+        其他 =>
+            json!({ "ok": false, "paid": false, "why": format!("{其他:?}") }),
+    }))
 }
 
 // ─── Payment query ──────────────────────────────────────────────
@@ -564,11 +801,48 @@ async fn my_subscriptions(
     let rows = sqlx::query(
         r#"SELECT s.id, s.plan_id, p.name AS plan_name, s.status, s.source_channel,
                   s.current_period_start, s.current_period_end, s.cancel_at_period_end,
-                  s.created_at
-           FROM subscription s LEFT JOIN plan p ON p.id = s.plan_id
-           WHERE s.user_id=$1 ORDER BY s.created_at DESC"#,
+                  s.created_at,
+                  /* 【这一档每期发什么】（2026-09-05）。屏上原先一律说「续到 X」——
+                     而一味香按月送每期真的会寄一盒香，那句话该是「下一盒 X 发」。
+                     取自 `plan.entitlements_json`,不在页面里按 plan_id 写死:
+                     写死的话，加一档就得再改一次前端。 */
+                  p.entitlements_json->>'ships' AS ships,
+                  /* 【它是哪件商品】。「订着的」那一屏底下摆着「还能订什么」,
+                     而没有这一列的话，它会把用户此刻正订着的那一件也摆出来 ——
+                     一张写着「看看 ›」的卡，点进去是他已经有的东西。
+                     plan → sku → product 这条链库里本来就有，只是没发出来。 */
+                  sk.product_id AS product_id
+           FROM subscription s
+                LEFT JOIN plan p  ON p.id = s.plan_id
+                LEFT JOIN sku sk  ON sk.id = p.sku_id
+           WHERE s.user_id=$1
+           /* 【还在续的排前面】（2026-09-05 · 25 计划）。只按 created_at 排的话，
+              一年前退掉的那一份会因为记录建得晚而顶在第一行 —— 而这一屏叫
+              「订着的」，人点进来找的是他现在还订着什么。
+              退了、到期了的仍然要列出来（那是他的台账），只是排在后面。 */
+           ORDER BY (s.status IN ('trialing','active','past_due','grace','paused')) DESC,
+                    s.current_period_end DESC NULLS LAST"#,
     ).bind(&c.sub).fetch_all(&st.db).await.map_err(map_db)?;
     Ok(Json(map_rows(rows)))
+}
+
+// ─── 券 ────────────────────────────────────────────────────────
+#[derive(Deserialize)]
+struct CouponsQ {
+    #[serde(default = "default_region")] region: String,
+}
+
+/// 我手里有哪些券。
+///
+/// 【在这之前用户那一侧看不见任何一张券】。后台发得出绑人的券
+/// （`POST /admin/commerce/coupons` 收 `owner_user_id`），库里那一列
+/// 也一直存着，而客户端唯一跟券有关的东西是确认页上那个
+/// 「有券码就填这儿」的格子 —— 也就是**他得先知道那串码**。
+/// 运营补一张券，用户打开 app 什么都看不到。
+async fn my_coupons(
+    State(st): State<AppState>, AuthedUser(c): AuthedUser, Query(q): Query<CouponsQ>,
+) -> Result<Json<Vec<app_coupon::MyCoupon>>, ApiError> {
+    Ok(Json(app_coupon::mine(&st.db, &c.sub, &q.region).await?))
 }
 
 // ─── Webhooks ──────────────────────────────────────────────────

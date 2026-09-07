@@ -17,11 +17,15 @@
     "pages/report/index",
     "pages/badges/index",
     "pages/subs/index",
+    "pages/coupons/index",
+    "pages/activity/index",
     "pages/name/index",
     "pages/settings/index",
+    "pages/leave/index",
     "pages/bind/index",
     "pages/incense/index",
-    "pages/lighting/index"
+    "pages/lighting/index",
+    "pages/policy/index"
   ],
   "window": {
     "backgroundTextStyle": "light",
@@ -31,22 +35,28 @@
     "backgroundColor": "#FFFCF6"
   },
   "tabBar": {
-    "color": "#a29e97",
-    "selectedColor": "#1a1a1c",
+    "color": "#736A5F",
+    "selectedColor": "#A34700",
     "backgroundColor": "#FFFCF6",
     "borderStyle": "white",
     "list": [
       {
         "pagePath": "pages/village/index",
-        "text": "村子"
+        "text": "村子",
+        "iconPath": "images/tab-village.png",
+        "selectedIconPath": "images/tab-village-on.png"
       },
       {
         "pagePath": "pages/home/index",
-        "text": "今天"
+        "text": "今天",
+        "iconPath": "images/tab-today.png",
+        "selectedIconPath": "images/tab-today-on.png"
       },
       {
         "pagePath": "pages/me/index",
-        "text": "我的"
+        "text": "我的",
+        "iconPath": "images/tab-me.png",
+        "selectedIconPath": "images/tab-me-on.png"
       }
     ]
   },

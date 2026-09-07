@@ -13,6 +13,7 @@ import { storage } from '../../services/storage'
 import type { ApiError } from '../../services/api'
 import type { ProductDetail, Sku } from '../../types/commerce'
 import { 一句 } from '../../utils/say'
+import { 轻 } from '../../utils/feel'
 /* 价格用【共用的那支】。这一屏原先自己抄了一份 `money()`，
    于是同一个 9900 在商品屏上是「¥99.00」、在确认屏上是「¥99」——
    改了 utils 那一份只动了后者，两屏当场说两种话。
@@ -32,6 +33,12 @@ Page({
     err: '',
     name: '',
     subTitle: '',
+    /* 【实物要有实物的样子】（2026-09-02 第四轮评审 · 两路各自报）。
+       ¥29 的香、¥398 的玉坠都是寄到家的东西，而这一屏原先唯一的图
+       是【店主的头像】—— 电商漏斗里最该有图的地方是空的。
+       `hero_image_url` 这个字段一直在（后端 `SELECT *` 也一直带着它
+       出来），只是没人填、页面也没接:字段做了、屏上没有。 */
+    货图: '',
     desc: '',
     price: '',
     /** 履约方式 —— 御守是寄实物，报告是算出来的。文案按它分 */
@@ -39,10 +46,19 @@ Page({
     买法: '就要这个',
     /** 御守封着的那个人。不是御守的商品是 null —— 页面据此决定说不说他 */
     villager: null as null | { id: string; name: string; title: string | null; art: string | null; direction: string; face: string },
+    /** 描述里已经交代过怎么寄了吗 —— 交代过就不再摆那一行 */
+    描述里说了寄: false,
     /** 头像那一段 style。画好脸的人有，没画好的是空串 */
     脸样: '',
-    tags: [] as string[],
+    /* 【多档】。三张牌摆得出来的时候，屏顶那个大价钱就是重复的 ——
+       判据是 `有价.length > 1`，跟那一排牌用的是同一个。 */
+    多档: false,
+    /** 这一件是不是订阅（`product.kind`）。是的话价后面缀「/ 月」，
+     *  底下那句话也换成订阅的说法 —— 自动扣款不能等到确认屏才说 */
+    订阅: false,
     skus: [] as Sku[],
+    /** 有多档时摆出来的那几张牌。只有一档就是空数组，屏上不摆 */
+    档: [] as Array<{ id: string; name: string; priceText: string }>,
     /** 能买的那个 sku（有价的第一个）。没有价就买不了，如实显示 */
     skuId: '',
     buying: false,
@@ -76,30 +92,68 @@ Page({
     this.setData({ loading: true, err: '' })
     commerceApi.product(this.data.id).then(
       (d: ProductDetail) => {
-        const sku = d.skus.find((s) => s.current_price_minor !== null && s.current_price_minor !== undefined)
+        const 有价 = d.skus.filter(
+          (s) => s.current_price_minor !== null && s.current_price_minor !== undefined)
+        const sku = 有价[0]
         this.setData({
+          /* 【一件东西有几档就摆几档】（2026-09-06 · 五路体验走查）。
+             这一屏原先只挑「第一个有价的」，`onBuy` 跳确认屏又不带 sku,
+             确认屏再挑一次「第一个有价的」—— 于是香那一件屏上永远是 ¥29,
+             而正文写着「一支烧二三十分钟，十支约够一个月」。
+             **¥29 买到的是三支**，而「试香 · 三支」这五个字两屏一次都没出现过
+             （两屏显示的都是 `product.name`）。
+             三档只有从苏合屋里进去才看得见 —— 同一件商品，
+             从商品列表进和从人物屋里进，看到的是两个不同的东西。 */
+          档: 有价.length > 1
+            ? 有价.map((s) => ({
+                id: s.id,
+                name: s.name,
+                priceText: money(s.current_price_minor, s.current_currency),
+              }))
+            : [],
           loading: false,
           err: '',
           name: d.product.name,
           subTitle: d.product.sub_title || '',
+          货图: d.product.hero_image_url || '',
           desc: d.product.description_md || '',
           price: sku ? money(sku.current_price_minor, sku.current_currency) : '',
           skuId: sku ? sku.id : '',
+          多档: 有价.length > 1,
+          /* 【这是一件订阅】（2026-09-06 三路验证 · 准备花钱的那一路）。
+             这一屏此前全程不读 `product.kind` —— 于是「一味香 · 按月送」
+             在这儿是一个光秃秃的「¥78」，旁边货架上还摆着「一盒十支 ¥88」。
+             读的人合理理解成「更便宜的一盒」，而它是每月扣一次。
+             确认屏是补上了的（`confirm/index.ts` 的 `付完会怎样`），
+             商品页没有 —— 而按下按钮之前看到的是这一屏。 */
+          订阅: d.product.kind === 'subscription',
           fulfillment: d.product.fulfillment_kind,
           /* 主按钮说什么，看卖的是什么。
              「请回家」是【御守】的话 —— 御守里封着一个人。
              一支香、一份报告不是人，对它们说「请回家」是把上一版
              统一代词时的改动套过了头（2026-08-30 从截图上看见的）。 */
           买法: d.product.fulfillment_kind === 'residency'
-                ? (d.villager ? `请${d.villager.name}回家` : '请回家')
+                /* 【一个动作一个词】。名册写「请回村 ›」、村民页写
+                   「请{{name}}回村」、这一屏的眉标也写「请回村」——
+                   只有这颗按钮写「回家」，而它就压在眉标底下
+                   （2026-09-02 第三轮评审 · 文案）。 */
+                ? (d.villager ? `请${d.villager.name}回村` : '请回村')
               : d.product.category === 'report' ? '就要这份'
               : '就要这个',
           /* 御守绑着一个人。脸的那个字取姓名末字 —— 跟别处四处一样（门禁盯着） */
           villager: d.villager
-            ? { ...d.villager, face: d.villager.name.slice(-1), direction: d.villager.direction || '' }
+            ? { ...d.villager, face: d.villager.name.slice(-1), direction: d.villager.direction || '',
+                /* 【身份跟手艺一样的时候只说一遍】。副标是「{身份} · {手艺}」——
+                   卢恩的身份是「刻符的北地人」、手艺是「刻符」，
+                   摆出来就是「刻符的北地人 · 刻符」，读着像卡带
+                   （2026-09-02 玉那一屏第一次渲出来时看见的）。
+                   身份里已经含着手艺两个字就不再重复。 */
+                art: (d.villager.art && d.villager.title
+                      && d.villager.title.indexOf(d.villager.art) >= 0)
+                  ? null : d.villager.art }
             : null,
           脸样: d.villager ? 脸(d.villager.id) : '',
-          tags: d.product.tags || [],
+          描述里说了寄: /寄/.test(d.product.description_md || ''),
           skus: d.skus,
         })
       },
@@ -112,9 +166,23 @@ Page({
   /* 「买」不再直接建单，先去确认那一屏（docs/REDESIGN.md R5 · P2）。
      一步到位省的不是一次点击 —— 是【几件、寄到哪、要不要留句话】
      这三件事根本没地方问。建单挪到那一屏上。 */
+  /* 挑一档。价钱与「买法」跟着变 —— 挑了 ¥88 那一档而按钮下面写着 ¥29,
+     是这一屏最不该出的错。 */
+  挑一档(e: WechatMiniprogram.BaseEvent) {
+    const id = String((e.currentTarget.dataset as { id?: string }).id || '')
+    const 它 = this.data.档.find((x) => x.id === id)
+    if (!它) return
+    轻()
+    this.setData({ skuId: 它.id, price: 它.priceText })
+  },
+
   onBuy() {
     if (!this.data.id) return
-    wx.navigateTo({ url: '/pages/confirm/index?id=' + this.data.id })
+    /* 【挑了哪一档就带哪一档过去】。原先不带 sku —— 确认屏于是自己
+       再挑一次「第一个有价的」，人挑的那一档在跳转的那一下丢了。
+       确认屏本来就收这个参数（`wantSku`），只是没人发过。 */
+    const 带 = this.data.skuId ? '&sku=' + this.data.skuId : ''
+    wx.navigateTo({ url: '/pages/confirm/index?id=' + this.data.id + 带 })
   },
 
   onBack() {
