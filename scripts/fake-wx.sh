@@ -46,6 +46,9 @@ export WX_PAY_SERIAL_NO=MERCHANTCERT0001
 export WX_PAY_KEY_PATH=$DIR/merchant_key.pem
 export WX_PAY_API_V3_KEY=$(cat "$DIR/apiv3.key")
 export WX_PAY_NOTIFY_URL=http://127.0.0.1:6028/v1/webhooks/wechat
+# 「这一期该付了」那条订阅消息的模板号。假微信不校验它长什么样，
+# 而没配的话客户端不会去要授权、服务端也不会发 —— 那一条路就不算跑过
+export WX_TPL_SUB_BILL=FAKE_TPL_SUB_BILL
 ENVEOF
     ;;
   down) pkill -f 'target/debug/fake-wx' && echo "· 停了" || echo "· 本来就没跑" ;;

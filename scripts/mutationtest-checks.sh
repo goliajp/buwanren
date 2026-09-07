@@ -595,6 +595,11 @@ keep "带上下文的指代不算" check-no-deixis \
   "edit('mini/miniprogram/pages/home/index.wxml', '看你缺什么 ›', '在用的那一份生辰 ›')"
 
 echo
+echo "── check-shell-braces（$变量 后面跟全角要加花括号）──"
+mutate "又写了一处 \$var 紧跟全角" check-shell-braces \
+  "edit('scripts/plan25.sh', 'payment_id（\${ord}）', 'payment_id（\$ord）')"
+
+echo
 echo "── check-promises（屏上答应的，代码做得到吗）──"
 # 这一支两个方向都要报得出红，因为这一类缺陷从两个方向长出来：
 # 文案先写好而功能没跟上，或者功能改了而文案留在原地。

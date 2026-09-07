@@ -487,6 +487,10 @@ gate "门禁脚本要的包都钉住了吗" . python3 scripts/check-script-deps.
 # 商品页的「类型」下拉框从建起来就没生效过（`Pg` 根本没有 `kind`）。
 # 两边都不报错 —— serde 静静丢掉，屏上只表现为「我筛了，条数没变」。
 gate "屏上的筛选框后端真用上了吗" . python3 scripts/check-query-params-used.py
+# 【bash 3.2 会把 `$var` 后面那个全角字符算进变量名】。踩到第三次了，
+# 而三次都在【出错的那一支】上 —— 只有别的东西已经坏了才会执行到，
+# 那时它把一句说得清的报错换成 `unbound variable`。
+gate "shell 变量后面跟全角要加花括号" . python3 scripts/check-shell-braces.py
 if [ -d webadmin/node_modules ]; then
   gate "webadmin build · 类型+打包" webadmin npm run build
 else

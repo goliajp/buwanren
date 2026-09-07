@@ -71,7 +71,7 @@ for _ in $(seq 1 60); do
   sleep 0.5
 done
 if ! kill -0 "$VITE_PID" 2>/dev/null; then
-  echo "✗ 我起的那个 vite 已经死了（pid $VITE_PID）"; tail -20 /tmp/webadmin-vite.log; exit 1
+  echo "✗ 我起的那个 vite 已经死了（pid ${VITE_PID}）"; tail -20 /tmp/webadmin-vite.log; exit 1
 fi
 curl -sf "http://127.0.0.1:$PORT/" >/dev/null || { echo "✗ vite 没起来"; tail -20 /tmp/webadmin-vite.log; exit 1; }
 
