@@ -340,6 +340,27 @@ const tapPlot = async (id) => {
   await p.waitForTimeout(400)
 }
 
+/* ── 分段计时 ──────────────────────────────────────────────
+   这一支是全量门禁里最慢的一条（2026-09-07 实测 595s，占一轮的 31%）。
+   而「哪一段慢」从来没量过 —— 只知道总数。
+
+   交付计划 §4 里看得见三处重复（浏览器至少冷启五次、25 计划与 e2e
+   走同一条链、只前端那一档是真后端那一档的子集），但那三处都**没量过**，
+   所以一处都还没动:不量就砍，砍掉的多半是唯一守着某件事的那一段。
+   这几行就是那份数据。
+
+   段的边界照原本就有的那些 `── … ──` 标题走 —— 它们本来就是
+   人读日志时的分段处，跟工时的分段处是同一批。 */
+const 段账 = []
+let 段起 = Date.now()
+let 段名 = '开场（起浏览器 · 热后端 · 备数据）'
+function 段(名) {
+  段账.push([Date.now() - 段起, 段名])
+  段起 = Date.now()
+  段名 = 名
+  console.log(`\n── ${名} ──`)
+}
+
 console.log('══ 移动网页版 · 动线验证 ══')
 /* 让【页面】也打这个后端，不只是这个脚本自己。
    页面的基址是 config 算出来的 `http://localhost:6028`；两者恰好同一个地址，
@@ -742,7 +763,7 @@ if (API) {
   }
 }
 
-console.log(`\n── ${routes.length} 页都开得起来吗 ──`)
+段(`${routes.length} 页都开得起来吗`)
 console.log('  （照 app.json 读的，不是另列的一份）')
 /* 顺带一条通用的：渲出来的文字里不该有模板残片。
    `wx:if="{{a.length > 0}}"` 里那个 `>` 曾被当成标签结束符，
@@ -989,7 +1010,7 @@ for (const r of routes) {
 }
 
 // ② 村主屏 ──────────────────────────────────────────────────────
-console.log('\n── 村主屏 ──')
+段('村主屏')
 errs.length = 0
 await open('pages/village/index')
 if (API) {
@@ -2024,7 +2045,7 @@ await p.setViewportSize({ width: 375, height: 667 })
 await shot('01-village')
 
 // ③ 空宅基会说话，且不给「问」的入口 ─────────────────────────────
-console.log('\n── 点一格空着的（桃桃还没请回家）──')
+段('点一格空着的（桃桃还没请回家）')
 await tapPlot('tao')
 await p.waitForTimeout(600)
 /* 点中之后开一屏，不再摊卡片（docs/REDESIGN.md R2）。 */
@@ -2298,7 +2319,7 @@ if (API) {
 }
 
 // ④ 住着的那一格：问一句出签 ─────────────────────────────────────
-console.log('\n── 点一格住着的（阿云）──')
+段('点一格住着的（阿云）')
 await tapPlot('ayun')
 await 等取完('pages/villager/index')
 ok(await p.evaluate(() => globalThis.__router.current().__route) === 'pages/villager/index',
@@ -2422,7 +2443,7 @@ await shot('03-reading')
   }
 }
 
-console.log('\n── 点一格住着、但屋子还没搬进来的（陈九）──')
+段('点一格住着、但屋子还没搬进来的（陈九）')
 await tapPlot('chenjiu')
 await 等取完('pages/villager/index')
 const t4 = await text()
@@ -2432,7 +2453,7 @@ ok(t4.includes('陈九'), '认出是谁')
 ok(/屋子还在盖/.test(t4), '明说这一间还没做出来　—— 不装作能进')
 
 // ⑥ 进屋 ────────────────────────────────────────────────────────
-console.log('\n── 进屋 ──')
+段('进屋')
 await tapPlot('ayun')
 await 等取完('pages/villager/index')
 await p.getByText('去屋里看看', { exact: true }).click()
@@ -2583,7 +2604,7 @@ await shot('04-room')
 
    这一条只在打真后端时有意义：假服务端没有匿名登录，也就没有那一下。 */
 if (API) {
-  console.log('\n── 冷启动：第一次还在飞的时候又叫了一次 ──')
+  段('冷启动：第一次还在飞的时候又叫了一次')
   errs.length = 0
   await open('pages/natal/index')
 
@@ -2617,7 +2638,7 @@ if (API) {
    读的是嵌套值 —— 于是表单看着没反应，不报错也不告警。
    镜像在这一点上骗人的话，建本命这条核心动线的验证就完全不作数，
    所以这里连着走一遍：点下去 → 页面自己的 handler → setData 路径 → 渲染。 */
-console.log('\n── 本命页的表单（setData 用的是路径写法）──')
+段('本命页的表单（setData 用的是路径写法）')
 errs.length = 0
 await open('pages/natal/index')
 await p.evaluate(() => globalThis.__router.current().setData({ mode: 'form' }))
@@ -2706,12 +2727,12 @@ if (API && MINGLI) {
   if (!alive) { console.log(`✗ 说了有排盘服务(${MINGLI})却连不上`); process.exit(1) }
 }
 if (API && !MINGLI) {
-  console.log('\n── 建本命 ──')
+  段('建本命')
   console.log('  · 跳过：这台机器上没有排盘服务（用神由它算）。')
   console.log('    本机加 --mingli=http://127.0.0.1:6027 就会真验这一段。')
 }
 if (API && MINGLI) {
-  console.log('\n── 建本命（真的按下「算一算」）──')
+  段('建本命（真的按下「算一算」）')
 
   /* 「会得到这些」（设计册 10.8 点名的一条）：填生辰是这条链上最贵的一步，
      先说清换回什么，才有人愿意填。
@@ -2898,7 +2919,7 @@ if (await p.getByText('再填一份').count() === 1) {
   console.log('  · 跳过：这一轮没有本命，「再填一份」不出现（不计入通过）')
 }
 
-console.log('\n── 起卦（点罗盘中心，不是摇手机）──')
+段('起卦（点罗盘中心，不是摇手机）')
 errs.length = 0
 /* 起卦搬到我家了（REDESIGN.md：起卦归我家 · 罗盘是 H1 上吃掉纵向富余的那一块）。
    转完之后跳去「今天」那一页看结果 —— 落位动画在我家走完再跳。 */
@@ -3214,7 +3235,7 @@ if (API) {
    两处都真踩过：app.wxss 从来没被读过(于是全页贴边渲);
    `page` 是小程序的根元素、浏览器里没这个标签(于是整套颜色变量落空，
    而落空的 var() 不报错，页面只是「素了点」)。 */
-console.log('\n── 版式（全局样式真的生效了吗）──')
+段('版式（全局样式真的生效了吗）')
 errs.length = 0
 await open('pages/home/index')
 /* 把这一页摆成空态再看。那颗按钮只在「还没建本命」时才有 ——
@@ -3256,7 +3277,7 @@ ok(/rgb\(255,\s*154,\s*60\)/.test(look.按钮底), '主按钮是 0830 的琥珀'
    而那得碰巧落到那一卦上。铺这一页是它的常设入口，「我」是铺的入口。
    这一段把这条路整条走一遍，顺便让铺上那几个处理器真的被点到 ——
    没被点过的处理器跟不存在没有区别。 */
-console.log('\n── 一条完整用例：我 → 铺 → 一件 ──')
+段('一条完整用例：我 → 铺 → 一件')
 errs.length = 0
 if (!API) {
   console.log('  · 跳过：这一段要真目录（假服务端给不出商品）—— 这一条【没验】')
@@ -3328,7 +3349,7 @@ if (!API) {
 /* ── 一屏不滚动 · 逐页量 ────────────────────────────────────────
    先量、先报数，不急着红。要红得等把该改的页改完 —— 一上来就红，
    门禁会被当成噪音跳过去，那比没有门禁更糟。 */
-console.log('\n── 一屏放得下吗（iPhone SE · 内容区 597）──')
+段('一屏放得下吗（iPhone SE · 内容区 597）')
 {
   /* 台账：`web/oversize-pages.json`。每一条写着【为什么还没改】与【当前超多少】。
      规矩三条 ——
@@ -3617,7 +3638,7 @@ console.log('\n── 一屏放得下吗（iPhone SE · 内容区 597）──')
    最后掏钱那一下 `wx.requestPayment` 在浏览器里【抛】——照镜像第 2 条铁律，
    浏览器里没有微信收银台，空实现会让「已支付」在网页上成立而真机上没发生。
    所以这里断言的是「抛了、而且抛的是那句只有真机才有」，不是「付成功了」。 */
-console.log('\n── 一条完整用例：一件 → 买 → 单 → 付 ──')
+段('一条完整用例：一件 → 买 → 单 → 付')
 errs.length = 0
 if (!API) {
   console.log('  · 跳过：这一段要真后端（下单要落库）—— 这一条【没验】')
@@ -5102,7 +5123,7 @@ if (!API) {
 /* app.json 里声明了它，而垫片以前整个忽略 —— 真机上它一直占着底下那一条，
    镜像里既不显示也没人能点。切 tab 这个动作因此完全验不到，
    而页面看着是完整的。 */
-console.log('\n── 底下那条 tab ──')
+段('底下那条 tab')
 errs.length = 0
 await open('pages/home/index')
 const tabs = await p.evaluate(() => {
@@ -5255,7 +5276,7 @@ if (tabs) {
    这一条以前只写在文档和垫片的注释里，没有任何东西盯着它。
    谁哪天给 `wx.login` 补一个假的返回，镜像就会开始【假装验过】
    升级微信账号这条只有真机才走得通的动线，而所有检查照样全绿。 */
-console.log('\n── 只有真机才有的那几样，抛了吗 ──')
+段('只有真机才有的那几样，抛了吗')
 for (const api of ['login', 'scanCode', 'getUserProfile']) {
   const r = await p.evaluate((name) => {
     try { globalThis.wx[name]({}); return '没抛' } catch (e) { return String(e.message || e) }
@@ -5374,7 +5395,7 @@ if (API) {
 
    这里把 /v1/** 全打成 500(登录放行，否则连页面都进不去),
    看每一页说不说得出「取不到」,以及【不再】劝你去建一个已经有的东西。 */
-console.log('\n── 后端不响应时，页面说不说得出话 ──')
+段('后端不响应时，页面说不说得出话')
 await p.route('**/v1/**', (r) => (r.request().url().includes('/auth/')
   ? r.fulfill({ status: 200, contentType: 'application/json',
                 body: JSON.stringify({ token: 't', user: { id: 'u_err', active_natal_id: 'n_x' }, expires_in: 99999 }) })
@@ -5482,7 +5503,7 @@ await p.unroute('**/v1/**')
      · 能抓：某间房慢一个数量级(最重的 popo 现在 2.4×,阈值 12×)
      · 抓不住：三倍级的退化 —— 那落在两台机器的自然差异里
    要抓更细的，得先把「同一台机器上的历史值」存下来比，那是另一件事。 */
-console.log('\n── 一帧要多久（开发机浏览器，不是手机）──')
+段('一帧要多久（开发机浏览器，不是手机）')
 await open('pages/village/index')
 const cost = await p.evaluate(() => {
   const out = {}
@@ -5848,6 +5869,14 @@ if (API && !process.env.SKIP_COLD) {
   } finally {
     // 同上：不 close，否则主页面跟着没
   }
+}
+
+段账.push([Date.now() - 段起, 段名])
+console.log('')
+console.log(`这一趟 ${((段账.reduce((a, [ms]) => a + ms, 0)) / 1000).toFixed(0)}s，慢的这几段：`)
+for (const [ms, 名] of [...段账].sort((a, b) => b[0] - a[0]).slice(0, 8)) {
+  const pct = Math.round((ms / 段账.reduce((a, [m]) => a + m, 0)) * 100)
+  console.log(`  ${String(Math.round(ms / 1000)).padStart(5)}s ${String(pct).padStart(3)}%  ${名}`)
 }
 
 console.log('')

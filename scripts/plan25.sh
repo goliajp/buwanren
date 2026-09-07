@@ -542,6 +542,13 @@ do_seed() {
 
   # ── U4 钱在飞的：待付 + 已付在履约 + 一笔退款等着批 + 订阅 ──
   read -r T4 I4 <<<"$(make_user u4 cn)"
+  # 【他得先有生辰】（2026-09-07）。下面订的一味香按月送是「按你缺的那一味配」——
+  # 从这一天起下单会先问用神，没生辰的直接回 400。
+  # 这不是给夹具打的补丁：真买家也要先填，屏上那句话说的就是这件事。
+  local n4
+  n4=$(call POST "$T4" /v1/user/natals \
+       '{"label":"我","year":1988,"month":11,"day":2,"hour":14,"minute":20,"gender":"male"}' | jq -r '.id // empty')
+  [ -n "$n4" ] && call POST "$T4" "/v1/user/natals/$n4/activate" >/dev/null
   # ① 一张待付（不付款，留给「快过期」那一屏）
   call POST "$T4" /v1/orders '{"lines":[{"sku_id":"sku-incense-try","qty":1}],"region":"cn","contact":{"name":"P25·钱在飞的","phone":"13800000004"},"shipping_address":{"province":"上海","city":"上海","district":"静安","detail":"某处 4 号","name":"P25","phone":"13800000004"}}' >/dev/null
   # ② 一张已付、在履约、包裹在途
