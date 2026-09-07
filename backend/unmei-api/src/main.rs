@@ -7,6 +7,7 @@ mod idem;
 mod mingli;
 mod routes;
 mod ai_compose;
+mod notify;
 mod workers;
 
 use axum::Router;

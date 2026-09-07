@@ -274,6 +274,11 @@
        抛出来是对的:它们对应的那一步,在网页版上就是验不了的,
        得留到真机。假装成功只会让人以为验过了。 */
     login: deviceOnly('login', '微信登录'),
+    /* 订阅消息的授权弹窗。浏览器里【没有对应的东西】——
+       它是微信自己的原生弹窗，而且授权的额度记在微信那一侧。
+       给个空实现的话，「他授权了」这件事会在网页上「成功」，
+       而真机上那一下根本没发生。 */
+    requestSubscribeMessage: deviceOnly('requestSubscribeMessage', '订阅消息授权'),
     scanCode: deviceOnly('scanCode', '扫码'),
     getUserProfile: deviceOnly('getUserProfile', '选头像'),
     /* 支付：浏览器里没有微信收银台。发起支付那一步（打后端拿 prepay 参数）

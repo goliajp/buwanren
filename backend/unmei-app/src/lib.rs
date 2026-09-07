@@ -34,6 +34,7 @@ pub mod coupon;
 pub mod finance;
 pub mod fulfillment;
 pub mod idempotency;
+pub mod notify;
 pub mod order;
 pub mod outbox;
 pub mod outbox_ops;

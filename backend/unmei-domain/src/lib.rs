@@ -242,6 +242,13 @@ pub struct ClientConfig {
     pub region: String,
     pub flags: serde_json::Value,
     pub locale: String,
+    /// 「这一期该付了」那条订阅消息的模板号。空串 = 没配，客户端就不去要授权。
+    ///
+    /// 【为什么由服务端给】。模板号来自微信后台，每个小程序不一样；
+    /// 写死在客户端的话，换一个小程序就要重新发版，
+    /// 而「授权了一个错的模板号」这种错在日志里长得跟「用户没订阅」一样。
+    #[serde(default)]
+    pub subscribe_bill_template: String,
 }
 
 // ─── auth ────────────────────────────────────────────────────

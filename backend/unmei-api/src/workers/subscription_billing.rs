@@ -79,8 +79,19 @@ async fn sweep_once(st: &AppState) -> anyhow::Result<()> {
     for id in &ids {
         // 一条失败不该影响其它条 —— 各自独立事务
         match app_subscription::renew_due(&st.db, id).await {
-            // 开出了这一期的单。**钱还没到** —— 到账在 OrderPaid 那条事件上
-            Ok(RenewOutcome::AwaitingPayment { .. }) => 开了单 += 1,
+            /* 开出了这一期的单。**钱还没到** —— 到账在 OrderPaid 那条事件上。
+               开完就给他发一句「这一期该付了」:不告诉他而要他动手，
+               等于把订阅悄悄断掉。发不出去是常态（订阅消息要单独授权），
+               所以那一层每一处都按「发不出去」写，并把为什么记下来。 */
+            Ok(RenewOutcome::AwaitingPayment { ref order_id, amount_minor, .. }) => {
+                开了单 += 1;
+                if let Ok(Some(uid)) = sqlx::query_scalar::<_, String>(
+                    "SELECT user_id FROM subscription WHERE id=$1")
+                    .bind(id).fetch_optional(&st.db).await
+                {
+                    crate::notify::这一期该付了(st, &uid, order_id, amount_minor).await;
+                }
+            }
             Ok(RenewOutcome::StoppedAtPeriodEnd) => stopped += 1,
             Ok(RenewOutcome::Unpriced) => unpriced += 1,
             // 这一期没扣、也不算失败 —— 等他把出生时间填上，明天再来问一次

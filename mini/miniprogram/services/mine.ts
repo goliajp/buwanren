@@ -29,6 +29,18 @@ export const mineApi = {
     api.post<{ ok: boolean; order_id?: string | null; amount_minor?: number; why?: string }>(
       `/v1/subscriptions/${id}/pay`, {}),
 
+  /** 客户端配置。**这条接口一直在，而没有一个客户端调过它**
+   *  （孤儿台账里记着）—— 现在它带着「这一期该付了」那条订阅消息的模板号，
+   *  而模板号来自微信后台、每个小程序不一样，写死在这儿就得为它发版。 */
+  config: (): Promise<{ subscribe_bill_template?: string }> =>
+    api.get<{ subscribe_bill_template?: string }>('/v1/config'),
+
+  /** 记下一次订阅消息授权。**授权那一下只有真机有**（`wx.requestSubscribeMessage`）——
+   *  网页版会抛，这是对的:授权的额度记在微信那一侧，空实现会让
+   *  「他授权了」在网页上成功而真机上什么都没发生。 */
+  grantSubscribe: (templateId: string): Promise<{ ok: boolean }> =>
+    api.post<{ ok: boolean }>('/v1/user/me/subscribe-grant', { template_id: templateId }),
+
   /** 服务端说的我是谁。本地缓存的那份是登录那一刻的快照，会旧 */
   me: (): Promise<UserPublic> => api.get<UserPublic>('/v1/user/me'),
 
