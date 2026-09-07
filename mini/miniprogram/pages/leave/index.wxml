@@ -22,6 +22,14 @@
     <view class="blk-note">留下的那部分只有金额与时间 —— 收货人、地址、留言当场抹掉</view>
   </view>
 
+  <!-- 【钱那一头单列一块】（2026-09-07）。它既不是「删了什么」也不是
+       「留了什么」，而是一个订着按月送的人在这一屏上真正要问的那件事：
+       我走了，那笔每月自动扣的钱停不停。答案是停 —— 而这一屏此前不说。 -->
+  <view class="blk">
+    <view class="blk-k">钱</view>
+    <view class="li" wx:for="{{钱的}}" wx:key="*this">{{item}}</view>
+  </view>
+
   <view class="blk">
     <view class="blk-k">之后</view>
     <view class="li">这个号再也进不来 —— 微信也认不回它</view>

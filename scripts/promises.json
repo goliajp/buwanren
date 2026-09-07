@@ -1,0 +1,364 @@
+{
+  "_读法": "屏上答应过的事，代码里得真有那件事。每一条两侧都写死：【屏上】那句话必须还在那儿，【判据】必须成立。改文案会红，改行为也会红 —— 红了要做的不是把这条改绿，是重新想一遍这句话现在还算不算数。这一轮 35 条评审里至少 20 条属于这一类：不报错、不掉测试，只有人读一遍才发现。做法照 check-can-move-in：两个方向都守。",
+  "_判据怎么写": "库 = psql 取一个标量，跟【要】比字符串；源 = 某个文件里必须有 / 必须没有那段字；扫 = 一批文件里一处都不许有。判据要能指到行为，不要指到另一句文案 —— 拿文案证文案等于什么都没验。",
+  "承诺": [
+    {
+      "id": "御守不寄东西",
+      "屏上": [
+        "mini/miniprogram/pages/policy/index.ts",
+        "这是数字内容，没有实物寄出"
+      ],
+      "判据": [
+        {
+          "库": "SELECT count(*) FROM product p JOIN sku s ON s.product_id=p.id WHERE p.status='listed' AND s.status='active' AND s.id LIKE 'sku-oma-%' AND p.fulfillment_kind <> 'residency'",
+          "要": "0",
+          "说": "在架的御守里有走 shipping 的 —— 协议写着它不寄东西，那买家等的包裹永远不会来"
+        }
+      ]
+    },
+    {
+      "id": "香与玉坠会寄到填的地址",
+      "屏上": [
+        "mini/miniprogram/pages/policy/index.ts",
+        "实物，会寄到你填的地址"
+      ],
+      "判据": [
+        {
+          "库": "SELECT count(*) FROM product p JOIN sku s ON s.product_id=p.id WHERE p.status='listed' AND s.status='active' AND (s.id LIKE 'sku-incense%' OR s.id LIKE 'sku-jade%') AND p.fulfillment_kind <> 'shipping'",
+          "要": "0",
+          "说": "在架的香或玉坠不走 shipping —— 那就不会建运单，协议说的「会寄到」没人执行"
+        }
+      ]
+    },
+    {
+      "id": "说明书算好了在 app 里看",
+      "屏上": [
+        "mini/miniprogram/pages/policy/index.ts",
+        "按你填的出生时间算出的一份解读。算好之后在 app 里看"
+      ],
+      "判据": [
+        {
+          "库": "SELECT count(*) FROM product p JOIN sku s ON s.product_id=p.id WHERE p.status='listed' AND s.status='active' AND s.id='sku-naji-deep' AND p.fulfillment_kind <> 'async_compute'",
+          "要": "0",
+          "说": "说明书不走 async_compute —— 那就没有人去算它"
+        },
+        {
+          "源": "mini/miniprogram/app.json",
+          "要有": "pages/report/index",
+          "说": "算好了没地方看：报告那一页不在 app.json 里"
+        }
+      ]
+    },
+    {
+      "id": "只有买要寄的东西才问地址",
+      "屏上": [
+        "mini/miniprogram/pages/policy/index.ts",
+        "只有买【要寄的东西】时才问。御守、说明书不寄东西，就不问"
+      ],
+      "判据": [
+        {
+          "源": "mini/miniprogram/pages/confirm/index.ts",
+          "要有": "shipping",
+          "说": "确认屏不再按 shipping 判断要不要地址 —— 那句「不寄东西就不问」没人执行了"
+        }
+      ]
+    },
+    {
+      "id": "一次都不取位置",
+      "屏上": [
+        "mini/miniprogram/pages/policy/index.ts",
+        "一次都不取。出生地是你填的字，不是定位"
+      ],
+      "判据": [
+        {
+          "扫": [
+            "mini/miniprogram",
+            "rooms/src",
+            "web/runtime"
+          ],
+          "不许有": "getLocation",
+          "说": "有人接上了定位 —— 隐私政策写着一次都不取"
+        }
+      ]
+    },
+    {
+      "id": "不取通讯录相册麦克风",
+      "屏上": [
+        "mini/miniprogram/pages/policy/index.ts",
+        "['通讯录、相册、麦克风', '不取']"
+      ],
+      "判据": [
+        {
+          "扫": [
+            "mini/miniprogram",
+            "rooms/src",
+            "web/runtime"
+          ],
+          "不许有": "chooseImage",
+          "说": "接上了相册"
+        },
+        {
+          "扫": [
+            "mini/miniprogram",
+            "rooms/src",
+            "web/runtime"
+          ],
+          "不许有": "chooseMedia",
+          "说": "接上了相册 / 相机"
+        },
+        {
+          "扫": [
+            "mini/miniprogram",
+            "rooms/src",
+            "web/runtime"
+          ],
+          "不许有": "getRecorderManager",
+          "说": "接上了麦克风"
+        },
+        {
+          "扫": [
+            "mini/miniprogram",
+            "rooms/src",
+            "web/runtime"
+          ],
+          "不许有": "addPhoneContact",
+          "说": "接上了通讯录"
+        }
+      ]
+    },
+    {
+      "id": "注销会删掉生辰与盘",
+      "屏上": [
+        "mini/miniprogram/pages/policy/index.ts",
+        "你注销账号，出生时间与盘会一起删掉"
+      ],
+      "判据": [
+        {
+          "源": "backend/unmei-app/src/account.rs",
+          "要有": "DELETE FROM natal WHERE user_id",
+          "说": "注销不删生辰 —— 隐私政策写着会删"
+        },
+        {
+          "源": "mini/miniprogram/pages/settings/index.wxml",
+          "要有": "注销账号",
+          "说": "「设置」里找不到注销入口 —— 政策指的就是那一行"
+        }
+      ]
+    },
+    {
+      "id": "注销后订单只留金额与时间",
+      "屏上": [
+        "mini/miniprogram/pages/policy/index.ts",
+        "订单与支付记录按法律要求保留，那部分只留金额与时间"
+      ],
+      "判据": [
+        {
+          "源": "backend/unmei-app/src/account.rs",
+          "要有": "UPDATE order_meta SET shipping_address_json = NULL",
+          "说": "注销之后地址还留在订单上 —— 政策写的是只留金额与时间"
+        },
+        {
+          "源": "backend/unmei-app/src/account.rs",
+          "要有": "UPDATE shipment SET recipient_snapshot_json",
+          "说": "运单上的收件人没抹 —— 同上"
+        }
+      ]
+    },
+    {
+      "id": "注销会停掉还在扣钱的订阅",
+      "屏上": [
+        "mini/miniprogram/pages/leave/index.ts",
+        "订着的按月送会停掉 —— 不再扣钱"
+      ],
+      "判据": [
+        {
+          "源": "backend/unmei-app/src/account.rs",
+          "要有": "UPDATE subscription SET status='cancelled'",
+          "说": "注销不停订阅 —— 人走了钱还在扣，这是最不能出的一种错"
+        }
+      ]
+    },
+    {
+      "id": "排盘服务只拿得到生辰与性别",
+      "屏上": [
+        "mini/miniprogram/pages/policy/index.ts",
+        "它只收到出生时间与性别，收不到你是谁"
+      ],
+      "判据": [
+        {
+          "扫": [
+            "backend/unmei-app/src/natal.rs"
+          ],
+          "不许有": "user_id\": ",
+          "说": "发去排盘的报文里带上了 user_id —— 政策写着它收不到你是谁"
+        }
+      ]
+    },
+    {
+      "id": "按月送每月扣一次",
+      "屏上": [
+        "mini/miniprogram/pages/policy/index.ts",
+        "开通那天扣第一笔，之后每满一个月扣一次"
+      ],
+      "判据": [
+        {
+          "库": "SELECT count(*) FROM plan pl JOIN sku s ON s.id=pl.sku_id JOIN product p ON p.id=s.product_id WHERE pl.status='active' AND s.status='active' AND p.status='listed' AND pl.billing_period <> 'month'",
+          "要": "0",
+          "说": "买得到的套餐里有不是按月的 —— 协议写死了「每满一个月扣一次」"
+        }
+      ]
+    },
+    {
+      "id": "扣不成会再试几天",
+      "屏上": [
+        "mini/miniprogram/pages/policy/index.ts",
+        "扣不成会再试几天，都不成就停在那儿等你来补"
+      ],
+      "判据": [
+        {
+          "库": "SELECT count(*) FROM plan pl JOIN sku s ON s.id=pl.sku_id JOIN product p ON p.id=s.product_id WHERE pl.status='active' AND s.status='active' AND p.status='listed' AND pl.grace_days < 1",
+          "要": "0",
+          "说": "买得到的套餐没有宽限天数 —— 那是一次扣不成就断，协议说的是「会再试几天」"
+        },
+        {
+          "源": "backend/unmei-app/src/subscription.rs",
+          "要有": "record_renewal_failure",
+          "说": "扣款失败没人记 —— 「再试几天」的阶梯无从谈起"
+        },
+        {
+          "源": "backend/unmei-app/src/subscription.rs",
+          "要有": "past_due",
+          "说": "重试用完之后没有「停在那儿等你来补」那一档"
+        }
+      ]
+    },
+    {
+      "id": "停订在我的订着的那一屏",
+      "屏上": [
+        "mini/miniprogram/pages/policy/index.ts",
+        "「我的 › 订着的」里按「不再续了」"
+      ],
+      "判据": [
+        {
+          "源": "mini/miniprogram/pages/subs/index.wxml",
+          "要有": "不再续了",
+          "说": "那一屏上没有这颗按钮 —— 协议指了一条不存在的路"
+        },
+        {
+          "源": "mini/miniprogram/app.json",
+          "要有": "pages/subs/index",
+          "说": "「订着的」那一页不在 app.json 里"
+        },
+        {
+          "源": "mini/miniprogram/pages/me/index.ts",
+          "要有": "/pages/subs/index",
+          "说": "「我的」里进不去「订着的」—— 协议写的是从那儿进"
+        }
+      ]
+    },
+    {
+      "id": "停订之后这一期照走完",
+      "屏上": [
+        "mini/miniprogram/pages/policy/index.ts",
+        "按下之后这一期照走完 —— 手里那盒就是最后一盒"
+      ],
+      "判据": [
+        {
+          "库": "SELECT count(*) FROM plan pl JOIN sku s ON s.id=pl.sku_id JOIN product p ON p.id=s.product_id WHERE pl.status='active' AND s.status='active' AND p.status='listed' AND pl.cancel_policy <> 'end_of_period'",
+          "要": "0",
+          "说": "买得到的套餐是立刻停的 —— 那这一期已经扣的钱就白扣了，协议写的是照走完"
+        },
+        {
+          "源": "backend/unmei-app/src/subscription.rs",
+          "要有": "cancel_at_period_end=true",
+          "说": "停订不再是「到期不续」—— 协议这一段得跟着重写"
+        }
+      ]
+    },
+    {
+      "id": "全退之后东西跟着收回",
+      "屏上": [
+        "mini/miniprogram/pages/policy/index.ts",
+        "一单的钱全退回去之后，那一单买到的东西会跟着收回"
+      ],
+      "判据": [
+        {
+          "源": "backend/unmei-app/src/refund.rs",
+          "要有": "DELETE FROM villager_residency",
+          "说": "全退之后村民还住着 —— 协议写着会收回"
+        },
+        {
+          "源": "backend/unmei-app/src/refund.rs",
+          "要有": "revoked",
+          "说": "全退之后说明书还看得见 —— 同上"
+        }
+      ]
+    },
+    {
+      "id": "实物寄出前可以申请退款",
+      "屏上": [
+        "mini/miniprogram/pages/policy/index.ts",
+        "实物在寄出前可以在「我的 › 我买过的」里申请退款"
+      ],
+      "判据": [
+        {
+          "源": "mini/miniprogram/pages/order/index.wxml",
+          "要有": "申请退款",
+          "说": "订单那一屏没有申请退款 —— 协议指的就是那儿"
+        },
+        {
+          "源": "mini/miniprogram/pages/me/index.ts",
+          "要有": "/pages/orders/index",
+          "说": "「我的」里进不去「我买过的」"
+        }
+      ]
+    },
+    {
+      "id": "联系我们在设置里",
+      "屏上": [
+        "mini/miniprogram/pages/policy/index.ts",
+        "「设置 › 联系我们」"
+      ],
+      "判据": [
+        {
+          "源": "mini/miniprogram/pages/settings/index.wxml",
+          "要有": "联系我们",
+          "说": "设置里没有这一行 —— 政策与协议都指着它"
+        }
+      ]
+    },
+    {
+      "id": "名字随时能改",
+      "屏上": [
+        "mini/miniprogram/pages/name/index.wxml",
+        "两到十二个字 · 随时能改"
+      ],
+      "判据": [
+        {
+          "源": "mini/miniprogram/app.json",
+          "要有": "pages/name/index",
+          "说": "改名那一页不在 app.json 里 —— 「随时能改」改不了"
+        },
+        {
+          "源": "backend/unmei-api/src/routes/user.rs",
+          "要有": "nickname",
+          "说": "后端没有改名这条路"
+        }
+      ]
+    },
+    {
+      "id": "生辰留几份随时换",
+      "屏上": [
+        "mini/miniprogram/pages/natal/index.wxml",
+        "填一次，以后都用它 —— 也可以留几份，随时换"
+      ],
+      "判据": [
+        {
+          "源": "backend/unmei-api/src/routes/user.rs",
+          "要有": "active_natal_id",
+          "说": "换不了 —— 没有「哪一份在用」这件事，「留几份随时换」就是空话"
+        }
+      ]
+    }
+  ]
+}

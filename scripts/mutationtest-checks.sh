@@ -109,6 +109,11 @@ FILES=(
   # 名单是 trap 兜底还原的依据,自己另存一份的话,中途被打断就还原不到它。
   mini/miniprogram/pages/name/index.ts
   mini/miniprogram/pages/plot/index.wxml
+  # 2026-09-07：金额唯一那一支搬到了领域层，变异跟着搬到这儿
+  backend/unmei-domain/src/commerce/money.rs
+  # check-promises 那两条变异碰到的文件
+  backend/unmei-app/src/account.rs
+  mini/miniprogram/pages/policy/index.ts
 )
 # ── 开跑之前两道自保 ────────────────────────────────────────────
 # 这支脚本【会真改源码】，所以两件事必须先确认：
@@ -579,13 +584,26 @@ keep "带上下文的指代不算" check-no-deixis \
   "edit('mini/miniprogram/pages/home/index.wxml', '看你缺什么 ›', '在用的那一份生辰 ›')"
 
 echo
+echo "── check-promises（屏上答应的，代码做得到吗）──"
+# 这一支两个方向都要报得出红，因为这一类缺陷从两个方向长出来：
+# 文案先写好而功能没跟上，或者功能改了而文案留在原地。
+# 只守一侧的门禁挡得住一半，而挡住一半比没有更危险 —— 它给的是「验过了」的错觉。
+mutate "行为没了而文案还在" check-promises \
+  "edit('backend/unmei-app/src/account.rs', \"UPDATE subscription SET status='cancelled'\", \"UPDATE subscription SET status='active'\")"
+mutate "文案改了而没人回头看判据" check-promises \
+  "edit('mini/miniprogram/pages/policy/index.ts', '这是数字内容，没有实物寄出', '这是数字内容')"
+
+echo
 echo "── check-money-fmt（金额只有一支格式化）──"
 # 商品屏抄过一份 `money()`，于是同一个 9900 在两屏上写法不同
 # （「¥99.00」与「¥99」），而改 utils 那一份只动得了后者。
 mutate "某一页又抄了一份金额格式" check-money-fmt \
   "edit('mini/miniprogram/pages/product/index.ts', '  return 钱(minor, currency)', \"  return '¥' + Math.floor(minor / 100) + '.' + String(minor % 100)\")"
+# 唯一那一支 2026-09-07 从 `ai_compose` 搬到了领域层（`unmei-app` 够不着它，
+# 于是 coupon.rs 自己拼了一份）。变异跟着搬 —— 钉在旧地址上的变异
+# 会变成「改一个没人读的字符串」，而门禁照旧绿着。
 mutate "前后端对整数金额说法分家" check-money-fmt \
-  "edit('backend/unmei-api/src/ai_compose.rs', 'if frac == 0 {', 'if false {')"
+  "edit('backend/unmei-domain/src/commerce/money.rs', 'if self.amount_minor % pow == 0 {', 'if false {')"
 
 echo
 echo "── check-screen-ruler（每一屏对得上尺子吗）──"

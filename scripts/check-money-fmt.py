@@ -7,8 +7,14 @@
 
 判据：`mini/miniprogram/` 里除了 `utils/money.ts`，不许再出现
 把「分」拼成货币串的那套写法（`Math.floor(x / 100) + '.'` 之类）。
-后端同一件事在 `ai_compose::money_display`，两边规矩要一样 ——
+后端同一件事在 `unmei_domain::commerce::money::Money::display_human`
+（`ai_compose::money_display` 是它的门面），两边规矩要一样 ——
 这一支顺带核对它俩对整数金额的处理没有分家。
+
+【2026-09-07 搬过一次家】。那一支原先整份长在 `unmei-api::ai_compose` 里，
+而 `unmei-app` 在下一层够不着 —— 于是 `coupon.rs` 要说「要满 ¥49 才能用」时
+自己又拼了一份（这一支当场抓住）。判据跟着搬到领域层:
+**唯一那一支在哪儿，这里就盯哪儿**，不然它盯的是一个空壳。
 """
 import re
 import sys
@@ -50,13 +56,16 @@ for f in sorted(前端.rglob('*.ts')):
 
 # 两边对【整数金额】的处理要一致：都不挂零头
 前 = 唯一.read_text(encoding='utf-8')
-后端 = 根 / 'backend/unmei-api/src/ai_compose.rs'
-if 后端.is_file():
-    后 = 后端.read_text(encoding='utf-8')
-    前不挂 = '分 === 0' in 前
-    后不挂 = 'frac == 0' in 后
-    if 前不挂 != 后不挂:
-        错.append(f'前后端对整数金额说法不一致（前端不挂零头={前不挂} / 后端={后不挂}）')
+唯一后端 = 根 / 'backend/unmei-domain/src/commerce/money.rs'
+if not 唯一后端.is_file():
+    print('✗ 找不到 unmei-domain 的 money.rs —— 后端那一半在空转，不算通过')
+    sys.exit(1)
+后 = 唯一后端.read_text(encoding='utf-8')
+前不挂 = '分 === 0' in 前
+# 后端那一支的判据是「零头是零就把它切掉」（`display_human`）
+后不挂 = '% pow == 0' in 后
+if 前不挂 != 后不挂:
+    错.append(f'前后端对整数金额说法不一致（前端不挂零头={前不挂} / 后端={后不挂}）')
 
 # 【后端也不止一支】。这一支的文档注释说「后端同一件事在
 # `ai_compose::money_display`，两边规矩要一样」，而实现只比对了一个布尔量，
@@ -67,7 +76,8 @@ if 后端.is_file():
 后拼法 = re.compile(r'format!\(\s*"[^"]*[¥$€£][^"]*"\s*,[^)]*/\s*100')
 扫过后端 = 0
 for f in sorted(后端.rglob('*.rs')):
-    if 'target' in f.parts or f.name == 'ai_compose.rs':
+    # 唯一那一支自己当然在拼金额。门面那一层只是转调，也不必扫。
+    if 'target' in f.parts or f in (唯一后端,) or f.name == 'ai_compose.rs':
         continue
     src = f.read_text(encoding='utf-8')
     src = re.sub(r'/\*.*?\*/', lambda m: re.sub(r'[^\n]', ' ', m.group(0)), src, flags=re.S)
