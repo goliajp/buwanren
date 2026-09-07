@@ -94,6 +94,12 @@ interface VillageData {
   今口: string
   lived: number
   total: number
+  /** 连着来了几天。0 = 没连上（或者断了），那时这一句不摆 ——
+   *  「连着 0 天」不是一句鼓励，是一句提醒你失败了的话 */
+  连着: number
+  /** 今天来过没有。**没来过才是要说的那一句** ——
+   *  「连着 6 天了」是纪念，「连着 6 天了 · 今天还没问」才是明天再打开的理由 */
+  今天来过: boolean
   /** 村子那份数据【取到过】吗。没取到时 `lived` 停在 0，
    *  而屏上那张「四十间屋子，还都空着」只看 `!lived` —— 于是断网时
    *  它会把「不知道」说成「空的」。这两件事必须分开。 */
@@ -119,7 +125,7 @@ interface VillageData {
 }
 
 Page<VillageData, WechatMiniprogram.IAnyObject>({
-  data: { 手输开着: false, cssW: 0, cssH: 0, sub: '', greet: '', today: '', tonight: false, 当口: '', 今口: '', lived: 0, total: 40, err: '', 取到过: false, toScan: false, code: '', codeErr: '', codeBusy: false, 扫不着: false,
+  data: { 手输开着: false, cssW: 0, cssH: 0, sub: '', greet: '', today: '', tonight: false, 当口: '', 今口: '', lived: 0, total: 40, err: '', 取到过: false, 连着: 0, 今天来过: true, toScan: false, code: '', codeErr: '', codeBusy: false, 扫不着: false,
     says: null },
 
   handle: null as { stop(): void } | null,
@@ -178,6 +184,11 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
   },
 
   goTonight() { wx.navigateTo({ url: '/pages/lighting/index' }) },
+  /* 「今天还没问」那一句点下去就是去问 —— 说了要紧的事就得给做那件事的办法。
+     去的是【摇卦那一屏】，跟徽章页那四枚指的是同一个地方（`badges/index.ts` 的
+     `去处`）：`pages/ask/index` 是【看一签】的屏，不带 id 进去没有可问的东西。
+     它是 tab，所以走 switchTab —— navigateTo 到 tab 页在真机上会失败。 */
+  goAsk() { wx.switchTab({ url: '/pages/home/index' }) },
 
   /* 开场白上的两条路。村里一个人都没有时，这一格是屏上唯一说得出
      「你能干什么」的地方 —— 一条不花钱就能走（翻名册），
@@ -242,7 +253,9 @@ Page<VillageData, WechatMiniprogram.IAnyObject>({
           || 哪张卡({ says: 说的, lived: v.found, err: '' })
              !== 哪张卡({ says: this.data.says, lived: this.data.lived, err: this.data.err })
         this.setData(
-          { lived: v.found, total: v.total, err: '', toScan: 该扫, says: 说的, 取到过: true },
+          { lived: v.found, total: v.total, err: '', toScan: 该扫, says: 说的, 取到过: true,
+            连着: v.streak ? v.streak.days : 0,
+            今天来过: v.streak ? v.streak.asked_today : true },
           /* 同上:重挂要等这一次渲染真的落地。`fitCanvas` 会再 setData 一次
              （改 cssW/cssH），所以 mount 排在它后面那一拍。 */
           () => {

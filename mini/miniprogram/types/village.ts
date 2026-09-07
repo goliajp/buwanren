@@ -44,6 +44,11 @@ export interface MyVillage {
    *  村里没人、或住着的人都还没写话时是 null，那一块整个不摆。
    *  同一个人同一天看到的是同一句：随机的话刷新一次换一句，
    *  那就不是「今天说的」，是一台老虎机。 */
+  /** 连着来了几天，以及今天来过没有（2026-09-07）。
+   *  这个数一直算得出来，而它此前只在「我的 › 徽章」那一屏的进度条上 ——
+   *  徽章页自己写着「这是这个产品唯一的长期牵引」，
+   *  而它落在要点两下才到得了的地方。 */
+  streak?: { days: number; asked_today: boolean } | null
   today_says: {
     villager_id: string
     /** 头像底色按它分 —— 见 VillagerCard.direction */

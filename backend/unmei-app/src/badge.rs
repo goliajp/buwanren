@@ -85,6 +85,45 @@ async fn 数一数(pool: &PgPool, user_id: &str) -> Result<(i64, i64), DomainErr
     Ok((count, streak))
 }
 
+/// 连着来了几天，以及今天来过没有。
+///
+/// 【为什么要有这一支】（2026-09-07 · 「第二天为什么再打开」）。
+/// 连击这个数一直算得出来，而它只出现在「我的 › 徽章」那一屏的
+/// 「29 / 30」进度条上 —— 也就是说，**这个产品唯一的长期牵引，
+/// 落在一个要点两下才到得了的地方**（那句话是徽章页自己写的）。
+/// 主屏是每次打开都会看到的那一屏，这个数该在那儿。
+///
+/// 【不做推送】。微信的订阅消息要真机授权 + 商户那一侧的模板与凭据，
+/// 这台机器上一样都没有，而 `wx_message_log` 那张表建了之后
+/// 全仓只有注销那一处在删它 —— 再往上叠一个发不出去的队列，
+/// 是把「建了能力、两头没接上」这件事再犯一遍。
+/// 能今天就做到的是另一件事：把「明天再来」的理由摆到看得见的地方。
+///
+/// 返回 `(连着几天, 今天来过没有)`。两件事一起给：
+/// 只有天数的话，屏上说不出「今天还没来」——而那正是要说的那一句。
+pub async fn 连着几天(pool: &PgPool, user_id: &str) -> Result<(i64, bool), DomainError> {
+    let (_, streak) = 数一数(pool, user_id).await?;
+    /* 今天算不算数，口径跟上面那一段一样：两张表并起来、按上海时区切日。
+       UNION 在这儿再写一遍而不是 `format!` 拼 —— 拼出来的 SQL
+       `scripts/check-sql.py` 够不着（它拿真 Postgres PREPARE 每条字面量）。 */
+    let 今天来过: bool = sqlx::query_scalar(
+        r#"SELECT EXISTS (
+             SELECT 1 FROM (
+               SELECT asked_at FROM naji_record      WHERE user_id = $1
+               UNION ALL
+               SELECT asked_at FROM villager_reading WHERE user_id = $1
+             ) q
+             WHERE (q.asked_at AT TIME ZONE 'Asia/Shanghai')::date
+                 = (NOW() AT TIME ZONE 'Asia/Shanghai')::date
+           )"#,
+    )
+    .bind(user_id)
+    .fetch_one(pool)
+    .await
+    .db()?;
+    Ok((streak, 今天来过))
+}
+
 /// 这一条规则要几次 / 几天。数不出来的（买东西、到过场）回 None。
 fn 门槛(rule: &serde_json::Value) -> Option<i64> {
     let typ = rule.get("type").and_then(|x| x.as_str()).unwrap_or("");
