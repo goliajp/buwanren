@@ -225,8 +225,8 @@ async fn 没有下次扣款时间但周期走完的订阅会续上() {
 
     let 结果 = unmei_app::subscription::renew_due(&pool, &sub).await.expect("续费");
     assert!(
-        matches!(结果, unmei_app::subscription::RenewOutcome::Renewed { .. }),
-        "该续上，实际 {结果:?}",
+        matches!(结果, unmei_app::subscription::RenewOutcome::AwaitingPayment { .. }),
+        "该开出这一期的单，实际 {结果:?}",
     );
     assert_eq!(sub_status(&pool, &sub).await, "active");
     assert!(
@@ -377,8 +377,8 @@ async fn 填了生辰之后续费单上记着照谁的盘配() {
 
     let 结果 = unmei_app::subscription::renew_due(&pool, &sub).await.expect("续费");
     assert!(
-        matches!(结果, unmei_app::subscription::RenewOutcome::Renewed { .. }),
-        "填了生辰还续不动，实际 {结果:?}",
+        matches!(结果, unmei_app::subscription::RenewOutcome::AwaitingPayment { .. }),
+        "填了生辰还开不出单，实际 {结果:?}",
     );
     let 记的: String = sqlx::query_scalar(
         "SELECT COALESCE(om.extra_json->'yongshen'->>'primary','')
@@ -396,5 +396,10 @@ async fn 填了生辰之后续费单上记着照谁的盘配() {
           ORDER BY o.created_at DESC LIMIT 1",
     ).bind(&sub).fetch_one(&pool).await.expect("查盘");
     assert_eq!(用的盘, natal, "记的不是他此刻在用的那一份盘");
-    assert_eq!(这一份的失败码(&pool, &sub).await, "", "续成了还挂着上一次的原因");
+    /* 【开完单挂的是「该你付了」，不再是「还不知道你缺什么」】。
+       钱还没到，所以不能是空 —— 空的意思是「这一期结清了」。 */
+    assert_eq!(
+        这一份的失败码(&pool, &sub).await, "needs_your_pay",
+        "生辰补上了，屏上该换成「这一期该付了」，而不是继续叫人去填生辰",
+    );
 }

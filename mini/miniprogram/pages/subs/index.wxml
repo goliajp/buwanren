@@ -34,7 +34,12 @@
              两者互斥;已经停了的什么都不给 —— 那时也确实无事可做。
              按下去到答复回来之间换个字:不换的话人会以为没反应，
              再按一次，而第二次是真的又发一笔。 -->
-        <view class="item-do" wx:if="{{item.动 === '补'}}"
+        <view class="item-do" wx:if="{{item.动 === '付'}}"
+              data-id="{{item.id}}" bindtap="onPay"
+              hover-class="press-btn" hover-stay-time="80">
+          {{忙 === item.id ? '正在开单……' : '去付这一期 ›'}}
+        </view>
+        <view class="item-do" wx:elif="{{item.动 === '补'}}"
               data-id="{{item.id}}" bindtap="onPay"
               hover-class="press-btn" hover-stay-time="80">
           {{忙 === item.id ? '正在补……' : '补上这一期 ›'}}
