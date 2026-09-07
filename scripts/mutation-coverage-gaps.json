@@ -36,22 +36,6 @@
     "check-api-shape-live": "活服务 —— 要起着的后端，变异得重编重起",
     "check-auth-guards": "活服务 —— 要起着的后端，变异得重编重起",
     "check-cross-user": "活服务 —— 要起着的后端，变异得重编重起",
-    "check-ghost-id": "活服务 —— 要起着的后端，变异得重编重起",
-    "check-address-lands": "纯源码 —— 写一条变异就能划掉，欠着",
-    "check-bg-layering": "纯源码 —— 写一条变异就能划掉，欠着",
-    "check-cast-act": "纯源码 —— 写一条变异就能划掉，欠着",
-    "check-clock-bands": "纯源码 —— 写一条变异就能划掉，欠着",
-    "check-contrast": "纯源码 —— 写一条变异就能划掉，欠着",
-    "check-day-words": "纯源码 —— 写一条变异就能划掉，欠着",
-    "check-face-color": "纯源码 —— 写一条变异就能划掉，欠着",
-    "check-faces": "纯源码 —— 写一条变异就能划掉，欠着",
-    "check-pixel-scale": "纯源码 —— 写一条变异就能划掉，欠着",
-    "check-press-feedback": "纯源码 —— 写一条变异就能划掉，欠着",
-    "check-quote-source": "纯源码 —— 写一条变异就能划掉，欠着",
-    "check-room-start": "纯源码 —— 写一条变异就能划掉，欠着",
-    "check-room-words": "纯源码 —— 写一条变异就能划掉，欠着",
-    "check-seed-lack": "纯源码 —— 写一条变异就能划掉，欠着",
-    "check-ui-outline": "纯源码 —— 写一条变异就能划掉，欠着",
-    "check-wuxing-fg": "纯源码 —— 写一条变异就能划掉，欠着"
+    "check-ghost-id": "活服务 —— 要起着的后端，变异得重编重起"
   }
 }
