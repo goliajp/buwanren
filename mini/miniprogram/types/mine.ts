@@ -36,4 +36,8 @@ export interface Subscription {
    *  一味香按月送是「十支一盒」—— 有它的时候屏上说的是「下一盒 X 发」，
    *  没有的时候只能说「续到 X」。**不在页面里按 plan_id 写死** */
   ships?: string | null
+  /** 上一次没续成的原因【码】（后端只发码，不发原文 —— 原文可能带内部细节）。
+   *  `need_yongshen`：这一档按用神配，而他还没填出生时间，这一期**没扣钱**；
+   *  `charge_failed`：钱没扣成。续成一次就清空 */
+  last_failure_code?: string | null
 }

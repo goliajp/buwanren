@@ -811,7 +811,13 @@ async fn my_subscriptions(
                      而没有这一列的话，它会把用户此刻正订着的那一件也摆出来 ——
                      一张写着「看看 ›」的卡，点进去是他已经有的东西。
                      plan → sku → product 这条链库里本来就有，只是没发出来。 */
-                  sk.product_id AS product_id
+                  sk.product_id AS product_id,
+                  /* 【上一次没续成，为什么】（2026-09-07）。只发【码】不发原文 ——
+                     原文是渠道那边的话，可能带内部细节（check-error-leak 盯着）。
+                     屏上那一句由页面照码自己说。
+                     今天两个码：need_yongshen（这一档按用神配，而他还没填生辰，
+                     所以这一期压根没扣）与 charge_failed（钱没扣成）。 */
+                  s.last_failure_code AS last_failure_code
            FROM subscription s
                 LEFT JOIN plan p  ON p.id = s.plan_id
                 LEFT JOIN sku sk  ON sk.id = p.sku_id

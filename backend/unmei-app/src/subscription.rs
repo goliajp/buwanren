@@ -91,6 +91,15 @@ pub enum RenewOutcome {
     /// 重试止住了，服务没止住 —— 订阅留在 active，人照用、钱不再收，
     /// 而止住重试之后它再也不会被任何东西看到一眼。
     Unpriced,
+    /// 这一档是「按你缺的那一样配」的，而他还没填出生时间 ——
+    /// **这一期不扣钱、不建单**（2026-09-07）。
+    ///
+    /// 收了钱按默认款发出去，正是这一轮反复遇到的那个形状：
+    /// 屏上答应「按你缺的那一味配」，而箱子里装的是通货。
+    /// 不扣钱也不能就此不管 —— 走的是跟扣款失败同一道阶梯
+    /// （明天再试 / 三天 / 七天 → past_due → grace → expired），
+    /// 屏上照 `last_failure_code` 说清楚该他做什么。
+    NeedsYongshen,
     /// 已经不在可续费状态(并发下被别的动作改掉了)
     NotDue,
 }
@@ -304,6 +313,41 @@ pub async fn renew_due(pool: &PgPool, subscription_id: &str) -> Result<RenewOutc
         }
     };
 
+    /* 【续费这一期也要知道他缺什么】（2026-09-07 · 门禁 check-yongshen-recorded
+       在一轮全量上抓到 `ord-renew-c925…`）。
+       下单那条路 2026-09-07 早上接上了用神，而续费这条路**不经过 `order::create`**
+       —— 它自己拼 order_record + order_line，于是第一盒记着照谁的盘配，
+       之后每一盒都不记：钱照扣，装箱的人照默认款发。
+
+       拿不到就【这一期不扣】。理由跟下单那侧整单拒掉是同一条：
+       按默认款发出去比不发更糟，因为买家会以为这就是他买的东西。 */
+    let sku_id: String = row.get("sku_id");
+    let 额外 = match crate::order::配的是哪一样(&mut tx, &user_id, &[sku_id.clone()]).await? {
+        crate::order::配法::不用配 => serde_json::json!({}),
+        crate::order::配法::就配这个(v) => v,
+        crate::order::配法::还不知道你缺什么 => {
+            /* 【明天再来问一次，别五分钟一次】。这不是扣款失败，
+               所以不走 dunning 那道阶梯（那道阶梯的终点是 expired，
+               而这一份订阅没有欠费，凭什么到期）——
+               它等的是一件人随时能补上的事，补上了下一轮就续得动。
+               屏上照 `last_failure_code` 说清该他做什么，不叫他干等。 */
+            sqlx::query(
+                "UPDATE subscription
+                    SET next_billing_attempt_at = NOW() + INTERVAL '1 day',
+                        last_failure_code = 'need_yongshen',
+                        last_failure_reason = '这一档按用神配，而他没有在用的本命（或那一份还没排出盘）',
+                        updated_at = NOW()
+                  WHERE id = $1",
+            )
+            .bind(subscription_id)
+            .execute(&mut *tx)
+            .await.db()?;
+            tx.commit().await.db()?;
+            tracing::warn!(subscription_id, "这一档要按用神配，而他没有在用的本命 —— 这一期不扣钱");
+            return Ok(RenewOutcome::NeedsYongshen);
+        }
+    };
+
     let order_id = new_id("ord-renew");
     sqlx::query(
         r#"INSERT INTO order_record(
@@ -335,7 +379,6 @@ pub async fn renew_due(pool: &PgPool, subscription_id: &str) -> Result<RenewOutc
        发的就是套餐自己那个 sku —— 它的商品是 shipping，所以履约那一支
        会给这一期开一张包裹。也正因为走的是同一个 sku，那边才需要
        「已经订着就不再开一份」那道守卫。 */
-    let sku_id: String = row.get("sku_id");
     sqlx::query(
         r#"INSERT INTO order_line(id, order_id, line_no, sku_id, sku_snapshot_json,
                                   unit_price_minor, qty, line_subtotal_minor)
@@ -350,6 +393,19 @@ pub async fn renew_due(pool: &PgPool, subscription_id: &str) -> Result<RenewOutc
     .bind(amount_minor)
     .execute(&mut *tx)
     .await.db()?;
+
+    /* 配法记在 `order_meta.extra_json` 上 —— 跟下单那条路同一个位置，
+       装箱的人只认一处（`check-yongshen-recorded` 也只看那一处）。 */
+    if 额外 != serde_json::json!({}) {
+        sqlx::query(
+            r#"INSERT INTO order_meta(order_id, extra_json) VALUES ($1, $2)
+               ON CONFLICT (order_id) DO UPDATE SET extra_json = EXCLUDED.extra_json"#,
+        )
+        .bind(&order_id)
+        .bind(&额外)
+        .execute(&mut *tx)
+        .await.db()?;
+    }
 
     let payment_id = new_id("pay-renew");
     sqlx::query(
@@ -379,8 +435,11 @@ pub async fn renew_due(pool: &PgPool, subscription_id: &str) -> Result<RenewOutc
     .await.db()?;
 
     sqlx::query(
+        // 续成一次就把上一次没成的原因清掉 —— 留着的话，屏上会一直挂着
+        // 一句早就不成立的话（「先把出生时间填了」，而他已经填了）
         r#"UPDATE subscription SET status='active',
-             current_period_start=$1, current_period_end=$2, next_billing_attempt_at=$2
+             current_period_start=$1, current_period_end=$2, next_billing_attempt_at=$2,
+             last_failure_code='', last_failure_reason=''
            WHERE id=$3"#,
     )
     .bind(period_start)
@@ -473,6 +532,24 @@ pub async fn record_renewal_failure(
     )
     .bind(subscription_id)
     .fetch_optional(&mut *tx)
+    .await
+    .db()?;
+
+    /* 【原因要落库】（2026-09-07）。这个参数从 2026-08 起就收着，
+       而函数体里一次都没用它 —— 原因随那一行 warn 留在日志里，
+       屏上「这期没扣成」没有下文，后台也答不出为什么。
+       原文只给后台看：渠道那边的话可能很长、也可能带内部细节，
+       上屏那一句由页面照 `last_failure_code` 自己说（check-error-leak）。 */
+    sqlx::query(
+        "UPDATE subscription
+            SET last_failure_code = 'charge_failed',
+                last_failure_reason = LEFT($1, 500),
+                updated_at = NOW()
+          WHERE id = $2",
+    )
+    .bind(reason)
+    .bind(subscription_id)
+    .execute(&mut *tx)
     .await
     .db()?;
 

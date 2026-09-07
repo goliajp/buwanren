@@ -37,6 +37,10 @@ import re, sys, pathlib
     # 这一支就抓到它两处对不上 —— 见 money.ts 那段注释。
     ('RefundStatus', 'mini/miniprogram/utils/money.ts', '退款说法', set()),
     # 承运商代号。它不是枚举 —— 按区列在 region.rs 的 `carriers:` 里
+    # 上一次续费为什么没成（2026-09-07）。它也不是枚举 —— 值写在
+    # `subscription.rs` 那几条 UPDATE 里。加一个码而屏上不加一句话，
+    # 人看到的就是「这期没扣成」而没有下文，正是这张表要挡的事。
+    ('failure_code@subscription', 'mini/miniprogram/pages/subs/index.ts', '没续成的说法', set()),
     ('carriers@region', 'mini/miniprogram/pages/order/index.ts', '快递说法',
      # 后台手填单号、没挑承运商的那一档，不属于任何一个区
      {'manual'}),
@@ -47,9 +51,14 @@ import re, sys, pathlib
 def 后端真值(名: str) -> set:
     """这一列的真值从哪儿来。
 
-    多数是 `enums.rs` 里的 `str_enum!`。承运商代号是例外:
-    它不是枚举，按区列在 `region.rs` 的 `carriers:` 里，六个区各一串。
+    多数是 `enums.rs` 里的 `str_enum!`。两个例外:
+    承运商代号按区列在 `region.rs` 的 `carriers:` 里；
+    续费没成的原因码写在 `subscription.rs` 那几条 UPDATE 里。
     """
+    if 名 == 'failure_code@subscription':
+        src = (根 / 'backend/unmei-app/src/subscription.rs').read_text(encoding='utf-8')
+        # 清空那一处写的是 `last_failure_code=''` —— `\w+` 不会命中空串
+        return set(re.findall(r"last_failure_code\s*=\s*'(\w+)'", src))
     if 名 == 'carriers@region':
         src = (根 / 'backend/unmei-domain/src/commerce/region.rs').read_text(encoding='utf-8')
         出 = set()

@@ -74,11 +74,24 @@ function 日子那句(x: Subscription): string {
 /* 这一份还能动吗 —— 决定卡片上给哪一个动作。
    三种状态三件事，不是一个通用的「管理」按钮：
    扣不成的要补、还在续的可以停、已经停了的什么都不给（也确实无事可做）。 */
-type 动作 = '' | '补' | '停'
+type 动作 = '' | '补' | '停' | '填生辰'
 function 给什么动作(x: Subscription): 动作 {
+  /* 【等生辰的那一份，要给的是填生辰，不是「停」】（2026-09-07）。
+     这一档按用神配，而他没有在用的本命 —— 后端因此这一期
+     **压根没扣钱**（`renew_due` 那条 NeedsYongshen），
+     明天再来问一次。他现在能做的只有一件事，那就摆那一件。 */
+  if (x.last_failure_code === 'need_yongshen') return '填生辰'
   if (x.status === 'past_due' || x.status === 'grace') return '补'
   if ((x.status === 'active' || x.status === 'trialing') && !x.cancel_at_period_end) return '停'
   return ''
+}
+
+/* 上一次没续成的原因，说成人话。
+   **屏上不打原文**：原文是渠道那边的话，可能带内部细节
+   （`check-error-leak` 盯着这条），所以后端只发码。 */
+const 没续成的说法: Record<string, string> = {
+  need_yongshen: '这一盒是按你缺的那一味配的 —— 先把出生时间填了，下一盒才配得出来',
+  charge_failed: '上一期没扣成 —— 补上就接着发',
 }
 
 /* 还在续的那几种。跟后端排序用的是同一批（commerce.rs `my_subscriptions`
@@ -93,7 +106,7 @@ interface IData {
    *  三份全到期的人，这一屏原先是三张读不动的卡片加一颗「回去」 */
   还订着: boolean
   /** `名 / 说 / 要紧` 是屏上那三样 —— wxml 里调不了函数，在这儿算好 */
-  subs: Array<Subscription & { 名: string; 说: string; 要紧: boolean; 动: '' | '补' | '停' }>
+  subs: Array<Subscription & { 名: string; 说: string; 要紧: boolean; 动: 动作 }>
   /** 正在办的那一份的 id。按下去到答复回来之间，按钮换个字 ——
    *  不换的话人会以为没反应，再按一次（而第二次是真的又发一笔） */
   忙: string
@@ -129,9 +142,15 @@ Page<IData, WechatMiniprogram.IAnyObject>({
           ...x,
           // 取不到名就退回 id —— 不编一个好看的名字盖住「这条数据不全」
           名: x.plan_name || x.plan_id || x.id,
-          说: [状态说法[x.status] || x.status, 日子那句(x)].filter(Boolean).join(' · '),
+          /* 【等生辰的那一份，日子那句是假的】。它说「下一盒 X 发」，
+             而那一天什么都不会发生 —— 后端这一期没扣钱，也没建单。
+             这时候屏上该说的是那件他能做的事，不是一个不会到来的日期。 */
+          说: x.last_failure_code === 'need_yongshen'
+            ? 没续成的说法.need_yongshen
+            : [状态说法[x.status] || x.status, 日子那句(x)].filter(Boolean).join(' · '),
           // 扣不成的那两种要显眼:它们是【他现在就得动手】的，其余六种不是
-          要紧: x.status === 'past_due' || x.status === 'grace',
+          要紧: x.status === 'past_due' || x.status === 'grace'
+            || x.last_failure_code === 'need_yongshen',
           动: 给什么动作(x),
         })),
       })
@@ -190,6 +209,13 @@ Page<IData, WechatMiniprogram.IAnyObject>({
      说了要紧的事却不给做那件事的办法，比不说更差。
      后端走的是续期那一条路（`renew_due` 复用还开着的那张发票），
      所以「补一期」跟「续一期」本来就是同一件事。 */
+  /* 【说了要紧的事就得给做那件事的办法】。这一份卡在「还不知道你缺什么」，
+     而填生辰那一屏在别处 —— 不给这条路，屏上那句话就是一句干着急的话。 */
+  goNatal() {
+    轻()
+    wx.navigateTo({ url: '/pages/natal/index' })
+  },
+
   onPay(e: WechatMiniprogram.BaseEvent) {
     const id = String((e.currentTarget.dataset as { id?: string }).id || '')
     if (!id || this.data.忙) return
