@@ -114,6 +114,15 @@ FILES=(
   # check-promises 那两条变异碰到的文件
   backend/unmei-app/src/account.rs
   mini/miniprogram/pages/policy/index.ts
+  # 2026-09-07：台账上那十六支「纯源码」的变异碰到的文件
+  mini/miniprogram/services/commerce.ts
+  backend/unmei-api/src/routes/naji.rs
+  backend/seed/lack_bias.sql
+  mini/miniprogram/app.wxss
+  mini/miniprogram/pages/badges/index.wxss
+  mini/miniprogram/pages/ask/index.wxss
+  rooms/src/rooms/ayun.js
+  mini/miniprogram/pages/order/index.wxss
 )
 # ── 开跑之前两道自保 ────────────────────────────────────────────
 # 这支脚本【会真改源码】，所以两件事必须先确认：
@@ -604,6 +613,66 @@ mutate "某一页又抄了一份金额格式" check-money-fmt \
 # 会变成「改一个没人读的字符串」，而门禁照旧绿着。
 mutate "前后端对整数金额说法分家" check-money-fmt \
   "edit('backend/unmei-domain/src/commerce/money.rs', 'if self.amount_minor % pow == 0 {', 'if false {')"
+
+echo
+echo "── 台账上那十六支「纯源码，写一条变异就能划掉」（2026-09-07 一次划完）──"
+# `mutation-coverage-gaps.json` 把没有变异守着的门禁分成四类。
+# 前三类各有结构性的理由（要截图 / 要改库里的数据 / 要重编重起后端），
+# 第四类写的是「纯源码 —— 写一条变异就能划掉，欠着」。
+# 欠着的东西不会自己变好，而「45 支在台账上」这个数读起来像有依据，
+# 实际上其中十六支只是没人动手。这一节把那十六支一次做完。
+#
+# 每一条都真跑过一遍才写进来:先改、跑那支门禁、确认它【红】、再还原。
+# 绿的那几个当场换了锚点（`.face-move` 那条按类名对不上、
+# `.empty-art.pix` 要拿掉自补的 background-color 才撞得上）。
+
+mutate "地址发在发货不读的字段上" check-address-lands \
+  "edit('mini/miniprogram/services/commerce.ts', '{ shipping_address: contact }', '{ contact_address: contact }')"
+
+mutate "签词落款拼进古书篇名" check-quote-source \
+  "edit('backend/unmei-api/src/routes/naji.rs', 'source: q.get::<String, _>(\"book\"),', 'source: format!(\"{} · {}\", q.get::<String, _>(\"book\"), q.get::<String, _>(\"chapter\")),')"
+
+mutate "偏向表里留下一个没人用的键" check-seed-lack \
+  "edit('backend/seed/lack_bias.sql', \"('急',   'wait',\", \"('急躁',   'wait',\")"
+
+mutate "问候语那一档跟另外两处走散" check-clock-bands \
+  "edit('mini/miniprogram/pages/village/index.ts', \"'下午好', '傍晚好'\", \"'下午好', '黄昏好'\")"
+
+mutate "页面自己切 ISO 串当日期" check-day-words \
+  "edit('mini/miniprogram/pages/badges/index.ts', 'b.earned_at ? 那一天(b.earned_at) : null', 'b.earned_at ? b.earned_at.slice(0, 10) : null')"
+
+mutate "头像默认底色漏掉一处" check-face-color \
+  "edit('mini/miniprogram/app.wxss', '.says-face, .item-face, .face, .glyph {', '.says-face, .item-face, .glyph {')"
+
+mutate "有位村民没有头像" check-faces \
+  "edit('backend/seed/villagers.sql', \"('ayun', '阿云', '小道士',\", \"('ayunn', '阿云', '小道士',\")"
+
+mutate "按钮上的动作不是他会的那一门" check-cast-act \
+  "edit('backend/seed/villagers.sql', \"('tao', '桃桃', '桃花岛弟子', 'qimen',\", \"('tao', '桃桃', '桃花岛弟子', 'tarot',\")"
+
+mutate "开局站位跟 ACTS[0] 对不上" check-room-start \
+  "edit('rooms/src/rooms/ayun.js', \"mode: 'act', act: ACTS[0], x: 408, y: 1072,\", \"mode: 'act', act: ACTS[0], x: 500, y: 1072,\")"
+
+mutate "屋里的台词说了行话" check-room-words \
+  "edit('rooms/src/rooms/ayun.js', \"say: '（掐指）……有意思'\", \"say: '（起课）……有意思'\")"
+
+mutate "background-image 把底整个顶掉" check-bg-layering \
+  "edit('mini/miniprogram/app.wxss', '  background-color: var(--amber-lite);\n  background-image: var(--pix), linear-gradient', '  background-image: var(--pix), linear-gradient')"
+
+mutate "浅字压在浅底上" check-contrast \
+  "edit('mini/miniprogram/pages/badges/index.wxss', '  background: var(--paper-panel);', '  background: var(--paper-panel); color: #EFE7DA;')"
+
+mutate "像素图按百分比缩放" check-pixel-scale \
+  "edit('mini/miniprogram/app.wxss', '  background-size: 96rpx auto, cover;', '  background-size: 30% auto, cover;')"
+
+mutate "点得动的东西没有按压反馈" check-press-feedback \
+  "edit('mini/miniprogram/pages/badges/index.wxml', \"hover-class=\\\"{{item.去 ? 'badge-hover' : ''}}\\\" hover-stay-time=\\\"100\\\"\", '')"
+
+mutate "可点控件的边框看不见" check-ui-outline \
+  "edit('mini/miniprogram/pages/order/index.wxss', '.pkg { border: 1rpx solid var(--stone-line-ui);', '.pkg { border: 1rpx solid var(--stone-line);')"
+
+mutate "五行色拿底色版当文字色" check-wuxing-fg \
+  "edit('mini/miniprogram/pages/ask/index.wxss', '.suit-k { color: var(--wx-mu-fg); }', '.suit-k { color: var(--wx-mu); }')"
 
 echo
 echo "── check-screen-ruler（每一屏对得上尺子吗）──"
