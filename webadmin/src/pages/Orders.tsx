@@ -15,6 +15,15 @@ import { X, MessageSquarePlus, RefreshCw } from 'lucide-react';
 const ORDER_STATUSES = ['draft','unpaid','paid','fulfilling','done','cancelled','refund_partial','refunded','disputed'];
 const CHANNEL_ORIGINS = ['wx_mp','wx_h5','ios','android','web','admin'];
 
+/* 看板那四条待办点进来时带的 `?issue=…`。说法在这儿写一次，
+   跟看板上那句话是同一件事的两半 —— 那边说「37 笔收了钱没履约」，
+   这边就得说「只看：收了钱没履约」，不然人不知道自己在看什么。 */
+const ISSUE_LABEL: Record<string, string> = {
+  paid_not_fulfilled: '收了钱没履约',
+  failed_lines_unrefunded: '交付失败没退钱',
+  closed_user_owing: '注销了还欠着单',
+};
+
 export default function Orders() {
   const qc = useQueryClient();
   /* 【筛选条件从网址上读】（2026-09-03 五路评审 · 后台产品体验）——
@@ -81,6 +90,25 @@ export default function Orders() {
           onReset={reset}
           right={<button className="btn btn-soft" onClick={() => list.refetch()}><RefreshCw size={13}/> 刷新</button>}
         />
+
+        {/* 【从看板点进来时，得说清这一屏为什么这么短】（2026-09-07）。
+            `?issue=…` 不是筛选栏上的一格（它是四条待办各自的一批单子，
+            不是运营会自己去组合的条件），所以筛选栏上看不见它 ——
+            而看不见的筛选比没有筛选更糟:人会以为这就是全部。
+            这一条摆在这儿，写清筛的是什么，并且给一条回全量的路。 */}
+        {ISSUE_LABEL[filt.issue as string] && (
+          <div className="mb-3 flex items-center gap-2 text-sm">
+            <span className="chip">只看：{ISSUE_LABEL[filt.issue as string]}</span>
+            <button
+              className="btn btn-soft"
+              onClick={() => {
+                const { issue: _丢掉, ...其余 } = filt;
+                setFilt({ ...其余, size: 50, page: 0 });
+                setDraft((d) => { const { issue: _也丢掉, ...剩 } = d; return 剩; });
+              }}
+            >看全部</button>
+          </div>
+        )}
 
         <div className="panel">
           <table className="tbl">

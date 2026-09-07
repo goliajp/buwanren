@@ -970,6 +970,16 @@ struct OrderFilter {
     from: Option<DateTime<Utc>>,
     to: Option<DateTime<Utc>>,
     keyword: Option<String>,
+    /* 【看板上那几个数，点进来要落在同一批单子上】（2026-09-07）。
+       没有这一条的话，「37 笔收了钱没履约」只能跳到 `?status=paid`
+       的全量列表 —— 人还得自己在里面找那 37 笔，而那正是这个数
+       想替他省掉的事。认三个值：
+         paid_not_fulfilled       收了钱没履约（给履约留一天）
+         failed_lines_unrefunded  履约失败而钱没退
+         closed_user_owing        人注销了而单子还欠着
+       条件跟看板那四条、跟清扫器逐字一样。认不出来的值一条都不给 ——
+       悄悄当成没筛，会让人以为「这一屏就是全部」。 */
+    issue: Option<String>,
 }
 
 async fn list_orders(
@@ -995,12 +1005,31 @@ async fn list_orders(
              AND ($7::timestamptz IS NULL OR created_at >= $7)
              AND ($8::timestamptz IS NULL OR created_at <= $8)
              AND ($9='' OR id ILIKE $10 OR user_id ILIKE $10)
+             AND ($13::text IS NULL OR CASE $13::text
+                   WHEN 'paid_not_fulfilled' THEN
+                        status IN ('paid','fulfilling')
+                        AND paid_at < NOW() - INTERVAL '1 day'
+                   WHEN 'failed_lines_unrefunded' THEN
+                        status IN ('paid','fulfilling','done')
+                        AND COALESCE(amount_paid_minor,0) > COALESCE(amount_refunded_minor,0)
+                        AND EXISTS (SELECT 1 FROM order_line l
+                                     WHERE l.order_id = order_record.id
+                                       AND l.fulfillment_status = 'failed')
+                        AND NOT EXISTS (SELECT 1 FROM refund r
+                                         WHERE r.order_id = order_record.id
+                                           AND r.status IN ('requested','success','refunded'))
+                   WHEN 'closed_user_owing' THEN
+                        status IN ('paid','fulfilling','disputed')
+                        AND EXISTS (SELECT 1 FROM app_user u
+                                     WHERE u.id = order_record.user_id
+                                       AND u.deleted_at IS NOT NULL)
+                   ELSE FALSE END)
            ORDER BY created_at DESC OFFSET $11 LIMIT $12"#,
     )
     .bind(&f.status).bind(&f.channel_origin).bind(&f.user_id).bind(&region)
     .bind(f.amount_min_minor).bind(f.amount_max_minor)
     .bind(f.from).bind(f.to)
-    .bind(&kw).bind(&kw_like).bind(off).bind(lim)
+    .bind(&kw).bind(&kw_like).bind(off).bind(lim).bind(&f.issue)
     .fetch_all(&st.db).await.map_err(map_db)?;
     let total: i64 = sqlx::query_scalar(
         r#"SELECT COUNT(*) FROM order_record
@@ -1012,10 +1041,29 @@ async fn list_orders(
              AND ($6::int8 IS NULL OR amount_total_minor <= $6)
              AND ($7::timestamptz IS NULL OR created_at >= $7)
              AND ($8::timestamptz IS NULL OR created_at <= $8)
-             AND ($9='' OR id ILIKE $10 OR user_id ILIKE $10)"#,
+             AND ($9='' OR id ILIKE $10 OR user_id ILIKE $10)
+             AND ($11::text IS NULL OR CASE $11::text
+                   WHEN 'paid_not_fulfilled' THEN
+                        status IN ('paid','fulfilling')
+                        AND paid_at < NOW() - INTERVAL '1 day'
+                   WHEN 'failed_lines_unrefunded' THEN
+                        status IN ('paid','fulfilling','done')
+                        AND COALESCE(amount_paid_minor,0) > COALESCE(amount_refunded_minor,0)
+                        AND EXISTS (SELECT 1 FROM order_line l
+                                     WHERE l.order_id = order_record.id
+                                       AND l.fulfillment_status = 'failed')
+                        AND NOT EXISTS (SELECT 1 FROM refund r
+                                         WHERE r.order_id = order_record.id
+                                           AND r.status IN ('requested','success','refunded'))
+                   WHEN 'closed_user_owing' THEN
+                        status IN ('paid','fulfilling','disputed')
+                        AND EXISTS (SELECT 1 FROM app_user u
+                                     WHERE u.id = order_record.user_id
+                                       AND u.deleted_at IS NOT NULL)
+                   ELSE FALSE END)"#,
     ).bind(&f.status).bind(&f.channel_origin).bind(&f.user_id).bind(&region)
      .bind(f.amount_min_minor).bind(f.amount_max_minor)
-     .bind(f.from).bind(f.to).bind(&kw).bind(&kw_like)
+     .bind(f.from).bind(f.to).bind(&kw).bind(&kw_like).bind(&f.issue)
      .fetch_one(&st.db).await.map_err(map_db)?;
     Ok(Json(Page { items: map_rows(rows), total, page: f.page, size: f.size }))
 }
@@ -1848,6 +1896,53 @@ async fn dashboard_kpi(
         r#"SELECT COUNT(*) FROM recon_batch WHERE status='has_discrepancy'
              AND ($1::text IS NULL OR region=$1)"#,
     ).bind(&region).fetch_one(&st.db).await.map_err(map_db)?;
+    /* 【钱那四条，判据早就在代码里，只差摆到看板上】（2026-09-07 交付计划 §3.1）。
+       清扫器每三十秒照着同样的条件跑一遍，出了事往日志里写一行 warn ——
+       而没有人在读日志。这四个数把同一件事摆到早上第一眼看得见的地方。
+       条件跟清扫器**逐字一样**是有意的：两处说法一分家，看板上的零
+       就会变成一种更难发现的谎。 */
+
+    // ① 收了钱没履约。给履约留一天 —— 报告要算、包裹要人打单。
+    let paid_not_fulfilled: i64 = sqlx::query_scalar(
+        r#"SELECT COUNT(*) FROM order_record
+            WHERE status IN ('paid','fulfilling')
+              AND paid_at < NOW() - INTERVAL '1 day'
+              AND ($1::text IS NULL OR region=$1)"#,
+    ).bind(&region).fetch_one(&st.db).await.map_err(map_db)?;
+
+    // ② 履约失败而钱没退。条件抄自 `refund::refund_undelivered_lines`。
+    let failed_lines_unrefunded: i64 = sqlx::query_scalar(
+        r#"SELECT COUNT(*) FROM order_record o
+            WHERE o.status IN ('paid','fulfilling','done')
+              AND COALESCE(o.amount_paid_minor,0) > COALESCE(o.amount_refunded_minor,0)
+              AND EXISTS (SELECT 1 FROM order_line l
+                           WHERE l.order_id = o.id AND l.fulfillment_status = 'failed')
+              AND NOT EXISTS (SELECT 1 FROM refund r
+                               WHERE r.order_id = o.id
+                                 AND r.status IN ('requested','success','refunded'))
+              AND ($1::text IS NULL OR o.region=$1)"#,
+    ).bind(&region).fetch_one(&st.db).await.map_err(map_db)?;
+
+    /* ③ 注销了还欠着单。`account.rs` 注销时不碰还在办的那几张
+       （地址要留着才寄得出去），只往日志里记一行 warn。
+       人已经走了，而东西还没发 —— 这是必须有人去处理的一件事。 */
+    let closed_users_owing: i64 = sqlx::query_scalar(
+        r#"SELECT COUNT(DISTINCT o.user_id) FROM order_record o
+               JOIN app_user u ON u.id = o.user_id
+              WHERE u.deleted_at IS NOT NULL
+                AND o.status IN ('paid','fulfilling','disputed')
+                AND ($1::text IS NULL OR o.region=$1)"#,
+    ).bind(&region).fetch_one(&st.db).await.map_err(map_db)?;
+
+    /* ④ 收了一笔这一单不欠的钱。换支付方式之后两笔都付成时会出现
+       （见 `payment::apply_succeeded` 那段「吃得下吗」）。
+       那笔钱是真的、记在 payment 上，而订单金额没动 —— 要有人去退。 */
+    let overcollected_payments: i64 = sqlx::query_scalar(
+        r#"SELECT COUNT(*) FROM payment
+            WHERE status='success' AND audit_note LIKE '%多收的%'
+              AND ($1::text IS NULL OR region=$1)"#,
+    ).bind(&region).fetch_one(&st.db).await.map_err(map_db)?;
+
     // product 是全局 SPU,按 available_regions 包含 region 判可见
     let listed_products: i64 = sqlx::query_scalar(
         r#"SELECT COUNT(*) FROM product WHERE status='listed'
@@ -1865,6 +1960,10 @@ async fn dashboard_kpi(
         "active_promotions": active_promos,
         "open_risk_cases": open_risk_cases,
         "open_recon_batches": open_recon_batches,
+        "paid_not_fulfilled": paid_not_fulfilled,
+        "failed_lines_unrefunded": failed_lines_unrefunded,
+        "closed_users_owing": closed_users_owing,
+        "overcollected_payments": overcollected_payments,
         "listed_products": listed_products,
         "region": region,
     })))

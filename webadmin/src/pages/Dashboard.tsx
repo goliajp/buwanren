@@ -17,6 +17,17 @@ interface Kpi {
   open_risk_cases: number;
   /** 有差异、还没结的对账批次。实测 1,023 批 —— 而这一屏此前不提它 */
   open_recon_batches: number;
+  /* 【钱那四条】（2026-09-07 交付计划 §3.1）。判据本来就在代码里 ——
+     清扫器每三十秒照着同样的条件跑一遍，出了事往日志写一行 warn，
+     而没有人在读日志。这四个数把同一件事摆到早上第一眼看得见的地方。 */
+  /** 收了钱、过了一天还没履约 */
+  paid_not_fulfilled: number;
+  /** 有行交付失败、而钱一分没退 */
+  failed_lines_unrefunded: number;
+  /** 人注销了、单子还欠着（注销不碰在办的单，只写一行 warn） */
+  closed_users_owing: number;
+  /** 收了一笔这一单不欠的钱 —— 换支付方式两笔都付成时会出现 */
+  overcollected_payments: number;
   listed_products: number;
 }
 
@@ -44,6 +55,14 @@ export default function Dashboard() {
   /* 要处理的那几项。`n` 为 0 的不进来 —— 一个「0 笔待退款」
      占着跟「424 笔待退款」一样大的位置，等于把后者藏起来。 */
   const 待办 = [
+    /* 【钱先说】。下面四条是「钱与货对不上」，比「有几笔待批退款」重 ——
+       退款有人在等着催，而这四条一个人都不会来催：
+       收了钱没发货的那位以为还在路上，注销了还欠单的那位已经走了。
+       每一条点进去落在同一批单子上（`?issue=…`），不是全量列表。 */
+    { n: k?.paid_not_fulfilled ?? 0, 是: '笔收了钱没履约', 去: '/orders?issue=paid_not_fulfilled', 做: '看卡在哪一步' },
+    { n: k?.failed_lines_unrefunded ?? 0, 是: '笔交付失败没退钱', 去: '/orders?issue=failed_lines_unrefunded', 做: '把钱退回去' },
+    { n: k?.overcollected_payments ?? 0, 是: '笔收了订单不欠的钱', 去: '/payments?status=success', 做: '找出来退掉' },
+    { n: k?.closed_users_owing ?? 0, 是: '位注销了还欠着单', 去: '/orders?issue=closed_user_owing', 做: '把东西办完' },
     { n: (k?.unpaid_orders ?? 0) + (k?.pending_payments ?? 0), 是: '笔订单还没付', 去: '/orders?status=unpaid', 做: '看看是卡在哪一步' },
     { n: k?.pending_refunds ?? 0, 是: '笔退款等着批', 去: '/refunds', 做: '批一批' },
     { n: k?.exception_shipments ?? 0, 是: '件包裹出了状况', 去: '/shipments?exception_only=true', 做: '查物流' },
