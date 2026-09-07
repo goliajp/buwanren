@@ -114,6 +114,34 @@ impl Money {
             format!("{sym}{main}.{:0width$}", frac, width = d as usize)
         }
     }
+
+    /// 说给人听的写法：整数金额**不挂零头**（`¥99`，不是 `¥99.00`）。
+    ///
+    /// 跟 [`display`](Self::display) 是两件事，两件都要：
+    /// 那一支是记账格式，对账单上少了那两位就看不出精度；
+    /// 而标价上那两个零占着最重的位置，人也不那么说话。
+    ///
+    /// 【它原先长在 `unmei-api::ai_compose`】。放在那儿的时候，
+    /// 低一层的 `unmei-app` 够不着它 —— 于是 `coupon.rs` 要跟人说
+    /// 「要满 ¥49 才能用」时只能自己再拼一份（2026-09-07 被
+    /// `check-money-fmt` 当场抓住）。抄一份的代价不是多十行，是它会漂，
+    /// 而且漂在钱上。搬到领域层之后三层都够得着。
+    ///
+    /// 前端 `utils/money.ts` 是同一条规矩的另一份实现（跨语言，抄不掉）。
+    pub fn display_human(&self) -> String {
+        let d = self.currency.decimals();
+        if d == 0 {
+            return self.display();
+        }
+        let pow = 10_i64.pow(d as u32);
+        if self.amount_minor % pow == 0 {
+            // 符号那张表只有一份 —— 从 `display()` 的产物上把零头切掉，
+            // 不要在这里再抄一张 match。抄了就会有一天两张表说两个符号。
+            let 全 = self.display();
+            return 全[..全.len() - (d as usize + 1)].to_string();
+        }
+        self.display()
+    }
 }
 
 #[cfg(test)]
@@ -125,6 +153,20 @@ mod tests {
         assert_eq!(Money::new(12345, Currency::Cny).display(), "¥123.45");
         assert_eq!(Money::new(0, Currency::Cny).display(), "¥0.00");
         assert_eq!(Money::new(199, Currency::Cny).display(), "¥1.99");
+    }
+
+    /// 说给人听的那一支：整数不挂零头，有零头照写，零位币种原样。
+    #[test]
+    fn display_human_drops_the_trailing_zeros_only_when_they_are_zeros() {
+        assert_eq!(Money::new(9900, Currency::Cny).display_human(), "¥99");
+        assert_eq!(Money::new(9950, Currency::Cny).display_human(), "¥99.50");
+        assert_eq!(Money::new(4900, Currency::Cny).display_human(), "¥49");
+        assert_eq!(Money::new(0, Currency::Cny).display_human(), "¥0");
+        // 零位币种没有零头可切
+        assert_eq!(Money::new(1000, Currency::Jpy).display_human(), "¥1000");
+        // 多字符的符号也要切得对（切的是尾巴，不是按符号长度算的）
+        assert_eq!(Money::new(12300, Currency::Hkd).display_human(), "HK$123");
+        assert_eq!(Money::new(12345, Currency::Hkd).display_human(), "HK$123.45");
     }
 
     #[test]

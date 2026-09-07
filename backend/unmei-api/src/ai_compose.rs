@@ -372,36 +372,20 @@ fn 带上人名(名: String, 谁: Option<String>) -> String {
     }
 }
 
-/// 分转成一句能直接显示的价格。小数位问 `Currency` 要 —— 它是穷尽的，
-/// 加一个币种会在三处编译不过（那是 2026-08-18 特意改成这样的）。
+/// 分转成一句能直接显示的价格。
+///
+/// 【实现在领域层】（2026-09-07 搬的）。它原先整份长在这儿，
+/// 而 `unmei-app` 在下一层，够不着 —— 于是 `coupon.rs` 要跟人说
+/// 「要满 ¥49 才能用」时自己又拼了一份。搬下去之后三层用的是同一支。
+/// 这里留着这个名字，是因为上百处调用点都这么写，而这一层本来就是
+/// 「说给人听」那一层的家。
 pub fn money_display(minor: i64, currency: &str) -> String {
-    use unmei_domain::commerce::money::Currency;
+    use unmei_domain::commerce::money::{Currency, Money};
     let Some(c) = Currency::from_str_lax(currency) else {
         // 认不出的币种不猜小数位 —— 原样把分和代码写出来，看得出是哪里不对。
         return format!("{minor} {currency}");
     };
-    let d = c.decimals() as u32;
-    let sym = match c {
-        Currency::Cny => "¥",
-        Currency::Jpy => "¥",
-        Currency::Usd => "$",
-        Currency::Eur => "€",
-        Currency::Twd => "NT$",
-        Currency::Hkd => "HK$",
-        Currency::Gbp => "£",
-        Currency::Sgd => "S$",
-    };
-    if d == 0 {
-        return format!("{sym}{minor}");
-    }
-    let unit = 10_i64.pow(d);
-    let frac = (minor % unit).abs();
-    // 整数金额不挂零头 —— `¥99.00` 是记账格式，人不这么说话，而那两个零
-    // 还占着标价上最重的那块地方。前端 `utils/money.ts` 同样的规矩。
-    if frac == 0 {
-        return format!("{sym}{}", minor / unit);
-    }
-    format!("{sym}{}.{:0width$}", minor / unit, frac, width = d as usize)
+    Money::new(minor, c).display_human()
 }
 
 /// 「下午 1 点」—— 说给人听的时刻。

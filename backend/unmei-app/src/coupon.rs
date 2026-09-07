@@ -21,6 +21,7 @@ use chrono::Utc;
 use serde::Serialize;
 use sqlx::{PgPool, Postgres, Row, Transaction};
 use unmei_domain::commerce::enums::CouponState;
+use unmei_domain::commerce::money::{Currency, Money};
 use unmei_domain::commerce::region::Region;
 use std::str::FromStr;
 use unmei_domain::commerce::state_machine::StateTransition;
@@ -206,6 +207,7 @@ async fn 这一单过得了这张券吗(
     db: impl sqlx::PgExecutor<'_>,
     row: &sqlx::postgres::PgRow,
     user_id: &str,
+    region: &str,
     这一单小计: i64,
     这一单几张券: usize,
 ) -> Result<(), 挡下> {
@@ -222,10 +224,20 @@ async fn 这一单过得了这张券吗(
     if let Some(min) = rule.as_ref().and_then(|r| r.get("min_amount")).and_then(|v| v.as_i64()) {
         if 这一单小计 < min {
             // 差多少也说出来 —— 「满 ¥49 可用」比「不满足条件」有用得多
+            /* 【符号与小数位由区定，不写死 ¥】。这一句原先自己拼了一份
+               `format!("¥{}.{:02}")` —— 在繁中那一格上，它把 NT$ 说成 ¥、
+               还给零位小数的币种硬加两位。金额格式全仓只许有一支
+               （`check-money-fmt` 盯着这件事，2026-09-07 当场抓住）。 */
+            let 币 = Region::from_str(region)
+                .map(|r| r.meta().primary_currency.to_string())
+                .unwrap_or_else(|_| "CNY".into());
+            let 说 = |分: i64| Currency::from_str_lax(&币)
+                .map(|c| Money::new(分, c).display_human())
+                .unwrap_or_else(|| format!("{分} {币}"));
             return Err(挡下::说明白(format!(
                 "要满 {} 才能用，这一单是 {}",
-                钱(min),
-                钱(这一单小计)
+                说(min),
+                说(这一单小计)
             )));
         }
     }
@@ -254,15 +266,6 @@ async fn 这一单过得了这张券吗(
         }
     }
     Ok(())
-}
-
-/// 「4900」→「¥49」。只给上面那一句门槛用 —— 券这一路的钱都是分。
-fn 钱(分: i64) -> String {
-    if 分 % 100 == 0 {
-        format!("¥{}", 分 / 100)
-    } else {
-        format!("¥{}.{:02}", 分 / 100, 分 % 100)
-    }
 }
 
 /// 被 [`过不去的关`] 挡下时，该怎么说。
@@ -339,7 +342,7 @@ pub async fn lock_for_order(
         let 预算还剩 = 过不去的关(&row, user_id, region, Utc::now())
             .map_err(|挡| 那一句(挡, code))?;
         // 这一单本身过不过得了它的门槛（满多少 / 只给新客 / 能不能叠加）
-        这一单过得了这张券吗(&mut **tx, &row, user_id, subtotal_minor, codes.len())
+        这一单过得了这张券吗(&mut **tx, &row, user_id, region, subtotal_minor, codes.len())
             .await
             .map_err(|挡| 那一句(挡, code))?;
 
@@ -592,7 +595,7 @@ pub async fn preview(
         // 【跟下单同一段门禁】——试算说得通、下单却被拒，同样是欺骗
         let 预算还剩 = 过不去的关(&row, user_id, region, Utc::now())
             .map_err(|挡| 那一句(挡, code))?;
-        这一单过得了这张券吗(pool, &row, user_id, subtotal_minor, codes.len())
+        这一单过得了这张券吗(pool, &row, user_id, region, subtotal_minor, codes.len())
             .await
             .map_err(|挡| 那一句(挡, code))?;
 

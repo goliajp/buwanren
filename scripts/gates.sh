@@ -609,6 +609,14 @@ else
   gate "活动的规则真生效吗" . env \
     PSQL_URL='postgres://unmei:unmei_dev_pwd@localhost:6032/unmei' \
     python3 scripts/check-promo-rules.py
+  # 【屏上答应过的事，代码里得真有那件事】（2026-09-07）。
+  # 这一轮三路验证的 35 条里至少 20 条是同一个形状：停订说「最后一盒还会发」
+  # 而那天什么都不建；协议写「签收前可以取消」而付完就没有那颗按钮。
+  # 这一类不报错、不掉测试、不掉类型 —— 每一轮只能靠人从头读一遍。
+  # 台账在 scripts/promises.json，两侧都钉住：文案改了红，行为改了也红。
+  gate "屏上答应的，代码做得到吗" . env \
+    PSQL_URL='postgres://unmei:unmei_dev_pwd@localhost:6032/unmei' \
+    python3 scripts/check-promises.py
   # 【「按你缺的那一样配」得真的配得出来】（2026-09-07）。
   # 玉坠 / 单配香 / 按月送三件这么写，而下单流程此前从没问过买家缺什么。
   gate "按你缺的那样配，记得下来吗" . env \
