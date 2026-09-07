@@ -749,3 +749,90 @@ async fn 取消不限量的单不碰库存() {
     ).await;
     assert_eq!(还是空的, 1, "不限量的 stock_count 被写成了数字");
 }
+
+// ═══════════ 「按你缺的那一样配」那几件 ═══════════
+//
+// 玉坠（¥398，商品名就叫「配你缺的那一样」）、单配香（¥268）、
+// 按月送（¥78/月）三件都这么写，而在 2026-09-07 之前下单流程
+// 从头到尾没问过买家缺什么，`yongshen` 在 `order.rs` 里一次都没出现过 ——
+// 花 ¥398 买「配我缺的那一样」，收到的只能是默认款。
+
+/// 把一个 sku 标成「要配」。判据落在 sku 上而不是 product：
+/// 苏合那一件下面三档只有一档是现配的。
+async fn 标成要配(pool: &sqlx::PgPool, sku: &str) {
+    sqlx::query("UPDATE sku SET spec_json = spec_json || '{\"needs_yongshen\": true}'::jsonb WHERE id=$1")
+        .bind(sku).execute(pool).await.expect("标记");
+}
+
+/// 给这个人一份本命 + 命局简介，返回主用神。
+async fn 给他一份本命(pool: &sqlx::PgPool, user: &str) -> String {
+    let natal = common::uniq("natal");
+    sqlx::query(
+        "INSERT INTO natal(id, user_id, label, year, month, day, hour, minute, gender)
+         VALUES ($1,$2,'我',1998,3,5,14,30,'male')",
+    ).bind(&natal).bind(user).execute(pool).await.expect("插本命");
+    sqlx::query(
+        // `mingli_version` 是 NOT NULL —— 少了它这条 fixture 插不进去，
+        // 而报出来的是「插简介失败」，跟被测的那件事没关系
+        "INSERT INTO natal_summary(natal_id, day_master, strength_level, strength_score,
+                                   primary_yongshen, primary_role, secondary_yongshen,
+                                   avoid_wuxing, pattern_name, friendly_hint, mingli_version)
+         VALUES ($1,'丁','偏弱',40,'金','印星','土','[]'::jsonb,'建禄格','该收的收','test')",
+    ).bind(&natal).execute(pool).await.expect("插简介");
+    sqlx::query("UPDATE app_user SET active_natal_id=$1 WHERE id=$2")
+        .bind(&natal).bind(user).execute(pool).await.expect("挂上");
+    "金".to_string()
+}
+
+#[tokio::test]
+async fn 要配的那一件把用神记进单子() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 39800).await;
+    标成要配(&pool, &sku).await;
+    let 缺 = 给他一份本命(&pool, &user).await;
+
+    let o = order::create(&pool, new_order(&user, vec![(sku.clone(), 1)])).await.expect("下单");
+
+    /* `scalar_string` 走的是 `query_scalar::<String>` —— 行在而值是 NULL
+       时它是**解码错误**，不是 `None`。这一列可能为 NULL，所以套一层
+       COALESCE，让「没有」变成空串而不是 panic。 */
+    let 记的 = common::scalar_string(
+        &pool,
+        "SELECT COALESCE(extra_json->'yongshen'->>'primary','') FROM order_meta WHERE order_id=$1",
+        &o.order_id,
+    ).await;
+    assert_eq!(记的.as_deref(), Some(缺.as_str()),
+        "「按你缺的那一样配」而单子里没有用神 —— 装箱的人拿不到");
+}
+
+#[tokio::test]
+async fn 没填生辰就买不了要配的那一件() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 39800).await;
+    标成要配(&pool, &sku).await;
+    // 不给本命
+
+    let err = order::create(&pool, new_order(&user, vec![(sku.clone(), 1)])).await
+        .expect_err("没本命还能买");
+    assert!(format!("{err}").contains("出生时间"),
+        "拒的理由没说清差什么：{err}");
+}
+
+/// 不要配的东西不受影响 —— 绝大多数商品是这一种。
+#[tokio::test]
+async fn 不用配的那一件照常买得了() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 9900).await;
+
+    let o = order::create(&pool, new_order(&user, vec![(sku.clone(), 1)])).await
+        .expect("不用配的该照常买得了");
+    let 记的 = common::scalar_string(
+        &pool,
+        "SELECT COALESCE(extra_json->>'yongshen','') FROM order_meta WHERE order_id=$1",
+        &o.order_id,
+    ).await;
+    assert_eq!(记的.as_deref(), Some(""), "不用配的单子上凭空多了用神");
+}
