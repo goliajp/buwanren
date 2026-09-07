@@ -176,7 +176,7 @@ function 收件人(v: any) {
 }
 
 function ShipmentBody({ data }: { data: any }) {
-  const { shipment, trace } = data;
+  const { shipment, trace, yongshen } = data;
   return (
     <div className="space-y-5 text-[12.5px]">
       <section>
@@ -192,6 +192,17 @@ function ShipmentBody({ data }: { data: any }) {
              这一页的副标题写着「我们不管仓库，只跟单号」——
              收件人不是仓库的事，是这一单的事。 */
           ['收件人', 收件人(shipment.recipient_snapshot_json)],
+          /* 【配哪一味，装箱的人得看得见】（2026-09-07 三路验证）。
+             玉坠、单配香、按月送三件写着「按你缺的那一样配」，
+             下单时服务端把用神记进 `order_meta.extra_json`。
+             不是这三件的单子没有这一项，整行不摆 —— 摆一个「—」
+             会让人以为这一单该配而没配。 */
+          ...(yongshen?.primary
+            ? [['配的是', <span className="font-semibold">
+                {yongshen.primary}
+                {yongshen.secondary ? <span className="text-ink-3">（其次 {yongshen.secondary}）</span> : null}
+              </span>] as [string, React.ReactNode]]
+            : []),
           ['承运商', carrierLabel(shipment.carrier_code)],
           ['运单号', <span className="font-mono font-semibold">{shipment.tracking_no ?? '—'}</span>],
           ['状态', <span className={statusClass(shipment.status)}>{statusLabel(shipment.status)}</span>],

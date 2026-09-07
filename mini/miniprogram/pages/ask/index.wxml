@@ -93,6 +93,33 @@
       <view class="rec-price" wx:if="{{result.recommend.price_display}}">{{result.recommend.price_display}}</view>
     </view>
 
+    <!-- 【问一件具体的事】（2026-09-07 三路验证 · 第一次打开的人）。
+         主屏、这一屏、村民屋三处都在说「心里装着一件事」，
+         而 `spin({})` 不带问题 —— 后端那条能力（问题进种子、
+         不同的事给不同的答案）做好了，前端一个入口都没有。
+         这个产品卖的正是「替你看一件事」。
+
+         入口在这儿而不是主屏:主屏定过「转一下就是转一下」，
+         那是想清楚的决定;而人刚看过一签，这时他知道自己想问的是哪一件。
+         点开才出输入框 —— 常驻会把这一屏从「一句话」变成一张表单。 -->
+    <view class="askq" wx:if="{{mode === 'result'}}">
+      <block wx:if="{{问着}}">
+        <input
+          class="askq-in"
+          placeholder="想问的是哪一件事"
+          value="{{想问}}"
+          maxlength="40"
+          focus="{{true}}"
+          bindinput="想问输入"
+          confirm-type="send"
+          bindconfirm="问" />
+        <button class="btn askq-go" bindtap="问" disabled="{{问中 || !想问}}">
+          {{问中 ? '问着……' : '问'}}
+        </button>
+      </block>
+      <button wx:else class="btn" bindtap="开问">问一件具体的事</button>
+    </view>
+
     <view class="cta">
       <!-- 「再问一次」= 回我家的罗盘。`reset` 随起卦一起搬走了，
            留一个绑到不存在的处理器上的按钮，点下去只会抛 -->
