@@ -2942,6 +2942,53 @@ if (API) {
   ok(!!r.dir, '这一卦有方位　—— 后端真算过', r.dir || '空的')
   ok((await text()).includes('再问一次'), '落卦之后可以再问一次')
 
+  /* 【问一件具体的事】（2026-09-07 三路验证 · 第一次打开的人）。
+     主屏、这一屏、村民屋三处都在说「心里装着一件事」，而
+     `spin({})` 不带问题 —— 后端那条能力（问题进种子、不同的事给不同的
+     答案，`naji.rs` 那段注释写着）做好了，前端一个入口都没有。
+     这个产品卖的正是「替你看一件事」。
+     这一段验的是整条真链:点开 → 输入 → 真发一卦 → 屏上换成那一签,
+     而且【问的那件事回显在屏上】（那是「它听见了」唯一的凭据）。 */
+  {
+    ok(await p.getByText('问一件具体的事', { exact: true }).count() === 1,
+       '落卦之后给得出「问一件具体的事」这条路',
+       String(await p.getByText('问一件具体的事', { exact: true }).count()))
+    ok(await p.locator('.askq-in').count() === 0,
+       '输入框点开才出 —— 这一屏要让人带走的是那句话，不是一张表单',
+       String(await p.locator('.askq-in').count()))
+    const 之前 = await p.evaluate(() => (globalThis.__router.current().data.result || {}).id)
+    await p.getByText('问一件具体的事', { exact: true }).click()
+    await p.waitForTimeout(400)
+    ok(await p.locator('.askq-in').count() === 1, '点开之后输入框在',
+       String(await p.locator('.askq-in').count()))
+    const 那件事 = '这个月要不要换个住处' + Date.now()
+    await p.locator('.askq-in').fill(那件事)
+    await p.getByText('问', { exact: true }).click()
+    await p.waitForFunction(
+      (旧) => {
+        const d = globalThis.__router.current().data
+        return d.mode === 'result' && d.result && d.result.id !== 旧
+      },
+      之前, { timeout: 25000 },
+    ).catch(() => {})
+    const 这一签 = await p.evaluate(() => globalThis.__router.current().data.result || {})
+    ok(这一签.id && 这一签.id !== 之前,
+       '问了一件具体的事，落的是另一签　—— 不同的事给不同的答案',
+       `${String(之前).slice(0, 12)} → ${String(这一签.id).slice(0, 12)}`)
+    ok(这一签.question === 那件事,
+       '屏上回显的是他问的那件事　—— 那是「它听见了」唯一的凭据',
+       String(这一签.question).slice(0, 24))
+    ok((await text()).includes(那件事.slice(0, 8)),
+       '而且那句话真的渲在屏上', 那件事.slice(0, 12))
+    if (API) {
+      const 落档 = sql1(
+        `SELECT question FROM naji_record WHERE id='${这一签.id}'`)
+      ok(落档 === 那件事,
+         '库里也记着他问的是什么　—— 种子靠它，运营也要看得见',
+         落档.slice(0, 24))
+    }
+  }
+
   /* 【那张推荐卡真的在屏上】（2026-09-02 第三轮评审 · 第一次打开的人）。
      起卦那一刻后端确实回了推荐，但结果屏拿到 id 之后会用 `detail(id)`
      把整条记录【重取一遍】（ask/index.ts 的 `showWanted`）——
@@ -5537,6 +5584,9 @@ if (!(CAL > 0)) {
 // 三档的数都是【实测】的，不是从另一档减出来的：
 // 2026-09-03 同一台机器上分别跑了三趟 —— 假 130 / 真 358 / 真带排盘 384。
 // 建本命那一段是 26 条，不是当初以为的 17 条。
+/* 「真带排盘」这一档 2026-09-07 第十六次改，526 → 533（实跑）——
+   「问一件具体的事」那条路加了七条（给得出这条路 / 点开才出输入框 /
+   点开之后在 / 落的是另一签 / 屏上回显 / 真渲出来 / 库里也记着）。 */
 /* 「真带排盘」这一档 2026-09-07 第十五次改，522 → 526（实跑）——
    「按你缺的那一样配」加了四条（这一屏知道要配 / 说清差什么 /
    按钮就是下一步 / 按下去真去填生辰）。 */
@@ -5579,7 +5629,7 @@ if (!(CAL > 0)) {
    凭空少掉八十条仍然报「全通」。
    另外两档没有在这一轮实测过，不动 —— 改一个没量过的数，
    等于把「下限」变成「我猜的数」。 */
-const 基准 = { 假: 132, 真: 360, 真带排盘: 526 }
+const 基准 = { 假: 132, 真: 360, 真带排盘: 533 }
 // 名字不叫 `档`：978 行有个同名的局部变量（村民稀有度），
 // 两个都在这个文件里，读起来会以为是同一个东西
 const 这一档 = !API ? '假' : (MINGLI ? '真带排盘' : '真')

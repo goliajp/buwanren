@@ -279,3 +279,20 @@
   font-size: 24rpx;
   color: var(--ink-faint);
 }
+
+/* 「问一件具体的事」那一格。点开才出输入框 ——
+   常驻会把这一屏从「一句话」变成一张表单，而这一屏要让人带走的是那句话。
+   高度按触点定（88rpx = 44px），跟别处一致。 */
+.askq { display: flex; gap: 16rpx; margin-top: 28rpx; }
+.askq .btn { flex: 1; }
+.askq-in {
+  flex: 1;
+  min-width: 0;
+  min-height: 88rpx;
+  padding: 0 24rpx;
+  border-radius: var(--r-card);
+  background: var(--paper-inset);
+  font-size: 28rpx;
+  color: var(--ink);
+}
+.askq-go { flex: none; min-width: 160rpx; }
