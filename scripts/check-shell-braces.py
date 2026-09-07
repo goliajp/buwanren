@@ -28,15 +28,18 @@ import sys
 扫过 = 0
 
 for f in sorted(list((根 / 'scripts').glob('*.sh')) + list((根 / 'web').glob('*.sh'))):
-    # 变异脚本里【故意】写着坏的那一版 —— 它的活儿就是把坏代码种进去，
-    # 再看门禁报不报红。扫它等于让这一支被自己的反例绊倒。
-    if f.name == 'mutationtest-checks.sh':
-        continue
     扫过 += 1
     for n, 行 in enumerate(f.read_text(encoding='utf-8').split('\n'), 1):
         # 注释里讨论这件事是允许的 —— 上面那段文档就在讨论它
         裸 = 行.strip()
         if 裸.startswith('#'):
+            continue
+        # 【豁免要小到只盖住那一句】。变异脚本里【故意】写着坏的那一版 ——
+        # 它的活儿就是把坏代码种进去再看门禁报不报红。
+        # 第一版整份文件都不扫，于是那个文件自己的一行 `echo "…（$变量 …）"`
+        # 躲了过去，而它在 `set -u` 下当场炸 —— 那正是这一支要挡的东西，
+        # 发生在它自己的名字旁边。现在只放过种变异的那几行。
+        if 'edit(' in 裸 or 裸.startswith(('mutate ', 'keep ')):
             continue
         for m in 坏.finditer(行):
             错.append(f'{f.relative_to(根)}:{n}　`{m.group(0)}` 后面紧跟全角字符 —— '
