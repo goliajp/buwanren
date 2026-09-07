@@ -11,6 +11,7 @@
 import { natalApi } from '../../services/natal'
 import { 脸 } from '../../utils/face'
 import { incenseApi } from '../../services/incense'
+import { 那一天那一刻, 今天那一刻 } from '../../utils/incense-when'
 import { commerceApi } from '../../services/commerce'
 import { storage } from '../../services/storage'
 import type { ApiError } from '../../services/api'
@@ -37,9 +38,30 @@ interface IData {
   err: string
   /** 今晚那一场开着没有（设计册 E1）。开着这一槽才是入口 */
   tonight: boolean
+  /** 点香是几点（「周四晚九点」/「今晚九点」）。**按后端那份排期生成** ——
+   *  几点点香在后端是配置，写死在屏上的话，挪了时间就成了一句假话。
+   *  取不到就是空串:这一句宁可不显示，也不说一个可能已经不对的时刻 */
+  当口: string
+  今口: string
   /** 她那一句。没有本命时是空 —— **不编一句**，改说不知道并给出口 */
   line: string
-  skus: Array<{ id: string; name: string; priceText: string }>
+  skus: Array<{ id: string; name: string; priceText: string; 荐: boolean }>
+  /** 按月送那一档。取不到就是空 —— 那时整块不摆，不编一个价出来。
+   *  它跟上面三档不是同一种东西:三档是买一次，这一档是每月收到一盒。 */
+  按月: { skuId: string; priceText: string } | null
+}
+
+/* 三档要分出主次。
+   原先三张牌各带一条一模一样的实心橙「买」—— 三个同级的主动作等于
+   没有主动作，眼睛无处落，而这一屏最要紧的事就是选一档。
+
+   推荐哪一档？**不编社会证明**。「多数人选这个」得有数据，我们没有，
+   写了就是骗。能诚实说的只有一件事:第一次买的人该从最小的一档起，
+   所以荐的是【最便宜的那一档】—— 由价格算出来，不写死在第几张牌上。
+   （写死 index 0 的话，哪天档位次序一改，推荐就悄悄落到别处。） */
+function 标出最便宜那一档<T extends { 分: number }>(档: T[]): Array<T & { 荐: boolean }> {
+  const 最低 = Math.min(...档.map((x) => x.分))
+  return 档.map((x) => ({ ...x, 荐: x.分 === 最低 }))
 }
 
 Page<IData, WechatMiniprogram.IAnyObject>({
@@ -47,7 +69,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     /* 这一屏就是苏合的 —— 头像也就写死她。
        上一轮接四十张脸时扫的是 `face-{{…}}` 那种模式，
        这里的类名是写死的 `face-near`，于是漏掉了。 */
-    脸样: 脸('suhe'), productId: 'prod-suhe-incense', loading: true, err: '', line: '', skus: [], tonight: false },
+    脸样: 脸('suhe'), productId: 'prod-suhe-incense', loading: true, err: '', line: '', skus: [], tonight: false, 当口: '', 今口: '', 按月: null },
 
   onLoad(q: Record<string, string | undefined>) {
     if (q.id) this.setData({ productId: q.id })
@@ -65,25 +87,62 @@ Page<IData, WechatMiniprogram.IAnyObject>({
       (d) => this.setData({
         loading: false,
         err: '',
-        skus: d.skus
+        skus: 标出最便宜那一档(d.skus
           /* 挑不出价的档不显示。显示一个没有价钱的选项，
              点进去才发现买不了，比不显示更糟。 */
           .filter((s) => s.current_price_minor != null && s.current_currency)
           .map((s) => ({
             id: s.id,
             name: s.name,
+             分: s.current_price_minor as number,
             priceText: money(s.current_price_minor as number, s.current_currency as string),
-          })),
+          }))),
       }),
       (e: ApiError) => this.setData({ loading: false, err: 一句(e) }),
     )
     this.loadLine()
+    this.load按月()
     /* 今晚开着没有。取不到就当没开 —— 猜「开着」的话，
        这一槽会把人送进一屏说「还没开始」的东西。 */
     incenseApi.now().then(
       (n) => this.setData({ tonight: !!n }),
       () => this.setData({ tonight: false }),
     )
+    incenseApi.schedule().then(
+      (s) => this.setData({ 当口: 那一天那一刻(s), 今口: 今天那一刻(s) }),
+      // 取不到就不说时刻。说错一个钟点比不说更伤 —— 有人会照着它来
+      () => this.setData({ 当口: '', 今口: '' }),
+    )
+  },
+
+  /* 【按月送那一档】。
+     商品号写死在这儿，跟这一屏的头像写死苏合是同一个理由:
+     **这一屏就是她的**（设计册 10.8「东西长在卖它的人身上」）。
+     第二个按月卖东西的人来时，各配一张表 —— 那时再拆。
+
+     取不到就不摆这一块。摆一个没有价的入口，点进去才发现买不了,
+     比不摆更糟 —— 跟上面三档挑价那一段同一条判据。 */
+  load按月() {
+    commerceApi.product('prod-incense-monthly').then(
+      (d) => {
+        const 有价 = d.skus.filter((s) => s.current_price_minor != null && s.current_currency)
+        this.setData({
+          按月: 有价.length
+            ? {
+                skuId: 有价[0].id,
+                priceText: money(有价[0].current_price_minor as number,
+                                 有价[0].current_currency as string),
+              }
+            : null,
+        })
+      },
+      () => this.setData({ 按月: null }),
+    )
+  },
+
+  onPick按月() {
+    const s = this.data.按月
+    if (s) wx.navigateTo({ url: '/pages/confirm/index?id=prod-incense-monthly&sku=' + s.skuId })
   },
 
   /** 她那一句要按【你缺什么】来。取不到本命就不说 —— 见 wxml 里那一段。 */

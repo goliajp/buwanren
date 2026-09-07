@@ -261,8 +261,45 @@ fn build_friendly_hint(b: &BaziLite) -> String {
         "水" => "想得已经够多了，剩下的交给做",
         _    => "已经够多的那一样，先不用再添",
     });
+    /* 【结尾不写句号】（.claude/CLAUDE.md ★ · 2026-09-05 逐屏走看见的）。
+       这一句摆在填完出生时间那一屏的圆角框里，是【界面短句】不是文章:
+       句号会让它读起来像念稿，而这一句正是全屏唯一一句人话。
+       两句时中间那个句号照留 —— 规矩只去掉结尾那一个。 */
     match 够了 {
-        Some(g) => format!("{使劲}。{g}。"),
-        None => format!("{使劲}。"),
+        Some(g) => format!("{使劲}。{g}"),
+        None => 使劲.to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /* 界面短句结尾不写句号（.claude/CLAUDE.md ★）。
+       这一句摆在填完出生时间那一屏的圆角框里，是全屏唯一一句人话 ——
+       句号会让它读起来像念稿。两句时中间那个照留:
+       规矩只去掉结尾那一个。 */
+    // 盘照 mingli 真回的形状拼，不给它加构造函数 —— 报告那一支的测试同一路子
+    fn 盘(主: &str, 忌: serde_json::Value) -> crate::mingli::BaziLite {
+        serde_json::from_value(serde_json::json!({
+            "day_master": "庚", "day_master_wuxing": "金",
+            "strength": { "score": 47, "level": "中和" },
+            "pattern": { "name": "正财格" },
+            "yongshen": {
+                "primary_wuxing": 主, "primary_role": "调候",
+                "secondary_wuxing": serde_json::Value::Null, "avoid_wuxing": 忌,
+            },
+        })).unwrap()
+    }
+
+    #[test]
+    fn 填完那一句不以句号收尾() {
+        let 只有一句 = build_friendly_hint(&盘("金", serde_json::json!([])));
+        assert_eq!(只有一句, "该收的收、该断的断，别拖着");
+        let 两句 = build_friendly_hint(&盘("金", serde_json::json!(["金"])));
+        assert_eq!(两句, "该收的收、该断的断，别拖着。已经够克制了，不用再逼自己一把");
+        for x in [&只有一句, &两句] {
+            assert!(!x.ends_with('。'), "界面短句结尾不写句号：{x}");
+        }
     }
 }

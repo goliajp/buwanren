@@ -1,10 +1,11 @@
 .hd { padding: 24rpx 0 20rpx; }
-.hd .title { font-size: 46rpx; line-height: 1.15; }
+.hd .title { line-height: 1.15; }
 .hd .sub { font-size: 24rpx; color: var(--ink-faint); margin-top: 12rpx; letter-spacing: 0.06em; }
 
 .say { padding: 24rpx 0 8rpx; font-size: 30rpx; color: var(--ink); line-height: 1.8; }
 .say.muted { font-size: 26rpx; color: var(--ink-faint); }
-.say-go { display: block; margin-top: 12rpx; font-size: 26rpx; color: var(--ink-mid); }
+.say-go { display: block; margin: -12rpx 0 -24rpx; padding: 24rpx 0;
+          font-size: 26rpx; color: var(--ink-mid); }
 
 .recipe {
   padding: 12rpx 0 24rpx;
@@ -35,7 +36,14 @@
    `margin-bottom: auto` 让上下两段弹性平分那段富余：按钮不再钉死在
    视口底，而是跟着内容往下留一段。矮屏上富余是 0，行为不变。 */
 .acts { margin-top: auto; margin-bottom: auto; padding-top: 48rpx; text-align: center; }
-.slot-on { display: flex; align-items: center; color: var(--ink-mid); }
+/* 【能点的那一档要够 44px】（2026-09-05 · 点香开着时这一条才出现）。
+   不开的时候它只是一句话，多高都行;开着的时候它是【入口】——
+   而它算下来只有 28px（22rpx 字 + 18rpx 上内距）。
+   这一条只在 `slot-on` 上加，那一句不动。 */
+.slot-on {
+  display: flex; align-items: center; color: var(--ink-mid);
+  min-height: 88rpx; box-sizing: border-box; padding-bottom: 18rpx;
+}
 .slot-arrow { margin-left: auto; color: var(--stone-label); }
 
 
@@ -45,7 +53,10 @@
 /* 底色与字色由 `.face-<方向>`（app.wxss）给 —— 这里自调过一版绿，
    而苏合的 `lack_bias.direction` 是 near，她在名册与村子里都是粉的。 */
 .say-face {
-  flex: none; width: 68rpx; height: 68rpx; border-radius: 999rpx;
+  /* 84rpx = 42px —— 圆牌尺寸统一到这一档:脸是 14 的整数倍时最接近
+     原先那 68% 的一档正是 28px（14×2），配 42px 的圆牌是 66.7%。
+     顺带一件好处:同一个人在名册、确认、订单、点香几处一样大。 */
+  flex: none; width: 84rpx; height: 84rpx; border-radius: 999rpx;
   font-size: 30rpx; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
 }
@@ -61,8 +72,8 @@
   border-top: 10rpx solid transparent; border-bottom: 10rpx solid transparent;
   border-right: 12rpx solid var(--paper-panel);
 }
-.say-go { display: block; margin-top: 10rpx; font-size: 25rpx;
-          font-weight: 600; color: var(--amber-deep); }
+.say-go { display: block; margin: -14rpx 0 -24rpx; padding: 24rpx 0;
+          font-size: 25rpx; font-weight: 600; color: var(--amber-text); }
 
 .recipe { display: flex; align-items: baseline; gap: 18rpx; margin-top: 26rpx; }
 .recipe-k { font-size: 23rpx; color: var(--stone-label); }
@@ -88,7 +99,52 @@
 .pick-go {
   margin: 18rpx -10rpx -20rpx; padding: 14rpx 0;
   border-radius: 0 0 var(--r-card) var(--r-card);
-  background: var(--amber); color: #fff;
+  background: var(--amber); color: var(--on-amber);
   font-size: 26rpx; font-weight: 700; letter-spacing: 0.08em;
 }
 .pick-hover .pick-go { background: var(--amber-deep); }
+
+
+/* ── 2026-09-01：三档分主次 ─────────────────────────────────
+   荐的那一档留实心橙并戴一个小标;另外两档的动作带退成
+   「纸底 + 橙字」—— 还是看得出可以点，但不跟主的抢。
+   为什么荐最便宜那一档:见 index.ts 里 `标出最便宜那一档` 上面那段。 */
+.pick-go {
+  background: var(--paper-inset);
+  color: var(--amber-text);
+  border-top: 2rpx solid #EDE3D2;
+}
+.pick-rec .pick-go {
+  background: var(--amber);
+  color: var(--on-amber);
+  border-top: none;
+}
+.pick-rec { border-color: var(--amber); box-shadow: 0 4rpx 14rpx rgba(232,121,26,.14); }
+.pick-tag {
+  position: absolute; top: -16rpx; left: 50%; transform: translateX(-50%);
+  white-space: nowrap;
+  padding: 4rpx 14rpx; border-radius: 999rpx;
+  background: var(--amber); color: var(--on-amber);
+  font-size: 19rpx; font-weight: 600; letter-spacing: .02em;
+}
+.pick { position: relative; }
+
+/* 【按月送】。它跟上面三张牌不是同一种东西 —— 三张牌是买一次，
+   这一条是每月收到一盒。所以形状也不同:不做成第四张牌，
+   做成一条横跨整宽的卡，摆在那句注脚底下。
+   底色比纸略深一档，不用主色 —— 这一屏的主动作仍然是那三张牌里的「买」，
+   按月是给已经在烧的人看的第二条路，不该抢在第一次来的人眼前。 */
+.monthly {
+  margin-top: 24rpx;
+  padding: 24rpx 26rpx;
+  background: var(--paper-panel);
+  border-radius: var(--r-card);
+  box-shadow: var(--sh-card);
+  transition: transform .12s cubic-bezier(.34,1.56,.64,1);
+}
+.m-top { display: flex; align-items: baseline; }
+.m-k { flex: 1; font-size: 30rpx; font-weight: 600; color: var(--ink); }
+.m-p { flex: none; font-size: 28rpx; font-weight: 700; color: var(--ink);
+       font-variant-numeric: tabular-nums; }
+.m-sub { margin-top: 10rpx; font-size: 24rpx; color: var(--ink-faint); }
+.m-go { margin-left: 10rpx; color: var(--stone-label); }

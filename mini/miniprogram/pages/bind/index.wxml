@@ -6,7 +6,7 @@
 
   <view class="onboard-card">
     <view class="onboard-sub">
-      绑定之后，本命档案跟着你走，不跟着这台手机
+      绑定之后，你填的出生时间跟着你走，不跟着这台手机
     </view>
 
     <view class="wx-form">

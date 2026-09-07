@@ -1,5 +1,5 @@
 -- unmei seed · PG18 兼容
--- 由 unmei-api 启动时通过 sqlx::query(include_str!) 一次性执行;表名注意 user → app_user
+-- 由 unmei-api 启动时通过 sqlx::query(include_str!) 一次性执行；表名注意 user → app_user
 -- 所有 INSERT 用 ON CONFLICT DO NOTHING 幂等
 
 -- ─── quote · 24 句 ───────────────────────────────────────────────
@@ -76,15 +76,29 @@ INSERT INTO yiji_word (id, type, word, category, favor_when_main_wuxing, disfavo
 ON CONFLICT (id) DO NOTHING;
 
 -- ─── product seed 已迁移到 commerce_v2 migration(详见 commerce v2 schema)──────────
--- v0.1 字段(price_cn / stock / image_urls / recommend_when_main_wuxing)已废,
--- 本段保留占位避免文件结构变化;新 seed 见 backend/migrations/20260627_commerce_v2.sql
+-- v0.1 字段(price_cn / stock / image_urls / recommend_when_main_wuxing)已废，
+-- 本段保留占位避免文件结构变化；新 seed 见 backend/migrations/20260627_commerce_v2.sql
 SELECT 1;
 
 -- ─── activity · 3 场 ────────────────────────────────────────────
-INSERT INTO activity (id, title, sub_title, category, banner_url, location, city, start_at, end_at, max_participants, current_count, description) VALUES
-  ('a_gw','古物市集·夏至专场','匠心手作·古物古玩·香氛药香','market','https://images.pexels.com/photos/776653/pexels-photo-776653.jpeg?auto=compress&w=800','西溪湿地','杭州','2026-07-21 10:00:00+08','2026-07-21 18:00:00+08',100,48,'汇集各地古物古玩，传承东方美学。'),
-  ('a_dy','道医问诊·义诊专场','名师坐诊·中医调理','market','https://images.pexels.com/photos/4226892/pexels-photo-4226892.jpeg?auto=compress&w=800','平江路','苏州','2026-07-28 09:00:00+08','2026-07-28 17:00:00+08',60,32,'特邀道医传人坐诊，提供中医问诊、针灸调理、养生建议等服务。'),
-  ('a_xd','香道入门课','三日浸修·从识香到调香','course','https://images.pexels.com/photos/4226892/pexels-photo-4226892.jpeg?auto=compress&w=800','栖云堂','上海','2026-08-15 09:00:00+08','2026-08-17 17:00:00+08',20,12,'三日课程，从识香、品香、用香到自调香方，系统入门。')
+-- 【日期写相对的】（2026-09-03 五路评审 · 架构审计）。
+-- 上一版写的是 2026-07-21 / 07-28 / 08-15 三个绝对日子 —— 到九月三号，
+-- 三场全办完了，而 `status` 还写着 `open`，用户那一屏照样列着它们，
+-- 点报名会拿到「这场已经开始了」。
+-- 种子里的活动永远该是「还没办」的，不然它一过期就成了坏样本。
+-- `current_count` 这一列已删（20260903005）——「已报名多少人」现在
+-- 从 activity_registration 现算。种一个 48 在这儿，就是种一个
+-- 没有任何人在背后的数字。
+-- 【开场时刻要是整点】（2026-09-05 · 25 计划的用户逐屏走）。
+-- 上一版写的是 `NOW() + INTERVAL '10 days'` —— 它把【种库那一刻的分秒】
+-- 一起带进去了，于是屏上三场活动写着「9月13日 18:57」「9月23日 18:57」
+-- 「10月3日 18:57」:同一个分钟，还是个谁也不会挑的分钟。
+-- 那一列一眼就看得出是机器生成的东西，而这一屏是拿给人看的。
+-- `date_trunc('day', NOW())` 先削掉当天的时分秒，再加整点。
+INSERT INTO activity (id, title, sub_title, category, banner_url, location, city, start_at, end_at, max_participants, description) VALUES
+  ('a_gw','古物市集·夏至专场','匠心手作·古物古玩·香氛药香','market','https://images.pexels.com/photos/776653/pexels-photo-776653.jpeg?auto=compress&w=800','西溪湿地','杭州',date_trunc('day', NOW()) + INTERVAL '10 days 10 hours', date_trunc('day', NOW()) + INTERVAL '10 days 18 hours',100,'汇集各地古物古玩，传承东方美学。'),
+  ('a_dy','道医问诊·义诊专场','名师坐诊·中医调理','market','https://images.pexels.com/photos/4226892/pexels-photo-4226892.jpeg?auto=compress&w=800','平江路','苏州',date_trunc('day', NOW()) + INTERVAL '17 days 10 hours', date_trunc('day', NOW()) + INTERVAL '17 days 18 hours',60,'特邀道医传人坐诊，提供中医问诊、针灸调理、养生建议等服务。'),
+  ('a_xd','香道入门课','三日浸修·从识香到调香','course','https://images.pexels.com/photos/4226892/pexels-photo-4226892.jpeg?auto=compress&w=800','栖云堂','上海',date_trunc('day', NOW()) + INTERVAL '35 days 9 hours', date_trunc('day', NOW()) + INTERVAL '37 days 17 hours',20,'三日课程，从识香、品香、用香到自调香方，系统入门。')
 ON CONFLICT (id) DO NOTHING;
 
 -- ─── badge · 6 徽章 ─────────────────────────────────────────────
@@ -100,10 +114,20 @@ ON CONFLICT (id) DO NOTHING;
 -- ─── feature_flag · 4 个 ────────────────────────────────────────
 INSERT INTO feature_flag (code, default_on, by_platform, by_region, description) VALUES
   ('show_ai_explanation_full',TRUE,'{"mini":false}'::jsonb,'{}'::jsonb,'「AI 详细释义」全文版；mini 平台限简版'),
-  ('show_product_iap',TRUE,'{}'::jsonb,'{"cn":false,"us":true,"eu":true}'::jsonb,'iOS IAP 商品入口（国内 OFF，海外 ON）'),
+  ('show_product_iap',TRUE,'{}'::jsonb,'{"cn":false,"us":true,"eu":true}'::jsonb,'iOS IAP 商品入口（国内关，海外开）'),
   ('sensitive_terms_strict',FALSE,'{"mini":true}'::jsonb,'{}'::jsonb,'敏感词严格模式（mini 必开）'),
-  ('show_dayun_in_summary',FALSE,'{}'::jsonb,'{}'::jsonb,'本命简介是否露出大运（默认 OFF，保持极轻）')
-ON CONFLICT (code) DO NOTHING;
+  ('show_dayun_in_summary',FALSE,'{}'::jsonb,'{}'::jsonb,'本命简介是否露出大运（默认关，保持极轻）')
+-- 【文案要覆盖，开关状态不能覆盖】。description 是这份文件说了算的；
+-- 而 default_on / by_platform / by_region 是运营在后台改的运行时数据，
+-- 重新 seed 一次不许把人家的设置冲掉。
+-- 上一版整句是 DO NOTHING，于是文案在文件里改对了、库里还是旧的 ——
+-- 屏幕上写着半角括号，而标点门禁扫文件，一直报绿。
+ON CONFLICT (code) DO UPDATE SET description = EXCLUDED.description
+  -- 【只在真的不一样时才写】。少了这个 WHERE，每次开机都会把
+  -- `updated_at` 推到当前时间 —— 内容一个字没改，表却动了，
+  -- 于是「重启不会把库写回去」那一支门禁当场红，而它说得对:
+  -- 一张每次重启都变的表，没有人分得清哪次是真改动。
+  WHERE feature_flag.description IS DISTINCT FROM EXCLUDED.description;
 
 -- ─── admin_user · 默认 admin@unmei.local / admin123 ───────────
 INSERT INTO admin_user (id, email, password_hash, name, roles) VALUES

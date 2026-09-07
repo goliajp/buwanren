@@ -5,10 +5,15 @@
 .plot-art {
   background: transparent;
   border: 3rpx dashed var(--stone-line);
-  color: var(--stone-line);
+  /* 同上:那个「?」是这一格的全部内容，用线的颜色写等于没写 */
+  color: var(--ink-faint);
   font-size: 68rpx;
   box-shadow: none;
 }
 .empty-s.dim { color: var(--stone-label); font-size: 23rpx; margin-top: 8rpx; }
 .empty-state .btn { width: 100%; box-sizing: border-box; }
-.back { margin-top: 28rpx; font-size: 26rpx; color: var(--ink-faint); }
+.back { display: inline-block; margin: 5rpx -12rpx -23rpx; padding: 23rpx 12rpx;
+        font-size: 26rpx; color: var(--ink-faint); }
+
+/* 收集数。比那句「请回一位」轻一档 —— 它是背景信息，不是这一屏的动作。 */
+.empty-tally { margin-top: 14rpx; font-size: 23rpx; color: var(--stone-label); }

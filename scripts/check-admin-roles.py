@@ -28,13 +28,30 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 SRC = ROOT / 'backend/unmei-admin-api/src/routes'
 LEDGER = ROOT / 'scripts/admin-role-gaps.json'
 
-WRITE = re.compile(r'\.route\(\s*"([^"]+)"\s*,\s*(post|put|patch|delete)\(([a-z_0-9]+)\)')
+# 【一条 route 上可能挂好几个方法】（2026-09-03 第四轮评审 · 工程审计）。
+# 上一版要求写方法【紧跟逗号】，于是 `get(list).post(create)` 一个都取不到、
+# `patch(update).delete(remove)` 只取到第一个 ——
+# `POST /admin/quotes` 与 `DELETE /admin/quotes/:id` 从来不在名单里。
+# 审计实测:把 `create` 的 `requires_role("content")` 拿掉，
+# 这一支仍报「17 条 · 查了角色 16 条」一字不变。
+# 改成先切出整条 route，再在里头找【所有】写方法。
+ROUTE = re.compile(r'\.route\(\s*"([^"]+)"\s*,\s*(.+?)\)\s*(?=\.route|;|$)', re.S)
+VERB = re.compile(r'\b(post|put|patch|delete)\(([a-z_0-9]+)\)')
+
+
+def 写方法(src):
+    """→ [(path, verb, fn), …]，一条 route 上挂几个就出几条。"""
+    出 = []
+    for path, 体 in ROUTE.findall(src):
+        for verb, fn in VERB.findall(体):
+            出.append((path, verb, fn))
+    return 出
 
 unguarded = {}
 guarded = {}
 for f in sorted(SRC.glob('*.rs')):
     src = f.read_text(encoding='utf-8')
-    for path, verb, fn in WRITE.findall(src):
+    for path, verb, fn in 写方法(src):
         m = re.search(r'async fn ' + fn + r'\b(.{0,4000}?)\n}\n', src, re.S)
         body = m.group(1) if m else ''
         key = f'{verb.upper()} {path}'

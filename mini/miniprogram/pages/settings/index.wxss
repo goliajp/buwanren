@@ -1,9 +1,18 @@
+/* 【底部留白收一半】。全局 `.page` 给的是 96rpx（48px）—— 那是给
+   有 tab 栏、或者底下压着一颗大按钮的屏留的。这一屏最后一样东西是
+   一行 12px 的小字（版本号 + 免责），48px 的空白摆在它下面是白扔的，
+   而这一屏正好差 12px 才放得下。 */
+.page { padding-bottom: 48rpx; }
 .hd { padding: 24rpx 0 28rpx; }
-.hd .title { font-size: 50rpx; line-height: 1; }
+.hd .title { line-height: 1; }
 .hd .sub { font-size: 26rpx; color: var(--ink-faint); margin-top: 10rpx; }
 
+/* 【小节标题之间收紧一档】。这一屏现在有两组（账号 / 有事找我们），
+   两个 40rpx 的上留白加起来就是 40px —— 而它超出一屏 22px。
+   一屏放不下的时候，先收留白，再考虑少放东西:
+   32rpx 仍然分得开两组，而两组之间本来就有一颗按钮隔着。 */
 .sec-k {
-  padding: 40rpx 4rpx 14rpx;
+  padding: 32rpx 4rpx 12rpx;
   font-size: 22rpx;
   color: var(--stone-label);
   letter-spacing: 0.02em;
@@ -33,23 +42,47 @@
   letter-spacing: 0.02em;
 }
 
-.cta { text-align: center; padding: 48rpx 0 24rpx; }
+/* 【留白压过一档】（2026-09-05）。这一屏底下多了一行「注销账号」，
+   而它按触点得占满 44px —— 加进来之后一屏放不下（超 26px）。
+   压的是三处留白，一行字、一个入口都没删。 */
+.cta { text-align: center; padding: 28rpx 0 8rpx; }
 .foot-hint {
   text-align: center;
   font-size: 20rpx;
   color: var(--stone-label);
   letter-spacing: 0.02em;
-  padding: 16rpx 0 0;
+  padding: 8rpx 0 0;
+}
+
+/* 【注销账号】那一行。压成一行安静的文字，不给它按钮的分量 ——
+   它比退出重得多，但一屏上最重的东西不该是「离开」。
+   高度按【触点】给足 44px（`check-tap-size.py` 量的是渲染出来的矩形,
+   而 `<view>` 里一行 24rpx 的字实测只有 22px —— 上一版就是这么红的:
+   它是「点得动而点不中」，比没有更气人）。 */
+.leave {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 88rpx;
+  font-size: 24rpx;
+  color: var(--ink-faint);
+  letter-spacing: 0.04em;
 }
 
 
 /* 退出那颗按钮底下这句。它原先塞在按钮的括号里（「退出（这台设备上的
    东西会留在旧账号）」）——十四个字的括号注释是公文排版，而且
    「留在旧账号」读起来像「东西还在、换回去就有」，跟真实后果反着来。 */
+/* 警告现在在按钮【上面】（wxml 里那段注释说了为什么），
+   所以外边距也要反过来 —— 原先的 `18rpx auto 0` 是在贴它上面的按钮。 */
 .cta-note {
-  margin: 18rpx auto 0; padding: 16rpx 24rpx; max-width: 560rpx;
+  margin: 0 auto 18rpx; padding: 16rpx 24rpx; max-width: 560rpx;
   border-radius: 12rpx;
   background: #FFF6EC;
   border: 1rpx solid var(--amber-lite);
   font-size: 24rpx; line-height: 1.75; color: var(--ink-mid); text-align: center;
 }
+
+/* 「长按复制」那一提示。它是这一行唯一的用法说明 —— 没有它，
+   一串被省略号截断的字看着就是坏的。 */
+.prof-copy { flex: none; margin-left: 14rpx; font-size: 22rpx; color: var(--stone-label); }

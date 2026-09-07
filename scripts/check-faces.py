@@ -62,10 +62,28 @@ for vid, 名 in 村民:
     except Exception as e:
         错.append(f'{名}({vid}) 的头像坏了：{e}')
 
+# 【四十张必须是同一块画布】。设计册里每个人的正面图各画各的
+# （量下来 11×11 到 14×16），而界面上是同一个圆牌、同一个
+# `background-size` —— 窄的那位就被放得更大:并排摆着像素块一个人一个
+# 大小，看着不是一套画（2026-09-01 五路评审）。
+# 导出那一步（rooms/tools/export-faces.mjs）负责把每张摊到同一块画布上，
+# 宽居中、底对齐。这一条盯着别再漏回去。
+尺寸 = {}
+for vid, 图 in 脸.items():
+    try:
+        raw = base64.b64decode(图.split(',', 1)[1])
+        尺寸.setdefault(struct.unpack('>II', raw[16:24]), []).append(vid)
+    except Exception:
+        pass                                   # 坏图上面那一段已经报过
+if len(尺寸) > 1:
+    描述 = '、'.join(f'{w}×{h} 有 {len(v)} 位' for (w, h), v in sorted(尺寸.items()))
+    错.append(f'四十张脸不是同一块画布（{描述}）—— 同一个圆牌里像素块会一人一个大小')
+
 # 用到头像的屏，必须走 脸()，不许自己裸写末字
 页 = 根 / 'mini/miniprogram/pages'
 注释 = re.compile(r'<!--.*?-->', re.S)
-for f in sorted(页.glob('*/index.wxml')):
+页面们 = sorted(页.glob('*/index.wxml'))
+for f in 页面们:
     源 = 注释.sub('', f.read_text(encoding='utf-8'))
     有头像 = ('face-{{' in 源) or ('soon-face' in 源) \
              or re.search(r'class="[^"]*\bface-(move|still|keep|let_go|ask|near|wait)\b', 源)
@@ -87,6 +105,16 @@ for f in sorted(页.glob('*/index.wxml')):
         错.append(f'{f.parent.name} 屏上有头像，却没接 utils/face —— 那一屏还是圆底加一个字')
     elif 没铺图:
         错.append(f'{f.parent.name} 有 {len(没铺图)} 处头像没绑 style（铺不上真脸）：{没铺图[0]}')
+
+
+# 【查不到东西的核对必须失败】（2026-09-03 五路评审 · 门禁审计）。
+# 判据不是「有没有报错」，是「它够不够得着要验的东西」——
+# 路径改了、目录搬了、glob 写错了，这一支都会一个不落地全绿，
+# 而它其实一个文件都没看。下限比今天低不少，只挡「塌了」这一档。
+if len(脸) < 30 or len(页面们) < 15:
+    print(f'  ✗ 只找到 {len(脸)} 张脸 / {len(页面们)} 屏 —— '
+          '这一支够不着要验的东西，不算通过')
+    错.append('扫到的东西太少')
 
 for e in 错:
     print('  ✗ ' + e)

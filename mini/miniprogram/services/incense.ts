@@ -11,8 +11,20 @@ export interface IncenseNow {
   i_lit: boolean
 }
 
+/** 点香是几点。**什么时候问都答得出来** —— 跟 `now()` 不同，
+ *  它不管现在到没到点。屏上那几句话按它生成（`utils/incense-when.ts`）。 */
+export interface IncenseSchedule {
+  /** 0 = 周一 … 6 = 周日 */
+  weekday: number
+  /** 上海时间几点起，0–23 */
+  hour: number
+  /** 烧多久，分钟 */
+  minutes: number
+}
+
 export const incenseApi = {
   now: (): Promise<IncenseNow | null> => api.get<IncenseNow | null>('/v1/incense'),
+  schedule: (): Promise<IncenseSchedule> => api.get<IncenseSchedule>('/v1/incense/schedule'),
   lit: (): Promise<{ ok: boolean; lit_count: number | null }> =>
     api.post<{ ok: boolean; lit_count: number | null }>('/v1/incense/lit', {}),
 }

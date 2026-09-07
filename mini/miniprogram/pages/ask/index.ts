@@ -18,6 +18,8 @@ interface IData {
   wantId: string
   /** 是不是刚转完的那一卦（决定要不要出「← 近签」回退片） */
   fresh: boolean
+  /** 这一签刚才就问过了 —— 同一小时同一件事是同一签（后端说了算） */
+  又问了: boolean
   today: string
   clockLabel: string
   mode: Mode
@@ -44,7 +46,15 @@ function detailToResult(d: NajiDetail): NajiResult {
     suit: d.suit,
     avoid: d.avoid,
     question: d.question ?? null,
-    recommend: null,
+    /* 【2026-09-02:接住后端给的推荐】。这里原先写死 `null`，
+       而当时后端的 detail 确实不回它 —— 写死是诚实的。
+       但这一屏拿到 id 之后会用 `detail(id)` 把整条记录【重取一遍】，
+       于是起卦那一瞬间的推荐一渲染就没了:
+       `wx:if="{{result.recommend}}"` 永远不成立，
+       而那是 ¥199「你的说明书」全 app 唯一一条路
+       （第三轮评审 · 第一次打开的人实跑到的）。
+       后端补上了 `recommend`（routes/naji.rs 的 detail），这里跟上。 */
+    recommend: d.recommend ?? null,
   }
 }
 
@@ -52,6 +62,7 @@ function detailToResult(d: NajiDetail): NajiResult {
 Page<IData, WechatMiniprogram.IAnyObject>({
   data: {
     fresh: false,
+    又问了: false,
     wantId: '',
     today: '',
     clockLabel: '',
@@ -69,7 +80,13 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     /* `new=1` = 刚从我家转完跳过来的那一卦。
        跟「翻回去看某一签」是两种来路：前者不该出「← 近签」那个回退片，
        它不是从列表点进来的。 */
-    this.setData({ wantId: q.id || '', fresh: q.n === '1' || q.new === '1' })
+    /* `again=1` = 后端认出这就是刚才那一签（同一小时同一件事）。
+       不说的话，屏上看起来像是刚算出来的一件新东西，而它一个字都没变。 */
+    this.setData({
+      wantId: q.id || '',
+      fresh: q.n === '1' || q.new === '1',
+      又问了: q.again === '1',
+    })
   },
 
   onShow() {
@@ -95,7 +112,9 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     } catch (_e) {
       /* 跟 `openHist` 用同一个说法 —— 这一页没有 err 那一栏，
          往 setData 里塞一个没人渲染的字段，等于把话说给自己听。 */
-      wx.showToast({ title: '这一签取不回来了', icon: 'none' })
+      /* 【这一屏没有「签」】。同文件 wxml 第 112 行的注释已经写过这件事，
+         空态那句照着改了，这个 toast 漏了（2026-09-02 第四轮评审 · 文案）。 */
+      wx.showToast({ title: '这一次取不回来了', icon: 'none' })
     }
   },
 

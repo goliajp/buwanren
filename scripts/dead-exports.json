@@ -1,0 +1,10 @@
+{
+  "_读法": "导出了、而整个工作区一个调用方都没有的函数。规矩跟 admin-role-gaps.json 一样：台账里的某条有人调了 → 红（该划掉）；新出现一条零调用的导出 → 红（要么接上，要么记进来并写清在等什么）。检查在 scripts/check-dead-exports.py。",
+  "_为什么这一支存在": "「建好了，两头没接上」是这个仓库里最常见的一种洞，而编译器看不见它 —— `pub` 的东西对 rustc 来说「可能被外面用」，所以它一声不吭。2026-09-03 的五路评审里，七条发现是同一个形状：audit_log 有表没写者、is_banned 有列没读者、coupon.batch_id 读了从不写、PeriodState 声明了没有路走到、region_scope 发了从不查、activity_registration 有表零引用零行、payment::outcome_payload 导出了零调用方。",
+  "零调用方的导出": {
+    "unmei-app::actor::is_admin": "`Actor` 的完整判词。留着是因为它是这个类型的自然 API —— 而今天没有一处需要「这个动作是不是管理员干的」这个判断：审计写的是 actor_kind 那一列，不是一个布尔。真要用它的那天是「同一条用例对管理员和用户给不同结果」，那天还没到。",
+    "unmei-domain::money::is_zero": "见下面 `Money` 那一条 —— 整个类型都还没接上。",
+    "unmei-domain::money::is_positive": "见下面 `Money` 那一条。",
+    "_Money": "【这一条比上面两条大】。`Money`（金额 + 币种一个类型）在整个后端**零使用**：所有金额都是裸 i64 加一个 currency 字串各走各的，靠调用方记得配对。这一轮评审里「混币种下单算出错误总额」「cn 用户拿到 JPY 单」两条，根子都在这儿 —— 类型本来能让它们编译不过。接上它是一次贯穿式改造（order / payment / refund / finance 全线），不是顺手能做的事，所以先写在这里，而不是假装它不存在。"
+  }
+}

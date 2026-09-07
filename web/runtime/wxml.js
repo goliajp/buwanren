@@ -16,6 +16,9 @@
  *   插值   {{ 表达式 }},文本与属性里都认
  */
 ;(function () {
+  // HTML 的布尔属性:属性在 = 真，与值无关。WXML 不是这么算的（见下面用它的地方）
+  const BOOL_ATTRS = { disabled: 1, checked: 1, readonly: 1, multiple: 1, autofocus: 1, hidden: 1 }
+
   const TAGS = {
     view: 'div', text: 'span', block: null, button: 'button',
     input: 'input', picker: 'div', image: 'img', canvas: 'canvas',
@@ -23,7 +26,21 @@
   // picker 的 mode 与浏览器原生输入的对应。不在表里的 mode 抛 ——
   // 「不认识就抛」比渲成一个点不动的方块强,后者看着是完整的一页
   const PICKER = { date: 'date', time: 'time' }
-  const EVENTS = { bindtap: 'click', bindinput: 'input', bindchange: 'change' }
+  /* 【浏览器真有的就要真接上】（第二条铁律）。
+     `bindconfirm` 一度被归进「只有真机才有」——而按回车确认输入
+     浏览器里明明有（keydown Enter）。归错类的后果不是渲不出来，
+     是渲成一个【长得完全正常、按回车什么都不发生】的输入框，
+     而验证脚本等在那儿会报「元素超时」，读起来像页面没渲出来。
+     2026-09-03 加券码输入框时撞到。
+
+     `bindblur` 同理 —— 浏览器有 blur。
+     `bindlongpress` / `bindchooseavatar` 才是真机独有的:
+     前者浏览器没有长按语义（要自己攒 500ms 计时器，那是造一个
+     跟真机不一样的东西）、后者是微信的头像选择器。 */
+  const EVENTS = {
+    bindtap: 'click', bindinput: 'input', bindchange: 'change',
+    bindblur: 'blur', bindconfirm: 'confirm',
+  }
   // 解析过程中遇到的「只有真机才有」的事件,记下来,渲染时接一个会抛的处理器
   const NATIVE_ONLY = {}
   const DIRECTIVES = ['wx:if', 'wx:elif', 'wx:else', 'wx:for', 'wx:key', 'wx:for-item', 'wx:for-index']
@@ -226,7 +243,31 @@
         continue
       }
       if (k in NATIVE_ONLY) { v.attrs['data-native-only'] = k; continue }
+      /* 【`open-type` 也只有真机才有】。它是 button 上的开放能力:
+         `contact` 开微信客服会话、`share` 转发、`getPhoneNumber` 取手机号 ——
+         浏览器里一个都没有对应物。
+         上一版这里没认它:属性原样落到 DOM 上，浏览器不认识就当没有，
+         于是屏上是一颗【长得完全正常、点了什么都不发生】的按钮，
+         而那正是三条铁律里最忌讳的一种 ——「验过了」变成空话
+         （2026-09-01 加「联系我们」时发现的）。
+         按 `bind*` 那一批同样办法:渲得出来，点了明说。 */
+      if (k === 'open-type') {
+        /* 不往 `NATIVE_ONLY` 里塞 —— 那张表是给 `bind*` 用的，按【属性名】
+           索引;塞进去之后上面那条分支会抢先命中，记下来的就只剩
+           「open-type」，而具体是 contact 还是 getPhoneNumber 没了。
+           出事时要知道的恰恰是哪一种能力。 */
+        v.attrs['data-native-only'] = 'open-type=' + interp(a[k], scope)
+        continue
+      }
       const val = interp(a[k], scope)
+      /* 【布尔属性按 WXML 的真假算，不按 HTML 的「在不在」算】。
+         WXML 里 `disabled="{{x}}"` 看的是 x 的真假;而 HTML 里
+         `disabled=""` 就已经是禁用了 —— 于是 `disabled="{{''}}"`
+         在真机上可点，在这儿是灰的。2026-09-01 撞到:村民屏那颗
+         「请沈砚回村 · ¥99」在镜像里点不动，真机上好好的。
+         这种偏差最坏的地方是它【看起来像发现了 bug】。`0` 同理。
+         只对真正的 HTML 布尔属性这么办 —— `value=""` 这种空串是合法的。 */
+      if (k in BOOL_ATTRS) { v.attrs[k] = val ? '' : null; continue }
       v.attrs[k] = val === true ? '' : (val === false || val == null ? null : String(val))
     }
     build(n.kids, scope, v.kids)
@@ -324,6 +365,12 @@
       if (el.__sig !== sig) {
         if (el.__off) el.__off.forEach((f) => f())
         el.__off = []
+        /* 记号跟着监听器一起清 —— 节点是复用的（见 `__sig`），
+           上一轮绑过 click、这一轮没绑的那些，记号会留在 DOM 上，
+           于是门禁把不可点的东西当成可点的量（2026-09-02 实测多出四个:
+           那一册翻到末页时 `.pg-hd` 与 `.src` 顶着上一轮的记号）。
+           失效的量具跟真数据长得一模一样，所以清在这儿，跟解绑同一处。 */
+        delete el.dataset.tap
         for (const type in v.events) {
           const name = v.events[type]
           const 截住 = v.catches && v.catches[type]
@@ -331,18 +378,65 @@
             // catch* 的语义:自己处理完就不再往上传。
             // 少这一句的话，点开场白里的按钮会连外层那张卡的 bindtap 一起走。
             if (截住) ev.stopPropagation()
+            /* 【换了页就别让这一次点击继续往上冒】。
+               这里的 DOM 是【复用】的（paint 只打补丁，不重建节点），
+               而事件的传播路径在派发之初就定好了 —— 于是:
+               按钮的处理器里换了页 → 补丁把祖先节点改成了新页面的元素、
+               顺手绑上新页面的 bindtap → 同一次点击继续冒泡，
+               打到新页面刚绑上的那个处理器上。
+               真机上不会这样:那一屏已经不在了，点击落不到它身上。
+
+               2026-09-01 撞到:村民屏按「回村里」应当退到村子，
+               实测落在「谁能来」—— 因为村子主屏的收集条那天刚变成可点的
+               `goInvite`，正好复用了同一个位置的节点。
+               这种偏差最坏的地方是它【看起来像产品的 bug】。 */
+            const 换页前 = globalThis.__router && globalThis.__router.current
+              ? globalThis.__router.current() : null
             on(name, ev, el)
+            const 换页后 = globalThis.__router && globalThis.__router.current
+              ? globalThis.__router.current() : null
+            if (换页前 !== 换页后) ev.stopImmediatePropagation()
           }
-          el.addEventListener(type, fn)
-          el.__off.push(() => el.removeEventListener(type, fn))
+          /* 【`confirm` 不是原生事件名】。WXML 的 `bindconfirm` 是
+             「在输入框上按回车（真机上是键盘那颗「完成」）」——
+             浏览器里对应的是 keydown + Enter，不是一个叫 confirm 的事件。
+             直接 `addEventListener('confirm')` 会挂上去、永远不触发，
+             而那正是「接了等于没接」——比不接更难发现。 */
+          if (type === 'confirm') {
+            const 回车 = (ev) => { if (ev.key === 'Enter') fn(ev) }
+            el.addEventListener('keydown', 回车)
+            el.__off.push(() => el.removeEventListener('keydown', 回车))
+          } else {
+            el.addEventListener(type, fn)
+            el.__off.push(() => el.removeEventListener(type, fn))
+          }
+          /* 【点得到的东西，要能被量出来】。真机上手指的接触面约 9mm，
+             苹果与谷歌两家的人机指南都写 44pt / 48dp —— 比这小就要靠瞄。
+             而这一层是全仓唯一知道「哪个元素绑了点击」的地方:
+             `.wxml` 里的 `bindtap` 到了 DOM 上什么记号都不留，
+             于是「有 27 处不到 44px」这种话只能靠人一处处读代码去数。
+             打上记号之后，`shots.mjs` 能在真实排版下量它的外接矩形，
+             `check-tap-size.py` 就有据可依 —— 量的是渲染结果，
+             不是 wxss 里那个可能被覆盖、被 padding 改写的声明值。 */
+          if (type === 'click') el.dataset.tap = '1'
         }
         if (v.attrs['data-native-only']) {
           const k = v.attrs['data-native-only']
           const fn = () => {
-            throw new Error(
+            const e = new Error(
               k + ' 只有真机才有(微信原生能力),移动网页版走不到这一步。' +
               '这不是镜像坏了 —— 是这条动线的这一段本来就得上真机验'
             )
+            /* 【打上跟 `wx.*` 那批同一个记号】。原先这里抛的是一个白板 Error，
+               于是它走的是「镜像坏了」那条路:整屏红。
+               而模板上的原生能力（`bindchooseavatar`、`open-type="contact"`）
+               跟 `wx.login` 是同一类东西 —— 在网页上被点到是【预期之内】的，
+               该落在底部那条提示上，并记进 `__DEVICE_ONLY` 供门禁核对。
+               不打记号还有一个更坏的后果:验证脚本没法区分
+               「如实抛了」和「什么都没发生」（2026-09-02 加客服入口时发现）。 */
+            e.deviceOnly = true
+            e.wxApi = k
+            throw e
           }
           el.addEventListener('click', fn)
           el.__off.push(() => el.removeEventListener('click', fn))

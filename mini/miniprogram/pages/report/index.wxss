@@ -3,7 +3,7 @@
 .page { display: flex; flex-direction: column; min-height: 100vh; }
 
 .hd { padding: 14rpx 0 10rpx; }
-.hd .title { font-size: 52rpx; line-height: 1.15; }
+.hd .title { line-height: 1.15; }
 .hd .sub { font-size: 24rpx; color: var(--ink-faint); margin-top: 10rpx; letter-spacing: 0.04em; }
 
 .loading, .err { padding: 40rpx 0; color: var(--ink-faint); font-size: 26rpx; }
@@ -89,6 +89,10 @@
    是夹在里面说明「凭什么这么说」的那张纸。
    暖黄底、一点点厚度、斜 0.6° —— 再多就成了装饰，而它是要读的东西。 */
 .quote {
+  /* 正文里的换行要真的换行。这几页的正文是后端写的段落
+     （用神 / 格局 / 大运），里面用 \n 分段 —— 不声明的话它们被压成
+     一整块，一屏三百多字连着读下来很吃力。 */
+  white-space: pre-line;
   margin-top: 28rpx; padding: 24rpx 26rpx;
   background: #FFF8E7;
   border-radius: 8rpx;
@@ -129,16 +133,53 @@
 }
 /* 七页之后一行挤不下 —— 让它横向滚，别把每一格压成两个字。
    `flex: none` + 内边距:页签宽度按名字走，长的那几个（「说在前面」）不被压扁。 */
+/* 【横内距不许再收】（2026-09-04 · 25 计划）。
+   22rpx 时七个页签加起来 376px，比 375 宽的屏多 1px，
+   最后那个「三宫」的「宫」缺一角。我一度把它收成 20rpx 让它放下,
+   结果每个页签宽从压线的 44 掉到 42 —— 触达面积那一支当场红:
+   苹果的人机指南写 44pt，那是【手指按得准】的下限，
+   而这里赢来的是 1px 的观感。**主次搞反了**。
+
+   两件事在 375 宽上确实冲突:七个够 44 宽的页签放不进一行。
+   这一行本来就 `overflow-x: auto`，横着出界是设计好的;
+   所以把它记进横向溢出的允许表（`web/verify.mjs` 里那张），
+   有名有姓、写明为什么 —— 跟竖向欠账同一个办法。 */
 .tab {
   flex: none; text-align: center; font-size: 22rpx;
-  color: var(--stone-label); padding: 8rpx 16rpx;
+  color: var(--stone-label); padding: 27rpx 22rpx; margin: -19rpx 0;
+  position: relative;
 }
-.tab-on { color: var(--ink); border-bottom: 2rpx solid var(--ink); }
+/* 【下划线改成绝对定位，页签本体改成 `<view>`】。
+   命中框要 44px，而下划线得贴着字 —— 对称内距下这两件事打架:
+   内距一加，`border-bottom` 就跟着掉下去 13px。
+   （`.tabs` 是 flex，页签是 flex item，所以竖直内距是真占版面的，
+   靠负外距把占的那部分收回去;这也是为什么不能只往上撑 ——
+   实测那样会把整屏顶出去 20px，而这一屏本来正好放得下。）
+   线用 `::after` 画，贴回原来的位置:27 - 8 - 2 = 17rpx。
+   为此把页签从 `<text>` 换成了 `<view>` —— 微信里 `view` 上的伪元素
+   是保准的，`text` 上的不是。
+   横着扩是免费的:这一行本来就 `overflow-x: auto`。 */
+.tab-on { color: var(--ink); }
+.tab-on::after {
+  content: ''; position: absolute; left: 22rpx; right: 22rpx; bottom: 17rpx;
+  height: 2rpx; background: var(--ink);
+}
 
-.acts { display: flex; align-items: center; padding: 20rpx 0 24rpx; }
-.turn { font-size: 26rpx; color: var(--ink-mid); }
-.turn-off { color: var(--stone-line); }
-.turn-back { flex: 1; text-align: center; font-size: 24rpx; color: var(--stone-label); }
+/* 免责那一行紧贴着翻页，不要它自己那 24rpx 的上下内距 ——
+   全局定义是给「一屏底下最后一样东西」用的，而这里它挨着翻页那一行，
+   两边的内距叠起来就是 40px，把这一屏顶出去 30px（实测）。 */
+.foot-hint { padding: 0 0 6rpx; }
+
+/* 翻页那一行的上下内距各收 5px —— 这一屏加了免责之后差 9px。
+   它上面是标签条（自带 20rpx 上距）、下面是免责，两边都还有余量。 */
+.acts { display: flex; align-items: center; padding: 10rpx 0 14rpx; }
+.turn { font-size: 26rpx; color: var(--ink-mid);
+        padding: 23rpx 20rpx; margin: -23rpx -20rpx; }
+/* 翻不动那一头。用线的颜色（1.31:1）等于看不见 —— 而「看得见但灰着」
+   跟「不存在」是两回事:前者说得出「这已经是第一页」。 */
+.turn-off { color: var(--ink-faint); opacity: .55; }
+.turn-back { flex: 1; text-align: center; font-size: 24rpx; color: var(--stone-label);
+             padding: 25rpx 0; margin: -25rpx 0; }
 
 
 /* ── 大运时间轴（0830 §6.6）────────────────────────────────
@@ -165,9 +206,21 @@
   transform: translateY(-6rpx);
   padding: 18rpx 0 14rpx;
 }
-.tl-now .tl-gz { color: #fff; font-size: 28rpx; font-weight: 700; }
-.tl-now .tl-age { color: rgba(255,255,255,.9); font-weight: 600; }
+/* 【白字压琥珀，1.91:1】（2026-09-02 第三轮评审 · 视觉实测取样）。
+   跟罗盘中心那颗按钮是同一个错法 —— 那一处修过并写了注释，这一处漏了。
+   而这一格是【付费交付物上最要紧的一格】:它标着「你现在走到哪」。
+   `--on-amber` 压这条渐变的三站是 7.08 / 5.88 / 4.25。 */
+.tl-now .tl-gz { color: var(--on-amber); font-size: 28rpx; font-weight: 700; }
+.tl-now .tl-age { color: rgba(74,46,16,.82); font-weight: 600; }
+/* 那颗「现在」的点原先是 `--amber` 压在末端已经是 `--amber` 的渐变上 ——
+   1.04:1，等于没画。它是这一屏唯一标记位置的记号。 */
 .tl-now .tl-dot {
   display: block; width: 8rpx; height: 8rpx; border-radius: 999rpx;
-  background: var(--amber); margin: 8rpx auto 0;
+  background: var(--on-amber); margin: 8rpx auto 0;
 }
+
+/* 结尾那一行的出口。做成文字链而不是整行按钮 —— 那颗按钮让最后一页
+   比别页高 80px，把翻页那一整行挤到折线外（2026-09-01 实测）。 */
+.fin-go { display: inline-block; margin: -27rpx -8rpx -27rpx 4rpx;
+          padding: 27rpx 8rpx; color: var(--amber-text);
+          font-weight: 600; white-space: nowrap; }

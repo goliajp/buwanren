@@ -18,6 +18,11 @@ export interface VillagerInVillage {
   rarity: string | null
   /** 请回家了没。**空屋不消失是世界观**,所以没请回来的也在这张表里 */
   at_home: boolean
+  /** 这个「缺」自己那一句（lack_bias.note）。四十条各不相同 ——
+   *  村民屏原先四十位共用一句模板，看第二个人就露馅。
+   *  【只有「我的村子」那条给它】—— 公开目录那条不给，
+   *  放错接口的话 check-api-shape 会红（2026-09-01 就红过一次）。 */
+  lack_note?: string | null
   /** 他今天说的那一句。**只有住着的人才有** —— 没请回家的不说话，
    *  那是这个产品的付费理由。没写过台词的人是 null，页面不编。 */
   line: string | null
@@ -60,6 +65,9 @@ export interface VillagerCard {
   /** 他的御守在不在卖。在 → 那件商品的 id；不在 → null，页面写「未上架」。
    *  设计册 10.8：「没上架的也列出来 …… 照实说，不拿别人顶上」。 */
   omamori_product_id: string | null
+  /** 请他回村多少钱（分）。没上架 / 没定价是 null —— 名册上就不写价，不编 */
+  omamori_price_minor?: number | null
+  omamori_currency?: string | null
   /** 他缺什么。名册上写出来 —— 「缺 X 的人反过来劝你 Y」是这套推荐的依据 */
   lack?: string
   /** 他往哪个方向劝你（move / still / wait / keep / let_go / near / ask）。
@@ -83,6 +91,8 @@ export interface Reading {
   avoid: string[]
   /** 声音层说出来的整句 —— 界面上直接显示这一句 */
   say: string
+  /** 这一签让你拿到的那几枚徽章。没拿到就是空数组 */
+  earned?: Array<{ code: string; name: string }>
 }
 
 /** 扫御守 */

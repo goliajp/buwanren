@@ -1,0 +1,23 @@
+<view class="page">
+  <view class="hd">
+    <view class="title">{{标题}}</view>
+    <view class="sub">更新于 {{更新}}</view>
+  </view>
+
+  <block wx:for="{{段}}" wx:key="h">
+    <view class="sec">
+      <view class="sec-h">{{item.h}}</view>
+      <view class="sec-p" wx:if="{{item.p}}">{{item.p}}</view>
+      <view class="sec-list" wx:if="{{item.列}}">
+        <view class="li" wx:for="{{item.列}}" wx:for-item="行" wx:key="*this">
+          <text class="li-k">{{行[0]}}</text>
+          <text class="li-v">{{行[1]}}</text>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <view class="cta">
+    <button class="btn ghost" bindtap="onBack">回去</button>
+  </view>
+</view>

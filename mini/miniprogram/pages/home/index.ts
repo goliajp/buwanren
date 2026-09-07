@@ -27,14 +27,27 @@ const MIN_SPIN_MS = 3200
  * 8 方位 → face 上默认角度(以正南=0°、顺时针递增)
  * face rotate(θ) 时: 让某方位从原位置转到「指针指向」(正上=0°) 需要 rotate = -angle
  */
+/* 盘停在哪一格。
+ *
+ * 【2026-09-01 修】四个正方向原先写的是「南 / 西 / 北 / 东」，
+ * 而后端给的是「南方 / 西方 / 北方 / 东方」—— 带一个「方」字。
+ * 于是 `DIRECTION_ANGLE[result.direction]` 对这四个值全是 undefined，
+ * 落到 `?? 0`:盘每次都停在正上方那一格。库里 1600 多条记录里
+ * 这四个占三分之一还多。
+ *
+ * 没人发现，是因为上一轮把盘面上的八卦符与方位名【都拿掉了】——
+ * 那一改让盘不再玄，同时也让「它停在哪儿」变得没法用眼睛检验:
+ * 八个格子长得一模一样，停错了跟停对了看起来完全相同。
+ * 所以 scripts/check-dial-angles.py 从此机械核对这张表跟库里的取值。
+ */
 const DIRECTION_ANGLE: Record<string, number> = {
-  南:   0,
+  南方: 0,
   西南: 45,
-  西:   90,
+  西方: 90,
   西北: 135,
-  北:   180,
+  北方: 180,
   东北: 225,
-  东:   270,
+  东方: 270,
   东南: 315,
 }
 
@@ -49,7 +62,11 @@ type SummaryView = NatalSummary & {
 }
 
 /** 弹性槽里那几行。矮屏看不见，长屏才出现（设计 10.1） */
-interface RecentRow { id: string; day: string; gate: string; dir: string }
+// 方位不进这一行 —— 屏上不显示它（见 wxml 里那段），
+// 留个用不上的字段只会让下一个人以为它该显示
+// 方位与门名都不进这一行 —— 屏上不显示它们（见 wxml 里那段）。
+// `说` 是那天那句结论的头半句，后端按【现在这一版】的说法给。
+interface RecentRow { id: string; day: string; 说: string }
 
 type Mode = 'idle' | 'spinning'
 
@@ -195,7 +212,16 @@ Page<IData, WechatMiniprogram.IAnyObject>({
          上面 MIN_SPIN_MS 那段等待就是为这个。 */
       wx.vibrateShort({ type: 'medium', success() {}, fail() {}, complete() {} })
       this.setData({ mode: 'idle' })
-      wx.navigateTo({ url: '/pages/ask/index?id=' + result.id + '&new=1' })
+      /* 【同一小时同一件事是同一签】（2026-09-06 三路验证 · 第一次打开的人）。
+         种子 = 谁 + 哪一天哪一小时 + 问的那件事，所以不写问题连摇两次
+         得到的是逐字相同的一句 —— 那是设定（「不能反复摇到满意为止」）。
+         而这一屏照旧转三秒、照旧震一下，人读到的是
+         「我又算了一次，答案一模一样」——「这玩意儿是不是坏了」。
+         后端现在会说这是不是刚才那一签，带过去让那一屏说一句实话。 */
+      wx.navigateTo({
+        url: '/pages/ask/index?id=' + result.id + '&new=1'
+             + (result.again ? '&again=1' : ''),
+      })
       this.loadRecent()
     } catch (_e) {
       this.setData({ mode: 'idle' })
@@ -254,7 +280,7 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     this.setData({
       recentErr: '',
       recent: list.slice(0, 3).map((r) => ({
-        id: r.id, day: r.date, gate: r.gate, dir: r.direction,
+        id: r.id, day: r.date, 说: r.说 || '',
       })),
     })
   },

@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { commerce } from '../lib/api';
 import PageHeader from '../components/PageHeader';
-import { rel, ts, statusChip, shortId } from '../components/util';
+import { rel, ts, statusClass, statusLabel, shortId, thou, enumLabel, regionLabel } from '../components/util';
 import { Globe2, Package, Repeat as RepeatI, Wallet, ShieldAlert, RefreshCw } from 'lucide-react';
 
 const TABS = [
@@ -22,34 +22,35 @@ export default function Master() {
   const chart    = useQuery({ queryKey: ['master-accounts'],    queryFn: () => commerce.masterAccountChart(),   enabled: tab === 'accounts' });
   const risk     = useQuery({ queryKey: ['master-risk'],        queryFn: () => commerce.masterRiskTemplates(),  enabled: tab === 'risk' });
   const rates    = useQuery({ queryKey: ['master-rates'],       queryFn: () => commerce.listExchangeRates(),    enabled: tab === 'rates' });
+  const 这一档 = { products, plans, accounts: chart, risk, rates }[tab];
+  const 全部: any[] = (这一档.data ?? []) as any[];
+  const [找, 设找] = useState('');
+
+  /* 【一万四千行不能一次全渲染】。这张表现役 13,898 条（多数是反复跑测试
+     留下的「测试商品」），上一版把它们全画到一页上 —— 一百万个字符的 DOM，
+     滚不到底，也没有人打算读到第 500 行。
+     所以:先过滤，再封顶，并且【把藏起来的条数说出来】——
+     悄悄截断跟没截断长得一样，那才是问题。 */
+  const 命中 = useMemo(() => {
+    const q = 找.trim().toLowerCase();
+    if (!q) return 全部;
+    return 全部.filter((x) => JSON.stringify(x).toLowerCase().includes(q));
+  }, [全部, 找]);
+  const 上限 = 200;
+  const 显示 = 命中.slice(0, 上限);
+  const 当前: number | undefined = 全部.length || undefined;
 
   return (
     <div>
       <PageHeader
-        title="Master Data · 集团主数据(control plane)"
-        sub="global · 集中维护 + push 到 6 cell · read-only 视图"
-        stats={[
-          { label: 'SPU 商品', value: products.data?.length ?? '—' },
-          { label: 'Plans', value: plans.data?.length ?? '—' },
-          { label: '科目', value: chart.data?.length ?? '—' },
-          { label: '风控模板', value: risk.data?.length ?? '—' },
-        ]}
+        title="主数据"
+        sub="所有区域共用的那份底档。改一处，各区自动跟上 —— 所以这里只看"
+        /* 【只报看得见的那个数】。上一版并排摆四个数，
+           而三张表要切到对应页签才查 —— 于是永远有三个是破折号，
+           读起来像「这三样是空的」。 */
+        stats={当前 !== undefined ? [{ label: '一共', value: thou(当前) }] : undefined}
       />
       <div className="p-4">
-        <div className="mb-3 p-3 panel bg-jade-soft border-jade">
-          <div className="flex items-start gap-2 text-[12px] text-jade">
-            <Globe2 size={13} className="mt-0.5"/>
-            <div>
-              <div className="font-semibold mb-0.5">这是集团主数据视图(control plane)</div>
-              <div className="text-ink-3 leading-relaxed">
-                本工作台数据**与 6 cell 解耦**:SPU / Plan 模板 / 会计科目 / 风控规则模板 集中存放,
-                改一处自动 push 到所有 cell 副本。各 cell 不允许直接造主数据 —— 各 cell 看到的是 push 后的快照。
-                P2 落地后会加 「同步状态 / version skew / push 失败」可视化;P1 阶段先用「集中读」证明可行。
-              </div>
-            </div>
-          </div>
-        </div>
-
         <div className="flex items-center gap-1 mb-3">
           {TABS.map((t) => {
             const Icon = t.icon;
@@ -61,30 +62,66 @@ export default function Master() {
               </button>
             );
           })}
-          <button className="btn btn-soft ml-auto" onClick={() => {
+          <input
+            className="input ml-auto w-56"
+            placeholder="在这一份里找"
+            value={找}
+            onChange={(e) => 设找(e.target.value)}
+          />
+          <button className="btn btn-soft" onClick={() => {
             products.refetch(); plans.refetch(); chart.refetch(); risk.refetch(); rates.refetch();
           }}><RefreshCw size={13}/></button>
         </div>
 
+        {/* 【说出来还剩多少没显示】。默认只画前 200 行 ——
+            悄悄截断跟没有截断长得一模一样，而那是最难发现的一种谎。 */}
+        {命中.length > 上限 && (
+          <p className="label mb-2">
+            {thou(命中.length)} 条里显示前 {上限} 条。用上面的框缩小范围。
+          </p>
+        )}
+        {找 && 命中.length === 0 && (
+          <p className="text-sm text-ink-2 mb-2">这一份里没有含「{找}」的。</p>
+        )}
+
+        {/* 【取不到跟「这一份是空的」不是一回事】
+            （2026-09-03 五路评审 · 后台产品体验）。
+            这一页五张表共用 `全部`，而它是 `data ?? []` ——
+            取不到时那五张表都渲成空的，跟「这一份底档里什么都没有」
+            长得一模一样。而底档【本来就不该是空的】，
+            所以这句空白最误导:它看着像数据出了事，其实是网络出了事。
+            五张表只显示当前页签那一张，所以这句话摆一处就够。 */}
+        {这一档.isError && (
+          <p className="text-sm text-debt mb-2">
+            取不到这一份 —— 下面的空表不代表底档是空的。
+          </p>
+        )}
+
         {tab === 'products' && (
           <div className="panel">
-            <table className="wa-table">
+            <table className="tbl">
               <thead><tr>
-                <th>id</th><th>code</th><th>名称</th><th>category</th><th>kind</th>
-                <th>履约</th><th>状态</th><th>可见 region</th><th>更新</th>
+                <th>编号</th><th>代号</th><th>名称</th><th>分类</th><th>类别</th>
+                <th>履约</th><th>状态</th><th>哪些区看得到</th><th>更新</th>
               </tr></thead>
-              <tbody>{(products.data ?? []).map((p: any) => (
+              <tbody>{显示.map((p: any) => (
                 <tr key={p.id}>
-                  <td className="mono">{shortId(p.id)}</td>
-                  <td className="mono">{p.code}</td>
+                  <td className="id">{shortId(p.id)}</td>
+                  <td className="id">{p.code}</td>
                   <td className="font-medium">{p.name}</td>
-                  <td className="text-ink-4">{p.category}</td>
-                  <td><span className="chip chip-info">{p.kind}</span></td>
-                  <td className="text-ink-4">{p.fulfillment_kind}</td>
-                  <td><span className={statusChip(p.status)}>{p.status}</span></td>
-                  <td className="text-[11px]">
+                  <td className="text-ink-4">{enumLabel(p.category)}</td>
+                  <td><span className="text-ink-2">{enumLabel(p.kind)}</span></td>
+                  <td className="text-ink-4">{enumLabel(p.fulfillment_kind)}</td>
+                  <td><span className={statusClass(p.status)}>{statusLabel(p.status)}</span></td>
+                  <td className="text-xs">
+                    {/* 【区名说中文】（2026-09-04 · 25 计划的后台逐页走）。
+                        这一格原先印的是裸的 `cn` / `verify`，而列头写着
+                        「可见 region」——一半中文一半英文。
+                        `regionLabel` 本来在 Users 页做私有函数，
+                        它的注释就写着「`cn` 对着屏幕的人不一定认得」,
+                        而这一页正是那句话说的情形。 */}
                     {(p.available_regions ?? []).map((r: string) => (
-                      <span key={r} className="chip chip-mute mr-1">{r}</span>
+                      <span key={r} className="text-ink-3 mr-1">{regionLabel(r)}</span>
                     ))}
                   </td>
                   <td title={ts(p.updated_at)}>{rel(p.updated_at)}</td>
@@ -96,26 +133,26 @@ export default function Master() {
 
         {tab === 'plans' && (
           <div className="panel">
-            <table className="wa-table">
+            <table className="tbl">
               <thead><tr>
-                <th>id</th><th>name</th><th>billing</th>
+                <th>编号</th><th>名称</th><th>结算周期</th>
                 <th>试用</th><th>宽限</th><th>取消策略</th><th>可用渠道</th><th>状态</th>
               </tr></thead>
-              <tbody>{(plans.data ?? []).map((p: any) => (
+              <tbody>{显示.map((p: any) => (
                 <tr key={p.id}>
-                  <td className="mono">{shortId(p.id)}</td>
+                  <td className="id">{shortId(p.id)}</td>
                   <td className="font-medium">{p.name}</td>
-                  <td><span className="chip chip-info">{p.billing_period}</span></td>
-                  <td className="mono">{p.trial_days}d</td>
-                  <td className="mono">{p.grace_days}d</td>
-                  <td className="text-ink-4">{p.cancel_policy}</td>
-                  <td className="text-[11px]">
+                  <td><span className="text-ink-2">{enumLabel(p.billing_period)}</span></td>
+                  <td className="id">{p.trial_days}d</td>
+                  <td className="id">{p.grace_days}d</td>
+                  <td className="text-ink-4">{enumLabel(p.cancel_policy)}</td>
+                  <td className="text-xs">
                     {(p.channel_constraints ?? []).slice(0,4).map((c: string) => (
-                      <span key={c} className="chip chip-mute mr-1">{c}</span>
+                      <span key={c} className="text-ink-3 mr-1">{c}</span>
                     ))}
-                    {(p.channel_constraints ?? []).length > 4 && <span className="text-ink-5">…</span>}
+                    {(p.channel_constraints ?? []).length > 4 && <span className="text-ink-4">…</span>}
                   </td>
-                  <td><span className={statusChip(p.status)}>{p.status}</span></td>
+                  <td><span className={statusClass(p.status)}>{statusLabel(p.status)}</span></td>
                 </tr>
               ))}</tbody>
             </table>
@@ -124,19 +161,19 @@ export default function Master() {
 
         {tab === 'accounts' && (
           <div className="panel">
-            <table className="wa-table">
-              <thead><tr><th>code</th><th>名称</th><th>kind</th><th>parent</th><th>币种约束</th></tr></thead>
-              <tbody>{(chart.data ?? []).map((a: any) => (
+            <table className="tbl">
+              <thead><tr><th>代号</th><th>名称</th><th>类别</th><th>上级</th><th>币种约束</th></tr></thead>
+              <tbody>{显示.map((a: any) => (
                 <tr key={a.code}>
-                  <td className="mono">{a.code}</td>
+                  <td className="id">{a.code}</td>
                   <td className="font-medium">{a.name}</td>
-                  <td><span className={`chip ${
-                    a.kind === 'asset' ? 'chip-ok' :
-                    a.kind === 'liability' ? 'chip-warn' :
-                    a.kind === 'revenue' ? 'chip-ok' :
-                    a.kind === 'expense' ? 'chip-bad' : 'chip-mute'
-                  }`}>{a.kind}</span></td>
-                  <td className="mono text-ink-4">{a.parent_code ?? '—'}</td>
+                  <td><span className={`${
+                    a.kind === 'asset' ? 'text-settled' :
+                    a.kind === 'liability' ? 'text-pending' :
+                    a.kind === 'revenue' ? 'text-settled' :
+                    a.kind === 'expense' ? 'text-debt' : 'text-ink-3'
+                  }`}>{enumLabel(a.kind)}</span></td>
+                  <td className="font-mono text-ink-4">{a.parent_code ?? '—'}</td>
                   <td className="text-ink-4">{a.currency_constraint ?? '—'}</td>
                 </tr>
               ))}</tbody>
@@ -146,27 +183,27 @@ export default function Master() {
 
         {tab === 'risk' && (
           <div className="panel">
-            <table className="wa-table">
+            <table className="tbl">
               <thead><tr>
-                <th>name</th><th>kind</th><th>expression</th><th>action</th>
-                <th>priority</th><th>已部署 region</th>
+                <th>名称</th><th>类别</th><th>条件</th><th>动作</th>
+                <th>优先</th><th>已部署 region</th>
               </tr></thead>
-              <tbody>{(risk.data ?? []).map((r: any, i: number) => (
+              <tbody>{显示.map((r: any, i: number) => (
                 <tr key={i}>
                   <td className="font-medium">{r.name}</td>
-                  <td><span className="chip chip-info">{r.kind}</span></td>
-                  <td className="mono text-[11px] text-ink-3">{r.expression}</td>
-                  <td><span className={`chip ${
-                    r.action === 'review' ? 'chip-warn' :
-                    r.action === 'block' ? 'chip-bad' :
-                    r.action === 'challenge' ? 'chip-warn' : 'chip-info'
-                  }`}>{r.action}</span></td>
-                  <td className="r mono">{r.priority}</td>
-                  <td className="text-[11px]">
+                  <td><span className="text-ink-2">{enumLabel(r.kind)}</span></td>
+                  <td className="font-mono text-xs text-ink-3">{r.expression}</td>
+                  <td><span className={`${
+                    r.action === 'review' ? 'text-pending' :
+                    r.action === 'block' ? 'text-debt' :
+                    r.action === 'challenge' ? 'text-pending' : 'text-ink-2'
+                  }`}>{enumLabel(r.action)}</span></td>
+                  <td className="r font-mono">{r.priority}</td>
+                  <td className="text-xs">
                     {(r.deployed_regions ?? []).map((reg: string) => (
-                      <span key={reg} className="chip chip-mute mr-1">{reg}</span>
+                      <span key={reg} className="text-ink-3 mr-1">{reg}</span>
                     ))}
-                    <span className="text-ink-5">· {r.deployed_count} cell</span>
+                    <span className="text-ink-4">· {r.deployed_count} cell</span>
                   </td>
                 </tr>
               ))}</tbody>
@@ -178,15 +215,15 @@ export default function Master() {
           <div className="panel">
             <div className="panel-head">
               <div className="panel-title">汇率（基准 USD，用于 global 视图折算）</div>
-              <span className="uplabel text-ink-5">mock data · P3 接 ECB/FED API</span>
+              <span className="label text-ink-4">mock data · P3 接 ECB/FED API</span>
             </div>
-            <table className="wa-table">
+            <table className="tbl">
               <thead><tr><th>币种</th><th className="r">1 单位 → USD</th><th>取数源</th><th>生效</th></tr></thead>
-              <tbody>{(rates.data ?? []).map((r: any) => (
+              <tbody>{显示.map((r: any) => (
                 <tr key={r.quote_currency}>
-                  <td className="mono font-semibold">{r.quote_currency}</td>
-                  <td className="r mono num">{Number(r.rate).toFixed(6)} USD</td>
-                  <td className="text-ink-4">v_exchange_latest</td>
+                  <td className="font-mono font-semibold">{r.quote_currency}</td>
+                  <td className="r font-mono num">{Number(r.rate).toFixed(6)} USD</td>
+                  <td className="text-ink-4">汇率视图</td>
                   <td title={ts(r.effective_from)}>{rel(r.effective_from)}</td>
                 </tr>
               ))}</tbody>

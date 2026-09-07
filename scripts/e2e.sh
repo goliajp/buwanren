@@ -47,6 +47,32 @@ for i in {1..30}; do
     sleep 2
 done
 
+# 【排盘服务也要在】（2026-09-04）。
+# 第 2 条买的是 `sku-naji-deep`，它的交付方式是 `async_compute` ——
+# 说明书要 mingli 排完盘才算办完。它不在的时候，这个脚本在 2.5 步
+# 报的是「expected order.status=done, got fulfilling」：
+# 那句话读起来像履约坏了，而真因是【另一个服务没起】。
+# 今天为它查了一轮：会话重启把三个服务全带走了，
+# 而屏幕上写的是履约的毛病。
+#
+# 【问它自己】。`/api/health` 是 mingli 真正的健康路径，
+# 它回的是「service: mingli-api, status: ok」加二十一个算子的清单。
+# 「端口上有人听」不够:那只说明有个进程绑着口。
+# 后台那一页（运营台 › 排盘服务）早就是这么探的;
+# 而我今天自己造了个 `curl /` 的坏判据 —— mingli 只认 `/api/*`,
+# 问 `/` 一律 404，于是它明明起着，我等了它十分钟。
+MINGLI_BASE="${MINGLI_BASE:-http://127.0.0.1:6027}"
+if ! curl -sf -m 3 "$MINGLI_BASE/api/health" >/dev/null 2>&1; then
+    # 【`$VAR` 后面跟全角字符要加花括号】。`$MINGLI_PORT）` 里那个
+    # 全角右括号会被吞进变量名，`set -u` 当场报
+    # 「MINGLI_PORT）: unbound variable」—— 而那句话跟排盘服务毫无关系。
+    # `.claude/CLAUDE.md` 里记着同一件事（`$STATE）`）。
+    red "排盘服务答不上话（${MINGLI_BASE}/api/health）—— 第 2 条要它把说明书算出来，不然订单停在 fulfilling"
+    yellow "  起它：cd ../mingli && cargo run -p mingli-api"
+    exit 1
+fi
+green "  ✓ 排盘服务答得上话 ${MINGLI_BASE}"
+
 step "1. /v1/products 公开商品列表（无需登录）"
 products=$(curl -fsS "$API_BASE/v1/products?region=cn&platform=web")
 n_products=$(echo "$products" | jq 'length')
@@ -63,9 +89,34 @@ client_uid=$(echo "$login" | jq -r '.user.id')
 [[ -n "$client_tok" && "$client_tok" != "null" ]] || { red "login failed"; exit 1; }
 green "  ✓ token len=${#client_tok} user=$client_uid"
 
+# 【先建本命，再买说明书】（2026-09-02 第四轮评审 · 工程审计追出来的）。
+# 2.2 买的是 `sku-naji-deep`，它的 `report_kind` 是 `bazi_deep` ——
+# 那份册子必须按出生时间排盘才出得来。而这支脚本的匿名用户从来没建过本命，
+# 于是 `report` 落在 `awaiting_natal`、行停在 `processing`、
+# 订单停在 `fulfilling`，2.5 那一条永远等不到 done。
+#
+# 这不是等得不够久，是【顺序缺了一步】:真实用户是先填生辰再买册子的。
+step "2.1.5 建本命（说明书要按出生时间排盘）"
+natal_resp=$(curl -fsS -X POST "$API_BASE/v1/user/natals" \
+    -H 'content-type: application/json' \
+    -H "authorization: Bearer $client_tok" \
+    -d '{"label":"e2e","year":1998,"month":3,"day":5,"hour":14,"minute":30,"tz":8,"gender":"male"}')
+natal_id=$(echo "$natal_resp" | jq -r '.id')
+[[ "$natal_id" != "null" && -n "$natal_id" ]] || { red "建本命失败 —— $natal_resp"; exit 1; }
+curl -fsS -X POST "$API_BASE/v1/user/natals/$natal_id/activate" \
+    -H "authorization: Bearer $client_tok" >/dev/null
+green "  ✓ natal_id=${natal_id} 已设为当前"
+
 step "2.2 下单 sku=sku-naji-deep × 1"
+# 【钱的接口要幂等键】。这一条是 2026-08 立的规矩（check-idem-required 管着），
+# 而这支脚本是在那之前写的、又不在 gates.sh 里 —— 于是它从那天起就
+# 一直卡在这一步的 400，没有人知道（2026-09-02 第四轮评审 · 工程审计:
+# 「e2e.sh 根本不在 gates.sh 里」）。
+# 每跑一次换一个键 —— 固定键会在第二次跑的时候把上一次那张单还回来。
+IDEM="e2e-$(date +%s)-$RANDOM"
 order_resp=$(curl -fsS -X POST "$API_BASE/v1/orders" \
     -H 'content-type: application/json' \
+    -H "idempotency-key: $IDEM-order" \
     -H "authorization: Bearer $client_tok" \
     -d '{"lines":[{"sku_id":"sku-naji-deep","qty":1}],"region":"cn","channel_origin":"web"}')
 order_id=$(echo "$order_resp" | jq -r '.order_id')
@@ -76,6 +127,7 @@ green "  ✓ order_id=$order_id total=¥$(echo "$amount_total/100"|bc -l)"
 step "2.3 发起支付(wechat_jsapi)"
 pay_resp=$(curl -fsS -X POST "$API_BASE/v1/orders/$order_id/pay" \
     -H 'content-type: application/json' \
+    -H "idempotency-key: $IDEM-pay" \
     -H "authorization: Bearer $client_tok" \
     -d '{"channel":"wechat_jsapi","openid":"oXxYz9mock"}')
 payment_id=$(echo "$pay_resp" | jq -r '.payment_id')

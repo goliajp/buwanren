@@ -64,7 +64,7 @@
 .tally-fill { height: 100%; border-radius: 999rpx;
               background: linear-gradient(90deg, var(--moss), #62C795);
               transition: width .9s cubic-bezier(.22,1,.36,1); }
-.tally-n { flex: none; font-size: 26rpx; font-weight: 700; color: var(--moss);
+.tally-n { flex: none; font-size: 26rpx; font-weight: 700; color: var(--moss-text);
            font-variant-numeric: tabular-nums; }
 
 .acts { display: flex; gap: 20rpx; }

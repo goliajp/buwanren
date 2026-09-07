@@ -54,16 +54,36 @@ ADMIN_PROBES = [
      {'carrier_code': 'sf', 'tracking_no': '1'}),
     ('POST', '/admin/commerce/shipments/:id/mark-exception', {'reason': 'x'}),
     ('POST', '/admin/commerce/subscriptions/:id/cancel', {'immediate': False}),
+    # 2026-09-03 报名这条链接上之后新加的一条
+    ('POST', '/admin/activity-registrations/:id/checkin', {}),
+    # 2026-09-03 新加的三条写操作 —— 财务、对账、风控这三块
+    # 此前一个写操作都没有
+    ('POST', '/admin/commerce/finance/periods/:id/close', {}),
+    ('POST', '/admin/commerce/recon/records/:id/resolve',
+     {'action': 'known_fee', 'note': '手续费'}),
+    ('POST', '/admin/commerce/risk/cases/:id/state',
+     {'state': 'resolved', 'note': '查过了'}),
+    # 封人也是写操作 —— 对着一个不存在的用户说「封好了」，
+    # 客服会以为自己处理完了
+    ('POST', '/admin/users/:id/ban', {'banned': True, 'reason': '探针'}),
 ]
 
 
 USER_PROBES = [
+    # 2026-09-03 报名这条链接上之后新加的两条
+    ('POST', '/v1/activity/:id/register', {}),
+    ('POST', '/v1/activity/:id/cancel', {}),
     ('DELETE', '/v1/user/natals/:id', {}),
     ('POST', '/v1/user/natals/:id/activate', {}),
     ('POST', '/v1/orders/:id/cancel', {}),
     ('POST', '/v1/orders/:id/pay', {'channel': 'wechat_jsapi'}),
     ('POST', '/v1/orders/:id/refund', {'reason_code': 'x'}),
     ('POST', '/v1/villagers/:id/reading', {'question': 'x'}),
+    # 2026-09-05 一味香按月送接上之后新加的两条。订阅号是可猜的
+    # （`p25-sub-…`），两条都要先问归属:不问就等于谁都能退别人的订、
+    # 替别人补别人的款
+    ('POST', '/v1/subscriptions/:id/cancel', {}),
+    ('POST', '/v1/subscriptions/:id/pay', {}),
 ]
 
 # 承运商回调不在此列：`:provider` 不是某样东西的 id，是渠道名，

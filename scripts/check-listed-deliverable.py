@@ -21,6 +21,13 @@
     库里那道 CHECK（`product_listed_report_kind`）拦「上架了却没说出哪一种」，
     这里拦另一半：**说了的那一种，代码里真做得出来吗**
 
+  御守类（`fulfillment_kind='residency'`）
+    履约那一支要拿 `sku.villager_id` 才知道搬谁进来;为空就只能把行留在
+    pending，于是单子永远停在 `fulfilling`、钱已经收了。
+    2026-09-02 第四轮评审实测:883 件在架的居住 SKU 里 **45 件没挂人**，
+    拿其中一件建单回 200、收 ¥99。这一支原先只看报告与订阅两类，
+    第三类是它自己文档里那句「上架了、履约那一头是空的」的同一种病。
+
   订阅类（`product.kind='subscription'`）
     履约按 `fulfillment_kind` 分支，而它没有一支会开通订阅 ——
     所以在售的订阅商品一律红，直到那一支存在
@@ -98,28 +105,75 @@ for k in sorted(认识的 - 用着的):
 # 判据看的是【履约里有没有一支会开通订阅】。有了再放行,
 # 而不是等哪天有人上架会员卡、买家付完钱才发现。
 #
-# 两个条件都要:履约里有那一支,且用例层真有开通这个动作。
-# 只看前者的话,一个空分支就骗得过它（实测过 —— 塞一句
-# `"subscription" => { unreachable!() }` 它就放行了）。
+# 【判据改成问事实，不问代码长什么样】（2026-09-05）。
+# 原先它问两件事:履约里有没有 `"subscription" =>` 这一支,
+# 以及 `unmei_app::subscription` 里有没有 `pub async fn create`。
+# 两个问的都是【代码摆成什么样子】,而要守的事是
+# **付完钱之后 subscription 表会不会多一行**。
 #
-# 判据的限度写在这儿:它拦得住「压根没做」,拦不住「做了个空壳」。
-# 后者要靠 unmei-app 的集成测试 —— 而那正是开通做出来时该一起写的。
-有分支 = '"subscription" =>' in FULFILLMENT_RS.read_text(encoding='utf-8')
-有开通 = bool(re.search(r'pub async fn create\b', SUBSCRIPTION_RS.read_text(encoding='utf-8')))
-开得通 = 有分支 and 有开通
+# 一味香按月送把开通挂在了寄东西那一支上（`"shipping" =>`）——
+# 因为付完钱真实发生的事就是「一盒香寄给你」,订阅只是
+# 「下个月还会再寄一盒」的记法。开通是真做出来了,而旧判据
+# 两条都够不着:它照旧报「没有 create，要么下架它」。
+#
+# 换成问 `INSERT INTO subscription(` 在不在履约里。它不在乎那一支叫什么、
+# 挂在哪个 kind 底下,只问「履约会不会真往那张表插一行」。
+# 带括号是为了不把 `subscription_invoice` 数进来 —— 那是另一张表。
+#
+# 判据的限度照旧写在这儿:它拦得住「压根没做」,拦不住「做了个空壳」
+# （插了一行但字段是错的）。后者要靠真链走一遍 ——
+# `scripts/plan25.sh` 的 U4 现在就是这么走的:真买一份、回库里看开没开、
+# 补一期、看有没有再发一盒。
+开得通 = 'INSERT INTO subscription(' in FULFILLMENT_RS.read_text(encoding='utf-8')
 订阅在售 = psql("SELECT id FROM product WHERE kind='subscription' AND status='listed'")
 if not 开得通:
     for pid in 订阅在售:
         print(f'✗ {pid} 是订阅商品且在售，而履约里没有开通订阅那一支')
         print(f'   买家付完钱订单会翻 done，而 subscription 表一条不多。')
-        print(f'   要么把开通做出来（unmei_app::subscription 现在只有 cancel /')
-        print(f'   renew_due / record_renewal_failure，没有 create），要么下架它')
+        print(f'   要么把开通做出来（履约里要有一句 INSERT INTO subscription），')
+        print(f'   要么下架它')
         bad += 1
 elif not 订阅在售:
     print('  · 履约开得通订阅，但没有在售的订阅商品')
 
+# ── 实物:寄到家的东西要有商品图 ────────────────────────────
+# 「¥398 的和田玉葫芦坠，整页唯一的图是店主头像」——
+# 电商漏斗里最该有图的地方是空的，比任何排版问题都更像「没做完」
+# （2026-09-02 第四轮评审，第一次来的人与视觉两路各自报了同一条）。
+# 判据只管【实物】:数字内容配张图反而是在暗示会寄东西给你。
+没图 = psql(
+    "SELECT id FROM product WHERE status='listed' AND fulfillment_kind='shipping' "
+    "  AND (hero_image_url IS NULL OR hero_image_url='') ORDER BY id")
+for pid in 没图:
+    print(f'✗ {pid} 是寄到家的实物且在架，而它没有商品图（hero_image_url 空）')
+    print(f'   买家看不见自己要买的东西长什么样。图画在')
+    print(f'   rooms/tools/export-tabicons.mjs 的「商品」那一段，跟徽章一处。')
+    bad += 1
+实物在架 = psql(
+    "SELECT count(*) FROM product WHERE status='listed' AND fulfillment_kind='shipping'")
+n实物 = int(实物在架[0]) if 实物在架 else 0
+
+# ── 御守:在架的居住 SKU 都得说出搬谁进来 ────────────────────
+没挂人 = psql(
+    "SELECT s.id FROM sku s JOIN product p ON p.id = s.product_id "
+    "WHERE p.status='listed' AND p.fulfillment_kind='residency' "
+    "  AND s.villager_id IS NULL ORDER BY s.id")
+for sid in 没挂人:
+    print(f'✗ {sid} 在架，而它没说搬谁进来（sku.villager_id 为空）')
+    print(f'   付了钱履约拿不到人，行留在 pending、单子永远停在 fulfilling。')
+    print(f'   要么把 villager_id 补上，要么把它下架。')
+    bad += 1
+居住在架 = psql(
+    "SELECT count(*) FROM sku s JOIN product p ON p.id = s.product_id "
+    "WHERE p.status='listed' AND p.fulfillment_kind='residency'")
+n居住 = int(居住在架[0]) if 居住在架 else 0
+if n居住 == 0:
+    print('✗ 一件在架的居住商品都没查到 —— 这一支多半在空转')
+    sys.exit(1)
+
 print()
-print(f'在售 · 报告 {len(在售)} 件、订阅 {len(订阅在售)} 件 · '
+print(f'在售 · 报告 {len(在售)} 件、订阅 {len(订阅在售)} 件、御守 {n居住} 件、'
+      f'实物 {n实物} 件 · '
       f'做得出来的册子 {len(认识的)} 种 · 问题 {bad} 处')
 if bad:
     sys.exit(1)

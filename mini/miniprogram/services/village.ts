@@ -11,6 +11,7 @@
  */
 
 import { api } from './api'
+import { CONFIG } from '../config/index'
 import type { MyVillage, Reading, ScanReq, ScanResult, VillagerCard } from '../types/village'
 
 export const villageApi = {
@@ -21,8 +22,12 @@ export const villageApi = {
   /** 四十位名册。传用神（五行单字）就按「你缺的」排，
    *  不传按原来的规矩（在卖的排前面、再按 id）。
    *  按谁排是后端的事 —— 那是领域判断，客户端只画。 */
+  /*  `region` 跟着走 —— 名册上那个价跟商品页那个价必须是同一格的
+      （见 village.rs 名册参数上的注释）。取法照 services/commerce.ts:
+      同一个 `CONFIG.DEFAULT_REGION`，不让页面各写一遍。 */
   all: (forYongshen?: string): Promise<VillagerCard[]> =>
-    api.get<VillagerCard[]>('/v1/villagers' + (forYongshen ? `?for=${encodeURIComponent(forYongshen)}` : '')),
+    api.get<VillagerCard[]>('/v1/villagers?region=' + CONFIG.DEFAULT_REGION
+      + (forYongshen ? `&for=${encodeURIComponent(forYongshen)}` : '')),
 
   /** 问签。同一天问同一位,逐字相同 —— 那不是缓存,是设定:今天他已经说过了 */
   ask: (villagerId: string): Promise<Reading> =>

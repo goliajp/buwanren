@@ -1,0 +1,53 @@
+/* 【三场加一颗按钮要在一屏里】。间距是照「订着的」抄来的，
+   而那一屏只有一两行。三行各带四段文字，抄来的空隙就把它顶出去 61px
+   （2026-09-03 镜像动线量到的）——一屏放不下这条规矩对列表页照样成立。 */
+.hd { padding: 16rpx 0 20rpx; }
+.hd .title { font-size: 44rpx; line-height: 1; margin: 4rpx 0 12rpx; }
+
+.err, .empty { padding: 80rpx 0; text-align: center; color: var(--stone-label); }
+.empty { display: flex; flex-direction: column; align-items: center; }
+.empty-t { font-size: 32rpx; color: var(--ink); }
+.empty-sub { font-size: 26rpx; margin-top: 16rpx; line-height: 1.6; }
+.err-msg { margin-bottom: 28rpx; }
+
+/* 【`.page` 得是纵向 flex】，`.cta` 的 `margin-top: auto` 才顶得开。
+   高度不在这儿写 —— app.wxss 已经给了 `min-height: 100vh`。 */
+.page { display: flex; flex-direction: column; }
+.cta { margin-top: auto; margin-bottom: auto; padding-top: 24rpx; }
+.cta .btn { width: 100%; box-sizing: border-box; }
+
+.act {
+  border-top: 1rpx solid var(--stone-line);
+  padding: 22rpx 0;
+}
+.act-top { display: flex; align-items: baseline; justify-content: space-between; }
+.act-name { font-weight: 600; font-size: 36rpx; color: var(--ink); }
+/* 类别是标签不是标题 —— 比名字小一档、退灰，不跟名字争 */
+.act-cat {
+  font-size: 22rpx;
+  color: var(--stone-label);
+  border: 1rpx solid var(--stone-line-ui);
+  border-radius: 12rpx;
+  padding: 4rpx 14rpx;
+  margin-left: 16rpx;
+  flex-shrink: 0;
+}
+.act-sub { font-size: 26rpx; color: var(--stone-label); margin-top: 8rpx; line-height: 1.5; }
+.act-meta { font-size: 24rpx; color: var(--stone-label); margin-top: 10rpx; }
+
+.act-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 16rpx;
+}
+/* 「还差几个」是这一行的判断依据，所以吃墨；满了退成缺席色 */
+.act-left { font-size: 26rpx; color: var(--ink); }
+.act-left.full { color: var(--stone-label); }
+/* 按钮不铺满 —— 一屏三颗铺满的按钮会读成三个页面。
+   44px 那条线由 padding 保证（门禁 check-tap-size 在量）。 */
+/* 【内距不能从 22 减到 20】（2026-09-05 · 这一屏头一回进逐屏走）。
+   `button.btn` 全局算下来是 45px（30rpx 字 ×1.4 + 22rpx 上下 + 2rpx 边框）,
+   这里为了让三颗按钮窄一点把上下也一起减了，落到 43px —— 差 1px 过不了
+   44 那条线。窄要的是左右，上下照旧。 */
+.act-foot .btn { min-width: 200rpx; padding: 22rpx 36rpx; }

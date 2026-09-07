@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
-# 钱的两处必须带幂等键 —— 不带就该当场 400。
+# 钱的那几条必须带幂等键 —— 不带就该当场 400。
+#
+# 【清单要跟「钱的接口」这个说法对得上】。这一支原先只守下单与支付，
+# 而退款一直漏着（2026-09-03 实测:同样的请求发两次建两张申请）。
+# 名字说的是一类，清单里却只有两个 —— 那种缺口不会自己冒出来。
 #
 # 为什么单独守一道：D6 拍板「客户端带幂等键」，服务端也实现了，但它原先
 # **不带键就放行**。而查下来**没有任何客户端在发这个头**——也就是这道保护
@@ -62,6 +66,17 @@ check "建单 · 带键就往下走" 422 "" \
 check "支付 · 不带键要 400" 400 idempotency-key \
   -X POST "$BASE/v1/orders/ord-nonexistent/pay" -H "authorization: Bearer $TOK" \
   -H 'content-type: application/json' -d '{"channel":"wx_mp"}'
+
+# 退款：【这一条 2026-09-03 才加上】。下单与支付一直要键，退款不要 ——
+# 实测一模一样的退款请求发两次，建出两张申请、合计 100 元。
+# 一次网络重试就够;用户看到「已提交」两回，
+# 后台多一张永远批不下去的单子（`request` 现在把在途的算进已退了）。
+#
+# 这一支原先只守两条，而「钱的接口」不止两条 ——
+# 门禁的名字说的是一类，清单里却只有两个。
+check "退款 · 不带键要 400" 400 idempotency-key \
+  -X POST "$BASE/v1/orders/ord-nonexistent/refund" -H "authorization: Bearer $TOK" \
+  -H 'content-type: application/json' -d '{"reason_code":"user_request"}'
 
 echo
 echo "过 $pass · 挂 $fail"

@@ -241,6 +241,37 @@ pub async fn user(pool: &PgPool) -> String {
     id
 }
 
+/// 建一个【会有人住进来】的商品 + SKU + 价，返回 (sku_id, villager_id)。
+///
+/// 跟 `sku_with_price` 的差别只有两处:`fulfillment_kind='residency'`、
+/// sku 挂着一位村民。建单那一层的两条拦截都按这两个字段判。
+pub async fn residency_sku(pool: &PgPool, currency: &str, price_minor: i64) -> (String, String) {
+    let sku_id = sku_with_price(pool, currency, price_minor).await;
+    // 挂一位真村民 —— sku.villager_id 有外键，编一个 id 插不进去
+    let villager: String = sqlx::query_scalar("SELECT id FROM villager ORDER BY id LIMIT 1")
+        .fetch_one(pool).await.expect("库里得有村民");
+    sqlx::query(
+        "UPDATE product SET fulfillment_kind='residency', category='omamori'
+          WHERE id = (SELECT product_id FROM sku WHERE id=$1)",
+    ).bind(&sku_id).execute(pool).await.expect("改成 residency");
+    sqlx::query("UPDATE sku SET villager_id=$2 WHERE id=$1")
+        .bind(&sku_id).bind(&villager).execute(pool).await.expect("挂上人");
+    (sku_id, villager)
+}
+
+/// 建一个【要算一册】的商品 + SKU + 价。`fulfillment_kind='async_compute'`。
+pub async fn report_sku(pool: &PgPool, currency: &str, price_minor: i64) -> String {
+    let sku_id = sku_with_price(pool, currency, price_minor).await;
+    sqlx::query(
+        // `report_kind` 是必须的:库里那道 CHECK（product_listed_report_kind）
+        // 不许一件上架的 async_compute 商品说不出自己出哪一种册子 ——
+        // 那正是「先能出，再上架」这条规矩的守卫。
+        "UPDATE product SET fulfillment_kind='async_compute', report_kind='bazi_deep'
+          WHERE id = (SELECT product_id FROM sku WHERE id=$1)",
+    ).bind(&sku_id).execute(pool).await.expect("改成 async_compute");
+    sku_id
+}
+
 /// 建一个「商品 + SKU + 一条激活价」,返回 sku_id。
 ///
 /// 建单用例只认 SKU 与 price_book,所以 product 只是为了满足外键。
@@ -339,4 +370,29 @@ pub async fn outbox_count(pool: &PgPool, kind: &str, aggregate_id: &str) -> i64 
 
 pub async fn order_status(pool: &PgPool, order_id: &str) -> Option<String> {
     scalar_string(pool, "SELECT status FROM order_record WHERE id=$1", order_id).await
+}
+
+/// 把当月会计期扶成 `open`。
+///
+/// 【测试之间共享的全局状态要自己扶正，不能指望跑的顺序】。
+/// `关了之后退款账就落不进去了` 那条会把当月关掉（那正是它的断言），
+/// 而记账那几条并行跑时会撞上「这笔账没有地方落」。
+#[allow(dead_code)]
+pub async fn 确保当月开着(pool: &PgPool) {
+    // 跟 `关了之后退款账就落不进去了` 抢同一个月 —— 用同一把锁排队
+    let mut 连 = pool.acquire().await.expect("拿连接");
+    sqlx::query("SELECT pg_advisory_lock(90903001)")
+        .execute(&mut *连).await.expect("拿锁");
+    use chrono::Datelike;
+    let 现在 = chrono::Utc::now();
+    let id = format!("period-{}-{:02}", 现在.year(), 现在.month());
+    sqlx::query(
+        "INSERT INTO accounting_period(id, kind, year, sub, state, region)
+         VALUES ($1, 'month', $2, $3, 'open', 'cn')
+         ON CONFLICT (id) DO UPDATE SET state='open', closed_at=NULL",
+    )
+    .bind(&id).bind(现在.year()).bind(现在.month() as i32)
+    .execute(pool).await.expect("扶正当月账期");
+    sqlx::query("SELECT pg_advisory_unlock(90903001)")
+        .execute(&mut *连).await.expect("放锁");
 }

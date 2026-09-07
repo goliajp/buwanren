@@ -35,6 +35,7 @@ FILES=(
   mini/miniprogram/pages/name/index.ts
   # 台词那一支的变异对象
   backend/migrations/20260831002_aluo_lines.sql
+  backend/migrations/20260901008_line_fixes2.sql
   # 指代那一支的变异对象
   mini/miniprogram/pages/home/index.wxml
   # 金额那一支的变异对象
@@ -47,9 +48,24 @@ FILES=(
   backend/unmei-api/src/auth.rs
   webadmin/src/App.tsx
   webadmin/src/components/Layout.tsx
+  # 枚举标签表 —— 「库里的枚举都有中文说法」那一条要摘掉它的一行
+  webadmin/src/components/util.ts
   webadmin/src/pages/Dashboard.tsx
+  # 标点那一支的变异对象（2026-09-03 从 Dashboard 换过来 ——
+  # 原锚点「（本页是总览）」在重写看板时删掉了）
+  webadmin/src/pages/Naji.tsx
   web/run-verify.sh
   backend/unmei-domain/src/lib.rs
+  # 区名那一支的变异对象:名册与枚举、以及后台页面里写死的那种名单
+  backend/unmei-domain/src/commerce/region.rs
+  webadmin/src/pages/Users.tsx
+  # 浏览器版本那一支的变异对象
+  package.json
+  rooms/package.json
+  # 筛选框那一支的变异对象（后端那一侧与屏那一侧各一条）
+  backend/unmei-admin-api/src/routes/commerce.rs
+  webadmin/src/pages/Refunds.tsx
+
   mini/miniprogram/types/natal.ts
   backend/unmei-admin-api/src/routes/users.rs
   webadmin/src/lib/api.ts
@@ -64,6 +80,26 @@ FILES=(
   # 而那种验证只存在于当时那次会话里,正是这支脚本存在的理由。
   mini/miniprogram/pages/order/index.ts
   .claude/design/product-v1.html
+  # 2026-09-03 五路评审补的四支变异碰到的文件
+  backend/unmei-app/src/actor.rs
+  backend/unmei-app/src/order.rs
+  scripts/dead-exports.json
+  webadmin/src/pages/Login.tsx
+  backend/unmei-api/src/routes/user.rs
+  # 再补六支（2026-09-03 晚）
+  mini/miniprogram/pages/activity/index.json
+  mini/miniprogram/pages/activity/index.ts
+  mini/miniprogram/app.json
+  webadmin/src/pages/Activities.tsx
+  backend/unmei-app/src/activity.rs
+  scripts/mutation-coverage-gaps.json
+  # 2026-09-04 再补五支
+  webadmin/src/pages/Orders.tsx
+  mini/miniprogram/pages/confirm/index.wxml
+  mini/miniprogram/pages/villager/index.wxml
+  backend/unmei-api/src/routes/report.rs
+  mini/miniprogram/pages/invite/index.wxml
+  mini/miniprogram/utils/money.ts
   docs/REDESIGN.md
   backend/seed/art_leaf.sql
   # tsc 那条变异写在这个文件末尾。它必须在名单里 ——
@@ -115,17 +151,49 @@ if [ -n "$DIRTY" ]; then
 fi
 
 BAK=$(mktemp -d)
+
+# 【备份路径预先算好，trap 里不做任何命令替换】。
+#
+# 2026-09-02 第三轮评审 · 工程审计复现了三次:
+#   bash scripts/mutationtest-checks.sh | head -20 >/dev/null
+#   git status --porcelain
+#    M rooms/src/engine/village.js      ← 变异永久留在源码里
+#
+# 上一版的 EXIT trap 里写的是 `cp "$BAK/$(echo "$f" | tr / _)" "$f"` ——
+# `| head` 掐断时发 SIGPIPE，而那个命令替换的子进程继承了【还没刷出去的
+# stdout 缓冲】，printf 的文本被 `tr` 当成输入译进了文件名，于是
+#   cp: /var/…/tmp.XXXX/  ✓ drawHouse 改名（核对失效） check-plots 抓到
+#   mini_miniprogram_pages_plot_index.wxml: No such file or directory
+# ——【还原循环里每一次 cp 都失败】，紧接着 `rm -rf "$BAK"` 照常执行:
+# 备份没了，变异留下了。而留下的是一处会弄坏村图渲染的改动，
+# 下一轮还会报「植不进去」，把人指向完全相反的方向。
+#
+# 两道防线:
+#   一、把 `原文件 → 备份文件` 的映射【在这儿算好】存进数组，
+#      trap 只做数组下标查表，不再有子进程、不再碰 stdout。
+#   二、trap 头一句先把自己的输出丢掉 —— 还原是收尾动作，
+#      它不该因为下游管道关了而受影响。
+BAKS=()
+for f in "${FILES[@]}"; do BAKS+=("$BAK/$(echo "$f" | tr / _)"); done
+
 # 一个 trap 做两件事。分两个 `trap ... EXIT` 的话后一个会把前一个【覆盖掉】——
 # 2026-08-18 就是这么把十几处变异留在工作区的:锁清了,文件没还原。
-trap 'for f in "${FILES[@]}"; do cp "$BAK/$(echo "$f" | tr / _)" "$f"; done; rm -rf "$BAK" "$LOCK"' EXIT
+trap 'exec >/dev/null 2>&1; i=0; for f in "${FILES[@]}"; do [ -f "${BAKS[$i]}" ] && cp "${BAKS[$i]}" "$f"; i=$((i+1)); done; rm -rf "$BAK" "$LOCK"' EXIT
 # 信号先转成退出,好让上面那个 EXIT 跑到（`| head` 掐断时发的 SIGPIPE 也算）
 trap 'exit 130' INT TERM PIPE
 # 文档 2026-08-24 起不进 git,所以名单里有几个在 CI 上根本不存在。
 # 缺了就跳过 —— 但**它锚着的那几条变异也要跟着跳过**(见下面的 if 守卫),
 # 不能让「植不进去」被当成「门禁没抓到」。
-for f in "${FILES[@]}"; do [ -f "$f" ] && cp "$f" "$BAK/$(echo "$f" | tr / _)"; done
+i=0; for f in "${FILES[@]}"; do [ -f "$f" ] && cp "$f" "${BAKS[$i]}"; i=$((i+1)); done
 
-restore() { for f in "${FILES[@]}"; do [ -f "$BAK/$(echo "$f" | tr / _)" ] && cp "$BAK/$(echo "$f" | tr / _)" "$f"; done; true; }
+restore() {
+  local i=0
+  for f in "${FILES[@]}"; do
+    [ -f "${BAKS[$i]}" ] && cp "${BAKS[$i]}" "$f"
+    i=$((i+1))
+  done
+  true
+}
 
 pass=0; fail=0
 
@@ -270,6 +338,15 @@ mutate "坐标定义改名（核对失效）" check-plots \
   "edit('rooms/src/engine/plots.js', '  const ROW_GY = [', '  const GROUND_Y = [')"
 
 echo
+echo "── check-can-move-in（在架的御守搬得进来吗）──"
+# 这一支半边看源码（屋子文件 + village.js 的走动名单）、半边看库（在架的御守）。
+# 源码那半边是可变异的:把桃桃的 `cast: true` 摘掉 —— 她的御守照旧在架，
+# 而村里再也走不出她。**没有任何东西会因此报错**:名册照样卖，
+# 买家照样付 ¥99，只是请回来的那位永远不出门。
+mutate "在架的那位村里走不动了" check-can-move-in \
+  "edit('rooms/src/engine/village.js', \"mkV('tao', 'WM', ['今日局不错哦', '家人们，点个小红心', '哼，才没在等谁'], { cast: true }),\", \"mkV('tao', 'WM', ['今日局不错哦', '家人们，点个小红心', '哼，才没在等谁'], {}),\")"
+
+echo
 echo "── check-relations（对白长在真实关系上）──"
 mutate "两个没关系的人有了专属对白" check-relations \
   "edit('rooms/src/engine/village.js', '  const CONVOS = [', \"  const CONVOS = [\n    { a:'bailu', b:'popo', L:[['a','…'],['b','…']] },\")"
@@ -293,8 +370,49 @@ mutate "后端改了【拼出来的】那条路由" check-routes \
   "edit('backend/unmei-api/src/routes/village.rs', '\"/v1/villagers/:id/reading\"', '\"/v1/villagers/:id/ask\"')"
 keep "拼在路径后面的查询串不算路径段" check-routes \
   "edit('mini/miniprogram/services/naji.ts', \"'/v1/naji/history'\", \"'/v1/naji/history' + qs({page:1})\")"
+# 锚点 2026-09-05 搬了家:那一行原先是 `if (!path.startsWith('/commerce'))`,
+# 加上 `/users` 之后改成按一张名单判。变异要植的东西没变 ——
+# 往源码里塞一个 `startsWith('/nowhere')`，check-routes 不许把它当成一条路由。
 keep "字符串方法的参数不算路径" check-routes \
-  "edit('webadmin/src/lib/api.ts', \"if (!path.startsWith('/commerce')) return path;\", \"if (!path.startsWith('/commerce')) return path;\\n  if (path.startsWith('/nowhere')) return path;\")"
+  "edit('webadmin/src/lib/api.ts', \"  if (path.includes('region=')) return path;\", \"  if (path.startsWith('/nowhere')) return path;\\n  if (path.includes('region=')) return path;\")"
+
+echo
+echo "── check-region-vocab（区名只有名册说了算）──"
+# 后台页面里写死一串区名 —— 这一支就是为它存在的:定价页挑一个
+# 名册里没有的区发出去的价，落进一个谁也查不到的 region
+mutate "后台页面里写死一串区名" check-region-vocab \
+  "edit('webadmin/src/pages/Users.tsx', 'const size = 30;', \"const size = 30;\\n  const REGIONS = ['cn','hk','tw'];\")"
+# 写死一个区的 <option> —— 用户页原先那五个就是这么摆的
+mutate "后台页面里写死一个区的选项" check-region-vocab \
+  "edit('webadmin/src/pages/Users.tsx', '<option value=\"web\">网页</option>', '<option value=\"cn\">cn</option>')"
+# 枚举跟名册走散 —— 开第二格那天最容易发生的就是「只改了库没改代码」
+mutate "枚举跟名册走散了" check-region-vocab \
+  "edit('backend/unmei-domain/src/commerce/region.rs', '\"kr\"      => Ok(Self::Kr),', '\"korea\"   => Ok(Self::Kr),')"
+# 【注释里提到区名不算】。这一支要抓的是【选项与名单】,
+# 而注释里正需要把「hk / tw 不是区」这件事写清楚 —— 报它就等于逼人删掉说明
+keep "注释里提到区名不算" check-region-vocab \
+  "edit('webadmin/src/pages/Users.tsx', 'const size = 30;', \"const size = 30;\\n  // 旧的那一版写死过 ['cn','hk','tw','jp','us']\")"
+
+echo
+echo "── check-script-deps（门禁脚本要的包）──"
+# 把确切版本改成范围 —— 明天 bun 就可能换一个浏览器回来
+mutate "版本写成了范围" check-script-deps \
+  "edit('package.json', '\"playwright\": \"1.62.1\"', '\"playwright\": \"^1.62.1\"')"
+# 两处走散 —— 根跑的脚本用一个版本，rooms 的工具用另一个
+mutate "两处钉的版本走散了" check-script-deps \
+  "edit('rooms/package.json', '\"playwright\": \"1.62.1\"', '\"playwright\": \"1.61.1\"')"
+# 清单里少一个 —— 它会以 `Cannot find package` 的样子红在别的门禁上
+mutate "要的包漏在清单外" check-script-deps \
+  "edit('package.json', '    \"pngjs\": \"7.0.0\"\\n', '')"
+
+echo
+echo "── check-query-params-used（屏上的筛选框后端用没用）──"
+# 后端把某个筛选字段从 SQL 里拿掉 —— 屏上那个框从此是摆设，而两边都不报错
+mutate "后端不再用屏上那个筛选框" check-query-params-used \
+  "edit('backend/unmei-admin-api/src/routes/commerce.rs', 'let kind = q.kind.clone();', 'let kind: Option<String> = None;')"
+# 屏上多摆一个后端根本不认的框 —— 人筛了，条数一点不变
+mutate "屏上多摆一个后端不认的框" check-query-params-used \
+  "edit('webadmin/src/pages/Refunds.tsx', \"{ kind: 'select', key: 'status', label: '状态'\", \"{ kind: 'text', key: 'nosuchfield', label: '瞎筛' },\\n            { kind: 'select', key: 'status', label: '状态'\")"
 
 echo
 echo "── check-bodies（写操作的请求体）──"
@@ -337,9 +455,9 @@ keep "JSON 数组里的逗号（不是文案）" check-punct-ui \
 # 换锚点时挑的是【真显示出来的字】：小程序那一侧现在一句带全角括号的文案都没有,
 # 而后台也归这支门禁管（它是内部工具,看的仍然是人）。
 mutate "括号里是中文却用了半角" check-punct-ui \
-  "edit('webadmin/src/pages/Dashboard.tsx', '（本页是总览）', '(本页是总览)')"
+  "edit('webadmin/src/pages/Naji.tsx', '用户号（要完整）', '用户号(要完整)')"
 keep "括号里是数字或英文（豁免）" check-punct-ui \
-  "edit('webadmin/src/pages/Dashboard.tsx', '（本页是总览）', '（本页是总览）(+8)(control plane)')"
+  "edit('webadmin/src/pages/Naji.tsx', '用户号（要完整）', '用户号（要完整）(+8)(control plane)')"
 keep "中文当对象键的代码" check-punct-ui \
   "edit('mini/miniprogram/pages/village/index.ts', '  /** 他刚说的那一句 */', \"  /* eslint-disable */ // const 五行 = { 木: 'mu', 火: 'huo' }\\n  /** 他刚说的那一句 */\")"
 
@@ -353,8 +471,13 @@ echo
 echo "── check-reachable-pages（每一页都得走得到）──"
 # 村从 tab 上摘掉,屋子跟着一起孤立 —— 这正是 2026-08-19 之前的真实状态:
 # 全应用唯一的扫码入口在村里,而村谁也进不去,门禁全绿。
+# ★ 锚点【只钉那一行 pagePath】，不钉整块。整块钉法这一年里跟着改了三次:
+#   tab 从五个减到三个、村改叫村子、2026-09-01 又给每一项加了
+#   iconPath / selectedIconPath —— 每加一个字段，这条变异就静默植不进去。
+#   `check-reachable-pages` 问的是「有没有人指向这一页」，
+#   把 pagePath 改成别的名字就够了，跟同一块里有几个字段无关。
 mutate "把村从 tab 上摘了" check-reachable-pages \
-  "edit('mini/miniprogram/app.json', '      {\n        \"pagePath\": \"pages/village/index\",\n        \"text\": \"村子\"\n      },\n', '')"
+  "edit('mini/miniprogram/app.json', '\"pagePath\": \"pages/village/index\"', '\"pagePath\": \"pages/__gone__/index\"')"
 # 2026-08-22:tab 从五个减到三个（docs/REDESIGN.md R0），村改叫村子，
 # app.json 也从单行重排成多行 —— 这条锚点跟着改了两处。
 # 它当时报的是「变异没植进去（基准源码变了？）」而不是假绿，这一点是对的。
@@ -362,8 +485,13 @@ mutate "把村从 tab 上摘了" check-reachable-pages \
 # 把那句改个名,它就成了孤儿 —— 传递可达这件事得真的在算,不能只看 tab。
 # 2026-08-23:那句从村主屏搬到了村民那一屏（REDESIGN.md R2，点一格开一屏），
 # 锚点跟着走。它当时报的是「变异没植进去（基准源码变了？）」而不是假绿。
-mutate "通往屋子的那句改没了" check-reachable-pages \
-  "edit('mini/miniprogram/pages/villager/index.ts', \"'/pages/room/index?room='\", \"'/pages/roomz/index?room='\")"
+# 2026-09-01:屋子多了【第二条】进路 —— 订单那一屏付完之后的「去他屋里看看」
+# （转化路改造，原先那个位置是「收到了，去扫一下」）。只改村民屏那一句
+# 已经孤立不了它，于是这条变异当场变成假的:门禁说「可达」是对的，
+# 是这条变异过时了。两处一起改，它才重新在问原来那个问题。
+mutate "通往屋子的那两句都改没了" check-reachable-pages \
+  "edit('mini/miniprogram/pages/villager/index.ts', \"'/pages/room/index?room='\", \"'/pages/roomz/index?room='\"); \
+   edit('mini/miniprogram/pages/order/index.ts', \"'/pages/room/index?room='\", \"'/pages/roomz/index?room='\")"
 
 # 后台控制台那一半：路由与侧边栏要一一对上。
 # 照的是真事 —— Users 那一页从初始提交起就挂在侧边栏上，而它要的接口后端没有。
@@ -413,8 +541,13 @@ echo
 echo "── check-villager-lines（村民台词的规格）──"
 # 台词一位一位地写。这一支守的是【写出来的那几条合不合规格】,
 # 不是「写了几位」—— 少一条会在轮播里露空当，术语混进来就成了报盘。
+# ★ 变异要植在【真正生效的那一处】。阿罗第 3 条原先是插入语句里的「啊」，
+#   2026-09-01 被 20260901008 的一支 UPDATE 覆盖成「啊，你还在啊」
+#   （单独一个「啊」会作为「今天说」印在村子首页最大的气泡上）。
+#   而门禁读的是覆盖之后的文本 —— 于是植在插入上的变异不再影响结果，
+#   这一条静默逃掉。锚点跟着最后那一手走。
 mutate "台词结尾多了个句号" check-villager-lines \
-  "edit('backend/migrations/20260831002_aluo_lines.sql', \"('aluo', 3, '啊')\", \"('aluo', 3, '啊。')\")"
+  "edit('backend/migrations/20260901008_line_fixes2.sql', \"'啊，你还在啊'\", \"'啊，你还在啊。'\")"
 mutate "台词里混进了术语" check-villager-lines \
   "edit('backend/migrations/20260831002_aluo_lines.sql', '跟鸟说话比较容易', '你日主偏弱')"
 
@@ -422,10 +555,16 @@ echo
 echo "── check-no-deixis（屏上不拿指代当名字）──"
 # 「那一份」曾是这个付费产品在屏上的全部说法。指代要有上下文才成立，
 # 而第一次看见它的人没有上下文（2026-08-31 用户指出）。
+# 【钉住的那句话 2026-09-06 改了】。原先钉的是「看你的说明书 ›」——
+# 而那一条去的是出生时间那一屏，不是说明书，所以它换成了「看你缺什么 ›」。
+# 换字的那一轮这一条报「没抓到」：`edit` 找到的唯一一处
+# 是我在同一个文件里写的【注释】（「上一版写的是「看你的说明书 ›」」），
+# 于是变异种在注释上，而 `check-no-deixis` 不扫注释。
+# 变异植进注释 = 这一支报的红说的是假话，这个坑 2026-08-18 记过一次。
 mutate "屏上又拿「那一份」当名字" check-no-deixis \
-  "edit('mini/miniprogram/pages/home/index.wxml', '看你的说明书 ›', '看完整的那一份 ›')"
+  "edit('mini/miniprogram/pages/home/index.wxml', '看你缺什么 ›', '看完整的那一份 ›')"
 keep "带上下文的指代不算" check-no-deixis \
-  "edit('mini/miniprogram/pages/home/index.wxml', '看你的说明书 ›', '在用的那一份生辰 ›')"
+  "edit('mini/miniprogram/pages/home/index.wxml', '看你缺什么 ›', '在用的那一份生辰 ›')"
 
 echo
 echo "── check-money-fmt（金额只有一支格式化）──"
@@ -450,8 +589,11 @@ echo "── check-screen-ruler（每一屏对得上尺子吗）──"
 # `name` 这一屏只有 onBack 会跳（save 不跳），它才是单出口。
 mutate "唯一的出口空有其名（函数体里不跳了）" check-screen-ruler \
   "sub('mini/miniprogram/pages/name/index.ts', r'\n  onBack\(\).*?\n  \},', '\n  onBack() {\n    // 变异:掏空\n  },')"
+# 锚在 `class="title` 这半截（不带右引号）—— 屏名的尺寸档
+# （`title-lg` / `title-sm`）是后加的，锚死整个属性值就会在加档那天
+# 变成「变异没植进去」，而那读起来像门禁坏了。2026-09-02 真踩到一次。
 mutate "一屏连标题都没有" check-screen-ruler \
-  "edit('mini/miniprogram/pages/badges/index.wxml', 'class=\"title\"', 'class=\"tiitle\"')"
+  "edit('mini/miniprogram/pages/badges/index.wxml', 'class=\"title', 'class=\"tiitle')"
 
 echo
 echo "── check-design-css（设计文档里的 var 真定义过吗）──"
@@ -534,6 +676,116 @@ mutate "台账里那条忽然查起角色来了" check-admin-roles \
   "edit('backend/unmei-admin-api/src/routes/auth.rs', ') -> Result<Json<serde_json::Value>, ApiError> {\\n    let row = sqlx::query(', ') -> Result<Json<serde_json::Value>, ApiError> {\\n    admin.requires_role(\"super\")?;\\n    let row = sqlx::query(')"
 
 echo
+echo "── 2026-09-03 五路评审加的那几支 ──"
+# 【每一支门禁都该有一条变异守着】。这几支是这一轮加的 / 改的，
+# 而「加的那天手动验过一次」这种验证只存在于当时那次会话里 ——
+# 那正是这个脚本存在的理由（见文件头）。
+
+# 导出了而没人调:两个方向都要守
+mutate "新长一个零调用的导出" check-dead-exports \
+  "edit('backend/unmei-app/src/actor.rs', '    pub fn label(&self) -> String {', '    pub fn 谁也不调我() -> bool { true }\\n\\n    pub fn label(&self) -> String {')"
+mutate "台账里那条忽然有人调了" check-dead-exports \
+  "edit('backend/unmei-app/src/order.rs', 'pub async fn cancel(', 'fn _借它一用() -> bool { unmei_domain::commerce::money::Money::zero(unmei_domain::commerce::money::Currency::Cny).is_zero() }\\n\\npub async fn cancel(')"
+
+# 运营台文案:未翻译的英文
+mutate "后台屏上留一句没翻译的英文" check-webadmin-cn \
+  "edit('webadmin/src/pages/Login.tsx', '<span className=\"label text-ink-4 block mb-1\">邮箱</span>', '<span className=\"label text-ink-4 block mb-1\">email address</span>')"
+
+# 枚举没有中文说法:把「微信」那一条摘掉。
+# 订阅表里 1,179 条的 `source_channel` 就是裸的 `wechat`,
+# 摘掉之后那一列会原样印英文 —— 这一支要抓的正是这个形状。
+mutate "库里有的枚举值，标签表里没有" check-enum-labels \
+  "edit('webadmin/src/components/util.ts', \"    wechat:        '微信',\\n\", '')"
+
+# 客人那一侧同一个形状:把顺丰摘掉。库里 721 件运单的 `carrier_code`
+# 就是 `sf`，摘掉之后订单页的单号那一行会读作「sf · P25ADMIN0001」——
+# 那正是 2026-09-05 在照过三轮相的屏上抓到的原样。
+mutate "客人那一屏的枚举没有中文说法" check-enum-labels \
+  "edit('mini/miniprogram/pages/order/index.ts', \"  sf: '顺丰', \", '  ')"
+
+# 查询失败不许说成零
+# 变异不编译，门禁只读文本 —— 所以这里只要把「失败被吃掉」那个形状种进去。
+mutate "查询失败被当成零" check-silent-zero \
+  "edit('backend/unmei-api/src/routes/user.rs', ').bind(&claims.sub).fetch_one(&st.db).await?;', ').bind(&claims.sub).fetch_one(&st.db).await.ok().unwrap_or(0);')"
+
+# 导航栏标题：页面自己写页面名，那条原生栏上就会有两个标题
+mutate "导航栏又写了一遍页面名" check-nav-title \
+  "edit('mini/miniprogram/pages/activity/index.json', '\"navigationBarTitleText\": \"不完人\"', '\"navigationBarTitleText\": \"线下活动\"')"
+
+# 底栏选中色：改成一个既不是 --ink 也不是 --amber 的黑，
+# 那正是 2026-09-01 之前的样子（「这是个通用小程序」）
+mutate "底栏选中色又变成随便一个黑" check-tabbar \
+  "edit('mini/miniprogram/app.json', '\"selectedColor\": \"#A34700\"', '\"selectedColor\": \"#1a1a1c\"')"
+
+# 设计令牌：墨只有四档，`text-ink-9` 不存在 ——
+# Tailwind 对不认识的类不报错，只是不生成规则，页面「渲染成功」而那一格没有样式
+mutate "后台引用了一个不存在的令牌" check-webadmin-tokens \
+  "edit('webadmin/src/pages/Activities.tsx', 'className=\"label text-ink-3\">{类别(r.category)}', 'className=\"label text-ink-9\">{类别(r.category)}')"
+
+# 行锁空转：`FOR UPDATE` 跑在连接池上，语句一结束隐式事务就提交，锁当场释放 ——
+# 而它要保护的那段（数位子、占位子）在那之后才跑
+mutate "行锁跑在连接池上（空转）" check-row-locks \
+  "edit('backend/unmei-app/src/activity.rs', '\"SELECT status, regions_avail, start_at FROM activity WHERE id=\$1 FOR UPDATE\",\n    )\n    .bind(activity_id)\n    .fetch_optional(&mut *tx)', '\"SELECT status, regions_avail, start_at FROM activity WHERE id=\$1 FOR UPDATE\",\n    )\n    .bind(activity_id)\n    .fetch_optional(pool)')"
+
+# 技术原文上屏：把 `一句()` 换成 `.message`，后端的原文直接进 setData
+mutate "后端原文直接摆到屏上" check-no-raw-error \
+  "edit('mini/miniprogram/pages/activity/index.ts', \"err: '取不到：' + 一句(e as { status?: number; message?: string }),\", \"err: '取不到：' + (e as { message?: string }).message,\")"
+
+# 开屏取数却没有 onAuthReady：冷启动那一次赶在 token 之前发出去、拿 401，
+# 而之后再也不取 —— 那一屏停在「取不到」，刷新一下又好了
+mutate "开屏取数的页丢了 onAuthReady" check-auth-ready \
+  "edit('mini/miniprogram/pages/activity/index.ts', '  onAuthReady() {\n    this.load()\n  },\n\n', '')"
+
+# 【守门的那一支自己也要有人守】。它把自己也逮住过一次 ——
+# 接进 gates.sh 的那一刻它报「check-mutation-coverage 没有变异守着它」，
+# 而那正是它该说的话。这条变异让它自己也在这条规矩里。
+mutate "覆盖台账里划掉一条（凭空多一支没人守的门禁）" check-mutation-coverage \
+  "edit('scripts/mutation-coverage-gaps.json', '    \"check-faces\": \"纯源码 —— 写一条变异就能划掉，欠着\",\n', '')"
+
+# 后台读失败要有话说：把订单页那一行「取不到」拿掉
+mutate "后台某一页读失败又不说话了" check-console-read-error \
+  "edit('webadmin/src/pages/Orders.tsx', '<TableError 出错={list.isError} 列数={8} />', '')"
+
+# 一件事一个名字：把确认屏上那一处「护身符」写回「御守」。
+# 【要种在真的屏上文字里】—— 头一版种到了村民屏的一段注释里，
+# 而门禁把注释剥掉了（那是对的），于是它报「没抓到」，
+# 看着像门禁退化，实际是这条变异挑错了位置。
+# 【方向 2026-09-06 反过来了】：定名从「护身符」翻成「御守」，
+# 所以这条变异也跟着翻 —— 往屏上塞回旧名字，那一支必须红。
+mutate "同一件东西又冒出第二个名字" check-one-name \
+  "edit('mini/miniprogram/pages/confirm/index.wxml', '<view class=\"card-name\">{{p.villager.name}}的御守</view>', '<view class=\"card-name\">{{p.villager.name}}的护身符</view>')"
+
+# 前端的状态说法要跟后端枚举对得上：删掉一档
+mutate "前端的状态说法漏了后端有的一档" check-status-words \
+  "sub('mini/miniprogram/utils/money.ts', r\"\\n\\s*refunded: '[^']*',\", '')"
+
+# 掏钱的按钮自己要写着价：把村民屏那颗「请回村 · ¥99」的价去掉。
+# 五路评审里三路各自把「不写价」列成第一个不敢按的理由。
+mutate "掏钱的按钮又不写价了" check-price-on-cta \
+  "edit('mini/miniprogram/pages/villager/index.wxml', '请{{who.name}}回村 · {{价}}', '请{{who.name}}回村')"
+
+# 注册了的页面要有路走得到：新注册一页而不给任何入口
+mutate "新注册一个页面却没人链接得到" check-dead-screens \
+  "edit('mini/miniprogram/app.json', '\"pages/activity/index\",', '\"pages/activity/index\",\n    \"pages/nowhere/index\",')"
+
+# 挂着人不等于是御守：把「的护身符」那一处的条件去掉。
+# 香也挂着苏合，而买香是寄一盒香，不是请她搬进来。
+# 【要打瘸的是判据本身，不是某一行的写法】。头两版分别改了明细行与卡片，
+# 而这一支看的是「上下四行的窗口里有没有 `住进来`」——
+# 那两处的判据都写在上一行，窗口照样够得着，于是它报「没抓到」，
+# 看着像门禁退化。把那两处的判据【一起】拿掉，才是它该拦的那件事。
+mutate "拼「的护身符」却不看会不会住进来" check-omamori-sense \
+  "edit('mini/miniprogram/pages/confirm/index.wxml', '<view class=\"card card-who\" wx:if=\"{{p.villager && 住进来}}\">', '<view class=\"card card-who\" wx:if=\"{{p.villager}}\">'); edit('mini/miniprogram/pages/confirm/index.wxml', '御守是一个人。上一屏还是', '那一枚东西。上一屏还是')"
+
+# 说明书不许原样转发排盘的文言推理
+mutate "说明书又原样转发排盘的 reasoning" check-report-passthrough \
+  "edit('backend/unmei-api/src/routes/report.rs', '\"lead\": 串(y.get(\"method\")),', '\"lead\": 串(y.get(\"reasoning\")),')"
+
+# 村民缺的是他自己的，不是拿来补你的
+mutate "屏上又写「跟你补得上」" check-lack-sense \
+  "edit('mini/miniprogram/pages/invite/index.wxml', '<text class=\"soon-lack\" wx:if=\"{{item.lack}}\">缺{{item.lack}}</text>', '<text class=\"soon-lack\" wx:if=\"{{item.lack}}\">缺{{item.lack}} · 跟你补得上</text>')"
+
+echo
 echo "── tsc（类型）──"
 # tsc 不是我们写的门禁,但它【能被悄悄放松】:一个 @ts-nocheck、
 # 一处 tsconfig 改松,它就再也不报了,而 gates.sh 上那一行照旧显示绿。
@@ -556,7 +808,13 @@ echo "── web verify · 动线 ──"
 # 只放一条。跑一遍镜像要一分多钟,而这一条要证明的事只有一件:
 # 「页面变了,动线看得见」。
 restore
-python3 -c "
+# 【用带引号的 heredoc，不用 `python3 -c "…"`】。双引号里的反引号
+# bash 会当成命令替换真的去跑 —— 下面那段注释里引了一段 wxml，
+# 原先用反引号括着，于是每跑一次这支门禁，bash 就报两行
+# 「{{在哪儿: command not found」，而变异本身照常进行、总账照常报数。
+# 噪音不致命，但它证明了这里的引号是敞开的——哪天被引的那段里
+# 恰好是一条真命令，它就会被执行。(2026-09-02)
+if ! python3 <<'PYEOF'
 import pathlib
 p = pathlib.Path('mini/miniprogram/pages/plot/index.wxml')
 s = p.read_text(encoding='utf-8')
@@ -568,7 +826,8 @@ s = p.read_text(encoding='utf-8')
 锚 = chr(123)*2 + '在哪儿 || ' + chr(39) + '这间' + chr(39) + chr(125)*2 + '空着'
 assert s.count(锚) == 1, '锚点不是恰好一处 —— 页面结构变了'
 p.write_text(s.replace(锚, 锚[:-2] + '没人'), encoding='utf-8')
-" || {
+PYEOF
+then
   # **植入失败也要报红**。原先这里不看 python 的退出码,于是 assert 挂掉时
   # 变异根本没进去,而下面的 run-verify 照常全通 —— 报出来是
   # 「动线没抓到」,看着像动线退化,实际是这条变异自己坏了。
@@ -576,14 +835,20 @@ p.write_text(s.replace(锚, 锚[:-2] + '没人'), encoding='utf-8')
   printf '  ✗ %-30s 变异没植进去（页面结构变了？）\n' "空屋那一句被改掉"
   fail=$((fail+1))
   restore
-  false
-}
-if bash web/run-verify.sh >/dev/null 2>&1; then
-  printf '  ✗ %-30s 动线没抓到 —— 页面改了它却照样全通\n' "空屋那一句被改掉"; fail=$((fail+1))
+  # 【植入失败就到此为止，不许再往下跑】。这里原先是 `false` 然后【继续】——
+  # 没有 `set -e`，于是下面那段照跑，而页面根本没被改过。
+  # run-verify 那时红了(别的原因)就记一个「动线抓到」的通过 ——
+  # 一次坏掉的变异同时产出一红一绿，而绿的那条是凭空来的。
+  # 实测:把锚点改坏后，这一条同时打印了「变异没植进去」和「动线抓到」
+  # (2026-09-02)。变异没进去时【什么都不该断言】。
 else
-  printf '  ✓ %-30s 动线抓到\n' "空屋那一句被改掉"; pass=$((pass+1))
+  if bash web/run-verify.sh >/dev/null 2>&1; then
+    printf '  ✗ %-30s 动线没抓到 —— 页面改了它却照样全通\n' "空屋那一句被改掉"; fail=$((fail+1))
+  else
+    printf '  ✓ %-30s 动线抓到\n' "空屋那一句被改掉"; pass=$((pass+1))
+  fi
+  restore
 fi
-restore
 
 # 这一条守的是【它自己跑不起来的时候会不会报绿】。
 #

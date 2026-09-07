@@ -41,6 +41,12 @@ import pathlib
 # 由迁移文件写进去。「她按你八字单配」就是这么漏过去的:
 # 界面门禁扫不到它，只有人眼看截图才发现。
 迁移 = sorted((根 / 'backend/migrations').glob('*.sql'))
+# 【页面的 .ts 里也有屏上的字】。「下一步等什么」「付完会怎样」这一类
+# 按状态选一句的函数，整段都是要显示给人看的话 —— 而这一支原先只扫 wxml，
+# 于是 2026-09-01 我把「他已经住进来了 —— 去他屋里看看」写进 order/index.ts，
+# 三处代词一个都没被拦住（同一天 wxml 那三处当场就红了）。
+# 只看引号里的中文串，注释与标识符不算。
+脚本 = sorted(页.glob('*/index.ts'))
 if not 文件:
     print('✗ 一个页面都没找到 —— 这支门禁够不着要验的东西，不算通过')
     sys.exit(1)
@@ -57,6 +63,18 @@ for f in 文件:
         行 = s[:m.start()].count('\n') + 1
         前后 = s[max(0, m.start() - 20):m.end() + 14].replace('\n', ' ')
         人称.append(f'{f.relative_to(根)}:{行}　「{前后.strip()}」')
+
+# 页面 .ts 里的中文字面量。先把注释挖空（换等量空白，行号不漂），
+# 再取引号里含中文的串。
+ts注释 = re.compile(r'/\*.*?\*/|//[^\n]*', re.S)
+ts串 = re.compile(r"'([^'\\\n]*[一-龥][^'\\\n]*)'|\"([^\"\\\n]*[一-龥][^\"\\\n]*)\"")
+for f in 脚本:
+    s2 = ts注释.sub(lambda m: re.sub(r'[^\n]', ' ', m.group(0)), f.read_text(encoding='utf-8'))
+    for m in ts串.finditer(s2):
+        句 = m.group(1) or m.group(2)
+        if 代词.search(句):
+            行 = s2[:m.start()].count('\n') + 1
+            人称.append(f'{f.relative_to(根)}:{行}　「{句}」')
 
 # 迁移里的中文字面量:只看单引号里的串，SQL 注释与列名不算。
 #
@@ -110,5 +128,14 @@ if 人称:
     print('\n'.join('    ' + e for e in 人称))
     print('\n  用名字（{{who.name}}），或者干脆省掉。')
 if 错 or 人称:
+    sys.exit(1)
+
+# 【查不到东西的核对必须失败】（2026-09-03 五路评审 · 门禁审计）。
+# 判据不是「有没有报错」，是「它够不够得着要验的东西」——
+# 路径改了、目录搬了、glob 写错了，这一支都会一个不落地全绿，
+# 而它其实一个文件都没看。下限比今天低不少，只挡「塌了」这一档。
+if len(文件) < 15 or len(迁移) < 10:
+    print(f'✗ 只扫到 {len(文件)} 屏 {len(迁移)} 支迁移 —— '
+          '这一支够不着要验的东西，不算通过')
     sys.exit(1)
 print(f'✓ {len(文件)} 屏都没有拿指代当名字，也没写死人称')

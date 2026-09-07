@@ -49,6 +49,10 @@ STRUCT_PAIRS = [
      'mini/miniprogram/types/auth.ts', 'AuthOut'),
     ('backend/unmei-domain/src/lib.rs', 'UserPublic',
      'mini/miniprogram/types/auth.ts', 'UserPublic'),
+    # 券那一屏整屏就靠这一个结构体 —— 少接一个字段的样子是一张
+    # 空白的卡（`面` 算不出来、`why` 是 undefined），不抛不报
+    ('backend/unmei-app/src/coupon.rs', 'MyCoupon',
+     'mini/miniprogram/types/commerce.ts', 'MyCoupon'),
 ]
 
 

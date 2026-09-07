@@ -449,7 +449,7 @@
   })
 
   def("shenyan_copybook", {
-    clickable: true, say: '梅花易数。抄第七遍了，字倒是越写越好',
+    clickable: true, say: '师父那本书。抄第七遍了，字倒是越写越好',
     sayDeep: ['抄书是笨办法', '……笨办法我用了半辈子', '批注是给我自己看的。写给谁看呢，又没有学生'],
     name: "抄本 · 梅花易数", cat: "书卷", tags: ["抄本", "批注", "表层"],
     scope: "character", fromRoom: 'shenyan',
@@ -601,7 +601,7 @@
 
   def("shenyan_basin_leak", {
     clickable: true, say: '梅雨天接的。漏了三年，没修',
-    sayDeep: ['修一次要半吊钱', '……那半吊钱我买了别的', '你猜买了什么'],
+    sayDeep: ['修一次要八块', '……那八块我买了别的', '你猜买了什么'],
     name: "接漏陶盆", cat: "器物", tags: ["梅雨", "漏雨", "江南"],
     scope: "character", fromRoom: 'shenyan',
     w: 120, h: 100, base: 100, foot: [0, 30, 120, 70], zLayer: 'low',
@@ -1656,7 +1656,7 @@
 
   def("shenyan_piggy", {
     clickable: true, say: '攒着。攒够了就去买',
-    sayDeep: ['一天存两文', '……存到月底，一次买完', '存的时候最踏实。买完就不踏实了'],
+    sayDeep: ['一天存两块', '……存到月底，一次买完', '存的时候最踏实。买完就不踏实了'],
     name: "存钱罐", cat: "器物", tags: ["粗陶", "攒钱"],
     scope: "character", fromRoom: 'shenyan',
     w: 72, h: 92, base: 92, foot: [6, 66, 60, 26], zLayer: 'sort',

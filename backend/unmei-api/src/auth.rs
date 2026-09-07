@@ -61,6 +61,50 @@ impl FromRequestParts<AppState> for AuthedUser {
         let tok = v.strip_prefix("Bearer ").or_else(|| v.strip_prefix("bearer "))
             .ok_or(ApiError(AppError::Unauthorized))?;
         let claims = decode_token(tok, &state.jwt_secret).map_err(ApiError)?;
+
+        /* 【封了要真的进不来】（2026-09-03）。`app_user.is_banned` 这一列
+           从建库起就在，而**没有任何地方写它，也没有任何地方读它**。
+           一个建好了却不生效的开关比没有更糟:后台看着能封，
+           封完那个人照常下单。
+
+           查在这里而不是逐条路由 —— 三十多个要登录的接口手抄必漏，
+           而漏掉的那一条正是他会去用的那条。
+           代价是每个请求多一次主键查询。
+
+           token 里不带这个标志，因为 token 签发之后不会更新 ——
+           封一个人不该等到他的 token 过期（八小时）才生效。 */
+        /* 【注销过的也在这一句里挡】（2026-09-05）。挡在这里而不是逐条路由,
+           理由跟上面那条一样:三十多个要登录的接口手抄必漏。
+
+           回的是 **401 不是 403**。403 是「你不能做这件事」，
+           而注销之后这个账号已经不存在 —— 401 才是实情;
+           而且客户端对 401 的处置是清掉 token 重新匿名登录
+           （`services/api.ts`），那正是一个刚注销完的人该落到的地方:
+           一个干净的新身份。403 会让他卡在一屏「没有权限」上。 */
+        let 那个人: Option<(bool, Option<chrono::DateTime<chrono::Utc>>)> =
+            sqlx::query_as("SELECT is_banned, deleted_at FROM app_user WHERE id=$1")
+                .bind(&claims.sub)
+                .fetch_optional(&state.db)
+                .await
+                .map_err(|e| ApiError(AppError::Infra(format!("db: {e}"))))?;
+        if let Some((封了, 注销了)) = 那个人 {
+            /* 【注销那一条自己放行】。它在应用层是幂等的（再调一次返回
+               各项都是 0），而这道守卫会抢在它前面把第二次打成 401 ——
+               于是那份幂等【在 HTTP 上一次都到不了】。
+
+               这不是给注销开后门:一个已经注销的号再注销一次是空操作，
+               放行不多给它任何东西。而挡住的代价是真的:网络超时之后
+               人再点一次，那一下其实已经成了，屏上却报「没登录」——
+               他会以为自己的数据还在，而且再也找不到那个号去注销一次。 */
+            let 是注销那一条 = parts.uri.path() == "/v1/user/me/delete";
+            if 注销了.is_some() && !是注销那一条 {
+                return Err(ApiError(AppError::Unauthorized));
+            }
+            if 封了 {
+                return Err(ApiError(AppError::Forbidden));
+            }
+        }
+
         Ok(AuthedUser(claims))
     }
 }
@@ -81,7 +125,8 @@ impl IntoResponse for ApiError {
         if let Some(detail) = self.0.detail() {
             tracing::error!(status = status.as_u16(), detail, "infra failure");
         }
-        let body = ApiErrorBody { error: self.0.to_string(), code: self.0.code().to_string() };
+        // 用 `出面()` 而不是 `to_string()` —— 库的原文不上屏，见 AppError::出面
+        let body = ApiErrorBody { error: self.0.出面(), code: self.0.code().to_string() };
         (status, Json(body)).into_response()
     }
 }

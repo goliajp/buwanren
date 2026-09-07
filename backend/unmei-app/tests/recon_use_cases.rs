@@ -209,3 +209,64 @@ async fn batch_total_is_the_channel_side_sum() {
     let total = common::scalar_i64(&pool, "SELECT total_amount_minor FROM recon_batch WHERE id=$1", &out.batch_id).await;
     assert_eq!(total, 350);
 }
+
+// ═════════ 2026-09-04 · 少掉的那一天不许看着像对过 ═════════
+
+/// 【只看昨天的话，停机一天就少一天的账】。
+///
+/// worker 原先写的是「东八区凌晨 2 点那一小时里，拉昨天的」——
+/// 服务那一小时不在，那一天就永远不对账，而少掉的那一天在库里
+/// **跟「对上了」长得一模一样**（两者都没有差异记录）。
+#[tokio::test]
+async fn 欠着的那几天都要报出来() {
+    let pool = db_or_skip!();
+    // 用一个自己的渠道名，不跟别的测试与 seed 抢
+    let 渠道 = common::uniq("ch");
+    let 今天 = NaiveDate::from_ymd_opt(2026, 9, 10).unwrap();
+
+    // 一天都没拉过 → 七天全欠着，且【从最早的开始】
+    let 欠着 = recon::days_needing_pull(&pool, &渠道, 今天, 7).await.expect("查欠账");
+    assert_eq!(欠着.len(), 7, "一天都没拉过，该欠七天");
+    assert_eq!(欠着[0], NaiveDate::from_ymd_opt(2026, 9, 3).unwrap(), "补账要从最早的那天起");
+    assert_eq!(欠着[6], NaiveDate::from_ymd_opt(2026, 9, 9).unwrap(), "最后一天该是昨天");
+    assert!(!欠着.contains(&今天), "今天的账还没出，不该欠");
+
+    // 拉掉中间两天
+    for 那天 in ["2026-09-05", "2026-09-07"] {
+        let d = NaiveDate::parse_from_str(那天, "%Y-%m-%d").unwrap();
+        recon::ingest_settlement(&pool, &渠道, d, "CNY", &[]).await.expect("入库");
+    }
+    let 欠着 = recon::days_needing_pull(&pool, &渠道, 今天, 7).await.expect("再查");
+    assert_eq!(欠着.len(), 5, "拉过两天了，该只欠五天");
+    assert!(!欠着.contains(&NaiveDate::from_ymd_opt(2026, 9, 5).unwrap()), "拉过的又被算成欠着");
+    assert!(!欠着.contains(&NaiveDate::from_ymd_opt(2026, 9, 7).unwrap()), "拉过的又被算成欠着");
+}
+
+/// 天天都在跑的时候，只欠昨天一天 —— 那是正常的样子。
+#[tokio::test]
+async fn 天天都跑的话只欠昨天() {
+    let pool = db_or_skip!();
+    let 渠道 = common::uniq("ch");
+    let 今天 = NaiveDate::from_ymd_opt(2026, 9, 10).unwrap();
+    for n in 2..=7 {
+        let d = 今天 - chrono::Duration::days(n);
+        recon::ingest_settlement(&pool, &渠道, d, "CNY", &[]).await.expect("入库");
+    }
+    let 欠着 = recon::days_needing_pull(&pool, &渠道, 今天, 7).await.expect("查欠账");
+    assert_eq!(欠着, vec![NaiveDate::from_ymd_opt(2026, 9, 9).unwrap()], "该只欠昨天");
+}
+
+/// 别的渠道拉过，不算这个渠道拉过 —— 两个渠道各对各的账。
+#[tokio::test]
+async fn 一个渠道拉过不算另一个拉过() {
+    let pool = db_or_skip!();
+    let 甲 = common::uniq("ch");
+    let 乙 = common::uniq("ch");
+    let 今天 = NaiveDate::from_ymd_opt(2026, 9, 10).unwrap();
+    let 昨天 = 今天 - chrono::Duration::days(1);
+    recon::ingest_settlement(&pool, &甲, 昨天, "CNY", &[]).await.expect("入库");
+
+    assert!(!recon::days_needing_pull(&pool, &甲, 今天, 2).await.expect("甲").contains(&昨天));
+    assert!(recon::days_needing_pull(&pool, &乙, 今天, 2).await.expect("乙").contains(&昨天),
+            "另一个渠道的账被算成拉过了");
+}

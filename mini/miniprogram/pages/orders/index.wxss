@@ -1,5 +1,5 @@
 .hd { padding: 24rpx 0 0; }
-.hd .title { font-size: 50rpx; line-height: 1; }
+.hd .title { line-height: 1; }
 .hd .sub { font-size: 24rpx; color: var(--ink-faint); margin-top: 12rpx; }
 
 .loading, .err { padding: 60rpx 0; color: var(--ink-faint); font-size: 26rpx; }
@@ -13,7 +13,6 @@
   padding: 22rpx 4rpx;
   border-bottom: 1rpx solid var(--stone-line-x);
 }
-.item-hover { background: var(--paper-inset); }
 .item-top { display: flex; align-items: baseline; }
 .item-name {
   flex: 1;
@@ -70,7 +69,6 @@
   border-bottom: none;
   transition: transform .12s cubic-bezier(.34,1.56,.64,1);
 }
-.item-hover { transform: scale(.985); }
 .item-top { display: flex; align-items: baseline; gap: 16rpx; }
 .item-name { flex: 1; font-size: 30rpx; font-weight: 600; color: var(--ink);
              overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -78,6 +76,6 @@
               font-variant-numeric: tabular-nums; }
 .item-bot { display: flex; align-items: baseline; margin-top: 8rpx; }
 .item-when { flex: 1; font-size: 23rpx; color: var(--ink-faint); }
-.item-go { flex: none; font-size: 24rpx; font-weight: 600; color: var(--amber-deep); }
+.item-go { flex: none; font-size: 24rpx; font-weight: 600; color: var(--amber-text); }
 /* 「去村里看看谁能来」是这一屏的出口，给它卡片的分量 */
 .page { display: flex; flex-direction: column; }

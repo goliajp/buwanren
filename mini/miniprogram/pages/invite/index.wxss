@@ -21,7 +21,6 @@
   border-top: 1rpx solid var(--stone-line);
   padding: 28rpx 0;
 }
-.item-hover { background: var(--paper-inset); }
 .item-name { font-weight: 600; font-size: 36rpx; color: var(--ink); }
 .item-sub { font-size: 26rpx; color: var(--stone-label); margin-top: 10rpx; line-height: 1.6; }
 .item-meta { font-size: 22rpx; color: var(--stone-label); margin-top: 12rpx; }
@@ -68,9 +67,11 @@
   border-bottom: none;
   transition: transform .12s cubic-bezier(.34,1.56,.64,1);
 }
-.item-hover { transform: scale(.985); }
 .item-face {
-  flex: none; width: 70rpx; height: 70rpx; border-radius: 999rpx;
+  /* 84rpx = 42px —— 圆牌尺寸统一到这一档:脸是 14 的整数倍时最接近
+     原先那 68% 的一档正是 28px（14×2），配 42px 的圆牌是 66.7%。
+     顺带一件好处:同一个人在名册、确认、订单、点香几处一样大。 */
+  flex: none; width: 84rpx; height: 84rpx; border-radius: 999rpx;
 
   display: flex; align-items: center; justify-content: center;
 }
@@ -87,7 +88,7 @@
   padding: 3rpx 12rpx; border-radius: 999rpx;
 }
 .item-sub { font-size: 23rpx; color: var(--ink-faint); margin-top: 5rpx; }
-.item-go { flex: none; margin-left: 14rpx; font-size: 25rpx; font-weight: 600; color: var(--amber-deep); }
+.item-go { flex: none; margin-left: 14rpx; font-size: 25rpx; font-weight: 600; color: var(--amber-text); }
 .item-go.off { color: var(--stone-label); font-weight: 400; }
 /* 还没上架的压暗，但【留住卡片的形】—— 背景透明会让它看起来像被裁掉半张。
    四十位都在册上是刻意的，它只是「还没来」，不是「不存在」 */
@@ -133,6 +134,10 @@
 }
 .soon-caret.up { transform: rotate(-90deg); }
 
+.soon-note {
+  font-size: 23rpx; color: var(--ink-faint); line-height: 1.6;
+  padding: 4rpx 8rpx 16rpx;
+}
 .soon-list { display: flex; flex-direction: column; }
 .soon-item {
   display: flex; align-items: center; gap: 14rpx;
@@ -165,11 +170,21 @@
 .how-n {
   width: 40rpx; height: 40rpx; margin: 0 auto 12rpx;
   border-radius: 999rpx; background: var(--amber-lite);
-  color: var(--amber-deep); font-size: 23rpx; font-weight: 600;
+  color: var(--amber-text); font-size: 23rpx; font-weight: 600;
   display: flex; align-items: center; justify-content: center;
 }
 .how-t { font-size: 25rpx; font-weight: 600; color: var(--ink-mid); }
 .how-s { font-size: 21rpx; color: var(--ink-faint); margin-top: 6rpx; line-height: 1.5; }
 .how-arrow { flex: none; padding-top: 6rpx; font-size: 30rpx; color: var(--ink-faint); opacity: .5; }
 
-.back { margin-top: 30rpx; text-align: center; font-size: 26rpx; color: var(--ink-faint); }
+.back { margin: 7rpx 0 -23rpx; padding: 23rpx 0; text-align: center;
+        font-size: 26rpx; color: var(--ink-faint); }
+
+/* 名册一行右边:价在上、动作在下。价比动作重一档 —— 决定按不按的是它。
+   （2026-09-01：这一屏原先一个价都没有，而点一行直奔商品页。） */
+.item-go { display: flex; flex-direction: column; align-items: flex-end; gap: 2rpx; }
+.item-price { font-size: 28rpx; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* 已经住着的那几位。绿是村子的颜色（收集进度条同一支色）——
+   它跟琥珀的「请回村」并排时一眼分得开:一个是已经有的，一个是要花钱的。 */
+.item-in { font-size: 24rpx; font-weight: 700; color: var(--moss-text); }

@@ -322,6 +322,176 @@ fn new_order(user_id: &str, lines: Vec<(String, i32)>) -> order::NewOrder {
 }
 
 /// 一个用户 + 一笔 unpaid 订单。
+/// 同一个人、同一件东西、已经有一笔没付的 —— 再下一次拿回的是那一笔。
+///
+/// 确认屏每次 `onLoad` 都生成一个新的幂等键（同一屏内连点两次要撞上
+/// 同一个键，那是对的），可【退回上一页再进来】就是一个新键、一张新单。
+/// 库里因此攒着「同一个用户、同一个 sku、四笔未付、合计 796 元」这样的
+/// 记录（2026-09-01 五路评审 · 工程审计查出来的）。
+/// 钱没多扣 —— 未付单不是扣款 —— 但买家在「我买过的」里看见四条一模一样的
+/// 待付，第一反应是自己被重复下单了。
+#[tokio::test]
+async fn ordering_the_same_thing_twice_returns_the_unpaid_order_you_already_have() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 9900).await;
+
+    let 头一次 = order::create(&pool, new_order(&user, vec![(sku.clone(), 1)]))
+        .await.expect("第一张单");
+    let 第二次 = order::create(&pool, new_order(&user, vec![(sku.clone(), 1)]))
+        .await.expect("再下一次");
+
+    assert_eq!(第二次.order_id, 头一次.order_id, "同一件东西不该建出第二张待付单");
+    let 张数: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM order_record o JOIN order_line ol ON ol.order_id=o.id \
+          WHERE o.user_id=$1 AND o.status='unpaid' AND ol.sku_id=$2",
+    ).bind(&user).bind(&sku).fetch_one(&pool).await.expect("数一数");
+    assert_eq!(张数, 1, "库里也只该有一张");
+
+    /* 【数量不同就是另一件事】。真想买两份的人改数量 ——
+       那时不能把他的两份悄悄换回一份。 */
+    let 两份 = order::create(&pool, new_order(&user, vec![(sku.clone(), 2)]))
+        .await.expect("买两份");
+    assert_ne!(两份.order_id, 头一次.order_id, "数量不同，不该复用上一张");
+}
+
+/// 复用未付单时，**这一次填的地址要覆盖上一次的**。
+///
+/// 复用分支在事务之前 return，而地址是在事务里写 order_meta 的 ——
+/// 不补这一步，第二次填的东西一个字都不落库，而且不报错:
+/// 选地址 A 下单 → 退回去 → 选地址 B 再下单 → 复用命中第一张 →
+/// 屏上显示 B，运单收件人快照读 order_meta 拿到 A，包裹寄到 A。
+/// 运单那一头还套着 `COALESCE(…, '{}')`，连空都不会报。
+/// （2026-09-01 五路评审 · 工程审计抓到 —— 这是为了消掉「四笔一样的
+/// 未付单」引入的，一个修复自己带出来的洞。）
+#[tokio::test]
+async fn reusing_an_unpaid_order_takes_the_address_you_just_typed() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 9900).await;
+    let 下单 = |地址: &'static str| order::NewOrder {
+        user_id: user.clone(), region: "cn".into(), channel_origin: "web".into(),
+        lines: vec![order::NewOrderLine { sku_id: sku.clone(), qty: 1 }],
+        shipping_address: Some(serde_json::json!({ "address": 地址 })),
+        contact: Some(serde_json::json!({ "name": "验", "address": 地址 })),
+        coupon_codes: vec![], note: None, ip: None, ua: None,
+    };
+
+    let 头一次 = order::create(&pool, 下单("甲地")).await.expect("第一张");
+    let 第二次 = order::create(&pool, 下单("乙地")).await.expect("再下一次");
+    assert_eq!(第二次.order_id, 头一次.order_id, "同一件东西该复用那一张");
+
+    let 存的: Option<serde_json::Value> = sqlx::query_scalar(
+        "SELECT shipping_address_json FROM order_meta WHERE order_id=$1",
+    ).bind(&头一次.order_id).fetch_one(&pool).await.expect("读 order_meta");
+    assert_eq!(存的.as_ref().and_then(|v| v["address"].as_str()), Some("乙地"),
+               "库里存的该是他【这一次】填的那个地址，不是上一次的");
+}
+
+/// 复用未付单时，这一次写的备注也要落库 —— 而且是**追加**不是覆盖。
+///
+/// 上一版这里写的是 `UPDATE order_record SET note = $2`，而 order_record
+/// 没有 note 这一列:本仓禁用 `query!` 宏，SQL 是运行期才解析的，所以它
+/// 编译得过，一跑就是 500。`check-sql` 抓到之后改成落 `audit_note` ——
+/// 跟建单那条路同一个去处。这个测试钉住「落哪儿」和「追加不覆盖」两件事。
+#[tokio::test]
+async fn reusing_an_unpaid_order_keeps_both_notes() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 9900).await;
+    let 下单 = |备注: &'static str| order::NewOrder {
+        user_id: user.clone(), region: "cn".into(), channel_origin: "web".into(),
+        lines: vec![order::NewOrderLine { sku_id: sku.clone(), qty: 1 }],
+        shipping_address: None, contact: None,
+        coupon_codes: vec![], note: Some(备注.into()), ip: None, ua: None,
+    };
+
+    let 头一次 = order::create(&pool, 下单("头一遍")).await.expect("第一张");
+    let 第二次 = order::create(&pool, 下单("第二遍")).await.expect("再下一次");
+    assert_eq!(第二次.order_id, 头一次.order_id, "同一件东西该复用那一张");
+
+    let 串: String = sqlx::query_scalar("SELECT audit_note FROM order_record WHERE id=$1")
+        .bind(&头一次.order_id).fetch_one(&pool).await.expect("读 audit_note");
+    assert!(串.contains("第二遍"), "这一次写的备注得在里头，实际是：{串}");
+    assert!(串.contains("头一遍"), "上一次那句不该被抹掉，实际是：{串}");
+}
+
+/// 【同一位不能请两回】。
+///
+/// `residency::move_in_from_line` 是 `ON CONFLICT DO NOTHING`，第二次回
+/// `AlreadyHome`；而 `fulfillment.rs` 只把 `is_new()` 写进 `fulfillment_ref`，
+/// 行照样标 `done` —— 也就是钱收了、什么都没发生，而订单屏还会写
+/// 「他已经在村里那一格住下了 —— 这单到此为止」。
+/// 拦在建单这一层：那时钱还没动。
+/// （2026-09-02 第三轮评审 · 转化路实跑出来的。）
+#[tokio::test]
+async fn cannot_buy_a_villager_who_already_lives_with_you() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let (sku, villager) = common::residency_sku(&pool, "CNY", 9900).await;
+
+    // 头一次:建得出来
+    let 头 = order::create(&pool, new_order(&user, vec![(sku.clone(), 1)])).await;
+    assert!(头.is_ok(), "第一次该建得出来，实际 {:?}", 头.err());
+
+    // 他住进来了（履约那一步的效果，这里直接种，测的是建单这一层）
+    sqlx::query(
+        "INSERT INTO villager_residency(id,user_id,villager_id,source_kind) \
+         VALUES ($1,$2,$3,'grant') ON CONFLICT DO NOTHING",
+    ).bind(format!("res-t{}", &uuid::Uuid::new_v4().to_string()[..8]))
+     .bind(&user).bind(&villager)
+     .execute(&pool).await.expect("种入住");
+
+    let 再来 = order::create(&pool, new_order(&user, vec![(sku, 1)])).await;
+    match 再来 {
+        Err(DomainError::Conflict(m)) => assert!(m.contains(&villager), "话要说清是谁：{m}"),
+        other => panic!("已经住着的那位不该再卖一次，实际 {other:?}"),
+    }
+}
+
+/// 【同一张单里同一位村民出现两次】（2026-09-02 第四轮评审 · 工程审计）。
+///
+/// 上面那道守卫是【逐行独立】判的:每一行各自查「这位是不是已经住着」。
+/// 而一位村民名下在架的 SKU 有三百多件 —— 两个不同的 sku 都指着他，
+/// 两行各自都合法，加起来收两份钱只搬进来一个人。
+/// 审计实测两个 sku 一张单回 `amount_total_minor: 19800`。
+#[tokio::test]
+async fn cannot_put_the_same_villager_in_one_order_twice() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let (sku1, villager) = common::residency_sku(&pool, "CNY", 9900).await;
+    // 第二个 sku 指着【同一位】村民 —— 这正是现实里的形状
+    let (sku2, _) = common::residency_sku(&pool, "CNY", 9900).await;
+    sqlx::query("UPDATE sku SET villager_id=$2 WHERE id=$1")
+        .bind(&sku2).bind(&villager).execute(&pool).await.expect("两个 sku 指同一人");
+
+    let 两行 = order::create(&pool, new_order(&user, vec![(sku1, 1), (sku2, 1)])).await;
+    match 两行 {
+        Err(DomainError::Validation(m)) => {
+            assert!(m.contains(&villager), "话要说清是谁：{m}");
+        }
+        other => panic!("同一位村民在一张单里出现两次不该建得出来，实际 {other:?}"),
+    }
+}
+
+/// 【一条行只出一册，所以说明书的数量只能是 1】。
+///
+/// `report::ensure_for_line` 从头到尾没读过 `qty`（grep 可验），
+/// 而确认屏对非 residency 的商品照常摆数量 —— 买两份，按两份收钱，出一份。
+#[tokio::test]
+async fn a_report_line_cannot_be_bought_twice_in_one_line() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::report_sku(&pool, "CNY", 19900).await;
+
+    assert!(order::create(&pool, new_order(&user, vec![(sku.clone(), 1)])).await.is_ok(),
+            "一份该建得出来");
+    match order::create(&pool, new_order(&user, vec![(sku, 2)])).await {
+        Err(DomainError::Validation(m)) => assert!(m.contains("qty"), "话里要说是数量的事：{m}"),
+        other => panic!("说明书买两份该被拒 —— 收两份钱只出一册，实际 {other:?}"),
+    }
+}
+
 async fn order_fixture(pool: &sqlx::PgPool) -> (String, String) {
     let user = common::user(pool).await;
     let sku = common::sku_with_price(pool, "CNY", 19900).await;
@@ -379,8 +549,16 @@ async fn expiring_unpaid_orders_leaves_the_others_alone() {
         shipping_address: None, contact: None, coupon_codes: vec![], note: None,
         ip: None, ua: None,
     };
+    /* 【两件不同的东西】。原先这里是同一个 sku 下两次 ——
+       而 2026-09-01 起「同一个人、同一件东西、已经有一笔没付的」
+       会把那一笔原样还回来（退回上一页再进来不该再建一张）。
+       于是两个变量指向同一张单，过期与不过期设在同一行上，
+       这条用例自己把自己抵消了。它要验的是「过期的取消、没到期的不动」，
+       跟是不是同一件东西无关。 */
+    let sku2 = common::sku_with_price(&pool, "CNY", 8800).await;
     let overdue = order::create(&pool, mk(user.clone(), sku.clone())).await.expect("单一");
-    let fresh = order::create(&pool, mk(user.clone(), sku)).await.expect("单二");
+    let fresh = order::create(&pool, mk(user.clone(), sku2)).await.expect("单二");
+    assert_ne!(overdue.order_id, fresh.order_id, "夹具要的是两张单");
     sqlx::query("UPDATE order_record SET expires_at = NOW() - INTERVAL '1 hour' WHERE id=$1")
         .bind(&overdue.order_id).execute(&pool).await.expect("摆成已过期");
     sqlx::query("UPDATE order_record SET expires_at = NOW() + INTERVAL '1 hour' WHERE id=$1")
@@ -396,4 +574,178 @@ async fn expiring_unpaid_orders_leaves_the_others_alone() {
     let b = common::scalar_string(&pool, "SELECT status FROM order_record WHERE id=$1", &fresh.order_id).await;
     assert_eq!(a.as_deref(), Some("cancelled"), "过期未付的该取消");
     assert_eq!(b.as_deref(), Some("unpaid"), "没到期的不该被带走");
+}
+
+/// 【限量的东西要真的限量】（2026-09-03 第四轮评审 · 工程审计）。
+///
+/// `stock_count` 与 `per_user_cap` 这两列在整个 unmei-app 里零处引用 ——
+/// 审计实测:`sku-jade-pendant` 写着 50 件，能下一万单。
+/// 一件卖光了还在收钱的商品，比不上架更糟。
+#[tokio::test]
+async fn a_limited_sku_stops_selling_when_it_runs_out() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 9900).await;
+    sqlx::query("UPDATE sku SET stock_kind='limited', stock_count=2 WHERE id=$1")
+        .bind(&sku).execute(&pool).await.expect("摆成只剩两件");
+
+    // 两件买得到
+    let 头 = order::create(&pool, new_order(&user, vec![(sku.clone(), 2)])).await;
+    assert!(头.is_ok(), "还有两件时该买得到，实际 {:?}", 头.err());
+
+    let 剩: Option<i32> = sqlx::query_scalar("SELECT stock_count FROM sku WHERE id=$1")
+        .bind(&sku).fetch_one(&pool).await.expect("读库存");
+    assert_eq!(剩, Some(0), "买走两件之后该是 0");
+
+    // 第三件买不到 —— 而且话要说清还剩多少
+    let 再来 = order::create(&pool, new_order(&user, vec![(sku.clone(), 1)])).await;
+    match 再来 {
+        Err(DomainError::Conflict(m)) => {
+            assert!(m.contains("不够了"), "话要说清为什么：{m}");
+        }
+        other => panic!("卖光了不该再卖，实际 {other:?}"),
+    }
+
+    // 不限量的那一档不受影响
+    let 不限 = common::sku_with_price(&pool, "CNY", 9900).await;
+    let 随便买 = order::create(&pool, new_order(&user, vec![(不限, 99)])).await;
+    assert!(随便买.is_ok(), "unlimited 那一档不该被拦，实际 {:?}", 随便买.err());
+}
+
+// ═════════════ 2026-09-03 五路评审 · 资金审计 补的四条 ═════════════
+
+/// 【买得到的东西不能比看得到的多】。
+///
+/// 建单原先只看 `sku.status='active'`，不 join `product` ——
+/// 而目录那一侧每一条都过滤 `p.status='listed'`。
+/// 实测库里 13,678 个 draft 商品的 sku 可以直接下单，
+/// 可下单面比可展示面大 1200 倍，而那些草稿的定价从没被人核过。
+#[tokio::test]
+async fn 草稿商品下不了单() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 4900).await;
+
+    // 把它挂的商品退回草稿 —— sku 本身仍是 active
+    sqlx::query("UPDATE product SET status='draft' WHERE id=(SELECT product_id FROM sku WHERE id=$1)")
+        .bind(&sku)
+        .execute(&pool)
+        .await
+        .expect("退回草稿");
+
+    let err = order::create(&pool, new_order(&user, vec![(sku, 1)]))
+        .await
+        .unwrap_err();
+    assert!(matches!(err, DomainError::NotFound(_)), "该是 NotFound，实际 {err:?}");
+}
+
+/// 商品说了它在哪些区卖，别的区就买不着。
+#[tokio::test]
+async fn 别的区的商品下不了单() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 4900).await;
+
+    sqlx::query(
+        "UPDATE product SET available_regions=ARRAY['jp'] \
+         WHERE id=(SELECT product_id FROM sku WHERE id=$1)",
+    )
+    .bind(&sku)
+    .execute(&pool)
+    .await
+    .expect("改成只在 jp 卖");
+
+    let err = order::create(&pool, new_order(&user, vec![(sku, 1)]))
+        .await
+        .unwrap_err();
+    assert!(matches!(err, DomainError::NotFound(_)), "该是 NotFound，实际 {err:?}");
+}
+
+/// 【复用未付单要看区】。
+///
+/// 复用那一支原先只按 user + sku + qty + 行数=1 判，不带 region ——
+/// 而它在事务【之前】就 return，取价那整个循环一次都不跑。
+/// 于是同一个用户先 jp 下单拿到 JPY 1200，再 cn 下单拿回的是同一张单，
+/// 仍然是 JPY 1200，而 cn 的商品页上写着 ¥49.00。
+#[tokio::test]
+async fn 换个区不复用上一张未付单() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 4900).await;
+
+    // 同一个 sku 再挂一条 jp 价，并让商品两个区都卖
+    sqlx::query(
+        "UPDATE product SET available_regions=ARRAY['cn','jp'] \
+         WHERE id=(SELECT product_id FROM sku WHERE id=$1)",
+    )
+    .bind(&sku).execute(&pool).await.expect("两个区都卖");
+    sqlx::query(
+        "INSERT INTO price_book(id, sku_id, currency, price_minor, region, platform, status) \
+         VALUES ($1, $2, 'JPY', 1200, 'jp', 'all', 'active')",
+    )
+    .bind(common::uniq("pb-jp")).bind(&sku)
+    .execute(&pool).await.expect("加 jp 价");
+
+    let mut jp = new_order(&user, vec![(sku.clone(), 1)]);
+    jp.region = "jp".into();
+    let 日单 = order::create(&pool, jp).await.expect("jp 下单");
+
+    let 陆单 = order::create(&pool, new_order(&user, vec![(sku, 1)]))
+        .await
+        .expect("cn 下单");
+
+    assert_ne!(日单.order_id, 陆单.order_id, "换了区还把上一张未付单还回来了");
+    let 币: Option<String> = common::scalar_string(
+        &pool, "SELECT currency FROM order_record WHERE id=$1", &陆单.order_id,
+    ).await;
+    assert_eq!(币.as_deref(), Some("CNY"), "cn 的单拿到的不是 CNY");
+}
+
+/// 【限量的货，取消要还回去】。
+///
+/// `stock_count` 原先只有一个写者，是建单里那句 `- $2`，没有任何地方写 `+`。
+/// 于是一个人点开又反悔，那一份就永远回不来 ——
+/// 商品会在卖光之前先「卖光」，而账上一分钱没有。
+#[tokio::test]
+async fn 取消订单把限量的货还回去() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 4900).await;
+
+    sqlx::query("UPDATE sku SET stock_kind='limited', stock_count=3 WHERE id=$1")
+        .bind(&sku).execute(&pool).await.expect("设成限量 3 件");
+
+    let 单 = order::create(&pool, new_order(&user, vec![(sku.clone(), 2)]))
+        .await
+        .expect("下单 2 件");
+    let 扣后 = common::scalar_i64(&pool, "SELECT stock_count::int8 FROM sku WHERE id=$1", &sku).await;
+    assert_eq!(扣后, 1, "下单没扣库存");
+
+    order::cancel(&pool, &单.order_id, "不要了", &Actor::user(&user), Some(&user))
+        .await
+        .expect("取消");
+    let 还后 = common::scalar_i64(&pool, "SELECT stock_count::int8 FROM sku WHERE id=$1", &sku).await;
+    assert_eq!(还后, 3, "取消了而货没还回去 —— 那两件永远回不来了");
+}
+
+/// 不限量的那一档不许被碰 —— `stock_count` 是 NULL，加进去会把 NULL 传下去。
+#[tokio::test]
+async fn 取消不限量的单不碰库存() {
+    let pool = db_or_skip!();
+    let user = common::user(&pool).await;
+    let sku = common::sku_with_price(&pool, "CNY", 4900).await;
+
+    let 单 = order::create(&pool, new_order(&user, vec![(sku.clone(), 1)]))
+        .await
+        .expect("下单");
+    order::cancel(&pool, &单.order_id, "不要了", &Actor::user(&user), Some(&user))
+        .await
+        .expect("取消");
+
+    let 还是空的 = common::scalar_i64(
+        &pool,
+        "SELECT count(*) FROM sku WHERE id=$1 AND stock_count IS NULL",
+        &sku,
+    ).await;
+    assert_eq!(还是空的, 1, "不限量的 stock_count 被写成了数字");
 }

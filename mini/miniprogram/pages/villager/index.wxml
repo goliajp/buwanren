@@ -20,7 +20,7 @@
       <view class="facewrap">
         <!-- 画好脸的人铺真图，没画好的仍旧是圆底 + 姓名末字。
              有图时不渲那个字:它会从像素的透明处透出来。 -->
-        <view class="face face-{{who.direction}} {{脸样 ? 'face-art' : ''}}" style="{{脸样}}">
+        <view class="face villager-face face-{{who.direction}} {{脸样 ? 'face-art' : ''}}" style="{{脸样}}">
           <text wx:if="{{!脸样}}">{{who.face}}</text>
         </view>
         <!-- 【状态跟着人走】。「住着 / 还没请来」是个是非题，
@@ -42,13 +42,24 @@
          三样原先并排成三个一模一样的胶囊，读的人得逐个读完才知道谁是谁。 -->
     <view class="lack lack-{{who.direction}}">
       <text class="lack-k">缺{{who.lack}}</text>
-      <text class="lack-s">缺过才懂，所以才这样劝你</text>
+      <!-- 【一人一句】。这一句原先四十位共用「缺过才懂，所以才这样劝你」——
+           看第二个人就露出模板，而「四十个各不相同的人」正是这个产品的立身之本。
+           每个「缺」本来就写着自己那一句（lack_bias.note，四十条各不相同），
+           只是从来没人接。取不到才退回通用那句。 -->
+      <text class="lack-s">{{who.lack_note || '缺过才懂，所以才这样劝你'}}</text>
     </view>
 
     <!-- 问签的结果。同一天问同一位逐字相同 —— 那是设定，不是缓存 -->
     <view class="reading" wx:if="{{say}}">
       <view class="reading-k">{{who.name}}说</view>
       <view class="reading-v">{{say}}</view>
+      <!-- 【拿到了要有人说一声】（2026-09-06 五路评审 · §七）。
+           在这之前发一枚徽章一点声音都没有:后端往 `user_badge` 写一行就完了，
+           人得自己想起来去「我 → 我得到的」翻。收集系统里「拿到」那一下
+           就是全部的奖励，而它此前不存在。
+           不弹 toast:那会盖住他刚说的那句话，而那句话才是这一屏的主角。
+           说完就在下面接一行，跟「不催」那条一致 —— 报喜，不催下一步。 -->
+      <view class="reading-got" wx:if="{{拿到}}">顺带 —— 你拿到了「{{拿到}}」</view>
     </view>
 
     <!-- 还没问的时候。这一屏原先在这儿是空的 —— 她住在你村里，
@@ -58,7 +69,15 @@
     <view class="reading daily" wx:elif="{{who.at_home && who.line}}">
       <view class="reading-k">{{who.name}}今天说</view>
       <view class="reading-v">{{who.line}}</view>
-      <view class="reading-hint">想问一件具体的事，按下面那颗 · 一天一次</view>
+      <!-- 【2026-09-01】原先写「想问一件具体的事」—— 而按下去调的
+           `villageApi.ask(id)` 不带任何问题参数，后端也不收。
+           人被明确告知可以问一件具体的事，产品收不到那件事。
+           跟首页统一成「装在心里」——那句是诚实的。 -->
+      <!-- 【指的那颗不存在】（2026-09-06 五路评审 · §八）。这一句原先写
+           「按下面那颗」——「那颗」是罗盘那一屏的说法（那儿真有一颗圆的），
+           搬过来忘了改:这一屏下面是三个矩形按钮，一个「颗」都没有。
+           指代改成按钮上写着的那几个字，一个字都不用猜。 -->
+      <view class="reading-hint">心里装着一件事，按「问问{{who.name}}」 · 一天一次</view>
     </view>
     <view class="reading daily" wx:elif="{{who.at_home}}">
       <view class="reading-v dim">今天还没问过{{who.name}}</view>
@@ -70,7 +89,16 @@
          这三条对每一位都成立（它们是产品机制，不是四十条内容），
          所以不必等台词写齐就能说。 -->
     <view class="gets" wx:if="{{!who.at_home}}">
-      <view class="gets-k">请{{who.name}}回家之后</view>
+      <!-- 【怎么来的，写在最前面】。从地图上点一位进来的人不经过名册那条
+           三步带，这是他第一次、也是【掏钱前最后一次】看到「怎么来」。
+           2026-09-01 第二轮评审:上一版这里写「寄一枚护身符到你手上 ·
+           扫开它就住进村里」，而后端在付款那一刻就让他搬进来了 ——
+           许一个不会发生的诺，比什么都不说更伤。 -->
+      <view class="ships">
+        <text class="ships-k">怎么来</text>
+        <text class="ships-v">付完{{who.name}}就搬进村里那一格 · 不用等</text>
+      </view>
+      <view class="gets-k">请{{who.name}}回村之后</view>
       <view class="gets-row">
         <view class="gets-n">1</view>
         <view class="gets-b">
@@ -106,15 +134,30 @@
              写死的话，第二个卖东西的人来了没人记得改这里。 -->
         <button class="btn ghost" wx:if="{{sells}}" bindtap="goSells">{{sellsLabel}}</button>
         <button class="btn ghost" wx:if="{{canEnter}}" bindtap="onEnter">去屋里看看</button>
-        <view class="hint" wx:else>屋子还没搬进来</view>
+        <!-- 【2026-09-01】原先写「屋子还没搬进来」—— 搬进来的是人，
+             不是屋子;而且它说的其实是【我们还没把这一间做出来】。
+             主语错了一次，读的人就得自己猜一次。 -->
+        <view class="hint" wx:else>{{who.name}}的屋子还在盖 —— 做好了就能进去坐坐</view>
       </block>
       <block wx:else>
         <!-- 没请回家不给问签 —— 那是设定不是权限，所以不给这颗按钮，
              而不是点了再报错 -->
-        <button class="btn" bindtap="goInvite">
+        <!-- 【2026-09-01】价钱写在按钮上。
+             这颗是全屏唯一要掏钱的地方，而它之前只写「请婆婆回村」——
+             按下去是马上扣钱还是先看看？没人知道，于是不按。
+             价来自列表接口（`from_price_minor`），取不到就不写，不编。
+             没上架的那位按钮变灰并说明白，别让人白点一趟。 -->
+        <button class="btn" bindtap="goInvite" disabled="{{请不来}}">
           <block wx:if="{{inviting}}">找着……</block>
+          <block wx:elif="{{请不来}}">{{请不来}}</block>
+          <block wx:elif="{{价}}">请{{who.name}}回村 · {{价}}</block>
           <block wx:else>请{{who.name}}回村</block>
         </button>
+        <!-- 掏钱之前先说清楚下一步是什么 —— 按钮上的价钱回答「多少」，
+             这一行回答「按下去会发生什么」。两个都得有，人才敢按。 -->
+        <!-- 「先看清楚再决定买不买」那句撤了。屏上已经没有别的可看 ——
+             它读起来像在提醒这里有坑，而真正该说的（这是实物、要寄、要扫）
+             现在写在上面「怎么来」那一行里。 -->
       </block>
       <!-- 「回村里」原先在另一个容器里，于是它永远自己占一行、
            还按内容宽左对齐。它跟「去屋里看看」是同一档的次要动作，

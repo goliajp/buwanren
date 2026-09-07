@@ -330,10 +330,10 @@
     button: 'bailuCastBtn', labels: ['请白鹭看看星星', '收起'], stateKey: 'divining',
     lineGap: 5000,
     lines: ['写生辰来。年月日时，要准',
-            '……紫微在命，天府在迁。你天生是要动的',
+            '……你那张图上，主星压在中间，副星在外头。你天生是要动的',
             '盘我念了。信不信，你自己的事',
             '有一颗星犯你今年。我只说到这儿',
-            '改命的话别问我。命盘我只念，不改',
+            '改命的别问我。图我只念，不改',
             '……念准了，也不一定是好事'],
   }
 
@@ -343,7 +343,7 @@
      她话少,pSay 低 —— 大多数时候只是安静地做,不出声。 */
   const ACTS = [
     // ── 排盘(本业)──
-    { id: 'divine', node: 'MID', x: 560, y: 796, poses: ['divine1', 'divine2'], fps: 2, dur: [9, 14], flip: false, w: 3, divining: true, say: '紫微在午', pSay: 0.4 },
+    { id: 'divine', node: 'MID', x: 560, y: 796, poses: ['divine1', 'divine2'], fps: 2, dur: [9, 14], flip: false, w: 3, divining: true, say: '最亮那颗在正南', pSay: 0.4 },
     { id: 'chart',  node: 'MID', x: 660, y: 800, poses: ['sit'],   fps: 1, dur: [7, 11], flip: false, w: 2, say: '……', pSay: 0.3 },
     { id: 'almanac',node: 'NE',  x: 900, y: 560, poses: ['stand'], fps: 1, dur: [4, 7],  flip: true,  w: 1, say: '查一年', pSay: 0.4 },
     // ── 浇水记录(反差爱好)──

@@ -22,6 +22,11 @@ export interface ProductCard {
   hero_image_url?: string | null
   tags: string[]
   description_md?: string
+  /** 这件商品最便宜的那一档现价（分）。没上架 / 没定价是 null。
+   *  按钮上写价钱要它 —— 详情页那份价在 `skus[].current_price_minor` 上，
+   *  可列表页拿不到详情，于是从前按钮只能不写价。 */
+  from_price_minor?: number | null
+  from_currency?: string | null
 }
 
 export interface Sku {
@@ -73,6 +78,10 @@ export interface OrderCard {
   /** 这单几行。> 1 时显示「第一件 等 N 件」 */
   line_count: number
   status: string
+  /** 这一单那件包裹走到哪儿了。没有实物要寄的单子是 null。
+   *  列表上「备着」那一档要靠它换成「在路上」——
+   *  订单状态只说得出这笔钱走到哪儿。 */
+  ship_status?: string | null
   currency: string
   amount_total_minor: number
   amount_paid_minor: number
@@ -80,6 +89,10 @@ export interface OrderCard {
   created_at: string
   paid_at?: string | null
   expires_at?: string | null
+  /** 取消的原因。`expired` = 超时没付，系统自己取消的 ——
+   *  跟「买家自己点了不要」是两件事，屏上不能都写「已取消」。
+   *  后端一直在给（`SELECT *`），只是没人声明、也没人渲染。 */
+  cancel_reason?: string | null
   fulfilled_at?: string | null
 }
 
@@ -123,6 +136,25 @@ export interface OrderDetail {
   /** 这一单里买的册子。御守的完成态是住进村里，报告的完成态是**你读到了**。
    *  `awaiting_natal` 的也在里面 —— 那一屏要说得出「还差你的生辰」。 */
   reports: Array<{ id: string; status: string; order_line_id: string }>
+  /** 这一单上的退款单。**申请完屏上要看得见** —— 没有它的时候，
+   *  按完「申请退款」这一屏一个字都不变，人只会再按一次。 */
+  refunds: Array<{
+    id: string
+    amount_minor: number
+    currency: string
+    status: string
+    reason_code: string
+    created_at: string
+  }>
+}
+
+/** 下单前试算的结果。折扣由服务端算 —— 见 `previewOrder` 那段注释 */
+export interface OrderPreview {
+  amount_subtotal_minor: number
+  amount_discount_minor: number
+  amount_total_minor: number
+  currency: string
+  coupons: { coupon_id: string; code: string; applied_amount_minor: number }[]
 }
 
 export interface CreatedOrder {
@@ -136,6 +168,31 @@ export interface CreatedOrder {
 export interface PayStarted {
   payment_id: string
   outcome: { kind: string; params?: Record<string, unknown>; url?: string; code_url?: string }
+}
+
+// ─── 券 ──────────────────────────────────────────────────────
+/** 我名下的一张券。对应后端 `GET /v1/coupons`（`unmei-app::coupon::MyCoupon`）。
+ *
+ *  `usable` / `why` 是**后端算的**，不在这一侧另算一遍：
+ *  能不能用要问券的状态、活动的有效期与预算，而屏上写着「能用」
+ *  下单却被拒，比不显示更糟 —— 人是看到「能用」之后才按的付款。 */
+export interface MyCoupon {
+  id: string
+  /** 系统派发的券可以没有码。没有码就用不了，`why` 会说 */
+  code: string | null
+  /** 挂的活动叫什么。没挂活动就没有名字，那时卡片自己说「减多少」 */
+  title: string | null
+  state: string
+  region: string
+  currency: string
+  pct_off_bps: number
+  amount_off_minor: number | null
+  max_off_minor: number | null
+  expires_at: string
+  usable: boolean
+  /** 用不了的话，为什么。能用时是空串 */
+  why: string
+  used_on_order_id: string | null
 }
 
 // ─── 物流与退款 ──────────────────────────────────────────────

@@ -38,21 +38,36 @@ export interface NajiResult {
   avoid: string[]
   question?: string | null
   recommend: RecommendOut | null
+  /** 这一卦让你拿到的那几枚徽章。没拿到就是空数组 */
+  earned?: Array<{ code: string; name: string }>
+  /** 这一签刚才就问过了（同一小时同一件事是同一签）。屏上据此说一句 */
+  again?: boolean
 }
 
 /** history list item · 后端 naji.rs 简化投影 */
 export interface NajiHistoryRow {
   id: string
-  date: string          // "07·11 酉时"(时时 bug 已修)
+  date: string          // 「8月30日 下午 1 点」
   asked_at: string
+  /** 门名（休门 / 生门）。**屏上不显示** —— 结果那一屏明令一个都不留。
+   *  留着是因为接口给，不是因为要用。 */
   gate: string
   direction: string
+  /** 那天那句结论的头半句（「适合开个头」）。后端按【现在这一版】的
+   *  说法给 —— 不是记录上存的快照，那些快照有一千多条还是旧文言。 */
+  说?: string | null
   question?: string | null
 }
 
 /**
  * GET /v1/naji/:id · detail
- * 后端不返 time_label 与 recommend,前端从 asked_at 派生 time_label
+ * 后端不返 time_label,前端从 asked_at 派生。
+ *
+ * 【2026-09-02:`recommend` 从「不返」变成「返」】。这一屏拿到 id 之后
+ * 会用 detail 把整条记录重取一遍，而它当时不带推荐 —— 于是起卦那一刻
+ * 的推荐一渲染就没了，¥199 那件商品在 app 里没有任何入口
+ * （第三轮评审 · 第一次打开的人）。后端补上了（routes/naji.rs 的 detail
+ * 按 `recommended_product_id` 现取一次商品，不存快照）。
  */
 export interface NajiDetail {
   id: string
@@ -64,4 +79,5 @@ export interface NajiDetail {
   avoid: string[]
   quote: QuoteOut | null
   question?: string | null
+  recommend?: RecommendOut | null
 }

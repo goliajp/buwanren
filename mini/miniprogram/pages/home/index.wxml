@@ -32,8 +32,16 @@
             style="margin-left: {{index > 0 ? '16rpx' : '16rpx'}}">{{item}}</text></view>
       <!-- 「主用神 · 印星」是术语（标尺 §1.5.3 说人话）—— 屏上不说，想看的人点进去 -->
       <!-- 「那一份」是指代不是名字 —— 第一次看见它的人没有上下文，
-           于是它什么都没说（2026-08-31 用户指出）。它有名字：你的说明书。 -->
-      <view class="delta-role" bindtap="goNatal">看你的说明书 ›</view>
+           于是它什么都没说（2026-08-31 用户指出）。它有名字：你的说明书。
+
+           【而这一条不通向说明书】（2026-09-06 三路验证 · 第一次打开的人）。
+           上一版写的是「看你的说明书」那一句，而 `goNatal` 去的是出生时间那一屏 ——
+           （注释里【不写全】那一句:变异测试拿它当锚，写全了变异会种在这段
+            注释上，而注释不归 `check-no-deixis` 管，那条红说的就是假话）——
+           那一屏是「缺什么」的大字卡加几份存过的生辰，一页说明书都没有。
+           说明书真正的入口 2026-09-06 补在「我的」上（见 me/index.wxml）。
+           这一条按它真正去的地方说话。 -->
+      <view class="delta-role" bindtap="goNatal" hover-class="press-text" hover-stay-time="80">看你缺什么 ›</view>
     </view>
 
     <!-- 那一句人话不再进弹性槽：矮屏收起之后这一屏只剩三行术语和一个罗盘，
@@ -99,13 +107,11 @@
         <view class="ring ring-3"></view>
         <view class="ring ring-4"></view>
 
-        <!-- 盘上只留【一圈刻度】。原先还有八卦符（☲☷☱☰☵☶☳☴）与八个方位
-             （南 / 西南 / 西 …）—— 那是全屏最玄的两样东西，而且方位在结果那一屏
-             早就按规则拿掉了（术语只留在「你的说明书」里），盘上摆着就更没道理。
-             转的时候要看得出在转，靠的是这一圈点在动，不是靠认得出哪个卦。 -->
-        <!-- 8 金点 · 中圈 -->
-        <view wx:for="{{[0,1,2,3,4,5,6,7]}}" wx:key="*this"
-              class="dot dot-{{item}}"></view>
+        <!-- 【2026-09-01 八颗点也拿掉了】。上一轮拿掉的是八卦符与方位名，
+             留下八颗均布在 45° 上的点 —— 而那正是「八方位」本身，
+             删掉字反而更像一个没有刻度标注的式盘。
+             而且那颗高亮的点跟着盘转、指针不转，八个方位里七个指错。
+             现在看得出在转，靠的是盘面那五格不等分的深浅（index.wxss）。 -->
 
 
       </view>
@@ -137,7 +143,6 @@
         <view class="ring ring-2"></view>
         <view class="ring ring-3"></view>
         <view class="ring ring-4"></view>
-        <view wx:for="{{[0,1,2,3,4,5,6,7]}}" wx:key="*this" class="dot dot-{{item}}"></view>
       </view>
 
       <view class="compass-btn compass-btn-lit">
@@ -151,8 +156,13 @@
 
   <!-- 没本命时压在罗盘下面的那一句 + 出口。罗盘照样能转。 -->
   <block wx:if="{{!summary && !err}}">
-    <view class="foot-hint">还没填出生时间，转出来的还不算你的</view>
-    <button class="btn" bindtap="goNatal">填出生时间</button>
+    <!-- 【2026-09-01】这一句原先写「转出来的还不算你的」—— 免费体验
+         主动承认自己不作数，而它是这个产品唯一的免费钩子。
+         说清楚差别就够了:现在转的是通用的，填完是按你的。 -->
+    <view class="foot-hint">现在转的是通用的一句 · 填了出生时间才是按你排的</view>
+    <!-- 降成次一档:主动作是中间那颗（每天要做的那件事），
+         这一颗是补一份资料。原先反过来，全屏最重的是「去填表」。 -->
+    <button class="btn ghost" bindtap="goNatal">填出生时间</button>
   </block>
   </view>
 
@@ -160,9 +170,19 @@
        删掉它这一屏仍然成立 —— 那是能放进槽里的判据。 -->
   <view class="recent flexslot" wx:if="{{recent.length > 0}}">
     <view class="recent-k">近几次</view>
-    <view wx:for="{{recent}}" wx:key="id" class="recent-row" data-id="{{item.id}}" bindtap="onRecent">
+    <view wx:for="{{recent}}" wx:key="id" class="recent-row" data-id="{{item.id}}" bindtap="onRecent" hover-class="press-card" hover-stay-time="80">
       <text class="recent-d">{{item.day}}</text>
-      <text class="recent-v">{{item.gate}}{{item.dir ? ' · ' + item.dir : ''}}</text>
+      <!-- 【2026-09-01】方位从这儿也拿掉。
+           结果那一屏写着「门名与方位一个都不留」，理由是它们对绝大多数人
+           不构成信息;而这里把方位原样印着 —— 同一个词，一屏禁一屏留，
+           那条规则就只是句话。「近几次」要回答的是「我那天问了什么」，
+           日期加门名已经够指认，方位在这儿更是纯装饰。 -->
+      <!-- 【2026-09-01】原先印的是门名（休门 / 生门）。结果那一屏的注释
+           白纸黑字写着「门名与方位一个都不留……规则说的是屏上不许有」，
+           而往下滚一屏，同一个词在这儿印了三行。
+           这一列要回答的是「我那天问到了什么」—— 门名回答不了，
+           那天那句结论的头半句才回答得了。 -->
+      <text class="recent-v">{{item.说}}</text>
     </view>
   </view>
   <view class="recent-err flexslot" wx:elif="{{recentErr}}">{{recentErr}}</view>

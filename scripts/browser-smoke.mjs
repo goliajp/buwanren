@@ -69,16 +69,35 @@ console.log('· 登录成功');
 
 // ─── Orders 页 → 打开详情抽屉 ───
 await page.goto(BASE + '/orders');
-const row = page.locator(`tr:has-text("${oid.slice(-4)}")`).first(); // 列表用 shortId 截断,拿尾 4 位匹配
+/* 【单号列的截法改过，这里跟着改】（2026-09-03）。
+   原先是 `shortId`（头尾各留几位，中间省略号），所以拿【尾 4 位】能匹配到;
+   现在是 `briefId`（去掉 `ord-` 前缀取前 8 位），尾巴不再显示 ——
+   门禁报的是「等一行含 4835 的记录，等不到」，而那一行好好地在那儿。
+
+   改成拿 uuid 的【前 8 位】，跟 briefId 一致。 */
+const 前八 = oid.replace(/^ord-/, '').slice(0, 8);
+const row = page.locator(`tr:has-text("${前八}")`).first();
 await row.waitFor();
-await row.locator('button').last().click(); // Eye 详情按钮
+/* 详情原先靠行尾那个 Eye 按钮，2026-09-03 起【整行可点】——
+   那一行上现在没有按钮了，`locator('button').last()` 找不到东西。 */
+await row.click();
 const cancelBtn = page.locator('button:has-text("取消订单")');
 await cancelBtn.waitFor();
 if (await cancelBtn.isDisabled()) fail('unpaid 订单的取消按钮不该置灰');
 console.log('· 详情抽屉打开，取消按钮可点');
 
 // ─── 竞态:点击前把订单推进到 done ───
+/* 【推进到 done 就要连那笔钱一起造】（2026-09-03）。
+   上一版只改订单，于是每跑一轮攒一张「已付 199 元、
+   支付表里查不到是哪一笔」的孤儿单 ——「钱的账目自洽吗」
+   那一支盯着这个数，而这张单是它今天报的唯一一条。
+   真实链路里 done 必然经过一笔 success 的 payment。 */
 psql(`UPDATE order_record SET status='done', paid_at=NOW(), amount_paid_minor=19900, fulfilled_at=NOW() WHERE id='${oid}'`);
+psql(`INSERT INTO payment(id, order_id, user_id, channel, amount_minor, currency,
+                          status, paid_at, region)
+      VALUES ('pay-notice-${oid.slice(-13)}','${oid}','${uid}','wechat_jsapi',
+              19900,'CNY','success',NOW(),'cn')
+      ON CONFLICT (id) DO NOTHING`);
 console.log('· 库里已把订单推进到 done（UI 尚未刷新）');
 
 await cancelBtn.click();
@@ -105,9 +124,17 @@ psql(`INSERT INTO order_record(id, user_id, channel_origin, currency, amount_sub
       VALUES ('${oid2}','${uid}','web','CNY',100,100,'unpaid','one_shot','cn',
       NOW() + INTERVAL '30 minutes', NOW())`);
 await page.goto(BASE + '/orders');
-const row2 = page.locator(`tr:has-text("${oid2.slice(-4)}")`).first();
+/* 【跟上面第一处同一个改动，这里漏了】（2026-09-03 全量门禁跑出来的）。
+   两处一模一样的定位法，上面那一处改成了 `briefId` 的前八位、
+   改成了整行点开，而这一处原样留着 —— 于是它等一行含
+   「9162」（时间戳末四位）的记录，而屏上写的是前八位。
+
+   同一个改动只改了一半，比一处都没改更难发现:第一处绿着，
+   报出来的只有第二处，读起来像「这一行真的不见了」。 */
+const 前八2 = oid2.replace(/^ord-/, '').slice(0, 8);
+const row2 = page.locator(`tr:has-text("${前八2}")`).first();
 await row2.waitFor();
-await row2.locator('button').last().click();
+await row2.click();
 await page.locator('button:has-text("取消订单")').click();
 await page.waitForTimeout(1500);
 if (await page.locator('[role="status"]').count() > 0) fail('成功路径不该弹任何通知(列表刷新即反馈)');

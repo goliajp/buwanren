@@ -1,5 +1,5 @@
 .hd { padding: 24rpx 0 28rpx; }
-.hd .title { font-size: 50rpx; line-height: 1; }
+.hd .title { line-height: 1; }
 .hd .sub { font-size: 26rpx; color: var(--ink-faint); margin-top: 10rpx; }
 
 .onboard-card {
@@ -32,7 +32,7 @@
   width: 140rpx;
   height: 140rpx;
   border-radius: 50%;
-  border: 1rpx dashed var(--stone-line);
+  border: 1rpx dashed var(--stone-line-ui);
   background: var(--paper-inset);
   display: block;
 }

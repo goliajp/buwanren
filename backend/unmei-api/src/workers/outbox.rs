@@ -6,11 +6,12 @@
 //! - `OrderFulfilled`      — 通知 + finance(可选)
 //! - `OrderCancelled`      — log
 //! - `RefundCompleted`     — finance 反向分录(收入冲销)
+//! - `OrderPaid`           — finance 销售分录(借银行存款 / 贷主营业务收入)
 //! - `ShipmentDelivered`   — 若 order 所有 line 都 done → order.mark_done(等下游接通)
 //! - 其它                  — log + mark dispatched
 //!
 //! **规模对照**（2026-08-18 数过）：`DomainEvent` 一共 **31 种**。
-//! 真去做事的只有 3 种（`OrderPaid` → 履约、`RefundCompleted` → 财务分录、
+//! 真去做事的只有 3 种（`OrderPaid` → 销售分录 + 履约、`RefundCompleted` → 冲销分录、
 //! `ShipmentDelivered` → 履约收尾）；3 种只打日志；**其余 25 种是有意的空转**
 //! —— 它们照样落进 `outbox_event` 表、照样打一行 info，所以不是丢了，是还没接。
 //! 记在这里是因为「事件已经发出去了」很容易被读成「下游已经在动」。
@@ -27,6 +28,7 @@ use sqlx::Row;
 use std::time::Duration;
 use unmei_domain::commerce::events::DomainEvent;
 
+use unmei_app::finance as app_finance;
 use unmei_app::fulfillment as app_fulfillment;
 
 use crate::state::AppState;
@@ -46,13 +48,32 @@ pub async fn run(state: AppState) {
 }
 
 async fn dispatch_once(st: &AppState) -> anyhow::Result<()> {
+    /* 【`FOR UPDATE SKIP LOCKED` 单独一句是空转的】。
+       它跑在自动提交里 —— 语句一结束隐式事务就提交，锁当场释放，
+       而 `handle_event` 是在那之后才跑的。也就是说这句话读起来像
+       「把这批事件占住」，实际什么都没占住:两个进程会同时取到同一批。
+       今天没出事，是因为每个有副作用的处理器自己在事务里锁了聚合行
+       （`apply_order_paid` 的 `SELECT … FOR UPDATE`）—— 也就是说
+       这里的保护是【别人替它做的】，而它看起来像自己做了。
+       下一个不带自锁的处理器加进来，就会双跑。
+
+       改成【租约式领取】:同一句 UPDATE 里做子查询加锁，
+       锁与写在同一个隐式事务里，这次是真的。领到的行把
+       `next_attempt_at` 推到五分钟后，对别的进程就此不可见;
+       进程中途死掉的话，五分钟后它自己回到队列 ——
+       不需要新状态、不需要迁移、也不需要一段捞僵尸行的代码。
+       成功那一支照旧写 `dispatched`（`status` 过滤会把它挡在外面），
+       失败那一支照旧自己算退避时间，覆盖掉这个租约。 */
     let rows = sqlx::query(
-        r#"SELECT id, kind, aggregate_kind, aggregate_id, payload_json, attempt_count
-           FROM outbox_event
-           WHERE status='pending' AND next_attempt_at <= NOW()
-           ORDER BY created_at ASC
-           LIMIT 50
-           FOR UPDATE SKIP LOCKED"#,
+        r#"UPDATE outbox_event SET next_attempt_at = NOW() + INTERVAL '5 minutes'
+           WHERE id IN (
+             SELECT id FROM outbox_event
+              WHERE status='pending' AND next_attempt_at <= NOW()
+              ORDER BY created_at ASC
+              LIMIT 50
+              FOR UPDATE SKIP LOCKED
+           )
+           RETURNING id, kind, aggregate_kind, aggregate_id, payload_json, attempt_count"#,
     ).fetch_all(&st.db).await?;
     if rows.is_empty() { return Ok(()); }
     tracing::debug!("outbox_dispatcher: dispatching {} events", rows.len());
@@ -63,17 +84,34 @@ async fn dispatch_once(st: &AppState) -> anyhow::Result<()> {
         let payload: Value = r.try_get("payload_json").unwrap_or(Value::Null);
         let attempt: i32 = r.try_get("attempt_count")?;
 
-        let outcome: Result<(), String> = handle_event(st, &kind, &payload).await
-            .map_err(|e| e.to_string());
+        let outcome = handle_event(st, &payload).await;
 
         match outcome {
+            /* 【解析不出来 ≠ 处理成功】（2026-09-04）。
+               上一版这一支返回 `Ok(())`，于是它跟真做完的事写同一个
+               `dispatched` —— 库里 33,956 条全是这个状态，
+               而其中有几条是「形状变了、根本没人看懂」，分不出来。
+
+               枚举里本来就有 `OutboxStatus::Dropped`，后台那条重推路由
+               也明写着接受 `('failed','dropped')`（outbox_ops.rs）——
+               也就是说「丢掉的事件可以被人看见、可以重推」这件事
+               早就设计好了，只差没有人写那个状态。
+               又一处「声明了、没有路走到」。 */
+            Err(Dispatch::看不懂(e)) => {
+                sqlx::query(
+                    "UPDATE outbox_event SET status='dropped', attempt_count = attempt_count + 1,
+                       last_error=$2 WHERE id=$1",
+                ).bind(&id).bind(&e).execute(&st.db).await?;
+                tracing::warn!(kind, error = %e,
+                    "outbox · 事件解析不出来，标为 dropped —— 事件形状可能变了，后台可以重推");
+            }
             Ok(()) => {
                 sqlx::query(
                     "UPDATE outbox_event SET status='dispatched', attempt_count = attempt_count + 1 WHERE id=$1",
                 ).bind(&id).execute(&st.db).await?;
                 tracing::debug!("outbox · {kind} OK");
             }
-            Err(e) => {
+            Err(Dispatch::出错(e)) => {
                 let next_attempt = attempt + 1;
                 if next_attempt >= MAX_ATTEMPTS {
                     sqlx::query(
@@ -96,7 +134,29 @@ async fn dispatch_once(st: &AppState) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn handle_event(st: &AppState, kind: &str, payload: &Value) -> anyhow::Result<()> {
+/// 派发一条事件的结果。
+///
+/// 两种失败要分开：**做的时候出错**该重试（渠道抖了、库忙），
+/// 而**根本看不懂**重试多少次都是同一个结果 —— 它要的是有人来看一眼。
+/// 写成同一种的话，前者会被当成永久失败，后者会被当成成功。
+enum Dispatch {
+    /// 处理器自己报的错。走退避重试，五次之后 `failed`。
+    出错(String),
+    /// payload 反序列化不出来 —— 事件形状变了。直接 `dropped`，等人来看。
+    看不懂(String),
+}
+
+/// 处理器里的 `?` 自然落进「出错」那一支 —— 它们报的都是「做的时候出了事」。
+/// 「看不懂」只有一个来源（反序列化那一处），显式构造，不走这条。
+impl From<anyhow::Error> for Dispatch {
+    fn from(e: anyhow::Error) -> Self {
+        Dispatch::出错(e.to_string())
+    }
+}
+
+/// `kind` 不再传进来:解析出来的 `DomainEvent` 自己就说了它是什么，
+/// 而库里那一列只是给人看的索引。派发那一层记日志时仍然用它。
+async fn handle_event(st: &AppState, payload: &Value) -> Result<(), Dispatch> {
     // outbox::write 把整个 DomainEvent (含 kind+payload) 序列化进 payload_json,
     // 直接 from_value 即可
     let ev: Result<DomainEvent, _> = serde_json::from_value(payload.clone());
@@ -106,12 +166,22 @@ async fn handle_event(st: &AppState, kind: &str, payload: &Value) -> anyhow::Res
             Ok(())
         }
         Ok(DomainEvent::OrderPaid { order_id, .. }) => {
+            /* 【收钱也要记账】（2026-09-03 五路评审 · 资金审计）。
+               上一版这里只推履约 —— 于是总账里一笔销售分录都没有，
+               `4001 主营业务收入` 是纯借方（只有退款冲销），
+               月报的「本期收入」是负数。
+
+               两件事都挂在这一条事件上:记账先做 —— 履约可能要调排盘服务，
+               慢且会失败，而账不该等它。两个都是幂等的，重试不会重复。 */
+            app_finance::post_sale_journal(&st.db, &order_id)
+                .await
+                .map_err(|e| anyhow::anyhow!("post_sale_journal {order_id}: {e}"))?;
             // 履约推进在用例层:一个事务、shipment 防重、重试不重复发 OrderFulfilled。
             // 这里原有一份自己的实现,四处幂等漏洞,见 unmei_app::fulfillment 模块注释。
             app_fulfillment::apply_order_paid(&st.db, &order_id)
                 .await
                 .map(|_| ())
-                .map_err(|e| anyhow::anyhow!("apply_order_paid {order_id}: {e}"))
+                .map_err(|e| Dispatch::出错(format!("apply_order_paid {order_id}: {e}")))
         }
         Ok(DomainEvent::OrderFulfilled { order_id, .. }) => {
             tracing::info!("event · OrderFulfilled {order_id} · 用户应已被通知");
@@ -122,13 +192,13 @@ async fn handle_event(st: &AppState, kind: &str, payload: &Value) -> anyhow::Res
             Ok(())
         }
         Ok(DomainEvent::RefundCompleted { refund_id, .. }) => {
-            handle_refund_completed(st, &refund_id).await
+            handle_refund_completed(st, &refund_id).await.map_err(Dispatch::from)
         }
         Ok(DomainEvent::ShipmentDelivered { shipment_id, order_id, .. }) => {
             app_fulfillment::apply_shipment_delivered(&st.db, &shipment_id, &order_id)
                 .await
                 .map(|_| ())
-                .map_err(|e| anyhow::anyhow!("apply_shipment_delivered {shipment_id}: {e}"))
+                .map_err(|e| Dispatch::出错(format!("apply_shipment_delivered {shipment_id}: {e}")))
         }
         /* 剩下 25 种都是**特意**不做事的：它们记的是已经发生过的事实，
            副作用在写入那一侧就做完了。
@@ -176,8 +246,7 @@ async fn handle_event(st: &AppState, kind: &str, payload: &Value) -> anyhow::Res
                同一个仓库对「不认识的事件」本来就有做法：`apply_payment_webhook`
                用的是 `warn` + 事件内容。这里照它来。
                仍然返回 Ok：让它无限重试只会把队列堵死，而这不是重试能解决的事。 */
-            tracing::warn!(kind, error = %e, "outbox · 事件解析不出来，按已处理丢弃 —— 事件形状可能变了");
-            Ok(())
+            Err(Dispatch::看不懂(e.to_string()))
         }
     }
 }

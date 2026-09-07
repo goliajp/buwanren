@@ -510,8 +510,30 @@ async fn two_approved_refunds_cannot_exceed_what_was_paid() {
 
     let r1 = refund::request(&pool, &order_id, &user, None, None, "user_request", None)
         .await.expect("第一次申请");
-    let r2 = refund::request(&pool, &order_id, &user, None, None, "user_request", None)
-        .await.expect("第二次申请（申请本身不该被挡，钱还没动）");
+
+    /* 【第二张直接插进库，不走 `request`】（2026-09-03）。
+       原先这里是第二次 `request` —— 它当时会通过，因为
+       `amount_refunded_minor` 要到审批才增加。现在 `request` 会把
+       【在途】的退款也算进已退，所以那条路建不出第二张了。
+
+       但这条测试钉的不是 `request`，是 **`approve` 那一步的余额复核**——
+       重复退款的最后一道。照着改成「第二次申请该被挡」的话，
+       那道复核就再也没有测试够得着，而它正是 2026-08-18
+       实付 9900 退出 19800 那次的补丁。
+
+       所以第二张绕过 `request` 直接落库:模拟「一张先前建下的、
+       还没批的申请」——那在真实世界里存在（`request` 收紧之前建的，
+       或者并发擦身而过的），而 `approve` 必须挡得住。 */
+    let r2 = format!("rfd-{}", uuid::Uuid::new_v4());
+    sqlx::query(
+        "INSERT INTO refund(id, order_id, payment_id, amount_minor, currency,
+                            reason_code, actor_kind, actor_id, status, region)
+         SELECT $1, order_id, payment_id, amount_minor, currency,
+                reason_code, actor_kind, actor_id, 'requested', region
+           FROM refund WHERE id=$2",
+    )
+    .bind(&r2).bind(&r1)
+    .execute(&pool).await.expect("照着第一张再落一张待批的");
 
     refund::approve(&pool, &r1, &Actor::admin("a")).await.expect("第一张批下来");
     let err = refund::approve(&pool, &r2, &Actor::admin("a")).await
@@ -787,6 +809,13 @@ async fn refund_journal_is_balanced() {
         .await
         .expect("request");
 
+    /* 【钱退出去了才记账】（2026-09-03 五路评审 · 资金审计）。
+       上一版申请完就直接记 —— 而 `post_refund_journal` 是
+       `RefundCompleted` 事件的处理器，那个事件只在退款走成之后才发。
+       测试跳过审批这一步，测的就不是生产里发生的顺序。
+       它现在会明确拒记一笔还没退出去的钱。 */
+    refund::approve(&pool, &refund_id, &Actor::admin("adm-test")).await.expect("审批");
+
     unmei_app::finance::post_refund_journal(&pool, &refund_id).await.expect("记账");
 
     let (debit, credit): (i64, i64) = sqlx::query_as(
@@ -814,6 +843,13 @@ async fn posting_the_same_refund_twice_does_not_double_post() {
         .await
         .expect("request");
 
+    /* 【钱退出去了才记账】（2026-09-03 五路评审 · 资金审计）。
+       上一版申请完就直接记 —— 而 `post_refund_journal` 是
+       `RefundCompleted` 事件的处理器，那个事件只在退款走成之后才发。
+       测试跳过审批这一步，测的就不是生产里发生的顺序。
+       它现在会明确拒记一笔还没退出去的钱。 */
+    refund::approve(&pool, &refund_id, &Actor::admin("adm-test")).await.expect("审批");
+
     for _ in 0..3 {
         unmei_app::finance::post_refund_journal(&pool, &refund_id).await.expect("重试记账");
     }
@@ -834,4 +870,425 @@ async fn posting_the_same_refund_twice_does_not_double_post() {
     )
     .await;
     assert_eq!(lines, 2, "分录行数不对");
+}
+
+/// 【退款请求里的 payment_id 得真属于这张单】（2026-09-02 第四轮评审 · 工程审计）。
+///
+/// `refund::request` 原先是 `Some(p) => p` —— 传进来什么就用什么。
+/// 上面校的是「这张单是不是你的」和「金额超没超」，从没有人问过
+/// 这笔支付是谁的。审计实测:甲对自己的单发起退款、`payment_id` 填乙的，
+/// 回 200 落库。而退款最终会拿这条 id 去渠道发一次真的退款请求。
+#[tokio::test]
+async fn a_refund_cannot_name_someone_elses_payment() {
+    let pool = db_or_skip!();
+    let (甲, 甲的单, _) = paid_order(&pool, 9900).await;
+    let (_乙, _乙的单, 乙的支付) = paid_order(&pool, 9900).await;
+
+    let 借别人的 = refund::request(
+        &pool, &甲的单, &甲, Some(乙的支付.clone()), Some(9900),
+        "user_request", None,
+    ).await;
+    match 借别人的 {
+        Err(DomainError::Validation(m)) => {
+            assert!(m.contains("不属于"), "话要说清为什么：{m}");
+        }
+        other => panic!("别人的那笔支付不该退得动，实际 {other:?}"),
+    }
+
+    // 而不带 payment_id 的正常路径照旧走得通 —— 收紧的是判据，不是覆盖面
+    let 正常 = refund::request(
+        &pool, &甲的单, &甲, None, Some(9900), "user_request", None,
+    ).await;
+    assert!(正常.is_ok(), "自己那张单该退得动，实际 {:?}", 正常.err());
+}
+
+/// 【两笔各退一半，两边都该说「全退了」】（2026-09-03 第四轮评审 · 工程审计）。
+///
+/// `approve` 里 payment 的终态原先拿【这一笔】的金额跟支付总额比，
+/// 而订单那一侧用的是累计式 —— 两笔各退一半，每一笔都小于总额，
+/// 于是支付永远停在 `refunded_partial`、订单已经是 `refunded`。
+/// 同一笔钱两处说法不一致，对账时看到的是「订单全退了、支付没退完」。
+#[tokio::test]
+async fn two_half_refunds_leave_both_sides_saying_fully_refunded() {
+    let pool = db_or_skip!();
+    let (用户, 单, 支付) = paid_order(&pool, 10000).await;
+
+    for _ in 0..2 {
+        let r = refund::request(&pool, &单, &用户, None, Some(5000), "user_request", None)
+            .await.expect("发起退款");
+        refund::approve(&pool, &r, &Actor::system()).await.expect("批准");
+    }
+
+    let 支付态 = common::scalar_string(&pool, "SELECT status FROM payment WHERE id=$1", &支付).await;
+    let 订单态 = common::scalar_string(&pool, "SELECT status FROM order_record WHERE id=$1", &单).await;
+    assert_eq!(支付态.as_deref(), Some("refunded"),
+               "两笔加起来等于全额，支付这一侧也该说全退了");
+    assert_eq!(订单态.as_deref(), Some("refunded"), "订单那一侧本来就是累计式");
+}
+
+// ═══════════════════ 取消订单要把在飞的支付撤下来 ═══════════════════
+
+/// 【`order::cancel` 一处都没碰过支付】（2026-09-03 五路评审 · 资金审计）。
+///
+/// 它改订单、放券、写事件，而已经发起的那笔 pending 支付原封不动地活着。
+/// 付成之后订单停在 `cancelled` 而 `amount_paid_minor` 变成全额 ——
+/// 钱进账、买家什么都没拿到，且没有任何一处会说出来。
+///
+/// 实测存量：486 单、¥48,082，全部 `refunded=0`。
+#[tokio::test]
+async fn cancelling_an_order_takes_its_in_flight_payment_down() {
+    let pool = db_or_skip!();
+    let (user, order_id) = unpaid_order(&pool, 9900).await;
+
+    let pay = payment::start(&pool, &order_id, &user, "wechat_h5", None)
+        .await.expect("发起支付");
+    let 起初 = common::scalar_string(
+        &pool, "SELECT status FROM payment WHERE id=$1", &pay.payment_id).await;
+    assert_eq!(起初.as_deref(), Some("pending"), "前提：这笔支付在飞");
+
+    order::cancel(&pool, &order_id, "改主意了", &Actor::system(), Some(&user))
+        .await.expect("取消订单");
+
+    /* 【转 cancelling 而不是 cancelled】。`payment_sweep` 只查
+       pending / processing，转过去它就不再自动结算；
+       而 `apply_succeeded` 仍接受 cancelling —— 渠道那边真收了钱还是要记上，
+       那种「钱到了但没有归宿」该被看见，不该被状态守卫吞掉。 */
+    let 之后 = common::scalar_string(
+        &pool, "SELECT status FROM payment WHERE id=$1", &pay.payment_id).await;
+    assert_eq!(之后.as_deref(), Some("cancelling"),
+               "取消订单之后这笔支付还在飞 —— 它还会被 sweeper 结成 success");
+}
+
+#[tokio::test]
+async fn an_expired_order_takes_its_payment_down_too() {
+    let pool = db_or_skip!();
+    let (user, order_id) = unpaid_order(&pool, 9900).await;
+    let pay = payment::start(&pool, &order_id, &user, "wechat_h5", None)
+        .await.expect("发起支付");
+
+    // 把这一单推到过期线以外，再跑清扫
+    sqlx::query("UPDATE order_record SET expires_at = NOW() - INTERVAL '1 minute' WHERE id=$1")
+        .bind(&order_id).execute(&pool).await.expect("推到过期");
+    order::expire_unpaid(&pool).await.expect("清扫");
+
+    // 【这条路上没有人在场】—— 所以更需要它自己做对
+    let 之后 = common::scalar_string(
+        &pool, "SELECT status FROM payment WHERE id=$1", &pay.payment_id).await;
+    assert_eq!(之后.as_deref(), Some("cancelling"),
+               "订单过期了，支付还在飞 —— 每一次弃购都留下一笔会自动结算的支付");
+}
+
+// ═════════ 2026-09-04 · 撤到一半的支付要有下场 ═════════
+
+/// 【`cancelling` 原先进得去出不来】。
+///
+/// 同一天早上加的 `cancel_in_flight` 把在飞的支付转成 `cancelling`，
+/// 而状态机写着 `Cancelling => [Cancelled, Success]` ——
+/// Success 那条通（渠道竞态），而 Cancelled **全仓没有一处写**：
+/// 实测 20 笔卡在那儿，18 笔窗口早过了。
+/// 这正是这一轮评审反复遇到的形状，而它是当天新造的一个。
+#[tokio::test]
+async fn 窗口过了的撤销支付会落成已撤销() {
+    let pool = db_or_skip!();
+    let (user, order_id) = unpaid_order(&pool, 19900).await;
+    let pending = payment::start(&pool, &order_id, &user, "wechat_jsapi", None).await.expect("起一笔");
+
+    // 撤下来 —— 走真的那条路（订单取消会顺带撤支付）
+    order::cancel(&pool, &order_id, "不要了", &Actor::user(&user), Some(&user))
+        .await
+        .expect("取消");
+    assert_eq!(
+        common::scalar_string(&pool, "SELECT status FROM payment WHERE id=$1", &pending.payment_id).await.as_deref(),
+        Some("cancelling"),
+        "取消订单没把支付撤下来",
+    );
+
+    // 窗口还没过，不该动它 —— 那时渠道仍可能说「已经付了」
+    payment::settle_cancelled(&pool).await.expect("清扫");
+    assert_eq!(
+        common::scalar_string(&pool, "SELECT status FROM payment WHERE id=$1", &pending.payment_id).await.as_deref(),
+        Some("cancelling"),
+        "窗口没过就把它落定了 —— 那两笔还可能被付掉，钱要记上",
+    );
+
+    // 把窗口推到过去，再清扫
+    sqlx::query("UPDATE payment SET expires_at = NOW() - INTERVAL '1 minute' WHERE id=$1")
+        .bind(&pending.payment_id)
+        .execute(&pool)
+        .await
+        .expect("推过期");
+    payment::settle_cancelled(&pool).await.expect("清扫");
+    assert_eq!(
+        common::scalar_string(&pool, "SELECT status FROM payment WHERE id=$1", &pending.payment_id).await.as_deref(),
+        Some("cancelled"),
+        "窗口过了还卡在 cancelling —— 那个状态又进得去出不来了",
+    );
+}
+
+/// 反面：撤到一半、而渠道随后说「已经付了」——那笔钱仍然要记上。
+/// 这一条守的是「不许用状态守卫把到账的钱吞掉」。
+#[tokio::test]
+async fn 撤销中的支付被渠道付掉了还是要记账() {
+    let pool = db_or_skip!();
+    let (user, order_id) = unpaid_order(&pool, 19900).await;
+    let pending = payment::start(&pool, &order_id, &user, "wechat_jsapi", None).await.expect("起一笔");
+    order::cancel(&pool, &order_id, "不要了", &Actor::user(&user), Some(&user))
+        .await
+        .expect("取消");
+
+    payment::apply_succeeded(&pool, &pending.payment_id, Some("txn-race"), chrono::Utc::now())
+        .await
+        .expect("渠道说付成了");
+
+    let 状态 = common::scalar_string(&pool, "SELECT status FROM payment WHERE id=$1", &pending.payment_id).await;
+    assert_eq!(状态.as_deref(), Some("success"), "撤销中被付掉，那笔钱没被记上");
+    let 收了 = common::scalar_i64(
+        &pool, "SELECT amount_paid_minor FROM order_record WHERE id=$1", &order_id,
+    ).await;
+    assert_eq!(收了, 19900, "钱到了而订单上一分没记 —— 那是一笔没有归宿的钱");
+}
+
+/// 【取消了的单上收着钱，扫一遍要退回去】。
+///
+/// 实测存量 486 单、¥48,082 全部 refunded=0，从 2026-08-16 攒到当天，
+/// 而没有任何一处会说出来。上游堵了两个口子，但渠道竞态仍然会造出这种钱
+/// （`Cancelling => Success` 是状态机明写的一条）。
+#[tokio::test]
+async fn 取消单上无家可归的钱会被退回去() {
+    let pool = db_or_skip!();
+    common::确保当月开着(&pool).await;
+    let (user, order_id) = unpaid_order(&pool, 19900).await;
+    let pending = payment::start(&pool, &order_id, &user, "wechat_jsapi", None).await.expect("起一笔");
+    order::cancel(&pool, &order_id, "不要了", &Actor::user(&user), Some(&user)).await.expect("取消");
+    // 渠道竞态：撤销中被付掉了 —— 钱记上（这一条由上一支测试单独钉）
+    payment::apply_succeeded(&pool, &pending.payment_id, Some("txn-orphan"), chrono::Utc::now())
+        .await
+        .expect("渠道说付成了");
+    assert_eq!(
+        common::scalar_i64(&pool, "SELECT amount_paid_minor FROM order_record WHERE id=$1", &order_id).await,
+        19900,
+    );
+
+    /* 【一轮扫不完就多扫几轮】。这一支一次最多处理 200 单
+       （生产上靠一轮轮 tick 排空积压，而不是一口气把库锁住），
+       而测试库里攒着两百多单历史的同类单子，按 `cancelled_at` 排序时
+       刚造的这一单排在最后。所以这里照生产的样子跑：扫到它为止，有上限。
+
+       上限本身也是断言的一部分:排不空的话它会挂在这儿，
+       而那正是「这一支扫不动」该有的样子。 */
+    let mut 轮 = 0;
+    loop {
+        let 退了 = refund::refund_orphan_money(&pool).await.expect("清扫");
+        let 已退 = common::scalar_i64(
+            &pool, "SELECT COALESCE(amount_refunded_minor,0) FROM order_record WHERE id=$1", &order_id,
+        ).await;
+        if 已退 == 19900 {
+            break;
+        }
+        轮 += 1;
+        assert!(退了 > 0, "第 {轮} 轮一笔都没退，而我这一单还欠着 —— 那 486 单就是这么攒出来的");
+        assert!(轮 < 40, "扫了 {轮} 轮还没轮到这一单");
+    }
+
+    /* 【跑第二遍不许再退一次】。清扫会每 30 秒跑一次 ——
+       不幂等的话，一笔 199 元的钱会被退成好几笔。 */
+    let 再退 = refund::refund_orphan_money(&pool).await.expect("再扫一遍");
+    let 退款笔数 = common::scalar_i64(
+        &pool, "SELECT count(*) FROM refund WHERE order_id=$1", &order_id,
+    ).await;
+    assert_eq!(退款笔数, 1, "扫第二遍又退了一笔（第二遍报 {再退} 笔）");
+    assert_eq!(
+        common::scalar_i64(&pool, "SELECT COALESCE(amount_refunded_minor,0) FROM order_record WHERE id=$1", &order_id).await,
+        19900,
+        "退的比收的还多了",
+    );
+}
+
+/// 【过了三十分钟就付不了了】（2026-09-06 三路验证 · 准备花钱的那一路）。
+///
+/// `start` 原先只看 `order.status`。清扫每 30 秒一轮，所以「已过 `expires_at`、
+/// 状态还挂 unpaid」是一段真实存在的窗口:在那里点「去付」，微信真扣钱，
+/// 回来看到「已取消」，几分钟后钱才自动退回。链路是闭的，
+/// 而那几分钟里人会认为自己被吞了钱。
+#[tokio::test]
+async fn 过了点的单发不起支付() {
+    let pool = db_or_skip!();
+    let (user, order_id) = unpaid_order(&pool, 9900).await;
+    // 清扫还没轮到它：过了点，状态还挂着 unpaid —— 这正是那段窗口
+    sqlx::query("UPDATE order_record SET expires_at = NOW() - INTERVAL '1 minute' WHERE id=$1")
+        .bind(&order_id).execute(&pool).await.expect("把它推到过期");
+
+    let err = payment::start(&pool, &order_id, &user, "wechat_jsapi", None)
+        .await
+        .expect_err("过了点还发得出支付");
+    assert!(
+        format!("{err}").contains("三十分钟"),
+        "报的不是「过了点」这件事，而是别的：{err}",
+    );
+}
+
+/// 【钱退干净了，东西要收回来】（2026-09-06 三路验证）。
+///
+/// `approve` 此前只动 refund / payment / order_record 三张表加一个事件 ——
+/// 客服按下「批」，钱退回去，而那位村民还住在他村里、那份说明书还读得到。
+/// 协议写的是「数字内容一经交付不支持退款」，订单屏也照这条把按钮换成了说明；
+/// 而那条规矩此前只靠「后台的人不点错」来维持。
+#[tokio::test]
+async fn 退干净了的单会把住进来的人搬走() {
+    let pool = db_or_skip!();
+    common::确保当月开着(&pool).await;
+    let user = common::user(&pool).await;
+    let (sku, villager) = common::residency_sku(&pool, "CNY", 9900).await;
+    let created = order::create(
+        &pool,
+        order::NewOrder {
+            user_id: user.clone(), region: "cn".into(), channel_origin: "web".into(),
+            lines: vec![order::NewOrderLine { sku_id: sku, qty: 1 }],
+            shipping_address: None, contact: None, coupon_codes: vec![],
+            note: None, ip: None, ua: None,
+        },
+    ).await.expect("建单");
+    let p = payment::start(&pool, &created.order_id, &user, "wechat_jsapi", None)
+        .await.expect("起一笔");
+    payment::apply_succeeded(&pool, &p.payment_id, None, chrono::Utc::now())
+        .await.expect("付了");
+    // 履约由 outbox 的消费者驱动，测试里直接调它那一支
+    unmei_app::fulfillment::apply_order_paid(&pool, &created.order_id).await.expect("履约");
+
+    // 付完就该住进来了 —— 这是这一支的前提，不成立的话下面验的是别的事
+    assert_eq!(
+        common::scalar_i64(
+            &pool, "SELECT count(*) FROM villager_residency WHERE user_id=$1", &user).await,
+        1,
+        "前提：付完钱 {villager} 该住进来",
+    );
+
+    let rid = refund::request(
+        &pool, &created.order_id, &user, None, None, "goodwill", Some("客服通融"),
+    ).await.expect("申请");
+    refund::approve(&pool, &rid, &Actor::admin("admin_kf")).await.expect("批");
+
+    assert_eq!(
+        common::scalar_i64(&pool, "SELECT count(*) FROM villager_residency WHERE user_id=$1", &user).await,
+        0,
+        "钱退干净了，人还住在他村里",
+    );
+}
+
+/// 退了一半不搬人 —— 部分退款对不上具体哪几行，凭它把人搬走，
+/// 会把「退了一半」变成「什么都没有了」。
+#[tokio::test]
+async fn 退了一半的单不搬人() {
+    let pool = db_or_skip!();
+    common::确保当月开着(&pool).await;
+    let user = common::user(&pool).await;
+    let (sku, _villager) = common::residency_sku(&pool, "CNY", 9900).await;
+    let created = order::create(
+        &pool,
+        order::NewOrder {
+            user_id: user.clone(), region: "cn".into(), channel_origin: "web".into(),
+            lines: vec![order::NewOrderLine { sku_id: sku, qty: 1 }],
+            shipping_address: None, contact: None, coupon_codes: vec![],
+            note: None, ip: None, ua: None,
+        },
+    ).await.expect("建单");
+    let p = payment::start(&pool, &created.order_id, &user, "wechat_jsapi", None)
+        .await.expect("起一笔");
+    payment::apply_succeeded(&pool, &p.payment_id, None, chrono::Utc::now())
+        .await.expect("付了");
+    unmei_app::fulfillment::apply_order_paid(&pool, &created.order_id).await.expect("履约");
+
+    let rid = refund::request(
+        &pool, &created.order_id, &user, None, Some(3000), "goodwill", Some("退一部分"),
+    ).await.expect("申请");
+    refund::approve(&pool, &rid, &Actor::admin("admin_kf")).await.expect("批");
+
+    assert_eq!(
+        common::scalar_i64(&pool, "SELECT count(*) FROM villager_residency WHERE user_id=$1", &user).await,
+        1,
+        "只退了一部分，人却被搬走了",
+    );
+}
+
+/// 【交付不了的那几行，钱要退回去】（2026-09-06 三路验证）。
+///
+/// 履约里有两处把行标成 `failed`（御守 SKU 没挂村民、这位村民已经住着了），
+/// 两处的注释都写着「该退这一笔」。而 `settle_order_in_tx` 数的是
+/// `NOT IN ('done','failed')` —— 一张全部失败的单照样翻成 `done`：
+/// 屏上写「已完成」，钱收着，东西没有，而自动退款那一支只捞已取消的单。
+#[tokio::test]
+async fn 交付不了的那几行钱会被退回去() {
+    let pool = db_or_skip!();
+    common::确保当月开着(&pool).await;
+    let (_user, order_id, _p) = paid_order(&pool, 9900).await;
+    // 履约把这一行判成交付不了 —— 两条真实路径写的都是这一个状态
+    sqlx::query("UPDATE order_line SET fulfillment_status='failed' WHERE order_id=$1")
+        .bind(&order_id).execute(&pool).await.expect("标 failed");
+    sqlx::query("UPDATE order_record SET status='done', fulfilled_at=NOW() WHERE id=$1")
+        .bind(&order_id).execute(&pool).await.expect("收尾就是这么翻的");
+
+    /* 一轮最多 200 单，库里攒着同类的历史单 —— 照生产的样子扫到它为止。
+       【断言钉在这一单上，不钉在「这一轮退了几笔」】。
+       单跑这一支时 `退了 > 0` 成立，而 `cargo test` 是**并发**跑的:
+       同一个文件里另外两支也调这一支清扫，而清扫是【全库】的 ——
+       别的线程那一次调用可能已经把这一单退掉了，于是轮到自己调的时候
+       它返回 0，断言当场红，而产品行为完全正确。
+       单跑绿、全量红，报的还是「一笔都没退」——指错方向的失败比失败本身更贵。
+       要守的事只有一件:这一单的钱回去了。上限仍然在，扫不动它会挂在这儿。 */
+    let mut 轮 = 0;
+    loop {
+        refund::refund_undelivered_lines(&pool).await.expect("清扫");
+        let 已退 = common::scalar_i64(
+            &pool, "SELECT COALESCE(amount_refunded_minor,0) FROM order_record WHERE id=$1", &order_id,
+        ).await;
+        if 已退 == 9900 {
+            break;
+        }
+        轮 += 1;
+        assert!(轮 < 40, "扫了 {轮} 轮，这一单交付不了、钱还收着 —— 已退 {已退}");
+    }
+
+    /* 退完之后订单不该再写着「已完成」—— 那正是这条 bug 让买家看到的那句话。
+       `approve` 里那段 CASE 会把它推成 refunded / refund_partial。 */
+    let 状态 = common::scalar_string(
+        &pool, "SELECT status FROM order_record WHERE id=$1", &order_id).await;
+    assert_eq!(状态.as_deref(), Some("refunded"),
+        "钱退完了，单子还写着「已完成」");
+
+    // 每 30 秒扫一次 —— 不幂等的话同一笔钱会被退好几遍
+    refund::refund_undelivered_lines(&pool).await.expect("再扫一遍");
+    let 笔数 = common::scalar_i64(
+        &pool, "SELECT count(*) FROM refund WHERE order_id=$1", &order_id).await;
+    assert_eq!(笔数, 1, "扫第二遍又退了一笔");
+}
+
+/// 行都交付成了的单，不该被这一支碰 —— 那是绝大多数已付单的样子。
+#[tokio::test]
+async fn 交付成了的单不会凭空生出退款() {
+    let pool = db_or_skip!();
+    common::确保当月开着(&pool).await;
+    let (_user, order_id, _p) = paid_order(&pool, 9900).await;
+    sqlx::query("UPDATE order_line SET fulfillment_status='done' WHERE order_id=$1")
+        .bind(&order_id).execute(&pool).await.expect("标 done");
+    sqlx::query("UPDATE order_record SET status='done' WHERE id=$1")
+        .bind(&order_id).execute(&pool).await.expect("收尾");
+
+    refund::refund_undelivered_lines(&pool).await.expect("清扫");
+    let 笔数 = common::scalar_i64(
+        &pool, "SELECT count(*) FROM refund WHERE order_id=$1", &order_id).await;
+    assert_eq!(笔数, 0, "东西都给出去了，却生出了一笔退款");
+}
+
+/// 没收着钱的取消单不该被碰 —— 那是绝大多数取消单的样子。
+#[tokio::test]
+async fn 没收钱的取消单不会凭空生出退款() {
+    let pool = db_or_skip!();
+    let (user, order_id) = unpaid_order(&pool, 19900).await;
+    order::cancel(&pool, &order_id, "不要了", &Actor::user(&user), Some(&user)).await.expect("取消");
+
+    refund::refund_orphan_money(&pool).await.expect("清扫");
+    let 退款笔数 = common::scalar_i64(
+        &pool, "SELECT count(*) FROM refund WHERE order_id=$1", &order_id,
+    ).await;
+    assert_eq!(退款笔数, 0, "一分钱没收，却生出了一笔退款");
 }

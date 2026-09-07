@@ -1,7 +1,7 @@
 .page { padding: 32rpx 40rpx 40rpx; }
 .hd { margin-bottom: 24rpx; }
 .name { font-size: 48rpx; font-weight: 700; }
-.title { font-size: 26rpx; color: var(--ink-faint); margin-top: 8rpx; }
+.title { color: var(--ink-faint); margin-top: 8rpx; }
 .lack-row { display: flex; align-items: baseline; gap: 16rpx; margin: 24rpx 0; }
 .lack-k { font-size: 26rpx; color: var(--ink-faint); }
 .lack-v { font-size: 40rpx; font-weight: 700; }
@@ -13,7 +13,7 @@
 .reading-k { font-size: 24rpx; color: var(--ink-faint); }
 .reading-v { font-size: 30rpx; line-height: 1.7; margin-top: 12rpx; }
 .acts { margin-top: 40rpx; display: flex; gap: 20rpx; flex-wrap: wrap; }
-.hint { font-size: 24rpx; color: #999; align-self: center; }
+.hint { font-size: 24rpx; color: var(--ink-faint); align-self: center; }
 .cta { margin-top: 48rpx; }
 .loading, .err-msg { font-size: 28rpx; color: var(--ink-faint); }
 
@@ -37,7 +37,7 @@
 }
 .hd-body { text-align: center; }
 .hd .name { font-size: 46rpx; font-weight: 700; color: var(--ink); line-height: 1.2; }
-.hd .title { margin-top: 6rpx; font-size: 25rpx; color: var(--ink-faint); }
+.hd .title { margin-top: 6rpx; color: var(--ink-faint); }
 
 /* 属性 = 一排标签。三行横线表格把三个短词读成了三条记录 */
 /* 三样东西各归各位（2026-08-31）。原先是三个一模一样的胶囊并排 ——
@@ -79,6 +79,12 @@
 .acts .btn { flex: 1; min-width: 0; box-sizing: border-box; }
 .acts .btn:not(.ghost) { flex: none; width: 100%; }
 .acts .btn.ghost { padding-left: 20rpx; padding-right: 20rpx; }
+/* 按钮行里那一行字（「先看清楚再决定买不买」/「屋子还没搬进来」）
+   要【独占一行】。不写这一条它就是 flex 的一个子项，跟「回村里」
+   并排挤在最后一行，看起来像个左对齐的残句 —— 2026-09-01 截图抓到。
+   它说的是上面那颗主按钮的事，所以跟着主按钮居中、贴着它。 */
+.acts .hint { flex-basis: 100%; width: 100%; text-align: center;
+              margin-top: -6rpx; align-self: auto; }
 
 /* 她今天说的那一句（0830「居民是主角」）。跟问签结果同一个壳，
    位置也同一处 —— 问过之后它让位给真正的那一签。 */
@@ -87,6 +93,9 @@
 .reading.daily .reading-v { font-size: 30rpx; margin-top: 8rpx; line-height: 1.6; }
 .reading.daily .reading-v.dim { color: var(--ink-mid); font-weight: 400; }
 .reading-hint { margin-top: 10rpx; font-size: 22rpx; color: var(--stone-label); }
+/* 拿到一枚的那一行。琥珀色的字 —— 跟徽章屏那一套同色，
+   而字号比他刚说的那句小一档:它是添头，不是主角。 */
+.reading-got { margin-top: 14rpx; font-size: 23rpx; color: var(--amber-text); font-weight: 600; }
 
 /* ── 请他回家之后 ─────────────────────────────────────────
    「还没请来」那一支原先屏上只有四个标签，中间三百多像素空着 ——
@@ -98,9 +107,17 @@
 .gets-n {
   flex: none; width: 40rpx; height: 40rpx; margin-top: 2rpx;
   border-radius: 999rpx; background: var(--amber-lite);
-  color: var(--amber-deep); font-size: 23rpx; font-weight: 600;
+  color: var(--amber-text); font-size: 23rpx; font-weight: 600;
   display: flex; align-items: center; justify-content: center;
 }
 .gets-b { flex: 1; min-width: 0; }
 .gets-t { font-size: 28rpx; font-weight: 600; color: var(--ink); line-height: 1.45; }
 .gets-s { font-size: 23rpx; color: var(--ink-faint); margin-top: 5rpx; line-height: 1.5; }
+/* 「怎么来」——【它是实物、要寄、要扫】。摆在三条好处之前:
+   那三条说的是付完以后会怎样，而这一条说的是中间还有几天快递。
+   顺序错了，人会以为付完就开通（2026-09-01 五路评审）。 */
+.ships { display: flex; gap: 14rpx; align-items: baseline;
+         margin-bottom: 20rpx; padding-bottom: 18rpx;
+         border-bottom: 1rpx solid var(--stone-line-x); }
+.ships-k { flex: none; font-size: 23rpx; color: var(--stone-label); }
+.ships-v { font-size: 25rpx; line-height: 1.6; color: var(--ink-mid); }

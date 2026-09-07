@@ -19,7 +19,8 @@
 .grid .badge { width: calc((100% - 32rpx) / 3); box-sizing: border-box; padding: 16rpx 12rpx; margin: 0; }
 .grid .badge-name { font-size: 24rpx; font-weight: 600; line-height: 1.35; }
 .grid .badge-desc { font-size: 20rpx; color: var(--ink-faint); margin-top: 8rpx; line-height: 1.4; }
-.grid .badge-when { font-size: 18rpx; color: #999; margin-top: 8rpx; }
+/* #999 在纸底上只有 2.51:1 —— 比色板里最淡那一档还低。用体系里的次要色 */
+.grid .badge-when { font-size: 18rpx; color: var(--ink-faint); margin-top: 8rpx; }
 
 
 /* ── 0830：徽章要有徽章的样子 ──────────────────────────────────
@@ -45,15 +46,26 @@
   /* 没得到的：虚线空圈，像个【待填的位子】—— 实心灰块看着像坏了 */
   background: transparent;
   border: 2rpx dashed var(--stone-line);
-  color: var(--stone-line);
+  /* 字不能用线的颜色:1.31:1，六枚未解锁的徽章在手机上基本看不见，
+     整屏像六张没加载完的骨架屏（2026-09-01 五路评审 · 视觉）。 */
+  color: var(--ink-faint);
 }
 /* 得到了的：琥珀实心 + 一圈光。没得到的：空的灰圈 */
 .badge.got .badge-art {
   border: none;
   background: linear-gradient(150deg, #FFB463, var(--amber));
-  color: #fff;
+  color: var(--on-amber);
   box-shadow: 0 4rpx 14rpx rgba(232,121,26,.32);
 }
+/* 像素图要 `pixelated` —— 不声明就是一团糊。
+   【尺寸必须是 16 的整数倍】。原先写的 56rpx = 28px，一格 1.75px ——
+   `pixelated` 不会补间，它只会把每一格【取整】到 1 或 2 个像素，
+   于是相邻两格一宽一窄，差到 50%:那枚月牙的内弧一边厚一边薄，
+   七道刻痕看着有粗有细。这不是渲染糊，是格子本身不等宽。
+   64rpx = 32px = 16 格 × 2px。DPR2 的真机上每格 4 个设备像素，
+   整幅图任意两格一样宽。圆牌 92rpx，64rpx 仍留得下四周那一圈。
+   （同一个道理写在 app.wxss 的 `.empty-state` 上，那处一直是对的。） */
+.badge-img { width: 64rpx; height: 64rpx; image-rendering: pixelated; }
 .badge-n { font-size: 25rpx; font-weight: 600; color: var(--ink); }
 .badge.got .badge-n { color: var(--ink); }
 .badge-d { font-size: 20rpx; color: var(--ink-faint); margin-top: 6rpx; line-height: 1.5; }
@@ -76,6 +88,19 @@
 
 /* 还没拿到的那几枚点得动 —— 通到能拿到它的地方。
    原先六枚全灰、一个都点不动，这一屏唯一能做的事是「回去」。 */
-.badge-go { font-size: 21rpx; color: var(--amber-deep); margin-top: 8rpx; font-weight: 600; }
+.badge-go { font-size: 21rpx; color: var(--amber-text); margin-top: 8rpx; font-weight: 600; }
+
+/* 还差多少 —— 一条细杠加一个数。
+   杠是扫一眼用的（还剩多长），数是读出来用的（17 / 30）。
+   只画在【还没拿到】的那几枚上：拿到的是纪念，写「30 / 30」是把纪念变回待办。 */
+.badge-bar {
+  margin-top: 10rpx; height: 6rpx; border-radius: 999rpx;
+  background: var(--stone-line-x); overflow: hidden;
+}
+.badge-bar-in { height: 100%; border-radius: 999rpx; background: var(--amber-text); }
+.badge-p {
+  margin-top: 6rpx; font-size: 19rpx; color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
 .badge-hover { transform: scale(.97); }
 .badge { transition: transform .12s cubic-bezier(.34,1.56,.64,1); }

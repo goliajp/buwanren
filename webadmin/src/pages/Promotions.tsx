@@ -2,11 +2,16 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApiMutation } from '../lib/feedback';
 import { commerce } from '../lib/api';
+import { useMyRegions } from '../lib/regions';
+import { activeRegionAtom } from '../store/auth';
+import { useAtom } from 'jotai';
+import { 从网址读筛选 } from '../lib/urlfilter';
 import PageHeader from '../components/PageHeader';
+import TableError from '../components/TableError';
 import FilterBar from '../components/FilterBar';
 import Pagination from '../components/Pagination';
 import Drawer from '../components/Drawer';
-import { rel, ts, yuan, shortId, statusChip } from '../components/util';
+import { rel, ts, yuan, shortId, statusClass, statusLabel, enumLabel } from '../components/util';
 import { Eye, Play, Pause, X, RefreshCw } from 'lucide-react';
 
 const STATUSES = ['draft','scheduled','active','paused','exhausted','ended'];
@@ -14,10 +19,13 @@ const KINDS = ['pct_off','amount_off','bxgy','bundle','cap_only'];
 
 export default function Promotions() {
   const qc = useQueryClient();
-  const [filt, setFilt] = useState<Record<string, any>>({ size: 50, page: 0 });
-  const [draft, setDraft] = useState<Record<string, any>>({});
+  /* 筛选从网址读 —— 看板的「在做的促销」跳过来时带着 `?status=active`
+     （2026-09-03 五路评审 · 后台产品体验，别处同一条注释更长） */
+  const [filt, setFilt] = useState<Record<string, any>>(从网址读筛选({ size: 50, page: 0 }));
+  const [draft, setDraft] = useState<Record<string, any>>(从网址读筛选({}));
   const [detailId, setDetailId] = useState<string | null>(null);
   const [tab, setTab] = useState<'promo' | 'coupons'>('promo');
+  const [发券中, 设发券] = useState(false);
 
   const list = useQuery({
     queryKey: ['promotions', filt],
@@ -44,7 +52,7 @@ export default function Promotions() {
 
   return (
     <div>
-      <PageHeader title="营销 · Promotions" sub="commerce v2 · promotion + coupon + coupon_redemption" stats={[
+      <PageHeader title="促销" sub="在做的活动和发出去的券，以及谁用了" stats={[
         { label: '活动总数', value: list.data?.total ?? 0 },
       ]} />
       <div className="p-4">
@@ -62,8 +70,8 @@ export default function Promotions() {
           <>
             <FilterBar
               fields={[
-                { kind: 'text', key: 'keyword', label: 'keyword', placeholder: 'code / name' },
-                { kind: 'select', key: 'status', label: 'status', options: STATUSES.map(v => ({ v, label: v })) },
+                { kind: 'text', key: 'keyword', label: '找', placeholder: '代号或名称' },
+                { kind: 'select', key: 'status', label: '状态', options: STATUSES.map(v => ({ v, label: v })) },
               ]}
               values={draft}
               onChange={setDraft}
@@ -72,27 +80,28 @@ export default function Promotions() {
               right={<button className="btn btn-soft" onClick={() => list.refetch()}><RefreshCw size={13}/></button>}
             />
             <div className="panel">
-              <table className="wa-table">
-                <thead><tr><th>id</th><th>code</th><th>名称</th><th>kind</th><th>状态</th>
+              <table className="tbl">
+                <thead><tr><th>编号</th><th>代号</th><th>名称</th><th>类别</th><th>状态</th>
                   <th className="r">预算</th><th className="r">已用</th><th>生效</th><th>失效</th>
                   <th className="c">动作</th></tr></thead>
                 <tbody>
+                  <TableError 出错={list.isError} 列数={9} />
                   {(list.data?.items ?? []).map((p: any) => (
                     <tr key={p.id}>
-                      <td className="mono">{shortId(p.id)}</td>
-                      <td className="mono">{p.code ?? '—'}</td>
+                      <td className="id">{shortId(p.id)}</td>
+                      <td className="id">{p.code ?? '—'}</td>
                       <td className="font-medium">{p.name}</td>
-                      <td><span className="chip chip-info">{p.kind}</span></td>
-                      <td><span className={statusChip(p.status)}>{p.status}</span></td>
-                      <td className="r">{p.budget_minor ? yuan(p.budget_minor) : <span className="text-ink-5">无限</span>}</td>
-                      <td className="r text-jade">{yuan(p.used_minor)}</td>
+                      <td><span className="text-ink-2">{enumLabel(p.kind)}</span></td>
+                      <td><span className={statusClass(p.status)}>{statusLabel(p.status)}</span></td>
+                      <td className="r">{p.budget_minor ? yuan(p.budget_minor) : <span className="text-ink-4">无限</span>}</td>
+                      <td className="r text-settled">{yuan(p.used_minor)}</td>
                       <td title={ts(p.effective_from)}>{rel(p.effective_from)}</td>
                       <td title={ts(p.effective_to)}>{p.effective_to ? rel(p.effective_to) : '—'}</td>
                       <td className="c flex justify-center gap-1">
-                        <button className="btn btn-link" onClick={() => setDetailId(p.id)}><Eye size={13}/></button>
+                        <button className="btn btn-ghost" onClick={() => setDetailId(p.id)}><Eye size={13}/></button>
                         {p.status === 'active' && <button className="btn btn-soft" title="暂停" onClick={() => setState.mutate({ id: p.id, status: 'paused' })}><Pause size={13}/></button>}
                         {p.status === 'paused' && <button className="btn btn-soft" title="恢复" onClick={() => setState.mutate({ id: p.id, status: 'active' })}><Play size={13}/></button>}
-                        {['active','paused','scheduled'].includes(p.status) && <button className="btn btn-warn" title="结束" onClick={() => setState.mutate({ id: p.id, status: 'ended' })}><X size={13}/></button>}
+                        {['active','paused','scheduled'].includes(p.status) && <button className="btn btn-debt" title="结束" onClick={() => setState.mutate({ id: p.id, status: 'ended' })}><X size={13}/></button>}
                       </td>
                     </tr>
                   ))}
@@ -105,25 +114,28 @@ export default function Promotions() {
           <>
             <FilterBar
               fields={[
-                { kind: 'text', key: 'keyword', label: 'code / owner_user_id', width: 240 },
-                { kind: 'select', key: 'status', label: 'state', options: ['issued','locked','redeemed','expired','revoked'].map(v => ({ v, label: v })) },
+                { kind: 'text', key: 'keyword', label: '券码或用户号', width: 240 },
+                { kind: 'select', key: 'status', label: '状态', options: ['issued','locked','redeemed','expired','revoked'].map(v => ({ v, label: statusLabel(v) })) },
               ]}
               values={draft}
               onChange={setDraft}
               onSearch={() => setFilt({ ...draft, size: 50, page: 0 })}
               onReset={() => { setDraft({}); setFilt({ size: 50, page: 0 }); }}
+              right={<button className="btn btn-prim" onClick={() => 设发券(true)}>发券</button>}
             />
+            {发券中 && <发券框 关闭={() => 设发券(false)} />}
             <div className="panel">
-              <table className="wa-table">
-                <thead><tr><th>id</th><th>code</th><th>promotion</th><th>owner</th><th>state</th><th>领取</th><th>核销</th><th>过期</th></tr></thead>
+              <table className="tbl">
+                <thead><tr><th>编号</th><th>代号</th><th>活动</th><th>归属</th><th>状态</th><th>领取</th><th>核销</th><th>过期</th></tr></thead>
                 <tbody>
+                  <TableError 出错={coupons.isError} 列数={8} />
                   {(coupons.data?.items ?? []).map((c: any) => (
                     <tr key={c.id}>
-                      <td className="mono">{shortId(c.id)}</td>
-                      <td className="mono">{c.code ?? '—'}</td>
+                      <td className="id">{shortId(c.id)}</td>
+                      <td className="id">{c.code ?? '—'}</td>
                       <td className="text-ink-3">{c.promotion_name ?? shortId(c.promotion_id)}</td>
-                      <td className="mono text-ink-3">{c.owner_user_id ? shortId(c.owner_user_id) : <span className="text-ink-5">待领</span>}</td>
-                      <td><span className={statusChip(c.state)}>{c.state}</span></td>
+                      <td className="font-mono text-ink-3">{c.owner_user_id ? shortId(c.owner_user_id) : <span className="text-ink-4">待领</span>}</td>
+                      <td><span className={statusClass(c.state)}>{statusLabel(c.state)}</span></td>
                       <td>{rel(c.issued_at)}</td>
                       <td>{rel(c.redeemed_at)}</td>
                       <td title={ts(c.expires_at)}>{rel(c.expires_at)}</td>
@@ -141,7 +153,7 @@ export default function Promotions() {
         open={!!detailId}
         onClose={() => setDetailId(null)}
         title={detail.data?.promotion?.name ?? '促销详情'}
-        subtitle={detail.data?.promotion ? `${detail.data.promotion.kind} · ${detail.data.promotion.status}` : '加载中'}
+        subtitle={detail.data?.promotion ? `${enumLabel(detail.data.promotion.kind)}　${statusLabel(detail.data.promotion.status)}` : '正在取…'}
         width={720}
       >
         {detail.data && <PromoBody data={detail.data} />}
@@ -157,10 +169,10 @@ function PromoBody({ data }: { data: any }) {
       <section>
         <h3 className="font-semibold mb-2">基本</h3>
         <KvGrid kv={[
-          ['code', <span className="mono">{promotion.code ?? '—'}</span>],
+          ['代号', <span className="id">{promotion.code ?? '—'}</span>],
           ['名称', <strong>{promotion.name}</strong>],
-          ['kind', promotion.kind],
-          ['状态', <span className={statusChip(promotion.status)}>{promotion.status}</span>],
+          ['类别', promotion.kind],
+          ['状态', <span className={statusClass(promotion.status)}>{statusLabel(promotion.status)}</span>],
           ['优先级', promotion.priority],
           ['可叠加', promotion.stackable ? '是' : '否'],
           ['预算', promotion.budget_minor ? yuan(promotion.budget_minor) : '无限'],
@@ -175,16 +187,16 @@ function PromoBody({ data }: { data: any }) {
         ]} />
       </section>
       <section>
-        <h3 className="font-semibold mb-2">benefit_json</h3>
-        <pre className="bg-surface-2 p-3 rounded text-[11px] overflow-x-auto mono">{JSON.stringify(promotion.benefit_json, null, 2)}</pre>
+        <h3 className="font-semibold mb-2">给什么优惠</h3>
+        <pre className="bg-sunk p-3 rounded text-xs overflow-x-auto font-mono">{JSON.stringify(promotion.benefit_json, null, 2)}</pre>
       </section>
       <section>
-        <h3 className="font-semibold mb-2">rule_json</h3>
-        <pre className="bg-surface-2 p-3 rounded text-[11px] overflow-x-auto mono">{JSON.stringify(promotion.rule_json, null, 2)}</pre>
+        <h3 className="font-semibold mb-2">什么条件下给</h3>
+        <pre className="bg-sunk p-3 rounded text-xs overflow-x-auto font-mono">{JSON.stringify(promotion.rule_json, null, 2)}</pre>
       </section>
       <section>
-        <h3 className="font-semibold mb-2">match_json</h3>
-        <pre className="bg-surface-2 p-3 rounded text-[11px] overflow-x-auto mono">{JSON.stringify(promotion.match_json, null, 2)}</pre>
+        <h3 className="font-semibold mb-2">命中了什么</h3>
+        <pre className="bg-sunk p-3 rounded text-xs overflow-x-auto font-mono">{JSON.stringify(promotion.match_json, null, 2)}</pre>
       </section>
     </div>
   );
@@ -194,11 +206,144 @@ function KvGrid({ kv }: { kv: [string, React.ReactNode][] }) {
   return (
     <div className="grid grid-cols-2 gap-x-6 gap-y-1">
       {kv.map(([k, v], i) => (
-        <div key={i} className="flex items-center justify-between border-b border-border/50 py-1">
-          <span className="uplabel text-ink-5">{k}</span>
+        <div key={i} className="flex items-center justify-between border-b border-rule/50 py-1">
+          <span className="label text-ink-4">{k}</span>
           <span className="text-ink-2 text-right">{v}</span>
         </div>
       ))}
+    </div>
+  );
+}
+
+/* 发一张券。
+ *
+ * 【后端有了端点，界面上一直没有入口】——于是 `coupon` 表从建起来
+ * 就是空的，而下单那一侧的核销代码从没被真数据走过。
+ *
+ * 只收四样东西:券码、优惠、有效期、给谁。多的字段（批次、活动）
+ * 等真的要批量发的时候再说 —— 现在把它们摆上来，
+ * 只会让「发一张券」这件本来一句话的事看起来像要填表。
+ */
+function 发券框({ 关闭 }: { 关闭: () => void }) {
+  const qc = useQueryClient();
+  /* 【一张券必须落在某个区】（2026-09-05）。后端原先在没说区的时候
+     默认 cn —— 于是一位 super 在顶栏切到日本、发一张券，券落在大陆:
+     他手上的界面从头到尾说的是日本，而这张券只有大陆的人用得上，
+     两边都不报错，要到有人拿它下单才炸（`券 X 不能在 jp 用`）。
+     现在区跟着顶栏那个镜头走，而「全部区域」这一档发不出券:
+     那时候没有任何一个区可以落，得先挑一个。 */
+  const [当前区] = useAtom(activeRegionAtom);
+  const 我的区 = useMyRegions();
+  const 发到哪个区 = 我的区.find((r) => r.code === 当前区) ?? null;
+  const [码, 设码] = useState('');
+  const [折, 设折] = useState('20');
+  const [封顶, 设封顶] = useState('');
+  const [天数, 设天数] = useState('30');
+  const [归属, 设归属] = useState('');
+  const [张数, 设张数] = useState('1');
+
+  const 发 = useApiMutation({
+    mutationFn: () => {
+      const benefit: Record<string, number> = { pct_off_bps: Math.round(Number(折) * 100) };
+      if (封顶.trim()) benefit.max_off_minor = Math.round(Number(封顶) * 100);
+      const 到期 = new Date(Date.now() + Number(天数) * 86400_000).toISOString();
+      return 成批
+        ? commerce.issueCouponBatch({
+            count: n, prefix: 码.trim(), benefit_json: benefit, expires_at: 到期,
+          })
+        : commerce.issueCoupon({
+            code: 码.trim(), benefit_json: benefit, expires_at: 到期,
+            owner_user_id: 归属.trim() || null,
+          });
+    },
+    onSuccess: (r: any) => {
+      qc.invalidateQueries({ queryKey: ['coupons'] });
+      /* 【一千张码发出去，运营得拿得到】。不给的话这一批就白发了 ——
+         库里躺着，谁也用不上。存成一个文本文件，一行一个码。 */
+      if (成批 && r && r.codes) {
+        const blob = new Blob([r.codes.join('\n') + '\n'], { type: 'text/plain' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `券码-${r.batch_id}-${r.count}张.txt`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      }
+      关闭();
+    },
+  });
+
+  const n = Math.max(1, Math.round(Number(张数) || 1));
+  const 成批 = n > 1;
+  /* 【发一张跟发一批，码从哪儿来是相反的】。
+     发一张时人自己写码（他要把这个码贴给某个人）；
+     发一批时码由服务端生成 —— 让人传一千个码的话，
+     重码与弱码（连号、可猜）都成了他的责任。
+     所以成批时上面那个「券码」框收的是【前缀】。 */
+  const 能发 = 码.trim().length >= (成批 ? 1 : 4)
+    && Number(折) > 0 && Number(折) <= 100 && Number(天数) > 0
+    && (!成批 || (n >= 1 && n <= 5000))
+    && (!成批 || !归属.trim())    // 成批发的券没有归属，谁拿到谁用
+    && !!发到哪个区;              // 「全部区域」发不出券 —— 见下
+
+  return (
+    <div className="panel p-4 mb-3 max-w-2xl">
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="flex flex-col gap-1">
+          <span className="label">{成批 ? '码的前缀' : '券码'}</span>
+          <input className="input w-44" value={码} onChange={(e) => 设码(e.target.value)}
+                 placeholder={成批 ? '例如 SPRING' : '至少 4 位，要唯一'} />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="label">减几成</span>
+          <input className="input w-20" value={折} onChange={(e) => 设折(e.target.value)}
+                 placeholder="20" />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="label">最多减（元，可空）</span>
+          <input className="input w-28" value={封顶} onChange={(e) => 设封顶(e.target.value)}
+                 placeholder="不限" />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="label">几天后过期</span>
+          <input className="input w-20" value={天数} onChange={(e) => 设天数(e.target.value)} />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="label">发几张</span>
+          <input className="input w-20" value={张数} onChange={(e) => 设张数(e.target.value)} />
+        </label>
+        {/* 【成批时这一格不该在】。一千张券挂在同一个人名下没有意义，
+            而摆在那儿会让人以为可以填 —— 上一版是填了再红着说不行。
+            「不需要的东西不在」。 */}
+        {!成批 && (
+          <label className="flex flex-col gap-1">
+            <span className="label">给谁（用户号，可空）</span>
+            <input className="input w-44" value={归属} onChange={(e) => 设归属(e.target.value)}
+                   placeholder="留空＝谁都能用" />
+          </label>
+        )}
+        <button className="btn btn-prim" disabled={!能发 || 发.isPending} onClick={() => 发.mutate()}>
+          {发.isPending ? '正在发…' : '发出去'}
+        </button>
+        <button className="btn btn-ghost" onClick={关闭}>算了</button>
+      </div>
+      {/* 【把这张券实际长什么样说出来】。「减两成、最多减 100 元」
+          比 `{"pct_off_bps":2000,"max_off_minor":10000}` 好核对，
+          而发错一张券是真花钱的事。 */}
+      {!发到哪个区 && (
+        <p className="label mt-3 text-debt">
+          顶栏现在看的是「全部区域」—— 一张券只能落在一个区，先挑一个再发
+        </p>
+      )}
+      <p className="label mt-3">
+        发出去的是：{发到哪个区 ? `${发到哪个区.name}的` : ''}
+        {成批 ? `${n} 张，码是「${码.trim() || '前缀'}」加十位随机` : '一张'}
+        ，{Number(折) > 0 ? `减 ${折} 成` : '（折扣还没填）'}
+        {封顶.trim() ? `，最多减 ${封顶} 元` : '，不封顶'}
+        ，{天数} 天后过期
+        {成批 ? '，谁拿到都能用' : (归属.trim() ? '，只有这一个人能用' : '，谁拿到都能用')}
+        {成批 && '。发完会存成一个文本文件，一行一个码'}
+      </p>
+
     </div>
   );
 }

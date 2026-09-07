@@ -8,8 +8,8 @@
 import { api } from './api'
 import { CONFIG } from '../config/index'
 import type {
-  CreatedOrder, OrderDetail, OrderPage, PayStarted, ProductCard, ProductDetail,
-  Shipment, ShipmentTrace,
+  CreatedOrder, OrderDetail, OrderPage, OrderPreview, PayStarted, ProductCard, ProductDetail,
+  MyCoupon, Shipment, ShipmentTrace,
 } from '../types/commerce'
 
 const scope = () => 'region=' + CONFIG.DEFAULT_REGION + '&platform=mini'
@@ -36,28 +36,88 @@ export const commerceApi = {
         + (villagerId ? '&villager_id=' + villagerId : ''),
     ),
 
+  /* 【能订的东西，问的是 `kind` 不是 `category`】（2026-09-05）。
+     两处都栽在同一个地方:「我的」问 `products('service')`,
+     「订着的」问 `products('subscription')` —— 而上面那个 `products()`
+     把参数发在 `category` 上。
+
+     `category` 是货架分类（charm / report / omamori / service…），
+     `kind` 才是「它是不是一件订阅」（one_shot / subscription /
+     digital_goods / service）。**两边都有 `service` 这个值**,
+     所以写错了也不报错、也不是空 —— 它只是永远问一个没有货的分类。
+
+     2026-09-05 早些时候修过一次「问的是 subscription，不是 service」:
+     那次改对了值，没改参数名，于是问题原样留着。
+     现在单开一支，名字里就说清它问的是什么。 */
+  subscribable: (): Promise<ProductCard[]> =>
+    api.get<ProductCard[]>('/v1/products?' + scope() + '&kind=subscription'),
+
+  /* 【我手里有哪些券】（2026-09-05）。在这之前用户那一侧看不见任何一张:
+     后台发得出绑人的券、库里 `coupon.owner_user_id` 也一直存着，
+     而客户端唯一跟券有关的东西是确认页上那个「有券码就填这儿」的格子 ——
+     也就是**他得先知道那串码**。运营补一张券，用户打开什么都看不到，
+     券得另找一条路送到他眼前（短信 / 客服 / 二维码），那条路一断，
+     这张券就等于没发。 */
+  coupons: (): Promise<MyCoupon[]> =>
+    api.get<MyCoupon[]>('/v1/coupons?region=' + CONFIG.DEFAULT_REGION),
+
   /** 商品详情，价格在 `skus[].current_price_minor` 上 */
   product: (id: string): Promise<ProductDetail> =>
     api.get<ProductDetail>('/v1/products/' + id + '?' + scope()),
 
   /** 下单。`idemKey` 由调用方生成并在重试时复用 —— 见 `newIdemKey` */
+  /* 【地址要发在发货那一步真读的那个字段上】。
+     原先只发 `contact`，而 `unmei-app/src/fulfillment.rs` 建运单时
+     收件人快照取的是 `order_meta.shipping_address_json`，外面还套着
+     `COALESCE(…, '{}')` —— 于是每一张实物单的面单都是空的:
+     没有姓名、没有电话、没有地址，而买家刚被强制选过一次地址，
+     全程一处不报错。库里 61 单 contact 带地址、shipping_address 全为 NULL。
+     （2026-09-01 五路评审 · 工程审计抓到。`check-bodies.py` 的判据是单向的
+      —— 它只报「前端发了后端不认的字段」，漏发按设计不报。）
+     两个都发:`contact` 是联系人（姓名电话），`shipping_address` 是寄到哪。 */
+  /* 下单之前先算一遍：这些东西加上这张券，一共多少。
+     【折扣只有服务端算得准】——封顶、余额、活动有效期。
+     客户端自己算一遍必然跟服务端不一致，而不一致的那一刻，
+     人是看着客户端那个数按下付款的。 */
+  previewOrder: (
+    skuId: string,
+    qty: number,
+    couponCodes: string[],
+  ): Promise<OrderPreview> =>
+    api.post<OrderPreview>('/v1/orders/preview', {
+      lines: [{ sku_id: skuId, qty }],
+      coupon_codes: couponCodes,
+      region: CONFIG.DEFAULT_REGION,
+    }),
+
   createOrder: (
     skuId: string,
     qty: number,
     idemKey: string,
     contact?: Record<string, unknown>,
+    couponCodes?: string[],
   ): Promise<CreatedOrder> =>
     api.post<CreatedOrder>(
       '/v1/orders',
       {
         lines: [{ sku_id: skuId, qty }],
         region: CONFIG.DEFAULT_REGION,
+        ...(couponCodes && couponCodes.length ? { coupon_codes: couponCodes } : {}),
         ...(contact ? { contact } : {}),
+        ...(contact && contact.address ? { shipping_address: contact } : {}),
       },
       idem(idemKey),
     ),
 
-  orders: (): Promise<OrderPage> => api.get<OrderPage>('/v1/orders'),
+  /* 【翻页要真翻到服务端去】（2026-09-05）。这一行原先不带任何参数，
+     后端默认一页 20 条 —— 而「我买过的」那一屏把拿到的东西按每页五笔
+     切开、并且把服务端给的 `total` 印在标题上。
+     买过 30 单的人于是看到「30 笔」，翻到第四页就没有了，
+     **而屏上没有一处说得出剩下十笔在哪儿**。
+     那一屏一页五笔是设计定的（10.3:一屏放得下五笔，多了左右翻），
+     所以这里也按五笔要 —— 翻一页打一次接口，跟后台那些列表一样。 */
+  orders: (page = 0, size = 20): Promise<OrderPage> =>
+    api.get<OrderPage>('/v1/orders?page=' + page + '&size=' + size),
 
   order: (id: string): Promise<OrderDetail> => api.get<OrderDetail>('/v1/orders/' + id),
 

@@ -16,7 +16,7 @@
 //! 这条接口回 `null`，客户端据此不开那一屏 —— 而不是开一屏说「还没开始」。
 
 use axum::{routing::{get, post}, Json, Router};
-use chrono::{Datelike, Duration, TimeZone, Timelike, Utc};
+use chrono::{Datelike, Duration, TimeZone, Utc};
 use serde_json::{json, Value as J};
 
 use unmei_domain::AppError;
@@ -46,6 +46,7 @@ fn 烧多久() -> i64 { 环境数("UNMEI_INCENSE_MINUTES", 25).clamp(1, 240) * 6
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/v1/incense", get(now))
+        .route("/v1/incense/schedule", get(schedule))
         .route("/v1/incense/lit", post(lit))
 }
 
@@ -68,6 +69,26 @@ fn 这一场() -> Option<(String, chrono::DateTime<Utc>)> {
     let key = format!("{}T{:02}", 沪.date_naive(), 起点);
     let 起_utc = Utc.from_utc_datetime(&(起 - Duration::hours(8)));
     Some((key, 起_utc))
+}
+
+/// 点香是几点 —— **什么时候问都答得出来**。
+///
+/// 它跟 `/v1/incense` 是两件事：那一条问的是「现在在不在一场里」，
+/// 不到点回 `null`（设计册 10.7：不做「还没开始」的占位页）；
+/// 这一条问的是「几点点」，不到点时屏上要说的正是这一句。
+///
+/// 【为什么要有这一条】。上面那段写着「几点点香是配置，不是常量」，
+/// 而屏上有四句话把它写死成了「周四晚九点」——
+/// 一味香那一屏两句、村口那一屏两句。运营挪一个钟头，后端在新时刻开场、
+/// 屏上照旧叫人周四晚九点来：两边都不报错，只是那句话从此是假的。
+/// 把这三个数发出去，那四句就跟着走。
+async fn schedule(AuthedUser(_): AuthedUser) -> Json<J> {
+    Json(json!({
+        "weekday": 周几(),
+        "hour": 起点小时(),
+        // 对外发分钟 —— 屏上说的是「烧二十五分钟」，不是「烧 1500 秒」
+        "minutes": 烧多久() / 60,
+    }))
 }
 
 async fn now(

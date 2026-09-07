@@ -1,0 +1,39 @@
+<view class="page">
+  <view class="hd">
+    <view class="title title-lg">注销账号</view>
+    <!-- 【先说这是不可逆的】。下面两块是「删什么留什么」，
+         而人在读那两块之前，得先知道自己在读的是一件回不了头的事 -->
+    <view class="sub">这一步回不了头 —— 先看清楚会发生什么</view>
+    <view class="hr"></view>
+  </view>
+
+  <!-- 三块的次序照隐私政策那句话来：先说删掉什么，再说留下什么，
+       最后说之后会怎样。政策上那句是
+       「出生时间与盘会一起删掉；订单与支付记录按法律要求保留，
+         那部分只留金额与时间」——屏上这三块就是它展开的样子。 -->
+  <view class="blk">
+    <view class="blk-k">会删掉</view>
+    <view class="li" wx:for="{{删的}}" wx:key="*this">{{item}}</view>
+  </view>
+
+  <view class="blk">
+    <view class="blk-k">会留下</view>
+    <view class="li" wx:for="{{留的}}" wx:key="*this">{{item}}</view>
+    <view class="blk-note">留下的那部分只有金额与时间 —— 收货人、地址、留言当场抹掉</view>
+  </view>
+
+  <view class="blk">
+    <view class="blk-k">之后</view>
+    <view class="li">这个号再也进不来 —— 微信也认不回它</view>
+    <view class="li">再打开就是一个新的人，村子是空的</view>
+  </view>
+
+  <view class="cta">
+    <button class="btn danger" bindtap="onLeave" disabled="{{忙}}">
+      {{忙 ? '正在注销……' : '注销这个账号'}}
+    </button>
+    <button class="btn ghost" bindtap="onBack" disabled="{{忙}}">先不注销</button>
+  </view>
+
+  <view class="note" wx:if="{{说}}">{{说}}</view>
+</view>

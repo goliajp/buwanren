@@ -31,7 +31,8 @@ pub async fn assign_tracking(
              cost_minor=COALESCE($4, cost_minor),
              cost_currency=COALESCE($5, cost_currency),
              status='picked_up', picked_up_at=COALESCE(picked_up_at, NOW())
-           WHERE id=$6"#,
+           WHERE id=$6
+             AND status NOT IN ('delivered','returned','cancelled')"#,
     )
     .bind(&a.carrier_code)
     .bind(&a.tracking_no)
@@ -44,7 +45,21 @@ pub async fn assign_tracking(
     .rows_affected();
 
     if affected == 0 {
-        return Err(DomainError::NotFound(format!("shipment {shipment_id}")));
+        /* 【0 行现在有两种意思】（2026-09-03 第四轮评审 · 工程审计）。
+           上一版 WHERE 里只有 id，所以 0 行只可能是「没这张运单」。
+           加了状态条件之后，还可能是「它已经签收/退回/取消了」——
+           给已签收的运单补单号会把状态写回 `picked_up`，
+           同文件 `advance_status` 早就写着同一道条件，只有这里没有。
+           两种分开说:说错了的话，人会去查一个根本不存在的运单号。 */
+        let 在不在: Option<String> = sqlx::query_scalar(
+            "SELECT status FROM shipment WHERE id=$1",
+        ).bind(shipment_id).fetch_optional(pool).await.db()?;
+        return Err(match 在不在 {
+            None => DomainError::NotFound(format!("shipment {shipment_id}")),
+            Some(st) => DomainError::Conflict(format!(
+                "shipment {shipment_id} 已经是 {st} 了，不能再补单号"
+            )),
+        });
     }
     Ok(())
 }
@@ -223,7 +238,7 @@ pub async fn apply_trace_webhook(pool: &PgPool, ev: TraceWebhookEvent) -> Result
             r#"INSERT INTO shipment_trace_event(
                  id, shipment_id, event_at, event_kind, location, description,
                  raw_source, raw_event_id, raw_payload_json
-               ) VALUES ($1, $2, $3, $4, $5, $6, 'webhook', $7, '{}'::jsonb)
+               ) VALUES ($1, $2, $3, $4, $5, $6, $8, $7, '{}'::jsonb)
                -- 去重键是 `uq_trace_dedup (raw_source, raw_event_id)`,那个唯一索引
                -- 本来就是为这件事建的。之前写的是 `ON CONFLICT (id)` —— id 每次
                -- 现生成,这个冲突永远不会发生,撞上的是唯一索引:事务回滚、回调 500、
@@ -239,6 +254,13 @@ pub async fn apply_trace_webhook(pool: &PgPool, ev: TraceWebhookEvent) -> Result
         .bind(&e.location)
         .bind(&e.description)
         .bind(&e.raw_event_id)
+        /* 【「谁写的这一行」只声明一处】（2026-09-03 五路评审 · 架构审计）。
+           上一版把 `'webhook'` 手写成 SQL 里的字面量，而
+           `Actor::webhook()` 就在 actor.rs 里，一个调用方都没有 ——
+           构造器与字面量各说各的，改了一头不改另一头没有任何东西会红。
+           `ActorKind` 那张枚举跟库里的 CHECK 是对着的（check-enum-check
+           在核），走构造器就等于让这一行也跟着那张表走。 */
+        .bind(crate::Actor::webhook().kind.as_str())
         .execute(&mut *tx)
         .await.db()?;
 
