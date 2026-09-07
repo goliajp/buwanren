@@ -14,6 +14,6 @@ ALTER TABLE subscription
   ADD COLUMN IF NOT EXISTS last_failure_reason text NOT NULL DEFAULT '';
 
 COMMENT ON COLUMN subscription.last_failure_code IS
-  '上一次续费没成的原因码：need_yongshen（还不知道他缺什么）/ charge_failed（钱没扣成）。续成一次就清空';
+  '上一次续费没成的原因码：need_yongshen（这一档按用神配，而还没有在用的本命）/ charge_failed（钱没扣成）。续成一次就清空';
 COMMENT ON COLUMN subscription.last_failure_reason IS
   '上一次续费没成的原文，给后台看。不上屏';
