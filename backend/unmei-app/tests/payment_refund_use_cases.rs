@@ -292,7 +292,7 @@ async fn approve_settles_refund_payment_and_order_together() {
         .await
         .expect("request");
 
-    refund::approve(&pool, &refund_id, &Actor::admin("admin_fin")).await.expect("approve");
+    批到钱回去(&pool, &refund_id, &Actor::admin("admin_fin")).await;
 
     assert_eq!(
         common::scalar_string(&pool, "SELECT status FROM refund WHERE id=$1", &refund_id).await.as_deref(),
@@ -323,7 +323,7 @@ async fn partial_approve_marks_order_refund_partial() {
         .await
         .expect("request partial");
 
-    refund::approve(&pool, &refund_id, &Actor::admin("admin_fin")).await.expect("approve");
+    批到钱回去(&pool, &refund_id, &Actor::admin("admin_fin")).await;
 
     assert_eq!(
         common::scalar_string(&pool, "SELECT status FROM payment WHERE id=$1", &payment_id).await.as_deref(),
@@ -342,7 +342,7 @@ async fn approve_twice_is_rejected() {
     let (user, order_id, _p) = paid_order(&pool, 100).await;
     let refund_id = refund::request(&pool, &order_id, &user, None, None, "x", None).await.expect("request");
 
-    refund::approve(&pool, &refund_id, &Actor::admin("a")).await.expect("first approve");
+    批到钱回去(&pool, &refund_id, &Actor::admin("a")).await;
     let err = refund::approve(&pool, &refund_id, &Actor::admin("a"))
         .await
         .expect_err("重复批准该被拒");
@@ -440,6 +440,36 @@ async fn a_failure_callback_marks_a_pending_payment_failed() {
     assert_eq!(code.as_deref(), Some("INSUFFICIENT_FUNDS"), "失败原因要留下来");
 }
 
+/// 批一笔退款，**并且让渠道真的把钱退回去**。
+///
+/// 【为什么要两步】（2026-09-07）。`approve` 现在只做「我们同意退」——
+/// 钱怎么动、东西怎么收回，全挪到了「渠道说退成了」那一刻
+/// （`apply_succeeded`）。在这之前它一步到位:`status='success'`、
+/// `channel_refund_id='MOCK_'||id`，而渠道那一侧一个字都没收到 ——
+/// 买家看到「已退款」，钱一分没回。
+///
+/// 绝大多数用例关心的是「钱最后回没回去」，所以给它们一个走完两步的入口；
+/// 关心那道分界本身的用例（批了还没发是什么样）自己分开写。
+/// 把「批了还没发」的那几笔推到「渠道说退成了」。
+///
+/// 【它代替的是 `payment_sweep` 里那一支】。发款是 I/O，走的是适配器，
+/// 而适配器在 `unmei-api` 那一层 —— 用例层的测试够不着它。
+/// 系统自批的那两条清扫（无家可归的钱、交付不了的行）现在只批到
+/// `approved` 为止，所以测试里要有人接着往下走一步。
+async fn 渠道把批了的都退掉(pool: &sqlx::PgPool) {
+    for r in refund::批了还没发的(pool, 200).await.expect("查待发") {
+        let ch = format!("WXR_{}", r.refund_id);
+        refund::发给渠道了(pool, &r.refund_id, &ch).await.expect("发给渠道");
+        refund::apply_succeeded(pool, &ch).await.expect("渠道说退成了");
+    }
+}
+
+async fn 批到钱回去(pool: &sqlx::PgPool, refund_id: &str, actor: &Actor) {
+    refund::approve(pool, refund_id, actor).await.expect("批");
+    refund::发给渠道了(pool, refund_id, &format!("WXR_{refund_id}")).await.expect("发给渠道");
+    refund::apply_succeeded(pool, &format!("WXR_{refund_id}")).await.expect("渠道说退成了");
+}
+
 async fn unpaid_order(pool: &sqlx::PgPool, price_minor: i64) -> (String, String) {
     let user = common::user(pool).await;
     let sku = common::sku_with_price(pool, "CNY", price_minor).await;
@@ -535,7 +565,7 @@ async fn two_approved_refunds_cannot_exceed_what_was_paid() {
     .bind(&r2).bind(&r1)
     .execute(&pool).await.expect("照着第一张再落一张待批的");
 
-    refund::approve(&pool, &r1, &Actor::admin("a")).await.expect("第一张批下来");
+    批到钱回去(&pool, &r1, &Actor::admin("a")).await;
     let err = refund::approve(&pool, &r2, &Actor::admin("a")).await
         .expect_err("第二张该被挡住");
     assert!(
@@ -684,7 +714,7 @@ async fn a_late_failure_callback_does_not_undo_a_completed_refund() {
     let refund_id = refund::request(&pool, &order_id, &user, None, None, "user_request", None)
         .await
         .expect("request refund");
-    refund::approve(&pool, &refund_id, &Actor::admin("a")).await.expect("approve");
+    批到钱回去(&pool, &refund_id, &Actor::admin("a")).await;
 
     // 渠道随后又推来一条失败（乱序、重推）
     refund::apply_failed(&pool, &refund_id, "CHANNEL_TIMEOUT", "迟到的失败回调")
@@ -819,7 +849,7 @@ async fn refund_journal_is_balanced() {
        `RefundCompleted` 事件的处理器，那个事件只在退款走成之后才发。
        测试跳过审批这一步，测的就不是生产里发生的顺序。
        它现在会明确拒记一笔还没退出去的钱。 */
-    refund::approve(&pool, &refund_id, &Actor::admin("adm-test")).await.expect("审批");
+    批到钱回去(&pool, &refund_id, &Actor::admin("adm-test")).await;
 
     unmei_app::finance::post_refund_journal(&pool, &refund_id).await.expect("记账");
 
@@ -853,7 +883,7 @@ async fn posting_the_same_refund_twice_does_not_double_post() {
        `RefundCompleted` 事件的处理器，那个事件只在退款走成之后才发。
        测试跳过审批这一步，测的就不是生产里发生的顺序。
        它现在会明确拒记一笔还没退出去的钱。 */
-    refund::approve(&pool, &refund_id, &Actor::admin("adm-test")).await.expect("审批");
+    批到钱回去(&pool, &refund_id, &Actor::admin("adm-test")).await;
 
     for _ in 0..3 {
         unmei_app::finance::post_refund_journal(&pool, &refund_id).await.expect("重试记账");
@@ -921,7 +951,7 @@ async fn two_half_refunds_leave_both_sides_saying_fully_refunded() {
     for _ in 0..2 {
         let r = refund::request(&pool, &单, &用户, None, Some(5000), "user_request", None)
             .await.expect("发起退款");
-        refund::approve(&pool, &r, &Actor::system()).await.expect("批准");
+        批到钱回去(&pool, &r, &Actor::system()).await;
     }
 
     let 支付态 = common::scalar_string(&pool, "SELECT status FROM payment WHERE id=$1", &支付).await;
@@ -1084,6 +1114,7 @@ async fn 取消单上无家可归的钱会被退回去() {
     let mut 轮 = 0;
     loop {
         let 退了 = refund::refund_orphan_money(&pool).await.expect("清扫");
+        渠道把批了的都退掉(&pool).await;
         let 已退 = common::scalar_i64(
             &pool, "SELECT COALESCE(amount_refunded_minor,0) FROM order_record WHERE id=$1", &order_id,
         ).await;
@@ -1171,7 +1202,7 @@ async fn 退干净了的单会把住进来的人搬走() {
     let rid = refund::request(
         &pool, &created.order_id, &user, None, None, "goodwill", Some("客服通融"),
     ).await.expect("申请");
-    refund::approve(&pool, &rid, &Actor::admin("admin_kf")).await.expect("批");
+    批到钱回去(&pool, &rid, &Actor::admin("admin_kf")).await;
 
     assert_eq!(
         common::scalar_i64(&pool, "SELECT count(*) FROM villager_residency WHERE user_id=$1", &user).await,
@@ -1206,7 +1237,7 @@ async fn 退了一半的单不搬人() {
     let rid = refund::request(
         &pool, &created.order_id, &user, None, Some(3000), "goodwill", Some("退一部分"),
     ).await.expect("申请");
-    refund::approve(&pool, &rid, &Actor::admin("admin_kf")).await.expect("批");
+    批到钱回去(&pool, &rid, &Actor::admin("admin_kf")).await;
 
     assert_eq!(
         common::scalar_i64(&pool, "SELECT count(*) FROM villager_residency WHERE user_id=$1", &user).await,
@@ -1243,6 +1274,7 @@ async fn 交付不了的那几行钱会被退回去() {
     let mut 轮 = 0;
     loop {
         refund::refund_undelivered_lines(&pool).await.expect("清扫");
+        渠道把批了的都退掉(&pool).await;
         let 已退 = common::scalar_i64(
             &pool, "SELECT COALESCE(amount_refunded_minor,0) FROM order_record WHERE id=$1", &order_id,
         ).await;
@@ -1423,4 +1455,95 @@ async fn 多收的那一笔照记而订单金额不动() {
         &pool, "SELECT audit_note FROM payment WHERE id=$1", &旧.payment_id).await;
     assert!(案.as_deref().unwrap_or("").contains("多收的"),
         "多收这件事没有写在案上，事后没人看得出来：{案:?}");
+}
+
+// ═══════════ 批下来 ≠ 钱退回去了（2026-09-07）═══════════
+
+/// 【后台按下「批」，钱还没动】。
+///
+/// 在这之前 `approve` 一步到位：`status='success'`、
+/// `channel_refund_id='MOCK_' || id`，订单金额当场加、东西当场收回 ——
+/// 而**渠道那一侧一个字都没收到**。买家在屏上看到「已退款」，钱一分没回。
+#[tokio::test]
+async fn 批下来的时候钱还没退回去() {
+    let pool = db_or_skip!();
+    let (user, order_id, _p) = paid_order(&pool, 19900).await;
+    let rid = refund::request(&pool, &order_id, &user, None, None, "不想要了", None)
+        .await.expect("申请");
+
+    refund::approve(&pool, &rid, &Actor::admin("kf")).await.expect("批");
+
+    assert_eq!(
+        common::scalar_string(&pool, "SELECT status FROM refund WHERE id=$1", &rid).await.as_deref(),
+        Some("approved"),
+        "批完就说 success —— 而渠道那边还什么都不知道",
+    );
+    assert_eq!(
+        common::scalar_i64(&pool, "SELECT amount_refunded_minor FROM order_record WHERE id=$1", &order_id).await,
+        0,
+        "钱还没退，账上已经记着退过了",
+    );
+    assert_eq!(
+        common::scalar_string(&pool, "SELECT COALESCE(channel_refund_id,'') FROM refund WHERE id=$1", &rid)
+            .await.as_deref(),
+        Some(""),
+        "渠道还没给号，我们自己编了一个",
+    );
+    // 而它在「该发给渠道」的名单里
+    let 待发 = refund::批了还没发的(&pool, 200).await.expect("查待发");
+    assert!(待发.iter().any(|r| r.refund_id == rid), "批了却没人去发这一笔");
+}
+
+/// 渠道收下之后是「退款中」，说退成了才动账。
+#[tokio::test]
+async fn 渠道说退成了才动账() {
+    let pool = db_or_skip!();
+    let (user, order_id, _p) = paid_order(&pool, 19900).await;
+    let rid = refund::request(&pool, &order_id, &user, None, None, "不想要了", None)
+        .await.expect("申请");
+    refund::approve(&pool, &rid, &Actor::admin("kf")).await.expect("批");
+
+    refund::发给渠道了(&pool, &rid, "WXR_TEST_1").await.expect("发给渠道");
+    assert_eq!(
+        common::scalar_string(&pool, "SELECT status FROM refund WHERE id=$1", &rid).await.as_deref(),
+        Some("processing"), "发出去了却不是「退款中」",
+    );
+    assert_eq!(
+        common::scalar_i64(&pool, "SELECT amount_refunded_minor FROM order_record WHERE id=$1", &order_id).await,
+        0, "只是发出去了，钱还在路上，账不该动",
+    );
+
+    refund::apply_succeeded(&pool, "WXR_TEST_1").await.expect("渠道说退成了");
+    assert_eq!(
+        common::scalar_i64(&pool, "SELECT amount_refunded_minor FROM order_record WHERE id=$1", &order_id).await,
+        19900, "钱退回去了而账没动",
+    );
+    assert_eq!(common::order_status(&pool, &order_id).await.as_deref(), Some("refunded"));
+
+    // 重推一次什么都不该再动 —— 渠道会乱序、会重推
+    refund::apply_succeeded(&pool, "WXR_TEST_1").await.expect("再来一次");
+    assert_eq!(
+        common::scalar_i64(&pool, "SELECT amount_refunded_minor FROM order_record WHERE id=$1", &order_id).await,
+        19900, "同一笔退款被记了两遍",
+    );
+}
+
+/// 渠道不收，不是终态 —— 人可以在后台再批一次。
+#[tokio::test]
+async fn 渠道不收的退款还能再批一次() {
+    let pool = db_or_skip!();
+    let (user, order_id, _p) = paid_order(&pool, 19900).await;
+    let rid = refund::request(&pool, &order_id, &user, None, None, "不想要了", None)
+        .await.expect("申请");
+    refund::approve(&pool, &rid, &Actor::admin("kf")).await.expect("批");
+    refund::渠道不收(&pool, &rid, "NOTENOUGH", "商户余额不足").await.expect("渠道拒了");
+
+    assert_eq!(
+        common::scalar_string(&pool, "SELECT status FROM refund WHERE id=$1", &rid).await.as_deref(),
+        Some("failed"));
+    assert_eq!(
+        common::scalar_i64(&pool, "SELECT amount_refunded_minor FROM order_record WHERE id=$1", &order_id).await,
+        0, "渠道都没收，账上却记着退过了");
+    // 状态机写着 Failed => [Approved]
+    refund::approve(&pool, &rid, &Actor::admin("kf")).await.expect("再批一次该成");
 }

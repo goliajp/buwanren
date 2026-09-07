@@ -12,10 +12,11 @@
 #
 # 依赖:bash 4+, curl, jq, python3
 #
-# ⚠ 第 2 条要后端带着 `UNMEI_PAY_STUB_AUTOSETTLE=1` 起 —— 支付「查询」还是桩，
-#   而那个桩回的是「已支付」。2026-08-19 起它默认不放行:不带这个变量的话，
-#   支付停在 pending、订单停在 unpaid，这一条会卡在 2.5 步。
-#   默认关掉的原因见 `backend/unmei-wx/src/adapter.rs` 里 query_payment 那段。
+# ⚠ 第 2 条要本机那个假微信起着（`bash scripts/fake-wx.sh up`），
+#   而且后端要照 `bash scripts/fake-wx.sh env` 那几行配着起。
+#   它不是桩:我方的签名它真验，它回的回调真加密真签名 ——
+#   我方这一侧的每一个字节都跑一遍。只有「真人按了付款」那一下是假的
+#   （由 `POST /_control/pay/<支付号>` 代替）。
 
 set -euo pipefail
 
@@ -134,6 +135,15 @@ payment_id=$(echo "$pay_resp" | jq -r '.payment_id')
 outcome_kind=$(echo "$pay_resp" | jq -r '.outcome.kind')
 [[ "$outcome_kind" == "Jsapi" ]] || { red "expected Jsapi outcome, got $outcome_kind"; exit 1; }
 green "  ✓ payment_id=$payment_id outcome=$outcome_kind"
+
+step "2.3b 让假微信把这一笔付掉（走真回调：v3 加密 + 签名 → 我方验签）"
+# 这一下代表【真人在微信里按了付款】——这台机器上没有那个人。
+# 那之后的每一步都是真的：假微信按协议加密并签名，打到 /v1/webhooks/wechat，
+# 我方验签、解密、入账。在这之前这一段靠一个说「已支付」的桩，
+# 于是签名 / 验签 / 解密三段在本机一次都没跑过。
+curl -fsS -o /dev/null -X POST "${FAKE_WX:-http://127.0.0.1:6033}/_control/pay/$payment_id" || {
+  red "假微信没应答 —— 起了吗？bash scripts/fake-wx.sh up"; exit 1; }
+green "  ✓ 回调发过去了"
 
 step "2.4 等 ${SWEEP_WAIT}s 让 payment_sweep + outbox dispatch 推进"
 sleep "$SWEEP_WAIT"

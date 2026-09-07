@@ -1,7 +1,7 @@
 //! 退款用例。
 
 use chrono::Utc;
-use sqlx::{PgPool, Row};
+use sqlx::{PgPool, Postgres, Row, Transaction};
 use unmei_domain::commerce::events::DomainEvent;
 use crate::DbResultExt;
 use crate::outbox;
@@ -143,19 +143,21 @@ pub async fn approve(pool: &PgPool, refund_id: &str, actor: &Actor) -> Result<()
     let mut tx = pool.begin().await.db()?;
 
     let row = sqlx::query(
+        /* `failed` 也收:状态机写着 `Failed => [Approved]`（渠道不收之后
+           人可以在后台再批一次），而这一条 WHERE 只认 `requested` ——
+           于是那条重试路径从来走不通。 */
         "SELECT order_id, payment_id, amount_minor FROM refund
-         WHERE id=$1 AND status='requested' FOR UPDATE",
+         WHERE id=$1 AND status IN ('requested','failed') FOR UPDATE",
     )
     .bind(refund_id)
     .fetch_optional(&mut *tx)
     .await.db()?
-    .ok_or_else(|| DomainError::NotFound(format!("refund {refund_id}（或状态非 requested）")))?;
+    .ok_or_else(|| DomainError::NotFound(format!("refund {refund_id}（或状态不是 requested/failed）")))?;
 
     let order_id: String = row.get("order_id");
-    let payment_id: String = row.get("payment_id");
     let amount: i64 = row.get("amount_minor");
 
-    /* 钱在这一步真的动，所以余额要在【这里、拿着锁】再算一次。
+    /* 钱到底会不会动，要在【这里、拿着锁】再算一次余额。
        `request` 那一步也算过，但它算的是【申请时】的余额，而
        `amount_refunded_minor` 要到审批才增加 —— 于是同一单申请两次，
        两次都看到余额未动、都通过；两张都批下去，退款额就是实付的两倍。
@@ -177,16 +179,116 @@ pub async fn approve(pool: &PgPool, refund_id: &str, actor: &Actor) -> Result<()
         )));
     }
 
+    /* 【批下来 ≠ 钱退回去了】（2026-09-07）。这里原先一步到位：
+       `status='success'`、`channel_refund_id='MOCK_' || id`、
+       订单与支付的金额当场加、东西当场收回 —— 而**渠道那一侧
+       一个字都没收到**。买家在屏上看到「已退款」，钱一分没回。
+       今天修的另外两个洞是「钱在渠道里而系统说没有」，这一处是它的镜像，
+       且面向的是已经不高兴的那个人。
+
+       这个文件自己也写着这件事：`apply_succeeded` 的注释里有一句
+       「真接渠道之后 `approve` 应当把状态置为 `processing`」。
+       状态机也早就写着 `Requested → Approved → Processing → Success`，
+       而那两级从来没有人走过。
+
+       所以这一步只做「我们同意退」这件事:钱怎么动、东西怎么收回，
+       统统挪到 `apply_succeeded`（渠道说退成了那一刻）。 */
     sqlx::query(
-        r#"UPDATE refund SET status='success', approved_at=NOW(), approved_by_admin_id=$1,
-             processed_at=NOW(), completed_at=NOW(),
-             channel_refund_id = 'MOCK_' || id
+        r#"UPDATE refund SET status='approved', approved_at=NOW(), approved_by_admin_id=$1
            WHERE id=$2"#,
     )
     .bind(actor.id.as_deref())
     .bind(refund_id)
     .execute(&mut *tx)
     .await.db()?;
+
+    tx.commit().await.db()?;
+    Ok(())
+}
+
+/// 已经批了、还没发给渠道的那几笔。发款那一步要用它。
+pub async fn 批了还没发的(pool: &PgPool, limit: i64) -> Result<Vec<待发的退款>, DomainError> {
+    let rows: Vec<(String, String, String, i64, i64, String)> = sqlx::query_as(
+        "SELECT r.id, r.order_id, r.payment_id, r.amount_minor,
+                COALESCE(p.amount_minor, 0), COALESCE(p.channel, '')
+           FROM refund r LEFT JOIN payment p ON p.id = r.payment_id
+          WHERE r.status = 'approved'
+          ORDER BY r.approved_at ASC NULLS FIRST
+          LIMIT $1",
+    )
+    .bind(limit)
+    .fetch_all(pool)
+    .await.db()?;
+    Ok(rows.into_iter().map(|(id, order_id, payment_id, amount_minor, 这笔支付一共, channel)| 待发的退款 {
+        refund_id: id, order_id, payment_id, amount_minor,
+        payment_total_minor: 这笔支付一共, channel,
+    }).collect())
+}
+
+/// 要发给渠道的一笔退款。
+#[derive(Debug, Clone)]
+pub struct 待发的退款 {
+    pub refund_id: String,
+    pub order_id: String,
+    pub payment_id: String,
+    pub amount_minor: i64,
+    /// 这笔支付一共多少钱 —— 微信要它来算「退多少 / 共多少」
+    pub payment_total_minor: i64,
+    pub channel: String,
+}
+
+/// 渠道收下了这笔退款申请。记下渠道那边的号，等它说退成了。
+pub async fn 发给渠道了(
+    pool: &PgPool, refund_id: &str, channel_refund_id: &str,
+) -> Result<(), DomainError> {
+    sqlx::query(
+        "UPDATE refund SET status='processing', processed_at=NOW(), channel_refund_id=$1
+          WHERE id=$2 AND status='approved'",
+    )
+    .bind(channel_refund_id)
+    .bind(refund_id)
+    .execute(pool)
+    .await.db()?;
+    Ok(())
+}
+
+/// 渠道不收这笔退款申请。**不是终态** —— 状态机里 `Failed => [Approved]`，
+/// 人可以在后台再批一次。
+pub async fn 渠道不收(
+    pool: &PgPool, refund_id: &str, code: &str, msg: &str,
+) -> Result<(), DomainError> {
+    sqlx::query(
+        "UPDATE refund SET status='failed', failure_code=$1, failure_msg=LEFT($2, 500)
+          WHERE id=$3 AND status='approved'",
+    )
+    .bind(code)
+    .bind(msg)
+    .bind(refund_id)
+    .execute(pool)
+    .await.db()?;
+    Ok(())
+}
+
+/// 钱真的退回去了 —— 账、东西、事件，都在这一刻动。
+///
+/// 【为什么全挪到这儿】。这几步原先长在 `approve` 里，而 `approve` 那时
+/// 不跟渠道说话:买家看到「已退款」而钱没动。现在它由
+/// `RefundSucceeded` 那条回调（或查退款）驱动 —— 钱到哪儿了，账就说到哪儿。
+///
+/// 幂等：`status IN ('approved','processing')` 那一条守着，
+/// 重推的回调改不动已经结掉的那一笔。
+async fn 退成了之后的账(
+    tx: &mut Transaction<'_, Postgres>, refund_id: &str,
+) -> Result<(), DomainError> {
+    let row = sqlx::query(
+        "SELECT order_id, payment_id, amount_minor FROM refund WHERE id=$1",
+    )
+    .bind(refund_id)
+    .fetch_one(&mut **tx)
+    .await.db()?;
+    let order_id: String = row.get("order_id");
+    let payment_id: String = row.get("payment_id");
+    let amount: i64 = row.get("amount_minor");
 
     /* 【按【累计已退】判，不按这一笔】（2026-09-03 第四轮评审 · 工程审计）。
        上一版拿 `$1`（这一笔的金额）跟支付总额比 —— 两笔各退一半，
@@ -205,7 +307,7 @@ pub async fn approve(pool: &PgPool, refund_id: &str, actor: &Actor) -> Result<()
            WHERE p.id=$1"#,
     )
     .bind(&payment_id)
-    .execute(&mut *tx)
+    .execute(&mut **tx)
     .await.db()?;
 
     /* 【已知与状态机不一致，先记下来】：第一个分支不看当前状态，
@@ -228,7 +330,7 @@ pub async fn approve(pool: &PgPool, refund_id: &str, actor: &Actor) -> Result<()
     )
     .bind(amount)
     .bind(&order_id)
-    .execute(&mut *tx)
+    .execute(&mut **tx)
     .await.db()?;
 
     /* 【钱退干净了，东西也要收回来】（2026-09-06 三路验证 · 准备花钱的那一路）。
@@ -247,7 +349,7 @@ pub async fn approve(pool: &PgPool, refund_id: &str, actor: &Actor) -> Result<()
            FROM order_record WHERE id=$1",
     )
     .bind(&order_id)
-    .fetch_one(&mut *tx)
+    .fetch_one(&mut **tx)
     .await.db()?;
     if 退干净了 {
         // 御守：删掉住下的那一行就是搬走。判据是 `source_ref` —— 履约
@@ -257,7 +359,7 @@ pub async fn approve(pool: &PgPool, refund_id: &str, actor: &Actor) -> Result<()
               WHERE source_ref IN (SELECT id FROM order_line WHERE order_id=$1)",
         )
         .bind(&order_id)
-        .execute(&mut *tx)
+        .execute(&mut **tx)
         .await.db()?
         .rows_affected();
         // 说明书：不删行（`order_line_id` 是唯一键，删了同一行再履约会重建
@@ -268,7 +370,7 @@ pub async fn approve(pool: &PgPool, refund_id: &str, actor: &Actor) -> Result<()
                 AND order_line_id IN (SELECT id FROM order_line WHERE order_id=$1)",
         )
         .bind(&order_id)
-        .execute(&mut *tx)
+        .execute(&mut **tx)
         .await.db()?
         .rows_affected();
         if 搬走了 > 0 || 收回了 > 0 {
@@ -277,15 +379,13 @@ pub async fn approve(pool: &PgPool, refund_id: &str, actor: &Actor) -> Result<()
     }
 
     outbox::write(
-        &mut *tx,
+        &mut **tx,
         &DomainEvent::RefundCompleted {
             refund_id: refund_id.to_string(),
             occurred_at: Utc::now(),
         },
     )
     .await?;
-
-    tx.commit().await.db()?;
     Ok(())
 }
 
@@ -317,18 +417,24 @@ pub async fn deny(
 
 /// 渠道回调：退款成功 / 失败。
 pub async fn apply_succeeded(pool: &PgPool, channel_refund_id: &str) -> Result<(), DomainError> {
-    // 只改【还在渠道手里】的那笔。渠道会乱序、会重推 —— 没有这个条件的话，
-    // 一条迟到的回调就能改写一笔已经结掉的退款。
-    //
-    // 注意：真接渠道之后 `approve` 应当把状态置为 `processing` 而不是像现在的
-    // mock 那样直接 `success`,否则回调进来时这里已经没有可改的行了。
-    sqlx::query(
+    let mut tx = pool.begin().await.db()?;
+    /* 【认得出是哪一笔，才动账】。渠道会乱序、会重推 —— 状态那一条守着，
+       一条迟到的回调改不动已经结掉的退款；`RETURNING` 让「这一次真的改到了」
+       跟「没改到」分得开，而只有真改到的那一次才往下走。 */
+    let 这一笔: Option<(String,)> = sqlx::query_as(
         "UPDATE refund SET status='success', completed_at=NOW()
-         WHERE (channel_refund_id=$1 OR id=$1) AND status IN ('approved','processing')",
+          WHERE (channel_refund_id=$1 OR id=$1) AND status IN ('approved','processing')
+        RETURNING id",
     )
     .bind(channel_refund_id)
-    .execute(pool)
+    .fetch_optional(&mut *tx)
     .await.db()?;
+    let Some((refund_id,)) = 这一笔 else {
+        tx.commit().await.db()?;
+        return Ok(());
+    };
+    退成了之后的账(&mut tx, &refund_id).await?;
+    tx.commit().await.db()?;
     Ok(())
 }
 
@@ -444,6 +550,9 @@ pub async fn refund_undelivered_lines(pool: &PgPool) -> Result<u64, DomainError>
                 continue;
             }
         };
+        /* 批完就留在 `approved` 上，由 `payment_sweep` 那一支发给渠道 ——
+           发款是 I/O，用例层不碰（这个仓的规矩），而且进程死在
+           「批了、还没发」之间时，扫描是唯一还会再看它一眼的东西。 */
         if let Err(e) = approve(pool, &id, &Actor::system()).await {
             tracing::warn!(order_id, refund_id = id, %e, "交付不了的那几行：退款批不下去");
             continue;
@@ -489,6 +598,9 @@ pub async fn refund_orphan_money(pool: &PgPool) -> Result<u64, DomainError> {
                 continue;
             }
         };
+        /* 批完就留在 `approved` 上，由 `payment_sweep` 那一支发给渠道 ——
+           发款是 I/O，用例层不碰（这个仓的规矩），而且进程死在
+           「批了、还没发」之间时，扫描是唯一还会再看它一眼的东西。 */
         if let Err(e) = approve(pool, &id, &Actor::system()).await {
             tracing::warn!(order_id, refund_id = id, %e, "无家可归的钱：退款批不下去");
             continue;

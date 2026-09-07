@@ -46,6 +46,75 @@ pub fn sign_rsa_sha256(private_key_pem: &str, message: &str) -> Result<String> {
     Ok(B64.encode(sig.to_bytes()))
 }
 
+/// 验微信那一侧的签名 —— **回调必须验，不验等于谁都能给我们发「已支付」**。
+///
+/// 【在这之前一次都没验过】。`verify_webhook` 的注释里写着要做三件事
+/// （验头、验签、解密），而代码只做了第三件 —— 也就是说：
+/// 任何人只要知道我们的回调地址，就能拿 APIv3 密钥之外的东西
+/// ……不，更糟：他连密钥都不用猜，因为**签名根本没人看**，
+/// 只要密文解得开就照单收下。而 APIv3 密钥泄露一次，
+/// 签名这一层本来是第二道锁。
+///
+/// 待签串是三行（时间戳、随机串、报文主体），每行一个 `\n` 收尾。
+/// 公钥来自微信平台证书 —— 见 [`pubkey_from_cert_pem`]。
+pub fn verify_rsa_sha256(public_key_pem: &str, message: &str, signature_b64: &str) -> Result<()> {
+    use rsa::pkcs1v15::{Signature, VerifyingKey};
+    use rsa::pkcs8::DecodePublicKey;
+    use rsa::signature::Verifier;
+    use rsa::RsaPublicKey;
+
+    let key = RsaPublicKey::from_public_key_pem(public_key_pem)
+        .map_err(|e| WxError::Internal(format!("平台公钥读不出来：{e}")))?;
+    let sig_bytes = B64.decode(signature_b64)
+        .map_err(|e| WxError::Internal(format!("签名不是合法 base64：{e}")))?;
+    let sig = Signature::try_from(sig_bytes.as_slice())
+        .map_err(|e| WxError::Internal(format!("签名长度不对：{e}")))?;
+    VerifyingKey::<Sha256>::new(key)
+        .verify(message.as_bytes(), &sig)
+        // 验不过只说验不过。是伪造、是证书轮换、还是我们拼错了待签串，
+        // 在密码学上不可区分 —— 猜一个写进日志会把排查引到错的方向。
+        .map_err(|_| WxError::Internal(
+            "微信那一侧的签名验不过 —— 要么不是微信发的，要么平台证书该换了".into()
+        ))
+}
+
+/// 微信回调的待签串：三行，最后一行也要换行。
+pub fn notify_sign_message(timestamp: &str, nonce: &str, body: &str) -> String {
+    format!("{timestamp}\n{nonce}\n{body}\n")
+}
+
+/// JSAPI 唤起支付的那五个字段里的 `paySign`。
+///
+/// 待签串也是自己一套：appId / timeStamp / nonceStr / package，四行。
+/// 【这里原先是字面量 `TODO_paySign_beta`】—— 客户端拿它去
+/// `wx.requestPayment`，微信当场拒。也就是说：**配上真商户号之后，
+/// 这个产品收不到一分钱**，而在这台机器上一切都是绿的，
+/// 因为桩替它答了。
+pub fn pay_sign_message(appid: &str, timestamp: &str, nonce: &str, package: &str) -> String {
+    format!("{appid}\n{timestamp}\n{nonce}\n{package}\n")
+}
+
+/// 从微信平台证书（X.509 PEM）里取出 RSA 公钥，导成 PEM。
+///
+/// 微信下发的是整张证书，而验签只要里面那把公钥。
+pub fn pubkey_from_cert_pem(cert_pem: &str) -> Result<String> {
+    use rsa::pkcs8::{DecodePublicKey, EncodePublicKey};
+    use rsa::RsaPublicKey;
+    use x509_cert::der::{DecodePem, Encode};
+    use x509_cert::Certificate;
+
+    let cert = Certificate::from_pem(cert_pem.as_bytes())
+        .map_err(|e| WxError::Internal(format!("平台证书读不出来：{e}")))?;
+    // SPKI 那一段单独 DER 编码出来，就是一份标准公钥 —— `rsa` 直接认
+    let der = cert.tbs_certificate.subject_public_key_info.to_der()
+        .map_err(|e| WxError::Internal(format!("证书里的公钥编不回 DER：{e}")))?;
+    let key = RsaPublicKey::from_public_key_der(&der)
+        .map_err(|e| WxError::Internal(format!("证书里那把不是 RSA 公钥：{e}")))?;
+    key.to_public_key_pem(rsa::pkcs8::LineEnding::LF)
+        .map_err(|e| WxError::Internal(format!("公钥导不成 PEM：{e}")))
+        .map(|p| p.to_string())
+}
+
 /// 解回调密文 · AEAD_AES_256_GCM。
 ///
 /// key 是商户平台上设的 APIv3 密钥，**32 字节**；nonce 12 字节；
@@ -102,6 +171,31 @@ mod tests {
         let key = RsaPrivateKey::new(&mut rand::thread_rng(), 2048).expect("生成密钥");
         let pem = key.to_pkcs8_pem(rsa::pkcs8::LineEnding::LF).expect("导出 PEM").to_string();
         (key, pem)
+    }
+
+
+    /// 自签自验 —— 这一对必须对得上，否则回调那一层要么全放行、要么全拒。
+    #[test]
+    fn 自己签的自己验得过() {
+        use rsa::pkcs8::EncodePublicKey;
+        let (key, pem) = 测试密钥();
+        let pubpem = key.to_public_key().to_public_key_pem(rsa::pkcs8::LineEnding::LF)
+            .expect("导公钥").to_string();
+        let msg = notify_sign_message("1700000000", "abc", r#"{"id":"x"}"#);
+        let sig = sign_rsa_sha256(&pem, &msg).expect("签");
+        verify_rsa_sha256(&pubpem, &msg, &sig).expect("该验得过");
+        // 改一个字节就该验不过 —— 「验得过」如果对任何输入都成立，那等于没验
+        let 改过 = notify_sign_message("1700000001", "abc", r#"{"id":"x"}"#);
+        assert!(verify_rsa_sha256(&pubpem, &改过, &sig).is_err(), "换了待签串还验得过");
+    }
+
+    /// paySign 的待签串是四行，跟请求签名那五行不是一回事。
+    #[test]
+    fn paysign_是四行() {
+        let m = pay_sign_message("wxappid", "1700000000", "abc", "prepay_id=x");
+        assert_eq!(m.lines().count(), 4);
+        assert!(m.ends_with('\n'), "最后一行也要换行");
+        assert_eq!(m, "wxappid\n1700000000\nabc\nprepay_id=x\n");
     }
 
     #[test]

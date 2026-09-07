@@ -36,6 +36,7 @@
     "check-api-shape-live": "活服务 —— 要起着的后端，变异得重编重起",
     "check-auth-guards": "活服务 —— 要起着的后端，变异得重编重起",
     "check-cross-user": "活服务 —— 要起着的后端，变异得重编重起",
-    "check-ghost-id": "活服务 —— 要起着的后端，变异得重编重起"
+    "check-ghost-id": "活服务 —— 要起着的后端，变异得重编重起",
+    "check-wx-live": "活服务 —— 要起着的后端 + 那个假微信，变异得重编重起"
   }
 }

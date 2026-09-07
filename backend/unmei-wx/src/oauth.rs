@@ -52,18 +52,14 @@ impl WxSdk {
 
     /// code → access_token + openid
     pub async fn h5_code_to_access(&self, code: &str) -> Result<H5AuthResult> {
+        // 同 `mp_jscode2session`：不配就报错，不再编一个「登录成功」回去
         if self.is_mock_h5() {
-            return Ok(H5AuthResult {
-                openid: format!("mock_h5_openid_{code}"),
-                unionid: Some(format!("mock_h5_unionid_{code}")),
-                access_token: "mock_token".into(),
-                refresh_token: "mock_refresh".into(),
-                scope: "snsapi_base".into(),
-            });
+            return Err(WxError::Config("H5 appid / secret 没配"));
         }
         let url = format!(
-            "https://api.weixin.qq.com/sns/oauth2/access_token\
+            "{base}/sns/oauth2/access_token\
              ?appid={appid}&secret={secret}&code={code}&grant_type=authorization_code",
+            base = self.cfg.api_base,
             appid = self.cfg.h5.appid,
             secret = self.cfg.h5.secret,
         );

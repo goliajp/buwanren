@@ -28,12 +28,12 @@ pub struct PaymentAdapterRegistry {
 }
 
 impl PaymentAdapterRegistry {
-    pub fn new(wx: Arc<WxSdk>, stub_autosettle: bool) -> Self {
+    pub fn new(wx: Arc<WxSdk>) -> Self {
         Self {
-            wechat_jsapi:  Arc::new(WechatAdapter::new(wx.clone(), Mode::Jsapi,  stub_autosettle)),
-            wechat_mp:     Arc::new(WechatAdapter::new(wx.clone(), Mode::Mp,     stub_autosettle)),
-            wechat_h5:     Arc::new(WechatAdapter::new(wx.clone(), Mode::H5,     stub_autosettle)),
-            wechat_native: Arc::new(WechatAdapter::new(wx,         Mode::Native, stub_autosettle)),
+            wechat_jsapi:  Arc::new(WechatAdapter::new(wx.clone(), Mode::Jsapi)),
+            wechat_mp:     Arc::new(WechatAdapter::new(wx.clone(), Mode::Mp)),
+            wechat_h5:     Arc::new(WechatAdapter::new(wx.clone(), Mode::H5)),
+            wechat_native: Arc::new(WechatAdapter::new(wx,         Mode::Native)),
         }
     }
 
@@ -121,18 +121,16 @@ impl AppState {
            见 docs/OPEN.md。 */
         let allow_wx_mock = std::env::var("UNMEI_WX_MOCK").as_deref() == Ok("1");
 
-        /* 同一族里最贵的那个。`WechatAdapter::query_payment` 还是桩，而它回的是
-           **「已支付」** —— `payment_query_sweeper` 每 30 秒问一次，于是每一笔
-           待付支付都会在 90 秒内被结成已付，一分钱没收，履约照跑。
-           只有这一个适配器，配没配真凭据都走它。
-           要它这么干得明说；`scripts/e2e.sh` 那条全链路就是靠它跑通的。 */
-        let stub_autosettle = std::env::var("UNMEI_PAY_STUB_AUTOSETTLE").as_deref() == Ok("1");
-        if stub_autosettle {
-            tracing::warn!(
-                "⚠ UNMEI_PAY_STUB_AUTOSETTLE=1：支付查询走的是桩，\
-                 每一笔待付支付都会被自动结成已付 —— 只该在开发机上"
-            );
-        }
+        /* 【`UNMEI_PAY_STUB_AUTOSETTLE` 撤了】（2026-09-07）。
+           它是用来关住 `query_payment` 那个「无条件说已支付」的桩的 ——
+           那个桩让 `payment_query_sweeper` 每 30 秒把待付支付结成已付，
+           一分钱没收、履约照跑。桩现在换成了真的查单（v3 GET 查单），
+           所以那个开关没有存在的理由了。
+
+           本机怎么跑通整条链：起 `cargo run -p fake-wx`，
+           它照微信 v3 的协议说话（验我们的签名、按协议加密回调）。
+           「用户付了款」由 `POST /_control/pay/<支付号>` 触发 ——
+           那一下代表真人在微信里按了付款，而这台机器上没有那个人。 */
         if wx.is_mock() && !allow_wx_mock {
             tracing::warn!(
                 "⚠ 微信凭据没配，而 UNMEI_WX_MOCK 也没设 —— \
@@ -151,7 +149,7 @@ impl AppState {
                 .expect("reqwest client"),
             jwt_secret: Arc::new(jwt_secret),
             wx,
-            payment_adapters: Arc::new(PaymentAdapterRegistry::new(wx_arc, stub_autosettle)),
+            payment_adapters: Arc::new(PaymentAdapterRegistry::new(wx_arc)),
             carrier_adapters: Arc::new(CarrierAdapterRegistry::default()),
         }
     }

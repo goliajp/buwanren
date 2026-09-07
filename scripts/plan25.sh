@@ -198,13 +198,31 @@ p25_name() {
 # 等这一单的钱真的到账。
 #
 # 【发起支付 ≠ 收到钱】。`POST /orders/:id/pay` 回的是给客户端去调起
-# 微信支付的参数（prepay_id / paySign），钱还没动 —— 真实里由渠道回调推进，
-# 开发机上由 `UNMEI_PAY_STUB_AUTOSETTLE=1` 的 payment_sweep 每 30 秒结一轮。
+# 微信支付的参数（prepay_id / paySign），钱还没动 —— 由渠道回调推进。
+# 本机那个「渠道」是 `scripts/fake-wx.sh` 起的假微信，它照 v3 协议加密并签名。
 #
 # 头一版种完人就往下走，于是每一张单都停在 unpaid，五条用例跟着红 ——
 # 而它们报的是「包裹在途是空的」「退款是空的」，看着像别处坏了。
 # **等的是状态真的翻了**，不是等一个固定的秒数：
 # 固定秒数在机器忙的时候不够，而不够的时候它长得跟「付款坏了」一样。
+FAKE_WX=${FAKE_WX:-http://127.0.0.1:6033}
+
+# 付一单：发起支付，再让假微信把这一笔「付掉」。
+#
+# 【第二步代表的是真人在微信里按了付款】。这台机器上没有那个人，
+# 所以那一下由控制面触发 —— 而它触发之后，走的是**真回调**：
+# 假微信按 v3 加密 + 签名发到 /v1/webhooks/wechat，我方验签、解密、入账。
+# 在这之前这一段靠 `UNMEI_PAY_STUB_AUTOSETTLE=1`（一个说「已支付」的桩），
+# 于是签名、验签、解密这三段在本机一次都没跑过。
+pay_it() {  # pay_it <token> <订单号> <openid> [渠道]
+  local tok=$1 ord=$2 openid=$3 ch=${4:-wechat_jsapi} pid
+  pid=$(call POST "$tok" "/v1/orders/$ord/pay" \
+        "{\"channel\":\"$ch\",\"openid\":\"$openid\"}" | jq -r '.payment_id // empty')
+  if [ -z "$pid" ]; then say_bad "发起支付没拿到 payment_id（$ord）"; return 1; fi
+  curl -sS -o /dev/null -X POST "$FAKE_WX/_control/pay/$pid" || {
+    say_bad "假微信没应答 —— 起了吗？bash scripts/fake-wx.sh up"; return 1; }
+}
+
 wait_paid() {  # wait_paid <订单号>
   local i st
   for i in $(seq 1 60); do
@@ -214,7 +232,7 @@ wait_paid() {  # wait_paid <订单号>
     esac
     sleep 2
   done
-  say_bad "等了两分钟，$1 还是 $st —— 支付没结上（sweeper 在跑吗？AUTOSETTLE 开了吗？）"
+  say_bad "等了两分钟，$1 还是 $st —— 回调没入账（假微信起着吗？回调地址配对了吗？）"
   return 1
 }
 
@@ -493,7 +511,7 @@ do_seed() {
   done
   local o2
   o2=$(must_order "$T2" "{\"lines\":[{\"sku_id\":\"sku-naji-deep\",\"qty\":1}],\"region\":\"cn\"}" "U2 的那册说明书") || return 1
-  call POST "$T2" "/v1/orders/$o2/pay" '{"channel":"wechat_jsapi","openid":"p25_u2"}' >/dev/null
+  pay_it "$T2" "$o2" p25_u2 || return 1
   wait_paid "$o2" || return 1
   # 报一场线下活动 —— 这一段是这一格的标题里写着、而body里一直没做的那一件。
   #
@@ -513,7 +531,7 @@ do_seed() {
   read -r T3 I3 <<<"$(make_user u3 cn)"
   local o3
   o3=$(must_order "$T3" '{"lines":[{"sku_id":"sku-oma-ayun","qty":1}],"region":"cn","contact":{"name":"P25·请了人的","phone":"13800000003"},"shipping_address":{"province":"浙江","city":"杭州","district":"西湖","detail":"某处 1 号","name":"P25","phone":"13800000003"}}' "U3 请阿云回村的那一单") || return 1
-  call POST "$T3" "/v1/orders/$o3/pay" '{"channel":"wechat_jsapi","openid":"p25_u3"}' >/dev/null
+  pay_it "$T3" "$o3" p25_u3 || return 1
   wait_paid "$o3" || return 1
   # 【买御守不寄东西 —— 付款即入住】。fulfillment_kind=residency
   # 那一支在 fulfillment.rs 里直接 move_in_from_line，不建运单。
@@ -564,14 +582,14 @@ do_seed() {
   # 阿超在后台够得着这张单，是因为上面给他的 scope 加了 p25。
   local o4b
   o4b=$(must_order "$T4" '{"lines":[{"sku_id":"p25-sku-box","qty":1}],"region":"p25","contact":{"name":"P25·钱在飞的","phone":"13800000004"},"shipping_address":{"province":"上海","city":"上海","district":"静安","detail":"某处 4 号","name":"P25","phone":"13800000004"}}' "U4 那件会寄的东西") || return 1
-  call POST "$T4" "/v1/orders/$o4b/pay" '{"channel":"wechat_jsapi","openid":"p25_u4"}' >/dev/null
+  pay_it "$T4" "$o4b" p25_u4 || return 1
   wait_paid "$o4b" || return 1
   wait_shipment "$o4b" || return 1
   mock_carrier_in_transit "$o4b" P25TRACK0004
   # ③ 一笔退款等着批 —— 走真接口，不批（那是阿超在后台要做的事）
   local o4c
   o4c=$(must_order "$T4" '{"lines":[{"sku_id":"sku-naji-deep","qty":1}],"region":"cn"}' "U4 那笔要退的") || return 1
-  call POST "$T4" "/v1/orders/$o4c/pay" '{"channel":"wechat_jsapi","openid":"p25_u4"}' >/dev/null
+  pay_it "$T4" "$o4c" p25_u4 || return 1
   wait_paid "$o4c" || return 1
   call POST "$T4" "/v1/orders/$o4c/refund" '{"reason_code":"user_request","reason_text":"不想要了"}' >/dev/null
   # ④ 三份订阅 —— 「订着的」那一屏的列表支要有东西才看得见。
@@ -590,7 +608,7 @@ do_seed() {
   # 那两种要有过去的时间，而真买只造得出「现在开始的这一份」。
   local o4s
   o4s=$(must_order "$T4" '{"lines":[{"sku_id":"sku-incense-monthly","qty":1}],"region":"cn","contact":{"name":"P25·钱在飞的","phone":"13800000004"},"shipping_address":{"province":"上海","city":"上海","district":"静安","detail":"某处 4 号","name":"P25","phone":"13800000004"}}' "U4 订一份一味香按月") || return 1
-  call POST "$T4" "/v1/orders/$o4s/pay" '{"channel":"wechat_mp","openid":"p25_u4"}' >/dev/null
+  pay_it "$T4" "$o4s" p25_u4 wechat_mp || return 1
   wait_paid "$o4s" || return 1
   # 【开通与发货都要真的发生】。订阅这一块此前的病就是「买了什么也不发生」,
   # 而那件事**订单是 paid、屏上一切正常**——只有去库里看才看得见。
@@ -625,7 +643,7 @@ do_seed() {
     # 再按一次，还是同一张单 —— 不是又开一张
     want "同一期按两次还是同一张单" "$o4r" \
       "$(call POST "$T4" "/v1/subscriptions/$sub4/pay" '{}' | jq -r '.order_id // empty')"
-    call POST "$T4" "/v1/orders/$o4r/pay" '{"channel":"wechat_jsapi","openid":"p25_u4"}' >/dev/null
+    pay_it "$T4" "$o4r" p25_u4 || return 1
     wait_paid "$o4r" || return 1
     local k
     for k in $(seq 1 30); do
@@ -670,13 +688,13 @@ do_seed() {
   read -r T5 I5 <<<"$(make_user u5 zh_hant)"
   local o5
   o5=$(must_order "$T5" '{"lines":[{"sku_id":"sku-oma-ayun","qty":1}],"region":"zh_hant","contact":{"name":"P25·香港那位","phone":"85200000005"},"shipping_address":{"province":"香港","city":"香港","district":"中西区","detail":"某处 5 号","name":"P25","phone":"85200000005"}}' "U5 请阿云回村的那一单") || return 1
-  call POST "$T5" "/v1/orders/$o5/pay" '{"channel":"wechat_jsapi","openid":"p25_u5"}' >/dev/null
+  pay_it "$T5" "$o5" p25_u5 || return 1
   wait_paid "$o5" || return 1
   # 御守不寄东西（付款即入住），所以包裹那一条另买一件真会寄的
   wait_move_in "$I5" ayun || return 1
   local o5b
   o5b=$(must_order "$T5" '{"lines":[{"sku_id":"p25-sku-box","qty":1}],"region":"p25","contact":{"name":"P25","phone":"85200000005"},"shipping_address":{"province":"香港","city":"香港","district":"中西区","detail":"某处 5 号","name":"P25","phone":"85200000005"}}' "U5 那只出状况的包裹") || return 1
-  call POST "$T5" "/v1/orders/$o5b/pay" '{"channel":"wechat_jsapi","openid":"p25_u5"}' >/dev/null
+  pay_it "$T5" "$o5b" p25_u5 || return 1
   wait_paid "$o5b" || return 1
   wait_shipment "$o5b" || return 1
   mock_carrier_exception "$o5b" P25TRACK0005

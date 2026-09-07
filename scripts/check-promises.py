@@ -28,6 +28,7 @@
 """
 import json
 import os
+import re
 import pathlib
 import subprocess
 import sys
@@ -57,6 +58,20 @@ def 读(相对):
     return p.read_text(encoding='utf-8')
 
 
+def 剥注释(src: str) -> str:
+    """把注释换成等长空白（行号不漂）。
+
+    【只按行首判不够】。整块注释里换行之后那几行，行首可能是反引号、
+    可能是汉字 —— 2026-09-07 当场踩到:一段解释「这里原先写的是
+    `channel_refund_id='MOCK_' || id`」的注释，把这一支自己绊倒了。
+    跟 `check-money-fmt` / `check-room-words` 用的是同一个手法。
+    """
+    src = re.sub(r'/\*.*?\*/', lambda m: re.sub(r'[^\n]', ' ', m.group(0)), src, flags=re.S)
+    src = re.sub(r'//[^\n]*', lambda m: ' ' * len(m.group(0)), src)
+    src = re.sub(r'^\s*#[^\n]*', lambda m: ' ' * len(m.group(0)), src, flags=re.M)
+    return src
+
+
 def 扫一批(目录们, 词):
     """这几个目录底下，哪些文件里出现了这个词。返回 `路径:行号` 列表。
 
@@ -74,16 +89,12 @@ def 扫一批(目录们, 词):
             if not f.is_file() or f.suffix in 跳过后缀:
                 continue
             try:
-                行们 = f.read_text(encoding='utf-8').split('\n')
+                行们 = 剥注释(f.read_text(encoding='utf-8')).split('\n')
             except (UnicodeDecodeError, OSError):
                 continue
             for n, 行 in enumerate(行们, 1):
-                if 词 not in 行:
-                    continue
-                裸 = 行.strip()
-                if 裸.startswith(('//', '*', '/*', '#', '<!--')):
-                    continue
-                命中.append(f'{f.relative_to(根)}:{n}')
+                if 词 in 行:
+                    命中.append(f'{f.relative_to(根)}:{n}')
     return 命中
 
 
