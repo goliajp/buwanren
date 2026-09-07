@@ -597,35 +597,40 @@ async fn an_expiry_callback_expires_a_payment_still_in_flight() {
 /// 这段以前长在 worker 里，测不到；搬进用例层之后它跟单笔那条共用同一个
 /// 状态守卫，这条把两件事一起钉住：到点的会过期，已付的不会被带走。
 #[tokio::test]
-async fn a_late_success_on_an_expired_payment_records_nothing() {
-    /* 重复扣款那一条（docs/OPEN.md 第 3 条）里，第二笔支付会卡在 pending，
-       30 分钟后被 sweeper 翻成 `expired`。这一条钉住之后会发生什么：
-       渠道随后推来的「已成功」**一分钱都不记**，因为 apply_succeeded 只认
-       `pending`/`processing`；而它返回 Ok，于是渠道收到 200 就不再重推。
+async fn a_late_success_on_an_expired_payment_records_the_money() {
+    /* 【这一条 2026-09-07 换了方向】。
+       它原先叫 `..._records_nothing`，钉的是「已过期的支付被迟到的回调
+       推成功时，一分钱都不记」—— 而它自己的注释写着
+       「这不是本条测试要评判的事，怎么办是待拍板的」。
+       也就是说它钉的是**一个悬而未决的现状**，而护栏钉在要被淘汰的东西上，
+       就会替它挡住改动。
 
-       也就是说那笔钱在渠道那边收了，在我们这边留下的唯一一行写着 `expired`
-       ——「用户没付」。这不是本条测试要评判的事，怎么办是待拍板的；
-       写在这里是因为这个机制决定了那笔钱还能不能被记下来。 */
+       板拍了（台账 `pay-channel-switch`）：`expired` 说的是「我们不等了」，
+       不是「渠道撤单了」。渠道说收到了，那钱就是真的 —— 不记的话，
+       它在系统里不存在，只能等第二天对账列成 missing_in_internal
+       再等人去处理。所以现在它照记。
+
+       仍然不报错:报错的话渠道会一直重推。 */
     let pool = db_or_skip!();
+    common::确保当月开着(&pool).await;
 
     let (user, order) = unpaid_order(&pool, 8800).await;
     let p = payment::start(&pool, &order, &user, "wechat_jsapi", None).await.expect("start");
     sqlx::query("UPDATE payment SET status='expired' WHERE id=$1")
         .bind(&p.payment_id).execute(&pool).await.expect("摆成已过期");
 
-    // 渠道推「成功」过来。不报错 —— 报错的话渠道会一直重推。
     payment::apply_succeeded(&pool, &p.payment_id, Some("txn-late-1"), chrono::Utc::now())
         .await.expect("迟到的成功回调不该报错，否则渠道会一直重推");
 
     let st: String = sqlx::query_scalar("SELECT status FROM payment WHERE id=$1")
         .bind(&p.payment_id).fetch_one(&pool).await.expect("读");
-    assert_eq!(st, "expired", "已过期的支付不该被迟到的回调翻成 success");
+    assert_eq!(st, "success", "渠道说收到了，而这一笔还挂在 expired —— 那笔钱在系统里不存在");
 
     let (paid, ostatus): (i64, String) = sqlx::query_as(
         "SELECT amount_paid_minor, status FROM order_record WHERE id=$1")
         .bind(&order).fetch_one(&pool).await.expect("读");
-    assert_eq!(paid, 0, "钱没有被记进订单 —— 这正是那笔钱失去踪迹的地方");
-    assert_eq!(ostatus, "unpaid");
+    assert_eq!(paid, 8800, "钱没有被记进订单 —— 这正是那笔钱失去踪迹的地方");
+    assert_eq!(ostatus, "paid");
 }
 
 #[tokio::test]
@@ -1291,4 +1296,131 @@ async fn 没收钱的取消单不会凭空生出退款() {
         &pool, "SELECT count(*) FROM refund WHERE order_id=$1", &order_id,
     ).await;
     assert_eq!(退款笔数, 0, "一分钱没收，却生出了一笔退款");
+}
+
+// ═══════════ 被顶掉的那一笔，钱回来了怎么办 ═══════════
+//
+// 台账 `known-money-bugs.json` 的 `pay-channel-switch`：换支付方式时旧那一笔
+// 被就地标成 `expired`，而渠道那一侧的下单可能已经发出去、用户仍然付得出去。
+// 2026-09-07 之前那笔钱回来会落进「渠道重推，已忽略」——
+// `channel_txn_id` 不写、订单不入账、接口回 200，**那笔钱在系统里不存在**，
+// 要等第二天对账列成 missing_in_internal 再等人处理。
+
+/// 【被顶掉的那一笔付成了，钱要记下来】。
+#[tokio::test]
+async fn 被顶掉的支付付成了照样入账() {
+    let pool = db_or_skip!();
+    common::确保当月开着(&pool).await;
+    let (user, order_id) = unpaid_order(&pool, 19900).await;
+
+    let 旧 = payment::start(&pool, &order_id, &user, "wechat_jsapi", None).await.expect("旧的");
+    // 换渠道 —— 旧那一笔被顶成 expired
+    let _新 = payment::start(&pool, &order_id, &user, "wechat_h5", None).await.expect("新的");
+    assert_eq!(
+        common::scalar_string(&pool, "SELECT status FROM payment WHERE id=$1", &旧.payment_id).await
+            .as_deref(),
+        Some("expired"),
+        "前提：换渠道之后旧那一笔该是 expired",
+    );
+
+    // 而渠道那一侧他把【旧的那一笔】付了
+    payment::apply_succeeded(&pool, &旧.payment_id, Some("txn-old-one"), chrono::Utc::now())
+        .await
+        .expect("渠道说旧那一笔付成了");
+
+    assert_eq!(
+        common::scalar_string(&pool, "SELECT status FROM payment WHERE id=$1", &旧.payment_id).await
+            .as_deref(),
+        Some("success"),
+        "钱到了而这一笔还挂在 expired —— 那笔钱在系统里不存在",
+    );
+    assert_eq!(
+        common::scalar_string(&pool, "SELECT channel_txn_id FROM payment WHERE id=$1", &旧.payment_id)
+            .await.as_deref(),
+        Some("txn-old-one"),
+        "渠道流水号没记下来 —— 第二天对账就对不上这一条",
+    );
+    assert_eq!(
+        common::scalar_i64(&pool, "SELECT amount_paid_minor FROM order_record WHERE id=$1", &order_id)
+            .await,
+        19900,
+        "订单没入账",
+    );
+    assert_eq!(common::order_status(&pool, &order_id).await.as_deref(), Some("paid"));
+}
+
+/// 回调丢了的时候，还有没有人去问那一笔。
+///
+/// 上面那条验的是「钱回来时收不收」，这条验的是「回调根本没回来时够不够得着」——
+/// 两条路缺一条，那笔钱就还是只能等第二天对账。sweeper 就是第二条路，
+/// 而它问谁由 `to_ask_channel_about` 说了算。
+#[tokio::test]
+async fn 被顶掉的那一笔还在该问渠道的名单里() {
+    let pool = db_or_skip!();
+    common::确保当月开着(&pool).await;
+    let (user, order_id) = unpaid_order(&pool, 19900).await;
+
+    let 旧 = payment::start(&pool, &order_id, &user, "wechat_jsapi", None).await.expect("旧的");
+    let 新 = payment::start(&pool, &order_id, &user, "wechat_h5", None).await.expect("新的");
+
+    /* 名单有「先给回调一分钟」那一条，也按 created_at 取前 50 —— 而这个库里
+       跑着别的测试。把这两笔的建单时间挪到很久以前，它们就一定排在最前面，
+       名单满不满都轮得到（`expires_at` 是另一列，不受影响，窗口照旧开着）。 */
+    sqlx::query("UPDATE payment SET created_at = TIMESTAMPTZ '1900-01-01' WHERE order_id=$1")
+        .bind(&order_id).execute(&pool).await.expect("挪建单时间");
+
+    let 名单 = payment::to_ask_channel_about(&pool).await.expect("名单");
+    let 有 = |id: &str| 名单.iter().any(|(p, _)| p == id);
+    assert!(有(&旧.payment_id), "被顶掉的那一笔没人再问它 —— 渠道那边收了钱也不会有人知道");
+    assert!(有(&新.payment_id), "现在这一笔本来就该问");
+
+    // 而自然到期的那些不该被永远问下去 —— 判据是窗口关没关，不是状态叫什么
+    sqlx::query("UPDATE payment SET expires_at = NOW() - INTERVAL '1 hour' WHERE id=$1")
+        .bind(&旧.payment_id).execute(&pool).await.expect("把窗口关掉");
+    let 名单 = payment::to_ask_channel_about(&pool).await.expect("名单");
+    assert!(
+        !名单.iter().any(|(p, _)| p == &旧.payment_id),
+        "窗口都关了还在问 —— 渠道再也不会说这笔成了，这是白问",
+    );
+}
+
+/// 【两笔都付了 —— 多出来的那笔照记，但不往订单上加】。
+///
+/// `order_paid_not_over_total`（实付 ≤ 应付）是 2026-08-16 那次超收之后立的规矩。
+/// 旧写法无条件 `+ 金额`、指望 CHECK 去炸 —— 一炸整个事务回滚，
+/// 于是这笔支付连 `success` 都记不上，退回到「钱查无此笔」。
+#[tokio::test]
+async fn 多收的那一笔照记而订单金额不动() {
+    let pool = db_or_skip!();
+    common::确保当月开着(&pool).await;
+    let (user, order_id) = unpaid_order(&pool, 19900).await;
+
+    let 旧 = payment::start(&pool, &order_id, &user, "wechat_jsapi", None).await.expect("旧的");
+    let 新 = payment::start(&pool, &order_id, &user, "wechat_h5", None).await.expect("新的");
+
+    // 先把新那一笔付了 —— 这一单付清
+    payment::apply_succeeded(&pool, &新.payment_id, Some("txn-new"), chrono::Utc::now())
+        .await.expect("新的付成了");
+    assert_eq!(common::order_status(&pool, &order_id).await.as_deref(), Some("paid"));
+
+    // 他又把旧那一笔也付了
+    payment::apply_succeeded(&pool, &旧.payment_id, Some("txn-old"), chrono::Utc::now())
+        .await.expect("旧的也付成了 —— 这一步不该炸");
+
+    assert_eq!(
+        common::scalar_string(&pool, "SELECT status FROM payment WHERE id=$1", &旧.payment_id).await
+            .as_deref(),
+        Some("success"),
+        "多收的那一笔也是真的钱，payment 那一行要记成 success",
+    );
+    assert_eq!(
+        common::scalar_i64(&pool, "SELECT amount_paid_minor FROM order_record WHERE id=$1", &order_id)
+            .await,
+        19900,
+        "订单实付被加成了两倍 —— 那正是 CHECK 要挡的事",
+    );
+    let 案 = common::scalar_string(
+        &pool, "SELECT audit_note FROM payment WHERE id=$1", &旧.payment_id).await;
+    assert!(案.as_deref().unwrap_or("").contains("多收的"),
+        "多收这件事没有写在案上，事后没人看得出来：{案:?}");
 }

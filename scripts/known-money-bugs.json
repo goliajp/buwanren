@@ -1,12 +1,14 @@
 {
   "_读法": "已知的资金问题台账。每一条写着【现在是什么样】与【为什么还没修】。校验会真跑一遍复现：还是这样 → 打印一条 `·`（不计分，但每次都看得见）；不是这样了 → 红，说明行为变了，这一条该划掉或重写。跟 web/oversize-pages.json 同一套办法：允许有已知问题，但不允许它悄悄躺着。修法是产品决定，不是实现决定 —— 台账不替谁拍板。",
-  "pay-channel-switch": {
-    "现状": "换支付方式时（微信 jsapi → 微信 h5），旧的那一笔 pending 会被就地标成 expired，而渠道那一侧的下单可能已经发出去、用户仍然付得出去。这笔钱回来时 `apply_succeeded` 只认 pending/processing，expired 那一笔落进「渠道重推」那一支：`payment_event` 记下了这次回调，但 `channel_txn_id` 不写、订单不入账，接口回 200。",
-    "跟原来那条什么关系": "原来那条是「同一张单连点两次就建两笔全额 pending」。2026-08-25 修掉了：第二次点「去支付」拿回的是同一笔，数据库那一侧由 `uq_payment_one_pending`（payment(order_id) WHERE status='pending'）兜底，绕开应用层直插第二笔也会被拒（实测报 duplicate key）。剩下的就是这一条 —— 触发条件从「手抖点两下」收窄到「明确地换一个渠道」。",
-    "为什么不干脆不让换渠道": "换渠道是用户明确的动作，不是误触：微信付不了改支付宝，拒绝他等于让他等 30 分钟过期。真要收干净，得在作废旧那笔之前先去渠道撤单（close/cancel），而那要接每个渠道各自的撤单接口，且撤单本身会失败 —— 那是一件独立的事，不是这次改动的一部分。",
-    "兜底在哪儿": "每日凌晨的对账 worker（unmei_app::recon）按 channel_txn_id 比对渠道账单。这笔的 channel_txn_id 是 NULL，所以渠道账单里那条会落进 missing_in_internal，进差异清单等人工处理 —— 钱不会静静丢掉，但要等到第二天、且要有人去处理那张清单。",
-    "这里守的是什么": "守一条可验证的事实：同一张单上，同时最多只有一笔 pending，且待付合计不超过应付。它变了就红。换渠道这一支由 backend/unmei-app/tests/payment_refund_use_cases.rs 的 switching_channel_supersedes_the_old_pending_payment 钉着。",
-    "复现于": "2026-08-16 首次（旧形态）；2026-08-23 走完整条链；2026-08-25 修掉主路，剩这一支未修。",
-    "今天能换到哪些": "只有微信那四种模式（jsapi / mp / h5 / native）—— `PaymentAdapterRegistry::pick` 认不出别的，支付宝之类在进 `payment::start` 之前就被 400 拒掉了。所以现实里的触发形态是「小程序里发起了，人又去 H5 那一页」。接第二个真渠道那天，这一条的面会变宽。"
+  "_现在有几条": "0 —— 下划线开头的都是说明，不是条目。台账空着不等于没有资金风险，只等于【已知的那些都不在这儿躺着了】；新发现一条就往这儿加一条，并在 scripts/verify-semantics.sh ▶ Z 里给它写一段真跑的复现。",
+  "_已划掉": {
+    "pay-channel-switch（2026-09-07 修）": {
+      "这一条修了": "换渠道时旧那一笔被顶成 `expired`，而渠道那侧可能已经收到钱 —— 那笔钱回来时 `apply_succeeded` 只认 pending/processing/cancelling，于是它落进「渠道重推，已忽略」：`channel_txn_id` 不写、订单不入账、接口回 200，**那笔钱在系统里不存在**，要等第二天对账列成 missing_in_internal 再等人处理。",
+      "怎么修的": "两条路都要够得着那笔钱。**回调那条**：`apply_succeeded` 也收 `expired` —— `expired` 说的是「我们不等了」，不是「渠道撤单了」，渠道说收到了那钱就是真的（这跟 `cancelling` 当初被加进来是同一个理由，payment.rs 里那段注释写着：不收的话那笔钱在系统里不存在）。**轮询那条**：`payment_sweep` 的窗口原先是 `status IN ('pending','processing','cancelling')`，被顶掉的那笔一进 `expired` 就再也没人问过它 —— 而 sweeper 存在的理由恰恰是「回调可能丢」。现在窗口收 `expired`，靠 `expires_at > NOW()` 把两种 expired 分开：被顶掉的那笔窗口还在未来，自然到期的那些落在窗口外，不会被永远问下去。",
+      "两笔都付了怎么办": "`order_paid_not_over_total`（实付 ≤ 应付）留着不动 —— 那是 2026-08-16 那次超收之后立的规矩，是对的。收 expired 之后「两笔都付了」变得够得着，所以入账那一步先问一句这一单吃不吃得下：吃得下就照旧；吃不下就**只记 payment 那一行**（钱是真的）、订单金额不动，并把「多收的」写进 audit_note。旧写法无条件相加、指望 CHECK 去炸，而一炸整个事务回滚，那笔支付连 success 都记不上 —— 退回到「钱查无此笔」，正是要修的那件事本身。",
+      "剩下的是什么": "多收的那笔钱要有人去退。它现在**看得见**了（payment 是 success、有 channel_txn_id、audit_note 写着「多收的」，看板上「收了钱而订单不欠这笔」那一项报数），而退还是挂账是产品决定，不是这次改动的一部分。自动退需要能对上「哪一笔多收」与「退给谁」，那要接渠道退款，跟真收款是同一件待办。",
+      "真要收干净得做什么": "在作废旧那笔之前先去渠道撤单（close/cancel）。那要接每个渠道各自的撤单接口，且撤单本身会失败 —— 独立的一件事，等真接微信商户号那天一起做。",
+      "钉在哪儿": "backend/unmei-app/tests/payment_refund_use_cases.rs 三条：`被顶掉的支付付成了照样入账`（回调那条路）、`被顶掉的那一笔还在该问渠道的名单里`（回调丢了那条路 —— 轮询窗口收不收它、窗口关了会不会白问）、`多收的那一笔照记而订单金额不动`；另外 `a_late_success_on_an_expired_payment_records_the_money` 是原先钉着旧行为那一条改过来的。scripts/verify-semantics.sh ▶ Z 那一段每轮真跑一遍。"
+    }
   }
 }

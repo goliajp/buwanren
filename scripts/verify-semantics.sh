@@ -559,6 +559,10 @@ echo "▶ Z · 已知资金问题台账（scripts/known-money-bugs.json）"
 #
 # 为什么要真跑：这条洞原先只是本文件末尾的一句注释。注释不会在行为变化时提醒谁 ——
 # 它既拦不住「悄悄变得更糟」，也认不出「已经被顺手修好了」。
+#
+# 2026-09-07：台账现在是空的，最后一条（换渠道那一支）当天修掉了。
+# 这一段没有跟着删 —— 划掉的那几条留在原地，判据从「还是那样」翻成「已经不是那样了」，
+# 也就是从复现变成回归护栏。真跑过的东西才拦得住它悄悄退回去。
 ZORD=$(curl -sS -X POST "$API/v1/orders" \
   -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
   -H "idempotency-key: $(idem dblord)" \
@@ -597,12 +601,33 @@ else
   ZN2=$(PSQL "SELECT count(*) FROM payment WHERE order_id='$ZORD' AND status='pending'")
   ZEXP=$(PSQL "SELECT count(*) FROM payment WHERE order_id='$ZORD' AND status='expired' AND audit_note LIKE '%顶掉%'")
   if [ "$ZN2" = "1" ] && [ "$ZEXP" -ge 1 ]; then
-    printf "  \033[33m·\033[0m %-52s 旧那笔被顶掉、仍只剩一笔待付 —— 渠道侧可能已经付得出去，台账 pay-channel-switch 记着\n" \
-      "换渠道：顶掉旧的那一笔"
+    printf "  \033[32m✓\033[0m %-52s 旧那笔被顶掉、仍只剩一笔待付\n" \
+      "换渠道：顶掉旧的那一笔"; pass=$((pass+1))
   else
-    printf "  \033[31m✗\033[0m %-52s 换渠道之后 %s 笔待付、%s 笔标着被顶掉 —— 行为变了，台账该重写\n" \
-      "换渠道：跟台账对不上" "$ZN2" "$ZEXP"; fail=$((fail+1))
+    printf "  \033[31m✗\033[0m %-52s 换渠道之后 %s 笔待付、%s 笔标着被顶掉\n" \
+      "换渠道：顶掉旧的那一笔" "$ZN2" "$ZEXP"; fail=$((fail+1))
   fi
+  # 被顶掉的那一笔，渠道侧可能已经付得出去 —— 那笔钱必须还够得着。
+  # 够不够得着由两件事决定，两件都在这儿验：
+  #   1. `apply_succeeded` 收不收 expired（回调回来的那条路）——
+  #      在 unmei-app/tests/payment_refund_use_cases.rs 里钉着，这里够不到；
+  #   2. 回调丢了的时候 sweeper 还问不问它（主动轮询那条路）——
+  #      它问的是 `status IN (…,'expired') AND expires_at > NOW()`，
+  #      所以「被顶掉的那笔窗口还在未来」就是它够得着的判据，验的就是这个。
+  ZWIN=$(PSQL "SELECT count(*) FROM payment
+                WHERE order_id='$ZORD' AND status='expired'
+                  AND audit_note LIKE '%顶掉%' AND expires_at > NOW()")
+  if [ "$ZWIN" -ge 1 ]; then
+    printf "  \033[32m✓\033[0m %-52s 窗口还在未来，sweeper 仍会向渠道问这一笔\n" \
+      "被顶掉的那笔，钱回来时还够得着"; pass=$((pass+1))
+  else
+    printf "  \033[31m✗\033[0m %-52s 被顶掉的那笔已落在轮询窗口外 —— 回调丢了就再没人问它\n" \
+      "被顶掉的那笔，钱回来时还够得着"; fail=$((fail+1))
+  fi
+  # 剩下的那一支不在这儿验，也修不掉：作废旧那笔之前【没有去渠道撤单】。
+  # 那要接每个渠道各自的 close/cancel，跟真接商户号是同一件待办。
+  printf "  \033[33m·\033[0m %-52s 顶掉只发生在我们这边；渠道那边那一单还开着\n" \
+    "换渠道：没有向渠道撤单"
   # ── 连点两次「申请退款」只建一张（2026-09-03 加）──
   #
   # 【下单与支付一直要幂等键，退款不要】。实测:一模一样的退款请求
