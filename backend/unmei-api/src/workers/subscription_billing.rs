@@ -74,12 +74,13 @@ async fn sweep_once(st: &AppState) -> anyhow::Result<()> {
     }
     tracing::info!("subscription_billing: {} subs due", ids.len());
 
-    let (mut renewed, mut stopped, mut unpriced, mut failed) = (0, 0, 0, 0);
-    let mut 等生辰 = 0;
+    let (mut stopped, mut unpriced, mut failed) = (0, 0, 0);
+    let (mut 开了单, mut 等生辰) = (0, 0);
     for id in &ids {
         // 一条失败不该影响其它条 —— 各自独立事务
         match app_subscription::renew_due(&st.db, id).await {
-            Ok(RenewOutcome::Renewed { .. }) => renewed += 1,
+            // 开出了这一期的单。**钱还没到** —— 到账在 OrderPaid 那条事件上
+            Ok(RenewOutcome::AwaitingPayment { .. }) => 开了单 += 1,
             Ok(RenewOutcome::StoppedAtPeriodEnd) => stopped += 1,
             Ok(RenewOutcome::Unpriced) => unpriced += 1,
             // 这一期没扣、也不算失败 —— 等他把出生时间填上，明天再来问一次
@@ -97,7 +98,7 @@ async fn sweep_once(st: &AppState) -> anyhow::Result<()> {
         }
     }
     tracing::info!(
-        renewed, stopped_at_period_end = stopped, unpriced, failed,
+        billed = 开了单, stopped_at_period_end = stopped, unpriced, failed,
         waiting_for_birth_time = 等生辰,
         "subscription_billing done"
     );

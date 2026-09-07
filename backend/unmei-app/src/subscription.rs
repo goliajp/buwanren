@@ -81,8 +81,23 @@ pub async fn cancel(
 /// 一次续费尝试的结果。
 #[derive(Debug, Clone, PartialEq)]
 pub enum RenewOutcome {
-    /// 续上了,周期已延长
-    Renewed { invoice_id: String, order_id: String, period_end: DateTime<Utc> },
+    /// 这一期的单开出来了，**钱还没收**（2026-09-07 起）。
+    ///
+    /// 【为什么不是「续上了」】。这里原先直接插一条 `status='success'` 的
+    /// payment —— 渠道那边一分钱都没动过，而系统说收到了：订单翻 paid、
+    /// 香照发、账上记一笔收入。那是今早修的那个洞的镜像，
+    /// 而且这一面更糟:白送东西，账还说收过钱。
+    ///
+    /// 【为什么不自动扣】。微信小程序支付**没有**通用的免密代扣 ——
+    /// 要签「委托扣款」那套，需要单独的商户产品与签约。
+    /// `unmei-wx` 自己也是这么说的：`capabilities().off_session_charge = false`，
+    /// 而那个字段在 2026-09-07 之前全仓没有一处读过它。
+    ///
+    /// 所以这一档的真实形态是：**每一期我们开一张单，人来付，付了才发那一盒**。
+    /// 屏上也照这个说（product / confirm / policy / subs 四处同日改）。
+    /// 哪天真有渠道能自动扣，接的是「拿这张单去扣」那一步 ——
+    /// 开单这件事不用改，那才是这一层该管的事。
+    AwaitingPayment { invoice_id: String, order_id: String, amount_minor: i64 },
     /// 用户之前点过「到期不续」,到点了 —— 不收钱,置 cancelled
     StoppedAtPeriodEnd,
     /// 套餐没有激活价,收不了 —— **订阅到此为止**（2026-09-04 起）。
@@ -348,17 +363,42 @@ pub async fn renew_due(pool: &PgPool, subscription_id: &str) -> Result<RenewOutc
         }
     };
 
+    /* 【这一期的单已经开过就还那一张】。发票是复用的（上面那一段），
+       而订单原先每调一次就新建一张 —— 从前看不出来，是因为那时
+       第一次调用就把周期推到了未来，第二次进不到这儿。
+       现在周期要等钱到才动，「同一期被问两次」变成了常态
+       （worker 每天问一次，人也可能自己按「去付这一期」）。 */
+    let 已经开过: Option<String> = sqlx::query_scalar(
+        "SELECT id FROM order_record
+          WHERE source_kind='subscription_renew' AND source_ref_id=$1
+            AND status IN ('unpaid','paid','fulfilling','done')
+          ORDER BY created_at DESC LIMIT 1",
+    )
+    .bind(&invoice_id)
+    .fetch_optional(&mut *tx)
+    .await.db()?;
+    if let Some(order_id) = 已经开过 {
+        tx.commit().await.db()?;
+        return Ok(RenewOutcome::AwaitingPayment { invoice_id, order_id, amount_minor });
+    }
+
     let order_id = new_id("ord-renew");
     sqlx::query(
+        /* 【开出来是待付的】（2026-09-07）。这里原先直接写 `'paid'` 并把
+           实付写满 —— 配合底下那条凭空造的 success payment，
+           一张没人付过钱的单从建出来就是「已付」。 */
         r#"INSERT INTO order_record(
              id, user_id, channel_origin, currency,
              amount_subtotal_minor, amount_total_minor, amount_paid_minor,
-             status, source_kind, source_ref_id, region, expires_at, paid_at
-           ) VALUES ($1, $2, 'system', $3, $4, $4, $4, 'paid', 'subscription_renew', $5,
-                     $6, NOW() + INTERVAL '30 minutes', NOW())"#,
+             status, source_kind, source_ref_id, region, expires_at
+           ) VALUES ($1, $2, 'system', $3, $4, $4, 0, 'unpaid', 'subscription_renew', $5,
+                     $6, NOW() + INTERVAL '7 days')"#,
         // region 写死 'cn' 的那一版，把每一笔续费订单都记在 cn 账上 ——
         // 分区报表里 jp 的订阅收入会整个消失在 cn 那一行下面。
         // 订阅自己说了它属于哪个区，照它写。
+        //
+        // 到期给七天，不是三十分钟：三十分钟是「人正站在收银台前」那种单，
+        // 而这一张是我们主动开给他的，他下次打开 app 才看得见。
     )
     .bind(&order_id)
     .bind(&user_id)
@@ -407,26 +447,82 @@ pub async fn renew_due(pool: &PgPool, subscription_id: &str) -> Result<RenewOutc
         .await.db()?;
     }
 
-    let payment_id = new_id("pay-renew");
+    /* 【这里原先凭空造一笔 success 的 payment】（2026-09-07 拆掉）。
+       渠道那边一分钱没动过，而系统说收到了 —— 订单翻 paid、香照发、
+       总账记一笔收入。今早修的洞是「钱在渠道里而系统说没有」，
+       这一处是它的镜像，且更糟：白送东西，账还说收过钱。
+
+       现在这一步什么都不做。单开出来了，钱等人来付
+       （`order::pay` → 渠道 → 回调 → `apply_succeeded` → OrderPaid），
+       而周期与发票在**钱真到了**的时候才动（`这一期到账了`）。
+       付款那条链一步都不新造 —— 用的就是第一次买那条。 */
     sqlx::query(
-        // region 从订单取 —— 见 payment.rs 那段注释
-        r#"INSERT INTO payment(id, order_id, user_id, channel, amount_minor, currency,
-                               status, paid_at, metadata_json, region)
-           VALUES ($1, $2, $3, 'wechat_mp', $4, $5, 'success', NOW(),
-                   '{"subscription":true}'::jsonb,
-                   COALESCE((SELECT region FROM order_record WHERE id=$2), 'cn'))"#,
+        /* 这一期该他付了。屏上照这个码说人话，并把「去付这一期」摆出来。
+
+           【明天再问一次，不走 dunning 那道阶梯】。阶梯的终点是 expired，
+           而这里没有「扣不成」这回事 —— 单开着，人什么时候付都算数。
+           协议上那句写的也正是这个：「都不成就停在那儿等你来补」。
+           发票只有一张（`status='open'` 时复用），订单也只有一张
+           （上面那道「已经开过就还那一张」），所以「一直问」问的始终是同一期。 */
+        r#"UPDATE subscription
+              SET last_failure_code = 'needs_your_pay',
+                  last_failure_reason = '这一期的单开出来了，等人来付（这个渠道不支持免密代扣）',
+                  next_billing_attempt_at = NOW() + INTERVAL '1 day',
+                  updated_at = NOW()
+            WHERE id = $1"#,
     )
-    .bind(&payment_id)
-    .bind(&order_id)
-    .bind(&user_id)
-    .bind(amount_minor)
-    .bind(&currency)
+    .bind(subscription_id)
     .execute(&mut *tx)
+    .await.db()?;
+
+    tx.commit().await.db()?;
+    tracing::info!(subscription_id, %order_id, amount_minor, "这一期的单开出来了，等他来付");
+
+    Ok(RenewOutcome::AwaitingPayment { invoice_id, order_id, amount_minor })
+}
+
+/// 这一期的钱真到了 —— 周期往前推，发票结清。
+///
+/// 【为什么周期不在开单那一刻推】。推了就等于「收到了」：
+/// 人没付钱，屏上却写着「续到下个月」，而香也照发。
+/// 开单与到账是两件事，中间隔着一个人要不要掏钱的决定。
+///
+/// 由 `OrderPaid` 那条事件驱动（`workers/outbox.rs`）——
+/// 跟履约、记账挂在同一条事件上，三者对同一笔钱说的是同一件事。
+///
+/// 幂等：`WHERE status='open'` 那一条挡住重复到账
+/// （回调重推、sweeper 与 webhook 撞上）。
+pub async fn 这一期到账了(pool: &PgPool, order_id: &str) -> Result<bool, DomainError> {
+    let mut tx = pool.begin().await.db()?;
+    /* 这一单是哪一期的。`source_ref_id` 在续费单上写的就是发票号
+       （见上面建 order_record 那一段），不是订阅号 —— 认错了会把
+       同一笔钱记到别的期上。 */
+    let 这一期: Option<(String, String, DateTime<Utc>, DateTime<Utc>)> = sqlx::query_as(
+        "SELECT i.id, i.subscription_id, i.period_start, i.period_end
+           FROM order_record o
+           JOIN subscription_invoice i ON i.id = o.source_ref_id
+          WHERE o.id = $1 AND o.source_kind = 'subscription_renew' AND i.status = 'open'
+          FOR UPDATE OF i",
+    )
+    .bind(order_id)
+    .fetch_optional(&mut *tx)
+    .await.db()?;
+    let Some((invoice_id, subscription_id, period_start, period_end)) = 这一期 else {
+        tx.commit().await.db()?;
+        return Ok(false);
+    };
+
+    let payment_id: Option<String> = sqlx::query_scalar(
+        "SELECT id FROM payment WHERE order_id=$1 AND status='success'
+          ORDER BY paid_at DESC NULLS LAST LIMIT 1",
+    )
+    .bind(order_id)
+    .fetch_optional(&mut *tx)
     .await.db()?;
 
     sqlx::query(
         r#"UPDATE subscription_invoice SET status='paid', payment_id=$1,
-             attempt_count = attempt_count + 1, last_attempt_at=NOW(), next_attempt_at=NULL
+             last_attempt_at=NOW(), next_attempt_at=NULL
            WHERE id=$2"#,
     )
     .bind(&payment_id)
@@ -435,38 +531,23 @@ pub async fn renew_due(pool: &PgPool, subscription_id: &str) -> Result<RenewOutc
     .await.db()?;
 
     sqlx::query(
-        // 续成一次就把上一次没成的原因清掉 —— 留着的话，屏上会一直挂着
-        // 一句早就不成立的话（「先把出生时间填了」，而他已经填了）
+        // 收上来一期就把「该你付了」那句话清掉 —— 留着的话屏上会一直
+        // 挂着一句早就不成立的话
         r#"UPDATE subscription SET status='active',
              current_period_start=$1, current_period_end=$2, next_billing_attempt_at=$2,
-             last_failure_code='', last_failure_reason=''
+             last_failure_code='', last_failure_reason='', updated_at=NOW()
            WHERE id=$3"#,
     )
     .bind(period_start)
     .bind(period_end)
-    .bind(subscription_id)
+    .bind(&subscription_id)
     .execute(&mut *tx)
     .await.db()?;
 
-    /* 【收了钱就要说一声】。`OrderPaid` 是履约那一侧唯一的触发器
-       （`workers/outbox.rs` 接的就是它）—— 不发，上面那行订单行就永远
-       停在 pending，这一期的香也就永远发不出去。
-       原先不发也没露馅，正是因为那时根本没有行。 */
-    outbox::write(
-        &mut *tx,
-        &DomainEvent::OrderPaid {
-            order_id: order_id.clone(),
-            payment_id: Some(payment_id.clone()),
-            occurred_at: Utc::now(),
-        },
-    )
-    .await?;
-
-    // 旧实现完全不发事件,续费对 dispatcher / 财务是隐形的
     outbox::write(
         &mut *tx,
         &DomainEvent::SubscriptionRenewed {
-            subscription_id: subscription_id.to_string(),
+            subscription_id: subscription_id.clone(),
             period_end,
             occurred_at: Utc::now(),
         },
@@ -474,9 +555,8 @@ pub async fn renew_due(pool: &PgPool, subscription_id: &str) -> Result<RenewOutc
     .await?;
 
     tx.commit().await.db()?;
-    tracing::info!(subscription_id, %order_id, amount_minor, "订阅已续费");
-
-    Ok(RenewOutcome::Renewed { invoice_id, order_id, period_end })
+    tracing::info!(%subscription_id, %order_id, "这一期收上来了，周期往前推");
+    Ok(true)
 }
 
 // ═══════════════════════════ dunning 阶梯 ═══════════════════════════

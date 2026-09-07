@@ -189,8 +189,16 @@ async fn cancel_unknown_subscription_is_not_found() {
 
 // ═══════════════════════════ 续费 ═══════════════════════════
 
+/// 【开单不等于收到钱】（2026-09-07 改）。
+///
+/// 这一条原先断言的是「周期延长了、订单是 paid」——
+/// 而那个 paid 是 `renew_due` 自己插的一条 `status='success'` 的 payment
+/// 造出来的：渠道一分钱都没动过。白送东西，账上还记着一笔收入。
+///
+/// 现在开单与到账分开：这一步只该开出一张**待付**的单，
+/// 周期一动不动，`SubscriptionRenewed` 一条都不发。
 #[tokio::test]
-async fn renew_extends_the_period_and_records_an_order() {
+async fn 开一期的单不动周期也不记收入() {
     let pool = db_or_skip!();
     let sub_id = subscription_fixture(&pool).await;
     let before: chrono::DateTime<chrono::Utc> = sqlx::query_scalar(
@@ -202,17 +210,67 @@ async fn renew_extends_the_period_and_records_an_order() {
     .expect("period end");
 
     let outcome = subscription::renew_due(&pool, &sub_id).await.expect("renew");
-    let subscription::RenewOutcome::Renewed { order_id, period_end, .. } = outcome else {
-        panic!("期望 Renewed，实际 {outcome:?}");
+    let subscription::RenewOutcome::AwaitingPayment { order_id, .. } = outcome else {
+        panic!("期望 AwaitingPayment，实际 {outcome:?}");
     };
 
-    assert!(period_end > before, "周期该被延长");
     assert_eq!(
         common::scalar_string(&pool, "SELECT status FROM order_record WHERE id=$1", &order_id).await.as_deref(),
-        Some("paid")
+        Some("unpaid"),
+        "开单那一刻就是 paid —— 那笔钱谁付的？",
     );
-    // 旧实现一条事件都不发,续费对 dispatcher 和财务是隐形的
+    let 收了: i64 = common::scalar_i64(
+        &pool, "SELECT COUNT(*)::int8 FROM payment WHERE order_id=$1", &order_id).await;
+    assert_eq!(收了, 0, "凭空造了一笔支付 —— 渠道那边一分钱没动过");
+    let after: chrono::DateTime<chrono::Utc> = sqlx::query_scalar(
+        "SELECT current_period_end FROM subscription WHERE id=$1",
+    ).bind(&sub_id).fetch_one(&pool).await.expect("period end");
+    assert_eq!(after, before, "钱还没到，周期就往前推了 —— 那等于白送一期");
+    assert_eq!(
+        common::outbox_count(&pool, "SubscriptionRenewed", &sub_id).await, 0,
+        "还没收到钱就说续上了",
+    );
+}
+
+/// 而钱真到了，周期才动 —— 走的是跟第一次买一模一样那条路。
+#[tokio::test]
+async fn 这一期的钱到了周期才往前推() {
+    let pool = db_or_skip!();
+    let sub_id = subscription_fixture(&pool).await;
+    let before: chrono::DateTime<chrono::Utc> = sqlx::query_scalar(
+        "SELECT current_period_end FROM subscription WHERE id=$1",
+    ).bind(&sub_id).fetch_one(&pool).await.expect("period end");
+
+    let subscription::RenewOutcome::AwaitingPayment { order_id, .. } =
+        subscription::renew_due(&pool, &sub_id).await.expect("renew") else { panic!("该开单") };
+
+    // 渠道说这一单付了 —— 走的是真的那条用例，不是往库里塞一行
+    let 付 = unmei_app::payment::start(
+        &pool, &order_id,
+        &common::scalar_string(&pool, "SELECT user_id FROM order_record WHERE id=$1", &order_id)
+            .await.expect("买家"),
+        "wechat_jsapi", None,
+    ).await.expect("发起支付");
+    unmei_app::payment::apply_succeeded(&pool, &付.payment_id, Some("txn-renew"), chrono::Utc::now())
+        .await.expect("渠道说付了");
+    let 动了 = subscription::这一期到账了(&pool, &order_id).await.expect("到账");
+
+    assert!(动了, "这一单是续费单，却没被认出来");
+    let after: chrono::DateTime<chrono::Utc> = sqlx::query_scalar(
+        "SELECT current_period_end FROM subscription WHERE id=$1",
+    ).bind(&sub_id).fetch_one(&pool).await.expect("period end");
+    assert!(after > before, "钱都到了周期还不动");
+    assert_eq!(
+        common::scalar_string(&pool, "SELECT status FROM subscription_invoice WHERE subscription_id=$1", &sub_id)
+            .await.as_deref(),
+        Some("paid"),
+        "这一期的发票还开着",
+    );
     assert_eq!(common::outbox_count(&pool, "SubscriptionRenewed", &sub_id).await, 1);
+
+    // 幂等：回调重推 / sweeper 撞上 webhook，第二次什么都不该再动
+    assert!(!subscription::这一期到账了(&pool, &order_id).await.expect("再来一次"),
+            "同一期收了两回");
 }
 
 #[tokio::test]
@@ -726,11 +784,15 @@ async fn renewing_twice_in_a_row_bills_once() {
     let pool = db_or_skip!();
     let sub_id = subscription_fixture(&pool).await;
 
-    subscription::renew_due(&pool, &sub_id).await.expect("第一次续费");
+    let first = subscription::renew_due(&pool, &sub_id).await.expect("第一次续费");
     let second = subscription::renew_due(&pool, &sub_id).await.expect("第二次续费");
 
-    // 第一次已经把周期推到了将来，所以第二次不到期
-    assert_eq!(second, subscription::RenewOutcome::NotDue, "第二次不该再收钱");
+    /* 【2026-09-07 起，判据从「第二次不到期」换成「第二次还是同一张单」】。
+       在那之前第一次调用就把周期推到了将来，第二次因此 NotDue ——
+       而周期现在要等钱到才动，「同一期被问两次」成了常态：
+       worker 每天问一次，人自己按「去付这一期」也会问。
+       所以这一问必须由【这一期的单开过没有】来答，不能靠周期挡着。 */
+    assert_eq!(first, second, "同一期问两次，开出了两张不同的单");
 
     // 订单的 source_ref_id 记的是【发票 id】，不是订阅 id —— 所以顺着发票串起来数
     let orders: i64 = sqlx::query_scalar(

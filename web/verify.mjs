@@ -4344,7 +4344,12 @@ if (!API) {
      合计写「一共 ¥78」没有「/ 月」、底下是一次性买卖的话术、
      还摆着一个数量加减器（订阅填 2 是什么意思？屏上答不了）。
 
-     一个怕被套牢的人在那一屏上找不到一个字告诉他这是自动续费。 */
+     一个怕被套牢的人在那一屏上找不到一个字告诉他这是按月的东西。
+
+     【2026-09-07 起说法变了】。那一天之前屏上写的是「每月扣一次」，
+     而我们**扣不了**：微信小程序支付没有通用的免密代扣，
+     `unmei-wx` 自己写着 `off_session_charge: false`。
+     真实形态是每期开一张单、人来付，所以断言跟着改成那句真话。 */
   {
     await open('pages/confirm/index', { id: 'prod-incense-monthly' })
     await p.waitForTimeout(1600)
@@ -4354,8 +4359,12 @@ if (!API) {
     ok(/一共\s*¥?\d+(\.\d+)?\s*\/\s*月/.test(订文),
        '合计带着「/ 月」—— 少了这两个字，那个数看起来就是这一单的全部代价',
        (订文.match(/一共[^·]{0,14}/) || [''])[0])
-    ok(/每月扣一次/.test(订文), '底下说的是「每月扣一次」，不是一次性买卖那套话',
+    ok(/每月一盒/.test(订文) && /每期我们开单你来付/.test(订文),
+       '底下说的是「每月一盒 · 每期开单你来付」，不是一次性买卖那套话，也不是「自动扣」',
        (订文.match(/每月[^·]{0,30}/) || [''])[0])
+    ok(!/自动扣|每月扣一次/.test(订文),
+       '这一屏不许说「自动扣」—— 这个渠道扣不了，说了就是假话',
+       (订文.match(/[^·]{0,12}自动扣[^·]{0,12}/) || [''])[0])
     /* 【订阅不摆数量】。填 2 是每月两盒还是订两份 —— 这个问题屏上答不了，
        而后端 `renew_due` 每期就发一件。 */
     ok(await p.locator('.stepper').count() === 0,
@@ -4369,7 +4378,7 @@ if (!API) {
        '卖它的那一屏不写光秃秃的「随时能停」', (香文.match(/[^·]{0,10}随时能停[^·]{0,10}/) || [''])[0])
     ok(/这一期照走完/.test(香文),
        '把退订那一屏那句准的话搬到了决定要不要订的这一屏',
-       (香文.match(/每月扣一次[^·]{0,24}/) || [''])[0])
+       (香文.match(/每月一盒[^·]{0,24}/) || [''])[0])
   }
 
   /* ── 一件东西有几档就摆几档（2026-09-06）───────────────────
@@ -4847,7 +4856,34 @@ if (!API) {
       ok(!/最后一盒还会发|最后一盒 [0-9]/.test(退后文),
          '不再答应「最后一盒还会发」—— 那一天什么都不会寄',
          (退后文.match(/[^·\n]{0,24}最后一盒[^·\n]{0,24}/) || ['（没提最后一盒）'])[0])
-      run(`DELETE FROM subscription WHERE id IN ('${两份[0]}','${两份[1]}','vsub-alive')`)
+      /* 【这一期该他付了，那一屏得说得出这件事】（2026-09-07）。
+         这一天之前，续费是后端自己插一条 `status='success'` 的支付 ——
+         渠道一分钱没动，而香照发。现在每一期是开一张待付的单，
+         `last_failure_code='needs_your_pay'` 就是那个状态。
+
+         屏上要变两样:那句话（不能再说「下一盒 X 发」，那一天不会有东西来），
+         以及那颗按得动的东西（说了要紧的事就得给做那件事的办法）。 */
+      run(`INSERT INTO subscription(id, user_id, plan_id, status, source_channel,
+             current_period_start, current_period_end, cancel_at_period_end, region,
+             last_failure_code, last_failure_reason)
+           VALUES('vsub-topay','${uid}','plan-incense-monthly','active','wechat_mp',
+                  NOW() - INTERVAL '31 days', NOW() - INTERVAL '1 day', false, 'cn',
+                  'needs_your_pay','镜像验证')
+           ON CONFLICT (id) DO NOTHING`)
+      await open('pages/subs/index')
+      await p.waitForTimeout(1400)
+      const 待付文 = await text()
+      ok(/这一期的单开出来了/.test(待付文),
+         '等着人付的那一份，屏上说的是「这一期的单开出来了」',
+         (待付文.match(/[^·\n]{0,10}这一期[^·\n]{0,24}/) || ['（一个字都没说）'])[0])
+      ok(!/下一盒 .* 发/.test(待付文.split('这一期的单开出来了')[1] || ''),
+         '不许还答应「下一盒几号发」—— 单没付，那一天什么都不会走',
+         (待付文.match(/下一盒[^·]{0,16}/) || ['（没说）'])[0])
+      ok(await p.getByText('去付这一期 ›', { exact: true }).count() === 1,
+         '给得出「去付这一期」—— 说了要紧的事却不给做那件事的办法，比不说更差',
+         String(await p.getByText('去付这一期 ›', { exact: true }).count()))
+
+      run(`DELETE FROM subscription WHERE id IN ('${两份[0]}','${两份[1]}','vsub-alive','vsub-topay')`)
     }
   }
 

@@ -733,15 +733,29 @@ async fn pay_my_subscription(
     State(st): State<AppState>, AuthedUser(c): AuthedUser, Path(id): Path<String>,
 ) -> Result<Json<J>, ApiError> {
     是他的订阅(&st, &id, &c.sub).await?;
+    /* 【这一条交出去的是「哪一张单」，不是「收到了」】（2026-09-07）。
+       它原先直接调 `renew_due`，而那时 `renew_due` 里凭空造一笔
+       `status='success'` 的 payment —— 于是按下「补上这一期」，
+       渠道一分钱没动，系统说收到了、香也发出去了。
+
+       现在开单与收钱分开：这里把这一期的单开出来（已经开过就还那一张），
+       客户端拿着单号走**第一次买那条一模一样的路**
+       （`/pages/order/index` → `/v1/orders/:id/pay` → 微信 → 回调）。
+       一条新的收钱路都不造，也就没有第二处会说谎的地方。 */
     let 结果 = unmei_app::subscription::renew_due(&st.db, &id).await?;
     Ok(Json(match 结果 {
-        unmei_app::subscription::RenewOutcome::Renewed { period_end, .. } =>
-            json!({ "ok": true, "paid": true, "current_period_end": period_end }),
+        unmei_app::subscription::RenewOutcome::AwaitingPayment { order_id, amount_minor, .. } =>
+            json!({ "ok": true, "order_id": order_id, "amount_minor": amount_minor }),
         // 还没到期就来补，那是没事可补 —— 说清楚，不假装收了钱
         unmei_app::subscription::RenewOutcome::NotDue =>
-            json!({ "ok": true, "paid": false, "why": "还没到期，这一期不用补" }),
-        其他 =>
-            json!({ "ok": false, "paid": false, "why": format!("{其他:?}") }),
+            json!({ "ok": true, "order_id": J::Null, "why": "还没到期，这一期不用补" }),
+        unmei_app::subscription::RenewOutcome::NeedsYongshen =>
+            json!({ "ok": false, "order_id": J::Null,
+                    "why": "这一盒是按你缺的那一味配的 —— 先把出生时间填了" }),
+        unmei_app::subscription::RenewOutcome::StoppedAtPeriodEnd =>
+            json!({ "ok": false, "order_id": J::Null, "why": "这一份已经到期不再续了" }),
+        unmei_app::subscription::RenewOutcome::Unpriced =>
+            json!({ "ok": false, "order_id": J::Null, "why": "这一档现在没有价，付不了" }),
     }))
 }
 

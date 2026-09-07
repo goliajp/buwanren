@@ -74,13 +74,16 @@ function 日子那句(x: Subscription): string {
 /* 这一份还能动吗 —— 决定卡片上给哪一个动作。
    三种状态三件事，不是一个通用的「管理」按钮：
    扣不成的要补、还在续的可以停、已经停了的什么都不给（也确实无事可做）。 */
-type 动作 = '' | '补' | '停' | '填生辰'
+type 动作 = '' | '付' | '补' | '停' | '填生辰'
 function 给什么动作(x: Subscription): 动作 {
   /* 【等生辰的那一份，要给的是填生辰，不是「停」】（2026-09-07）。
      这一档按用神配，而他没有在用的本命 —— 后端因此这一期
      **压根没扣钱**（`renew_due` 那条 NeedsYongshen），
      明天再来问一次。他现在能做的只有一件事，那就摆那一件。 */
   if (x.last_failure_code === 'need_yongshen') return '填生辰'
+  /* 【这一期该他付了】（2026-09-07）。我们扣不了他的钱（这个渠道没有
+     免密代扣），所以每一期是开一张单等他来付 —— 卡上给的就是那张单。 */
+  if (x.last_failure_code === 'needs_your_pay') return '付'
   if (x.status === 'past_due' || x.status === 'grace') return '补'
   if ((x.status === 'active' || x.status === 'trialing') && !x.cancel_at_period_end) return '停'
   return ''
@@ -91,7 +94,8 @@ function 给什么动作(x: Subscription): 动作 {
    （`check-error-leak` 盯着这条），所以后端只发码。 */
 const 没续成的说法: Record<string, string> = {
   need_yongshen: '这一盒是按你缺的那一味配的 —— 先把出生时间填了，下一盒才配得出来',
-  charge_failed: '上一期没扣成 —— 补上就接着发',
+  needs_your_pay: '这一期的单开出来了 —— 付了就发这一盒',
+  charge_failed: '上一期没收上来 —— 付了就接着发',
 }
 
 /* 还在续的那几种。跟后端排序用的是同一批（commerce.rs `my_subscriptions`
@@ -145,12 +149,14 @@ Page<IData, WechatMiniprogram.IAnyObject>({
           /* 【等生辰的那一份，日子那句是假的】。它说「下一盒 X 发」，
              而那一天什么都不会发生 —— 后端这一期没扣钱，也没建单。
              这时候屏上该说的是那件他能做的事，不是一个不会到来的日期。 */
-          说: x.last_failure_code === 'need_yongshen'
-            ? 没续成的说法.need_yongshen
-            : [状态说法[x.status] || x.status, 日子那句(x)].filter(Boolean).join(' · '),
+          /* 【等着的那两种，日子那句是假的】。它说「下一盒 X 发」，
+             而那一天什么都不会发生 —— 单还没付，箱子就不会走。
+             这时候屏上该说的是那件他能做的事。 */
+          说: 没续成的说法[x.last_failure_code || '']
+            || [状态说法[x.status] || x.status, 日子那句(x)].filter(Boolean).join(' · '),
           // 扣不成的那两种要显眼:它们是【他现在就得动手】的，其余六种不是
           要紧: x.status === 'past_due' || x.status === 'grace'
-            || x.last_failure_code === 'need_yongshen',
+            || !!x.last_failure_code,
           动: 给什么动作(x),
         })),
       })
@@ -224,8 +230,16 @@ Page<IData, WechatMiniprogram.IAnyObject>({
     mineApi.paySubscription(id).then(
       (r) => {
         this.setData({ 忙: '' })
-        // 【没收成也要说】—— 静默地什么都不变，人只会再按一次
-        wx.showToast({ title: r.paid ? '补上了' : (r.why || '这一期不用补'), icon: 'none' })
+        /* 【这一步只拿到单号，钱在订单屏上付】（2026-09-07）。
+           它原先弹一句「补上了」就完了 —— 而那个「补上了」是后端
+           自己插一条 success 的支付造出来的，渠道一分钱没动过。
+           现在拿着单号走第一次买那条路：订单屏 → 微信。 */
+        if (r.order_id) {
+          wx.navigateTo({ url: `/pages/order/index?id=${r.order_id}` })
+          return
+        }
+        // 【开不出单也要说】—— 静默地什么都不变，人只会再按一次
+        wx.showToast({ title: r.why || '这一期不用付', icon: 'none' })
         this.load()
       },
       (e2) => {

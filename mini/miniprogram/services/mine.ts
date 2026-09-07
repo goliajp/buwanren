@@ -19,9 +19,15 @@ export const mineApi = {
   cancelSubscription: (id: string): Promise<{ ok: boolean }> =>
     api.post<{ ok: boolean }>(`/v1/subscriptions/${id}/cancel`, {}),
 
-  /** 补上这一期。扣不成的那两种（past_due / grace）才用得着 */
-  paySubscription: (id: string): Promise<{ ok: boolean; paid: boolean; why?: string }> =>
-    api.post<{ ok: boolean; paid: boolean; why?: string }>(`/v1/subscriptions/${id}/pay`, {}),
+  /** 这一期的单。**它不收钱**（2026-09-07）——
+   *  开出（或找出）这一期那张待付的单，把单号交回来；
+   *  钱走的是跟第一次买一模一样那条路（订单屏 → 微信）。
+   *
+   *  它原先返回 `paid: true`，而那个 true 是后端自己插一条
+   *  `status='success'` 的支付造出来的：渠道一分钱没动。 */
+  paySubscription: (id: string): Promise<{ ok: boolean; order_id?: string | null; amount_minor?: number; why?: string }> =>
+    api.post<{ ok: boolean; order_id?: string | null; amount_minor?: number; why?: string }>(
+      `/v1/subscriptions/${id}/pay`, {}),
 
   /** 服务端说的我是谁。本地缓存的那份是登录那一刻的快照，会旧 */
   me: (): Promise<UserPublic> => api.get<UserPublic>('/v1/user/me'),

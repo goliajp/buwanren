@@ -608,19 +608,37 @@ do_seed() {
   done
   want "而且这一期的那一盒真的发了" ok "$([ -n "$shp4" ] && echo ok || echo 没发)"
 
-  # 【补上这一期 = 续一期】。把周期推到已经过去，再走用户那颗按钮那条路。
-  # 收款仍是 mock（跟 worker 那一侧一样），发货是真的。
+  # 【付这一期 = 开一张单，然后真的付它】（2026-09-07 改）。
+  # 在这之前这一段是:按一下「补上这一期」，接口回来订阅就回到 active、
+  # 包裹也发了 —— 而那是因为 `renew_due` 自己插了一条 `status='success'`
+  # 的支付，渠道一分钱没动过。白发一盒香，账上还记着一笔收入。
+  #
+  # 现在这条路跟第一次买是同一条:开单 → `/v1/orders/:id/pay` → 回调入账
+  # → OrderPaid → 周期往前推 + 发货。这里也就照着走一遍。
   if [ -n "$sub4" ]; then
     psql1 "UPDATE subscription SET current_period_end=NOW()-INTERVAL '1 day', status='past_due' WHERE id='$sub4'" >/dev/null
-    call POST "$T4" "/v1/subscriptions/$sub4/pay" '{}' >/dev/null
-    want "补上这一期之后它回到订着" active "$(psql1 "SELECT status FROM subscription WHERE id='$sub4'")"
+    local o4r   # 这一期那张待付的单（bash 3.2 没有中文标识符）
+    o4r=$(call POST "$T4" "/v1/subscriptions/$sub4/pay" '{}' | jq -r '.order_id // empty')
+    want "这一期开得出一张待付的单" unpaid "$(psql1 "SELECT status FROM order_record WHERE id='$o4r'")"
+    want "开单那一刻一分钱都没收" 0 "$(psql1 "SELECT count(*) FROM payment WHERE order_id='$o4r'")"
+    want "钱没到，周期就不许往前推" past_due "$(psql1 "SELECT status FROM subscription WHERE id='$sub4'")"
+    # 再按一次，还是同一张单 —— 不是又开一张
+    want "同一期按两次还是同一张单" "$o4r" \
+      "$(call POST "$T4" "/v1/subscriptions/$sub4/pay" '{}' | jq -r '.order_id // empty')"
+    call POST "$T4" "/v1/orders/$o4r/pay" '{"channel":"wechat_jsapi","openid":"p25_u4"}' >/dev/null
+    wait_paid "$o4r" || return 1
+    local k
+    for k in $(seq 1 30); do
+      [ "$(psql1 "SELECT status FROM subscription WHERE id='$sub4'")" = active ] && break
+      sleep 1
+    done
+    want "钱到了它才回到订着" active "$(psql1 "SELECT status FROM subscription WHERE id='$sub4'")"
     # 数的是【续期那一单】开出来的包裹 —— 数「这个人一共几只包裹」会把
     # 他别的单子也算进去，那个数一改别的用例就得跟着改。
     #
-    # 【要等】。补款那一下是同步的（接口回来时钱已经收了、周期已经推了），
-    # 而发货不是:它由 outbox worker 接 `OrderPaid` 之后才做。
-    # 头一版这里紧接着就数，数到 0 —— 报出来是「续期不发货」,
-    # 而实际是我数得太早。上面那两条本来就是轮询的，这一条漏了。
+    # 【要等】。付款回来只说明钱记上了，发货由 outbox worker 接
+    # `OrderPaid` 之后才做。头一版这里紧接着就数，数到 0 ——
+    # 报出来是「续期不发货」，而实际是我数得太早。
     local shp4b
     for k in $(seq 1 30); do
       shp4b=$(psql1 "SELECT count(*) FROM shipment sp JOIN order_record o ON o.id=sp.order_id WHERE o.user_id='$I4' AND o.source_kind='subscription_renew'")

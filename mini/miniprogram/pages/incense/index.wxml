@@ -86,7 +86,7 @@
       <text class="m-k">按月送 · 每月十支</text>
       <text class="m-p">{{按月.priceText}} / 月</text>
     </view>
-    <view class="m-sub">每月扣一次 · 到期前随时能停，这一期照走完<text class="m-go">›</text></view>
+    <view class="m-sub">每月一盒 · 到期前随时能停，这一期照走完<text class="m-go">›</text></view>
   </view>
 
   <!-- 弹性槽 · 矮屏收起。**到点了才是入口** —— 不到点它只是一句话。
