@@ -183,6 +183,88 @@ fn 过不去的关(
     }
 }
 
+/// 【这一单本身过不过得了这张券的门槛】。
+///
+/// 【上面那一关问的是「这张券本身还能不能用」，这一关问的是
+/// 「用在这一单上行不行」】—— 两件事，判据来源也不同:
+/// 前者全在 coupon / promotion 那两行上，后者要知道这一单多少钱、
+/// 这个人是不是新客、这一单上还有没有别的券。
+///
+/// 【为什么这一关此前整个不存在】（2026-09-07）。`promotion` 上
+/// `rule_json` / `match_json` / `stackable` / `per_user_cap` 这几列
+/// 从建库起就在，后台详情页也把它们摆出来给人看 —— 而
+/// `unmei-app` 与 `unmei-api` 里 grep 它们是**零命中**。
+/// 种子里唯一一个真活动 `NEWUSER20`（新人首单立减 20%）写着
+/// 「满 ¥49」「仅新客」「不可叠加」，三条一条都不生效:
+/// 一个老客拿它减 ¥29 的东西，照样减得下来。
+///
+/// 【只认代码真做得到的那几个键】。没实现的键不假装实现，
+/// 也不允许悄悄躺着 —— `scripts/check-promo-rules.py` 盯着这件事:
+/// 活动里出现一个这里不认识的键就红。凭空给一个没人用的键发明语义,
+/// 跟它不生效一样糟，只是错得更晚。
+async fn 这一单过得了这张券吗(
+    db: impl sqlx::PgExecutor<'_>,
+    row: &sqlx::postgres::PgRow,
+    user_id: &str,
+    这一单小计: i64,
+    这一单几张券: usize,
+) -> Result<(), 挡下> {
+    let rule: Option<serde_json::Value> = row.try_get("promo_rule_json").ok().flatten();
+    let matc: Option<serde_json::Value> = row.try_get("promo_match_json").ok().flatten();
+    let stackable: Option<bool> = row.try_get("promo_stackable").ok().flatten();
+
+    // 【不可叠加】。判据是「这一单上不止一张券」——
+    // 一张不可叠加的券自己一个人用是可以的，跟别的凑在一起才不行。
+    if stackable == Some(false) && 这一单几张券 > 1 {
+        return Err(挡下::说明白("不能跟别的券一起用".into()));
+    }
+
+    if let Some(min) = rule.as_ref().and_then(|r| r.get("min_amount")).and_then(|v| v.as_i64()) {
+        if 这一单小计 < min {
+            // 差多少也说出来 —— 「满 ¥49 可用」比「不满足条件」有用得多
+            return Err(挡下::说明白(format!(
+                "要满 {} 才能用，这一单是 {}",
+                钱(min),
+                钱(这一单小计)
+            )));
+        }
+    }
+
+    /* 【新客怎么算】。判据是「他还没有一单付过钱的」——
+       活动名字就叫「新人首单」，那才是它要给的人。
+       不按注册时间算:注册了三个月没买过东西的人，他的首单仍然是首单，
+       而按天数算会把他挡在外面，也会放进一个注册当天买了三次的人。 */
+    let 只给新客 = matc
+        .as_ref()
+        .and_then(|m| m.get("new_user_only"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    if 只给新客 {
+        let 买过: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM order_record
+              WHERE user_id = $1 AND status IN ('paid','fulfilling','done',
+                                                'refund_partial','refunded')",
+        )
+        .bind(user_id)
+        .fetch_one(db)
+        .await
+        .map_err(|e| 挡下::说明白(format!("查不到你买过什么（{e}）")))?;
+        if 买过 > 0 {
+            return Err(挡下::说明白("只给还没买过东西的人".into()));
+        }
+    }
+    Ok(())
+}
+
+/// 「4900」→「¥49」。只给上面那一句门槛用 —— 券这一路的钱都是分。
+fn 钱(分: i64) -> String {
+    if 分 % 100 == 0 {
+        format!("¥{}", 分 / 100)
+    } else {
+        format!("¥{}.{:02}", 分 / 100, 分 % 100)
+    }
+}
+
 /// 被 [`过不去的关`] 挡下时，该怎么说。
 enum 挡下 {
     /// 【当成不存在】。「这张券不是你的」等于确认这个码真实存在 ——
@@ -239,7 +321,9 @@ pub async fn lock_for_order(
             r#"SELECT c.id, c.state, c.owner_user_id, c.expires_at, c.benefit_json,
                       c.region, c.promotion_id,
                       p.status AS promo_status, p.effective_from, p.effective_to,
-                      p.budget_minor, p.used_minor
+                      p.budget_minor, p.used_minor,
+                      p.rule_json AS promo_rule_json, p.match_json AS promo_match_json,
+                      p.stackable AS promo_stackable
                FROM coupon c
                LEFT JOIN promotion p ON p.id = c.promotion_id
                WHERE c.code = $1
@@ -253,6 +337,10 @@ pub async fn lock_for_order(
         let coupon_id: String = row.get("id");
         // 门禁只有一处 —— 见 `过不去的关`
         let 预算还剩 = 过不去的关(&row, user_id, region, Utc::now())
+            .map_err(|挡| 那一句(挡, code))?;
+        // 这一单本身过不过得了它的门槛（满多少 / 只给新客 / 能不能叠加）
+        这一单过得了这张券吗(&mut **tx, &row, user_id, subtotal_minor, codes.len())
+            .await
             .map_err(|挡| 那一句(挡, code))?;
 
         let benefit_json: serde_json::Value = row.get("benefit_json");
@@ -488,7 +576,9 @@ pub async fn preview(
             r#"SELECT c.id, c.state, c.owner_user_id, c.expires_at, c.benefit_json,
                       c.region, c.promotion_id,
                       p.status AS promo_status, p.effective_from, p.effective_to,
-                      p.budget_minor, p.used_minor
+                      p.budget_minor, p.used_minor,
+                      p.rule_json AS promo_rule_json, p.match_json AS promo_match_json,
+                      p.stackable AS promo_stackable
                FROM coupon c
                LEFT JOIN promotion p ON p.id = c.promotion_id
                WHERE c.code = $1"#,
@@ -501,6 +591,9 @@ pub async fn preview(
         let coupon_id: String = row.get("id");
         // 【跟下单同一段门禁】——试算说得通、下单却被拒，同样是欺骗
         let 预算还剩 = 过不去的关(&row, user_id, region, Utc::now())
+            .map_err(|挡| 那一句(挡, code))?;
+        这一单过得了这张券吗(pool, &row, user_id, subtotal_minor, codes.len())
+            .await
             .map_err(|挡| 那一句(挡, code))?;
 
         let benefit_json: serde_json::Value = row.get("benefit_json");
