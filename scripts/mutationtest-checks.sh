@@ -125,6 +125,8 @@ FILES=(
   mini/miniprogram/pages/order/index.wxss
   # 2026-09-07 晚：接真渠道那一批碰到的文件
   backend/unmei-app/src/refund.rs
+  # check-shell-braces 那条变异改的是它
+  scripts/plan25.sh
 )
 # ── 开跑之前两道自保 ────────────────────────────────────────────
 # 这支脚本【会真改源码】，所以两件事必须先确认：
