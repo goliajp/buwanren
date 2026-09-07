@@ -2,12 +2,10 @@
 //!
 //! 触发场景:回调丢失 / 渠道延迟。
 //! 流程:
-//! 1. SELECT payment WHERE status IN (pending, processing)
-//!    AND (created_at + interval '1 minute') < NOW()
+//! 1. `payment::to_ask_channel_about` 挑出还够得着钱的那几笔
 //! 2. 调 payment_adapter.query_payment(payment_id)
 //! 3. 翻译 outcome → 状态更新 + 事件入库
 
-use sqlx::Row;
 use std::time::Duration;
 use unmei_app::order as app_order;
 use unmei_app::payment as app_payment;
@@ -37,24 +35,13 @@ pub async fn run(state: AppState) {
 
 /// 向渠道问「这笔到底成没成」。回调丢了 / 渠道延迟时兜底。
 async fn query_pending(st: &AppState) -> anyhow::Result<()> {
-    let rows = sqlx::query(
-        /* 【`cancelling` 也要问】（2026-09-04）。
-           窗口还没过的那些「撤到一半」的支付，渠道仍然可能说「已经付了」——
-           那笔钱必须记上（`apply_succeeded` 认这个状态，状态机里
-           `Cancelling => [Cancelled, Success]` 写的就是这条竞态）。
-           不问的话，唯一能发现它的路就只剩渠道主动推回调，
-           而这个 sweeper 存在的理由恰恰是「回调可能丢」。 */
-        r#"SELECT id, channel
-           FROM payment
-           WHERE status IN ('pending','processing','cancelling')
-             AND created_at < NOW() - INTERVAL '1 minute'
-             AND expires_at > NOW()
-           ORDER BY created_at ASC
-           LIMIT 50"#,
-    ).fetch_all(&st.db).await?;
+    /* SQL 在用例层（`payment::to_ask_channel_about`）。挑哪些支付还该问渠道
+       是业务判断 —— 哪个状态还够得着钱、窗口怎么算 —— 不是调度细节，
+       而 worker 这一层没有测试碰得到它。跟 `expire_overdue` 同一个理由。 */
+    let rows = app_payment::to_ask_channel_about(&st.db).await?;
     /* 这里原来是 `if rows.is_empty() { return Ok(()); }` —— 而下面那两个
        过期清扫在它后面。于是「没有待查支付」的时候，两个清扫**一次都不跑**，
-       而那正是常态：查询窗口只收 pending/processing 且**还没到期**的支付。
+       而那正是常态：查询窗口只收**窗口还没关**的那几笔支付。
 
        2026-08-19 实测：窗口里 0 笔待查，同时躺着 1 笔该过期的支付、
        14 张该取消的过期未付订单，谁也没被动过。日志里之前那几行
@@ -66,9 +53,7 @@ async fn query_pending(st: &AppState) -> anyhow::Result<()> {
         tracing::debug!("payment_query_sweeper: scanning {} pending payments", rows.len());
     }
 
-    for row in rows {
-        let pid: String = row.try_get("id")?;
-        let channel: String = row.try_get("channel")?;
+    for (pid, channel) in rows {
         let Some(adapter) = st.payment_adapters.pick(&channel) else {
             tracing::trace!("no adapter for channel {channel} (payment={pid}) — skip");
             continue;

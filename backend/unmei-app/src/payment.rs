@@ -361,10 +361,27 @@ pub async fn apply_succeeded(
        订单金额不动、总账没有它。而钱真的在渠道那边。
        `a_late_success_does_not_resurrect_a_cancelled_order` 这条测试
        钉的正是「订单不复活，但钱要记下来 —— 看不见的钱才是麻烦」。 */
+    /* 【`expired` 也要收】（2026-09-07，台账 `pay-channel-switch` 那一条）。
+       换支付方式时（微信 jsapi → h5）旧那一笔被就地标成 `expired`
+       （见 `start` 里「被同一张单上新发起的支付顶掉」那一段），
+       而**渠道那一侧的下单可能已经发出去、用户仍然付得出去**。
+       这笔钱回来时，旧判据只认 pending/processing/cancelling，
+       于是它落进「渠道重推，已忽略」那一支:`payment_event` 记了一行,
+       `channel_txn_id` 不写、订单不入账、接口回 200 ——
+       **那笔钱在系统里不存在**，要等第二天对账把它列成
+       `missing_in_internal`，再等人去处理。
+
+       `expired` 说的是「我们不等了」，不是「渠道撤单了」——
+       渠道说收到了，那钱就是真的。这跟 `cancelling` 当初被加进来
+       是同一个理由（上面那段注释:「不收的话，那笔钱在系统里【不存在】」）。
+
+       真要在作废之前把渠道那一笔关掉，得接每个渠道各自的撤单接口、
+       而撤单本身会失败 —— 那是独立的一件事。在它之前，
+       至少不能让收到的钱查无此笔。 */
     let applied: Option<(String, String, i64)> = sqlx::query_as(
         "UPDATE payment SET status='success', paid_at=$1,
            channel_txn_id=COALESCE($3, channel_txn_id)
-         WHERE id=$2 AND status IN ('pending','processing','cancelling')
+         WHERE id=$2 AND status IN ('pending','processing','cancelling','expired')
          RETURNING id, order_id, amount_minor",
     )
     .bind(paid_at)
@@ -395,6 +412,43 @@ pub async fn apply_succeeded(
        所以条件就是这两个。已取消的单会停在 `cancelled` 且实付 > 0 ——
        那正是「钱到了但没有归宿」，该被看见，而不是被一次静默的状态改写抹平
        （台账里那条待拍板说的就是这种钱）。 */
+    /* 【这一单吃不下这笔钱的时候】（2026-09-07）。
+       `order_paid_not_over_total`（实付 ≤ 应付）是 2026-08-16 那次超收之后
+       立的规矩，它是对的:一张单的「实付」不该超过它值多少钱。
+       而收 `expired` 那一笔之后，「两笔都付了」这件事变得够得着了 ——
+       旧那一笔与新那一笔各付一次，加起来就顶破它。
+
+       旧写法无条件 `+ $1`，指望 CHECK 去炸 —— 一炸整个事务回滚，
+       于是这笔支付连 `success` 都记不上，退回到「钱查无此笔」，
+       正是这次要修的那件事本身。
+
+       所以分开:**这笔钱是真的，`payment` 那一行照记**（上面已经记了）;
+       而订单只吃得下它欠的那部分。吃不下的那部分不往订单上加 ——
+       它不是这一单的货款，是我们手上不欠的钱，
+       由「收了钱而订单不欠这笔」那条待办去处理（看板上摆着）。
+       `RETURNING` 分两种情形，所以先问一句吃不吃得下。 */
+    let 吃得下: bool = sqlx::query_scalar(
+        "SELECT amount_paid_minor + $1 <= amount_total_minor
+           FROM order_record WHERE id = $2",
+    )
+    .bind(amount_minor)
+    .bind(&order_id)
+    .fetch_one(&mut *tx)
+    .await.db()?;
+    if !吃得下 {
+        tracing::warn!(
+            payment_id, order_id, amount_minor,
+            "收到一笔这一单不欠的钱 —— payment 记成 success，订单金额不动，等人处理"
+        );
+        sqlx::query(
+            "UPDATE payment SET audit_note = CASE WHEN audit_note='' THEN ''                                                   ELSE audit_note || ' | ' END                               || '这一单已经付清，这笔是多收的 —— 订单金额未加'               WHERE id=$1",
+        )
+        .bind(&payment_id)
+        .execute(&mut *tx)
+        .await.db()?;
+        tx.commit().await.db()?;
+        return Ok(());
+    }
     let order_status: String = sqlx::query_scalar(
         r#"UPDATE order_record SET
              amount_paid_minor = amount_paid_minor + $1,
@@ -468,6 +522,41 @@ pub async fn apply_failed(pool: &PgPool, our_ref: &str, code: &str, msg: &str) -
     .execute(pool)
     .await.db()?;
     Ok(())
+}
+
+/// 该向渠道问一句「这笔到底成没成」的支付。
+///
+/// 返回 `(payment_id, channel)`，调用方（`payment_query_sweeper`）拿它挨个去问。
+/// 这段 SQL 原来长在 worker 里 —— 而它挑的是【哪些钱还够得着】，
+/// 是业务判断不是调度细节，所以跟 [`expire_overdue`] 一样搬回用例层，
+/// 也才钉得住（worker 那一层没有测试碰得到）。
+///
+/// 四个状态各有各的理由：
+/// - `pending` / `processing` —— 本来就在等回音；
+/// - `cancelling` —— 撤到一半，渠道仍可能说「已经付了」，状态机里
+///   `Cancelling => [Cancelled, Success]` 写的就是这条竞态；
+/// - `expired` —— 换支付方式时被顶掉的那一笔（见 [`start`] 里
+///   「被同一张单上新发起的支付顶掉」）。它是我们不等了，不是渠道撤单了，
+///   人在旧那一页上照样付得出去。
+///
+/// 【窗口那一条把两种 `expired` 分开】：被顶掉的那笔 `expires_at` 还在未来
+/// （它上一秒还是活的），自然到期的那些是 `expire_overdue` 按
+/// `expires_at < NOW()` 翻的状态，落在窗口外 —— 所以不会被永远问下去。
+///
+/// 一分钟那一条是「先给回调一点时间」，不是节流。
+pub async fn to_ask_channel_about(pool: &PgPool) -> Result<Vec<(String, String)>, DomainError> {
+    let rows: Vec<(String, String)> = sqlx::query_as(
+        "SELECT id, channel
+           FROM payment
+          WHERE status IN ('pending','processing','cancelling','expired')
+            AND created_at < NOW() - INTERVAL '1 minute'
+            AND expires_at > NOW()
+          ORDER BY created_at ASC
+          LIMIT 50",
+    )
+    .fetch_all(pool)
+    .await.db()?;
+    Ok(rows)
 }
 
 /// 到点还没结算的，批量置为过期。返回过期了几笔。
